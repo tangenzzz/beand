@@ -11,7 +11,17 @@ end-to-end encrypted over Nostr.
 > any of the manufacturers mentioned. All trademarks belong to their
 > respective owners.
 
-<!-- TODO: screenshots -->
+<p align="center">
+  <img src="docs/screenshots/home.png" width="260" alt="Home screen with Meticulous: temperature ring, sensors, preheat curve, pre-shot card and profiles">
+  <img src="docs/screenshots/shot.png" width="260" alt="Shot detail with weight, flow and pressure curves, stages, findings and taste rating">
+  <img src="docs/screenshots/pour-over.png" width="260" alt="Pour over with an Acaia scale: flow gauge, pre-brew card and recipes">
+</p>
+<p align="center">
+  <img src="docs/screenshots/history.png" width="195" alt="Shot history grouped by day">
+  <img src="docs/screenshots/beans.png" width="195" alt="Bean list with photos, remaining amount and freshness">
+  <img src="docs/screenshots/bean.png" width="195" alt="Bean form">
+  <img src="docs/screenshots/profile.png" width="195" alt="Profile view with stage breakdown and variables">
+</p>
 
 ## Features
 
