@@ -2,8 +2,8 @@
 
 **bean'd** is a free, open-source app for tracking coffee: espresso shots
 from [Meticulous](https://meticuloushome.com) and
-[GaggiMate](https://gaggimate.eu) machines, and pour-over brews with an
-Acaia scale over Bluetooth. It keeps a local archive of every shot and bean,
+[GaggiMate](https://gaggimate.eu) machines, and pour-over brews with a
+Bluetooth scale. It keeps a local archive of every shot and bean,
 independent of the machine, and can optionally sync between your own devices
 end-to-end encrypted over Nostr.
 
@@ -14,7 +14,7 @@ end-to-end encrypted over Nostr.
 <p align="center">
   <img src="docs/screenshots/home.png" width="260" alt="Home screen with Meticulous: temperature ring, sensors, preheat curve, pre-shot card and profiles">
   <img src="docs/screenshots/shot.png" width="260" alt="Shot detail with weight, flow and pressure curves, stages, findings and taste rating">
-  <img src="docs/screenshots/pour-over.png" width="260" alt="Pour over with an Acaia scale: flow gauge, pre-brew card and recipes">
+  <img src="docs/screenshots/pour-over.png" width="260" alt="Pour over with a Bluetooth scale: flow gauge, pre-brew card and recipes">
 </p>
 <p align="center">
   <img src="docs/screenshots/history.png" width="195" alt="Shot history grouped by day">
@@ -37,7 +37,7 @@ end-to-end encrypted over Nostr.
   form from a photo or a shop page.
 - **Profiles**: view, reorder, upload and build profiles for both machines,
   with checks that keep the machine from getting stuck.
-- **Pour over** with Acaia scales (Lunar, Pearl, Pyxis …): live weight and
+- **Pour over** with a Bluetooth scale: live weight and
   flow, recipes, pre/live/post brew.
 - **Share a shot** as an image.
 - **Sync** between your own devices: end-to-end encrypted (NIP-44) over
@@ -51,7 +51,7 @@ end-to-end encrypted over Nostr.
 |---|---|
 | Meticulous | Socket.IO + REST over Wi-Fi, mDNS discovery |
 | GaggiMate | WebSocket over Wi-Fi, mDNS discovery |
-| Acaia scales | Bluetooth LE (old and new firmware) |
+| Bluetooth scales | Bluetooth LE |
 
 Android is the main platform. iOS builds from the same code but has not been
 tested yet.
@@ -84,7 +84,7 @@ its database.
 | `lib/screens/beans` | Bean list and form |
 | `lib/screens/profile` | Profile view and editor |
 | `lib/screens/settings` | Connections, appearance, AI, sync, backup |
-| `lib/machines`, `lib/scale` | GaggiMate and Acaia integration |
+| `lib/machines`, `lib/scale` | GaggiMate and Bluetooth scale integration |
 | `lib/services` | Meticulous connection, shot/brew logic, AI, backup |
 | `lib/sync` | Encrypted sync over Nostr and Blossom |
 | `lib/database` | Local database (Drift/SQLite) |
