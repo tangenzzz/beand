@@ -1,0 +1,2845 @@
+{
+ "source": "https://github.com/HotThoughts/brew-recipes",
+ "license": "CC0-1.0",
+ "commit": "c4887906a62f97027e8bc575cbe0e14cc229b34e",
+ "fetched_at": "2026-10-09T06:55:47.991622Z",
+ "recipes": [
+  {
+   "id": "alan-adler-original",
+   "name": "Alan Adler Original",
+   "brewer": "Aeropress",
+   "dose_g": 20,
+   "water_ml": 90,
+   "ratio": "1:4.5",
+   "variant": "standard",
+   "water_temp_c": 80,
+   "grind_size": "medium-fine",
+   "description": "Alan Adler's original Aeropress recipe — the one printed on the box. Produces a concentrated shot (not filter coffee) at a narrow 1:4.5 ratio. Add hot water for an Americano, or drink as-is for an intense, clean cup.\n",
+   "phases": [
+    {
+     "label": "Pour + Stir",
+     "water_g": 90,
+     "wait_seconds": 10,
+     "note": "Pour all water at once to fill between level 1.5 and 2 on the chamber. Stir gently with the paddle for 10 seconds. Insert plunger immediately — no steep phase.\n"
+    },
+    {
+     "label": "Press",
+     "water_g": 0,
+     "wait_seconds": 0,
+     "note": "Press slowly with the natural weight of your hands, 20-40 seconds. Stop at the hiss. Dilute with hot water for Americano style.\n"
+    }
+   ],
+   "source": {
+    "name": "Alan Adler / AeroPress, Inc.",
+    "url": "https://honestcoffeeguide.com/brew-recipes/original-aeropress-recipe/"
+   },
+   "tags": [
+    "light-roast",
+    "immersion",
+    "advanced"
+   ]
+  },
+  {
+   "id": "hoffmann-aeropress",
+   "name": "Hoffmann Aeropress",
+   "brewer": "Aeropress",
+   "dose_g": 11,
+   "water_ml": 200,
+   "ratio": "1:18.2",
+   "variant": "standard",
+   "water_temp_c": 100,
+   "grind_size": "medium-fine",
+   "description": "James Hoffmann's ultimate Aeropress recipe. Uses a higher ratio that produces a clean, tea-like cup. Light agitation, no pressing until the very end, and a gentle swirl to break the crust.\n",
+   "phases": [
+    {
+     "label": "Pour",
+     "water_g": 200,
+     "wait_seconds": 120,
+     "note": "Add all water at once. Wait 2 minutes. Swirl gently to break the crust. Wait 30 seconds. Insert plunger and press gently — stop at the hiss.\n"
+    }
+   ],
+   "source": {
+    "name": "James Hoffmann",
+    "url": "https://www.youtube.com/watch?v=j6VlT_jUVPc"
+   },
+   "tags": [
+    "light-roast",
+    "immersion",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "april-4-pour",
+   "name": "April 4-Pour",
+   "brewer": "April",
+   "dose_g": 17,
+   "water_ml": 250,
+   "ratio": "1:14.7",
+   "variant": "standard",
+   "water_temp_c": 92,
+   "grind_size": "coarse",
+   "description": "Patrik Rolf's signature four-pour method for the April Brewer. Uses a coarse grind and moderate temperature. Each pour is timed: 70g bloom, then 100g, 50g, and 30g with a final spin. The April Brewer's flat bottom and specific hole pattern produce a clean, sweet, and repeatable cup.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 70,
+     "wait_seconds": 30,
+     "note": "Wet all grounds with a wide circular motion. No swirling during bloom."
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 100,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour + Spin",
+     "water_g": 30,
+     "wait_seconds": 0,
+     "note": "Circular pour. After the 30g pour, lift the brewer slightly and give a gentle spin."
+    }
+   ],
+   "source": {
+    "name": "The Grumpy Olive",
+    "url": "https://www.thegrumpyolive.com/coffee-101-how-to-brew-with-the-april-brewer/"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "beginner-friendly",
+    "sweet"
+   ]
+  },
+  {
+   "id": "april-base",
+   "name": "April Base Recipe (Sustainable Profile)",
+   "brewer": "April",
+   "dose_g": 13,
+   "water_ml": 200,
+   "ratio": "1:15.4",
+   "variant": "standard",
+   "water_temp_c": 94,
+   "grind_size": "medium-coarse",
+   "description": "April Coffee's foundational Sustainable Profile — their recommended baseline for the April Brewer. Two equal 100 g pours (each split into a 60 g circle pour followed by a 40 g center pour) produce a clean, balanced cup. Target TDS 1.25–1.35%, total brew time 2:00–3:00. Grind reference: Comandante ~9 clicks (medium-coarse). For a simpler approach, each 100 g phase can be poured in a single continuous circle instead of the circle+center split.\n",
+   "phases": [
+    {
+     "label": "First Pour",
+     "water_g": 100,
+     "wait_seconds": 30,
+     "note": "60 g circle pour then 40 g center pour; start timer at 0:00"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 100,
+     "note": "60 g circle pour then 40 g center pour at 0:30; let draw down"
+    }
+   ],
+   "source": {
+    "name": "April Coffee Roasters",
+    "url": "https://www.aprilcoffeeroasters.com/pages/coffee-inf-recipes"
+   },
+   "tags": [
+    "light-roast",
+    "balanced",
+    "beginner-friendly",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "hoffmann-chemex",
+   "name": "Hoffmann Chemex",
+   "brewer": "Chemex",
+   "dose_g": 30,
+   "water_ml": 500,
+   "ratio": "1:16.7",
+   "variant": "standard",
+   "water_temp_c": 100,
+   "grind_size": "medium-coarse",
+   "description": "James Hoffmann's Chemex recipe. The thick paper and large brewer call for a coarser grind and longer brew time. A single bloom + continuous pour approach suits the Chemex's slower flow rate.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "wait_seconds": 45,
+     "note": "Circular pour, then swirl vigorously to saturate all grounds"
+    },
+    {
+     "label": "Main Pour",
+     "water_g": 440,
+     "wait_seconds": 0,
+     "note": "Continuous pour in concentric circles, reaching 500g by ~2:00. Gently stir once after pouring, then let draw down. Remove filter when water stream breaks to drops.\n"
+    }
+   ],
+   "source": {
+    "name": "James Hoffmann",
+    "url": "https://www.youtube.com/watch?v=ikt-X5x7yoc"
+   },
+   "tags": [
+    "medium-roast",
+    "beginner-friendly",
+    "continuous-pour"
+   ]
+  },
+  {
+   "id": "hario-filter-in-bottle-cold-brew",
+   "name": "HARIO Filter-in Bottle Cold Brew",
+   "brewer": "ColdBrew",
+   "dose_g": 55,
+   "water_ml": 700,
+   "ratio": "1:12.7",
+   "variant": "Filter-in Bottle",
+   "brew_temperature": "cold",
+   "grind_size": "medium-fine",
+   "description": "HARIO's standard Filter-in Bottle recipe is a gentle eight-hour refrigerated immersion with an integrated strainer and a clean, ready-to-pour finish.\n",
+   "phases": [
+    {
+     "label": "Fill",
+     "water_g": 700,
+     "note": "Put the coffee in the strainer, assemble the bottle, and gently pour in the cold water"
+    },
+    {
+     "label": "Mix and steep",
+     "water_g": 0,
+     "wait_seconds": 28800,
+     "note": "Stopper the bottle, shake gently to mix, and refrigerate for 8 hours"
+    },
+    {
+     "label": "Serve",
+     "water_g": 0,
+     "note": "Shake gently once more, remove the spout, and serve fresh"
+    }
+   ],
+   "source": {
+    "name": "HARIO Europe",
+    "url": "https://www.hario-europe.com/blogs/hario-community/cold-brew-recipes"
+   },
+   "tags": [
+    "immersion",
+    "cold-brew",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "hoffmann-decant-cold-brew",
+   "name": "James Hoffmann Decant Cold Brew",
+   "brewer": "ColdBrew",
+   "dose_g": 75,
+   "water_ml": 1000,
+   "ratio": "1:13.3",
+   "variant": "decant method",
+   "brew_temperature": "cold",
+   "grind_size": "fine",
+   "description": "James Hoffmann's low-waste cold brew uses a fine grind, optional fining agent, and careful decanting instead of passing the finished coffee through a filter.\n",
+   "phases": [
+    {
+     "label": "Combine",
+     "water_g": 1000,
+     "note": "Add room-temperature water and stir thoroughly; optionally mix in 10 drops of fining agent"
+    },
+    {
+     "label": "Steep and settle",
+     "water_g": 0,
+     "wait_seconds": 43200,
+     "note": "Cover and refrigerate for 12 hours so the grounds settle at the bottom"
+    },
+    {
+     "label": "Decant",
+     "water_g": 0,
+     "note": "Gently pour into a clean carafe and stop before the coffee sediment reaches the rim"
+    }
+   ],
+   "source": {
+    "name": "James Hoffmann",
+    "url": "https://www.youtube.com/watch?v=AB0QLjroFss"
+   },
+   "tags": [
+    "immersion",
+    "cold-brew",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "roeststaette-classic-cold-brew",
+   "name": "Röststätte Classic Cold Brew",
+   "brewer": "ColdBrew",
+   "dose_g": 100,
+   "water_ml": 1000,
+   "ratio": "1:10",
+   "variant": "generic container",
+   "brew_temperature": "cold-or-room-temperature",
+   "grind_size": "coarse",
+   "description": "Röststätte's classic immersion method produces a sweet, full-bodied cold brew with a simple 1:10 ratio and at least twelve hours of extraction.\n",
+   "phases": [
+    {
+     "label": "Combine",
+     "water_g": 1000,
+     "note": "Add the water to the freshly ground coffee and stir thoroughly until every ground is wet"
+    },
+    {
+     "label": "Steep",
+     "water_g": 0,
+     "wait_seconds": 43200,
+     "note": "Cover and steep for at least 12 hours in the refrigerator or at room temperature"
+    },
+    {
+     "label": "Filter",
+     "water_g": 0,
+     "note": "Pass the brew through a fine filter, then store it in the refrigerator"
+    }
+   ],
+   "source": {
+    "name": "Röststätte Berlin",
+    "url": "https://www.roeststaette.com/en/coldbrew-rezepte/"
+   },
+   "tags": [
+    "sweet",
+    "balanced",
+    "immersion",
+    "cold-brew",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "the-barn-mizudashi-cold-brew",
+   "name": "THE BARN Mizudashi Cold Brew",
+   "brewer": "ColdBrew",
+   "dose_g": 50,
+   "water_ml": 500,
+   "ratio": "1:10",
+   "variant": "Mizudashi",
+   "brew_temperature": "room-temperature",
+   "grind_size": "medium-coarse",
+   "description": "THE BARN's room-temperature Mizudashi method emphasizes sweetness and texture with a 1:10 ratio and a long seventeen-hour extraction.\n",
+   "phases": [
+    {
+     "label": "Saturate",
+     "water_g": 500,
+     "note": "Add the water in three stages through the Mizudashi filter, stirring so every ground contacts the water"
+    },
+    {
+     "label": "Steep",
+     "water_g": 0,
+     "wait_seconds": 61200,
+     "note": "Cover and brew at room temperature for a total of 17 hours"
+    },
+    {
+     "label": "Finish",
+     "water_g": 0,
+     "note": "Remove the grounds, swirl the carafe to distribute the coffee evenly, and serve over ice or chill"
+    }
+   ],
+   "source": {
+    "name": "THE BARN Coffee Roasters",
+    "url": "https://thebarn.de/blogs/the-barn-blog/cold-brew-at-home"
+   },
+   "tags": [
+    "sweet",
+    "balanced",
+    "immersion",
+    "cold-brew",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "matteo-negotiate-orea",
+   "name": "The Negotiator",
+   "brewer": "Orea",
+   "dose_g": 18,
+   "water_ml": 300,
+   "ratio": "1:16.7",
+   "variant": "v3",
+   "water_temp_c": 93,
+   "grind_size": "medium",
+   "description": "Matteo D'Ottavio's competition-proven Orea recipe that uses the \"negotiated\" flat filter technique — manually shaping the filter to sit flush inside the brewer for zero-bypass extraction. Five measured pours with precise timing produce a sweet, high-extraction cup with excellent clarity. Works best with light-roast coffees.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 54,
+     "wait_seconds": 40,
+     "note": "Negotiate filter into brewer; 3× coffee weight circular pour bloom with gentle swirl"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 60,
+     "wait_seconds": 15,
+     "note": "Circular pour, let water drop ~1 cm above bed"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 60,
+     "wait_seconds": 15,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 60,
+     "wait_seconds": 15,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 66,
+     "wait_seconds": 0,
+     "note": "Gentle center pour; target total draw-down ~3:30"
+    }
+   ],
+   "source": {
+    "name": "Matteo D'Ottavio",
+    "url": "https://www.youtube.com/watch?v=xRCFT3OpCYQ"
+   },
+   "tags": [
+    "light-roast",
+    "sweet",
+    "multi-pour",
+    "competition",
+    "advanced"
+   ]
+  },
+  {
+   "id": "orea-big-boy-the-base",
+   "name": "Big Boy The Base",
+   "brewer": "Orea",
+   "variant": "big-boy",
+   "dose_g": 40,
+   "water_ml": 600,
+   "ratio": "1:15",
+   "water_temp_c": 92,
+   "grind_size": "coarse",
+   "description": "The base Big Boy recipe for 2+ cups. Three big pours at a 6–7 G/S pour rate keep the wide 8cm bed saturated. Don't pour too slowly — feed the beast. Uses Big Boy Wave filters.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 100,
+     "note": "Spiral pour, 6–7 G/S"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 250,
+     "wait_seconds": 45,
+     "note": "Spiral pour, 6 G/S"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 250,
+     "wait_seconds": 75,
+     "note": "Spiral pour, 6 G/S"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-big-boy"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-big-boy-the-litre",
+   "name": "Big Boy The Litre",
+   "brewer": "Orea",
+   "variant": "big-boy",
+   "dose_g": 60,
+   "water_ml": 1000,
+   "ratio": "1:16.7",
+   "water_temp_c": 92,
+   "grind_size": "coarse",
+   "description": "One whole litre of coffee for 4+ people. Four large pours on the Big Boy with Wave filters. Keep the pour rate up — this is not the time for gentle trickling.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 160,
+     "note": "Spiral pour, 6–7 G/S"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 280,
+     "wait_seconds": 60,
+     "note": "Spiral pour, 6 G/S"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 280,
+     "wait_seconds": 75,
+     "note": "Spiral pour, 6 G/S"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 280,
+     "wait_seconds": 60,
+     "note": "Spiral pour, 6 G/S"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-big-boy"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-big-boy-the-pulse",
+   "name": "Big Boy The Pulse",
+   "brewer": "Orea",
+   "variant": "big-boy",
+   "dose_g": 40,
+   "water_ml": 600,
+   "ratio": "1:15",
+   "water_temp_c": 92,
+   "grind_size": "coarse",
+   "description": "A 4-pulse recipe for the Big Boy with Wave filters. One pour per minute keeps the bed refreshed. Don't pour too slowly — maintain good water volume over the wide bed.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 150,
+     "note": "Spiral pour, 6–7 G/S"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 150,
+     "wait_seconds": 60,
+     "note": "Spiral pour, 6 G/S"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 150,
+     "wait_seconds": 45,
+     "note": "Spiral pour, 6 G/S"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 150,
+     "wait_seconds": 45,
+     "note": "Spiral pour, 6 G/S"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-big-boy"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-default",
+   "name": "V3 Base Two",
+   "brewer": "Orea",
+   "dose_g": 18,
+   "water_ml": 300,
+   "ratio": "1:16.7",
+   "variant": "v3",
+   "water_temp_c": 94,
+   "grind_size": "medium",
+   "description": "The classic V3 pulse recipe with Wave filter. Four even spiral pours bring out balance in a bigger cup. Familiar if transitioning from V60 or Kalita.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Spiral pour to saturate evenly"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 80,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 80,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 80,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v3"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-o1-easy-does-it",
+   "name": "O1 Easy Does It",
+   "brewer": "Orea",
+   "variant": "o1",
+   "dose_g": 16,
+   "water_ml": 260,
+   "ratio": "1:16.3",
+   "water_temp_c": 94,
+   "grind_size": "medium-coarse",
+   "description": "The go-to O1 pulse recipe with Flat filter + Negotiator. Five gentle spiral pours — adapt grind and temperature to taste. For Wave filters, grind a little finer.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Gentle spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-o1"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-o1-the-bright",
+   "name": "O1 The Bright",
+   "brewer": "Orea",
+   "variant": "o1",
+   "dose_g": 18,
+   "water_ml": 300,
+   "ratio": "1:16.7",
+   "water_temp_c": 94,
+   "grind_size": "medium",
+   "description": "An easy 3-pour recipe for the O1 with Wave filter. The 75/75/150 cadence makes a bright cup with minimal effort — perfect for sleepy mornings.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 75,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 75,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 150,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-o1"
+   },
+   "tags": [
+    "light-roast",
+    "acidic",
+    "multi-pour",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "orea-o1-the-bypass",
+   "name": "O1 The Bypass",
+   "brewer": "Orea",
+   "variant": "o1",
+   "dose_g": 18,
+   "water_ml": 290,
+   "ratio": "1:16.1",
+   "water_temp_c": 96,
+   "grind_size": "medium",
+   "description": "Matteo D'Ottavio's bypass recipe for the O1 with Wave filter. Circular-to-central pours followed by 15–30g bypass water added to the brewed coffee. Less bypass for intensity, more for smoothness.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Circular pour, ending central"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 100,
+     "wait_seconds": 40,
+     "note": "Circular then central at 4 G/S"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 100,
+     "wait_seconds": 50,
+     "note": "Circular then central at 4 G/S"
+    },
+    {
+     "label": "Bypass",
+     "water_g": 30,
+     "note": "Add 15–30g water directly to brewed coffee, to taste"
+    }
+   ],
+   "source": {
+    "name": "Matteo D'Ottavio / Orea UK",
+    "url": "https://www.orea.uk/guides-o1"
+   },
+   "tags": [
+    "light-roast",
+    "bypass",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-o1-the-techno",
+   "name": "O1 The Techno",
+   "brewer": "Orea",
+   "variant": "o1",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.1",
+   "water_temp_c": 94,
+   "grind_size": "medium-coarse",
+   "description": "Mordy's progressive recipe for the O1 with Flat filter + Negotiator. Pours go from circular to mixed to central, and from bigger to smaller. For Wave filters, grind slightly finer.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 80,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 40,
+     "wait_seconds": 50,
+     "note": "20g circular then 20g central pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 40,
+     "wait_seconds": 25,
+     "note": "Central pour"
+    }
+   ],
+   "source": {
+    "name": "Mordy / Orea UK",
+    "url": "https://www.orea.uk/guides-o1"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-v3-base-one",
+   "name": "V3 Base One",
+   "brewer": "Orea",
+   "variant": "v3",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.7",
+   "water_temp_c": 96,
+   "grind_size": "medium",
+   "description": "A simple 4-pulse recipe for the V3 with Wave filter. Big brightness, lower sweetness, light body — familiar if transitioning from V60 or Kalita.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v3"
+   },
+   "tags": [
+    "light-roast",
+    "acidic",
+    "multi-pour",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "orea-v3-the-bright",
+   "name": "V3 The Bright",
+   "brewer": "Orea",
+   "variant": "v3",
+   "dose_g": 18,
+   "water_ml": 300,
+   "ratio": "1:16.7",
+   "water_temp_c": 94,
+   "grind_size": "medium",
+   "description": "A super-easy 3-pour recipe on the V3 with Wave filter. The 75/75/150 pouring cadence makes a bright, happy cup with minimal effort — perfect for sleepy mornings.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 75,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 75,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 150,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v3"
+   },
+   "tags": [
+    "light-roast",
+    "acidic",
+    "multi-pour",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "orea-v3-the-fine",
+   "name": "V3 The Fine",
+   "brewer": "Orea",
+   "variant": "v3",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.7",
+   "water_temp_c": 94,
+   "grind_size": "fine",
+   "description": "A community-favourite single-pour recipe on the V3 with Wave filter. First 50g in a slow circular pour, then 150g as a slow central pour. Very quick — always under 2 minutes.",
+   "phases": [
+    {
+     "label": "Pour",
+     "water_g": 200,
+     "note": "First 50g slow circular, remaining 150g slow central pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v3"
+   },
+   "tags": [
+    "light-roast",
+    "single-pour"
+   ]
+  },
+  {
+   "id": "orea-v3-the-ice",
+   "name": "V3 The Ice",
+   "brewer": "Orea",
+   "variant": "v3",
+   "dose_g": 18,
+   "water_ml": 160,
+   "ratio": "1:8.9",
+   "water_temp_c": 94,
+   "grind_size": "medium",
+   "description": "A flash-brew iced recipe on the V3 with Wave filter. Brew 160ml over 140g of ice in the carafe. Four gentle spiral pours produce a bright, fruity flash brew that doesn't taste diluted. Stir and cool rapidly after brewing.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "note": "Gentle spiral pour onto 140g ice in carafe"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 40,
+     "wait_seconds": 40,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 40,
+     "wait_seconds": 20,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 40,
+     "wait_seconds": 20,
+     "note": "Gentle spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v3"
+   },
+   "tags": [
+    "light-roast",
+    "cold-brew",
+    "acidic"
+   ]
+  },
+  {
+   "id": "orea-v3-the-mid",
+   "name": "V3 The Mid",
+   "brewer": "Orea",
+   "variant": "v3",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.7",
+   "water_temp_c": 92,
+   "grind_size": "medium",
+   "description": "A simple 3-pour recipe for the V3 with Flat filter + Negotiator. Half circular, half central pours work great for washed coffees and can handle naturals too. Control extraction time with pouring flow rate.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 75,
+     "wait_seconds": 40,
+     "note": "Half circular, half central pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 75,
+     "wait_seconds": 65,
+     "note": "Half circular, half central pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v3"
+   },
+   "tags": [
+    "light-roast",
+    "balanced",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-v3-the-pulse",
+   "name": "V3 The Pulse",
+   "brewer": "Orea",
+   "variant": "v3",
+   "dose_g": 16,
+   "water_ml": 260,
+   "ratio": "1:16.3",
+   "water_temp_c": 94,
+   "grind_size": "medium-coarse",
+   "description": "A simple pulse recipe on the V3 with Flat filter + Negotiator. Five gentle spiral pours — adjust grind and temperature to taste.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Gentle spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Gentle spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v3"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-v3-the-wide",
+   "name": "V3 The Wide",
+   "brewer": "Orea",
+   "variant": "v3",
+   "dose_g": 10,
+   "water_ml": 200,
+   "ratio": "1:20",
+   "water_temp_c": 96,
+   "grind_size": "fine",
+   "description": "A high-extraction, wide-ratio recipe for the V3 with Flat filter + Negotiator. Half circular, half central pours. Works best with washed coffees — adapt grind and pouring speed if drawdown is slow.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 75,
+     "wait_seconds": 60,
+     "note": "Half circular, half central pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 75,
+     "wait_seconds": 60,
+     "note": "Half circular, half central pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v3"
+   },
+   "tags": [
+    "light-roast",
+    "balanced",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-v4-dara-for-two",
+   "name": "V4 Dara For Two",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 24,
+   "water_ml": 400,
+   "ratio": "1:16.7",
+   "water_temp_c": 92,
+   "grind_size": "medium-coarse",
+   "description": "The Dara scaled for two cups on the V4 Open Bottom. Same balanced profile, larger batch.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 80,
+     "note": "Spiral pour to saturate evenly"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 100,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 120,
+     "wait_seconds": 50,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 100,
+     "wait_seconds": 50,
+     "note": "Spiral pour"
+    }
+   ],
+   "source": {
+    "name": "DARA / Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "balanced",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-v4-dara",
+   "name": "V4 The Dara",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.7",
+   "water_temp_c": 92,
+   "grind_size": "medium",
+   "description": "A recipe by DARA from Madrid for the V4 Open Bottom. Balanced and consistent results across all coffee types. Scale up to 18g by pouring to 60g/135g/225g/300g.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "note": "Spiral pour to saturate evenly"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 60,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    }
+   ],
+   "source": {
+    "name": "DARA / Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "balanced",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-v4-easy-does-it",
+   "name": "V4 Easy Does It",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 16,
+   "water_ml": 260,
+   "ratio": "1:16.3",
+   "water_temp_c": 94,
+   "grind_size": "medium-coarse",
+   "description": "The go-to V4 pulse recipe. Five even pours at ~50g each keep the structure simple and repeatable. Works with Fast Bottom and Flat filter + Negotiator; grind coarser for Classic Bottom, add central pouring for Open/Apex.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Spiral pour to saturate evenly"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 35,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-v4-easy-for-two",
+   "name": "V4 Easy For Two",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 25,
+   "water_ml": 400,
+   "ratio": "1:16",
+   "water_temp_c": 94,
+   "grind_size": "coarse",
+   "description": "Easy Does It scaled up for two cups. Grind coarser than the single-cup version and maintain a steady 5 G/S pour rate throughout.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 100,
+     "note": "Spiral pour to saturate evenly"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 75,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 75,
+     "wait_seconds": 45,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 75,
+     "wait_seconds": 35,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 75,
+     "wait_seconds": 45,
+     "note": "Spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-v4-fine-for-two",
+   "name": "V4 Fine For Two",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 24,
+   "water_ml": 400,
+   "ratio": "1:16.7",
+   "water_temp_c": 90,
+   "grind_size": "medium-fine",
+   "description": "The Fine scaled up for two cups using Sibarist Fast Flat filters. Bloom then one very slow continuous pour at 3 G/S — maintain a small water column, replacing water as it drains.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 120,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Long Pour",
+     "water_g": 280,
+     "wait_seconds": 40,
+     "note": "Spiral pour very slowly at 3 G/S — maintain water level, replace as it drains"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "sweet",
+    "continuous-pour"
+   ]
+  },
+  {
+   "id": "orea-v4-four-six",
+   "name": "V4 The Four Six",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 20,
+   "water_ml": 300,
+   "ratio": "1:15",
+   "water_temp_c": 92,
+   "grind_size": "coarse",
+   "description": "Tetsu Kasuya's 4:6 method adapted for the V4 Wide + Fast Bottom. A framework, not just a recipe — swap the first two pour sizes for more sweetness, or split the last pour into three for more strength. Uses Flat filter + Negotiator.",
+   "phases": [
+    {
+     "label": "First Pour",
+     "water_g": 70,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 90,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 90,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    }
+   ],
+   "source": {
+    "name": "Tetsu Kasuya / Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-v4-og-base",
+   "name": "V4 OG Base #2",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 18,
+   "water_ml": 300,
+   "ratio": "1:16.7",
+   "water_temp_c": 96,
+   "grind_size": "medium",
+   "description": "A flexible recipe from the V2 era, carried forward on the V4 Classic Bottom + Wave filter. Loved most with washed coffees. Grind finer for Fast Bottom, add central pours for Open/Apex.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 80,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 80,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 80,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "orea-v4-og-iced",
+   "name": "V4 OG Iced",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 18,
+   "water_ml": 160,
+   "ratio": "1:8.9",
+   "water_temp_c": 92,
+   "grind_size": "medium",
+   "description": "An iced pour-over on the V4 Classic Bottom + Wave filter. Brew 160ml over 140g of ice in the carafe for a bright, fruity flash brew. Swirl and stir after brewing, let the ice dilute to taste.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "note": "Circular pour onto 140g ice in carafe"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 40,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 40,
+     "wait_seconds": 20,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 40,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "cold-brew",
+    "acidic"
+   ]
+  },
+  {
+   "id": "orea-v4-so-soft",
+   "name": "V4 So Soft",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 16,
+   "water_ml": 250,
+   "ratio": "1:15.6",
+   "water_temp_c": 92,
+   "grind_size": "coarse",
+   "description": "A conical recipe for the V4 Wide + Apex Bottom using Sibarist Fast Conical filter. Soft and clean results that work for many coffee types. The first pour starts circular then shifts central.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "note": "First 10g circular, remaining 40g central pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 100,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Central pour"
+    }
+   ],
+   "source": {
+    "name": "Mordy / Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "balanced",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-v4-the-aussie",
+   "name": "V4 The Aussie",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 17,
+   "water_ml": 250,
+   "ratio": "1:14.7",
+   "water_temp_c": 97,
+   "grind_size": "coarse",
+   "description": "Inspired by Australian Brewers Cup competitors — dose up, grind coarse, pour fast. Works well for fermented coffees where you want to tame boozy notes and reach a tea-like body. Pour next when you see the dry coffee bed appear.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "acidic"
+   ]
+  },
+  {
+   "id": "orea-v4-the-bypass",
+   "name": "V4 The Bypass",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 18,
+   "water_ml": 290,
+   "ratio": "1:16.1",
+   "water_temp_c": 96,
+   "grind_size": "medium-coarse",
+   "description": "A bypass recipe by UK Brewing Champion Matteo D'Ottavio for the V4 Open Bottom. After three circular-to-central pours, 15–30g of bypass water is added directly to the brewed coffee to taste. Bypass less for intensity, more for smoothness.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Circular pour, ending central"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 100,
+     "wait_seconds": 40,
+     "note": "Circular then central at 4 G/S"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 100,
+     "wait_seconds": 50,
+     "note": "Circular then central at 4 G/S"
+    },
+    {
+     "label": "Bypass",
+     "water_g": 30,
+     "note": "Add 15–30g water directly to brewed coffee, to taste"
+    }
+   ],
+   "source": {
+    "name": "Matteo D'Ottavio / Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "bypass",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-v4-the-champ",
+   "name": "V4 The Champ",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 17,
+   "water_ml": 270,
+   "ratio": "1:15.9",
+   "water_temp_c": 93,
+   "grind_size": "medium-coarse",
+   "description": "Martin Wölfl's World Brewers Cup 2024 winning recipe on the V4 Narrow + Fast Bottom. Uses a Melodrip Drip Assist at 6 G/S pouring speed with Sibarist Fast Flat filter.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Spiral pour on Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 60,
+     "wait_seconds": 30,
+     "note": "Spiral pour on Melodrip"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 50,
+     "note": "Spiral pour on Melodrip"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 100,
+     "wait_seconds": 40,
+     "note": "Spiral pour on Melodrip"
+    }
+   ],
+   "source": {
+    "name": "Martin Wölfl / Orea UK",
+    "url": "https://www.orea.uk/guides-v4",
+    "competition": "World Brewers Cup 2024"
+   },
+   "tags": [
+    "light-roast",
+    "competition",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-v4-the-fine",
+   "name": "V4 The Fine",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 16,
+   "water_ml": 260,
+   "ratio": "1:16.3",
+   "water_temp_c": 90,
+   "grind_size": "fine",
+   "description": "A two-pour recipe for sweet, punchy, juicy washed coffees. Bloom then one long slow pour at 4 G/S. Best with Wave filter; grind coarser for Flat + Negotiator. Not recommended for naturals or fermented coffees at this fine grind.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Long Pour",
+     "water_g": 200,
+     "wait_seconds": 40,
+     "note": "Pour slowly at 4 G/S in a spiral to 260g"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "sweet",
+    "single-pour"
+   ]
+  },
+  {
+   "id": "orea-v4-the-hangover",
+   "name": "V4 The Hangover",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 32,
+   "water_ml": 600,
+   "ratio": "1:18.8",
+   "water_temp_c": 90,
+   "grind_size": "coarse",
+   "description": "When you need 500+ ml of coffee. Five slow circular pours on the V4 Fast Bottom + Wave filter. Slow your pour rate slightly — there's a lot of coffee in the brewer. Works for one, two, or three thirsty people.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 120,
+     "note": "Slow circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 120,
+     "wait_seconds": 45,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 120,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 120,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 120,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-v4-the-techno",
+   "name": "V4 The Techno",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.1",
+   "water_temp_c": 94,
+   "grind_size": "medium-coarse",
+   "description": "A progressive recipe by Mordy for the V4 Open Bottom — pours go from bigger to smaller, and from circular to mixed to central. Best with Flat filter + Negotiator or Open/Apex Bottom.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 80,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 40,
+     "wait_seconds": 50,
+     "note": "20g circular then 20g central pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 40,
+     "wait_seconds": 25,
+     "note": "Central pour"
+    }
+   ],
+   "source": {
+    "name": "Mordy / Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-v4-two-aussies",
+   "name": "V4 Two Aussies",
+   "brewer": "Orea",
+   "variant": "v4",
+   "dose_g": 26,
+   "water_ml": 500,
+   "ratio": "1:19.2",
+   "water_temp_c": 97,
+   "grind_size": "coarse",
+   "description": "The Aussie scaled up for two. Slow down pouring speed to standard 5 G/S since there's more coffee and liquid. Adjust ratio by taste — increase dose or grind finer if too thin.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 100,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 100,
+     "wait_seconds": 40,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 100,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 100,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 100,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-v4"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "acidic"
+   ]
+  },
+  {
+   "id": "orea-z1-easy-does-it",
+   "name": "Z1 Easy Does It",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 16,
+   "water_ml": 260,
+   "ratio": "1:16.3",
+   "water_temp_c": 96,
+   "grind_size": "medium-coarse",
+   "description": "The go-to Z1 pulse recipe using the Melodrip dish (mandatory). Five even pours keep it simple and repeatable. For dense washed coffee, combine last 2 pours into one 100g pour; for soluble naturals, go 2 clix coarser and use 18g dose.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 35,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour via Melodrip"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-z1-four-six",
+   "name": "Z1 The Four Six",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 14,
+   "water_ml": 225,
+   "ratio": "1:16.1",
+   "water_temp_c": 94,
+   "grind_size": "medium-coarse",
+   "description": "Tetsu Kasuya's 4:6 method adapted for the Z1 via Melodrip. Five pours with an easy framework — swap first two pour sizes for more brightness, or pour evenly for balance.",
+   "phases": [
+    {
+     "label": "First Pour",
+     "water_g": 35,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 55,
+     "wait_seconds": 40,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 45,
+     "wait_seconds": 40,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 45,
+     "wait_seconds": 25,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 45,
+     "wait_seconds": 20,
+     "note": "Circular pour via Melodrip"
+    }
+   ],
+   "source": {
+    "name": "Tetsu Kasuya / Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-z1-lazy-sunday",
+   "name": "Z1 Lazy Sunday",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 15,
+   "water_ml": 250,
+   "ratio": "1:16.7",
+   "water_temp_c": 96,
+   "grind_size": "medium",
+   "description": "An easy 3-pour recipe for the Z1 via Melodrip. Kick back on lazy weekends. Make it Extra Lazy: skip the bloom, pour in two 125g pours with a slightly finer grind and slower speed.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 100,
+     "wait_seconds": 40,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 100,
+     "wait_seconds": 65,
+     "note": "Spiral pour via Melodrip"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-z1-the-aussie",
+   "name": "Z1 The Aussie",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 17,
+   "water_ml": 250,
+   "ratio": "1:14.7",
+   "water_temp_c": 97,
+   "grind_size": "coarse",
+   "description": "The Aussie method on the Z1 via Melodrip — dose up, grind coarse, pour fast. Pour next when you see the dry coffee bed appear. Great for taming boozy notes in fermented coffees.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour via Melodrip"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "acidic"
+   ]
+  },
+  {
+   "id": "orea-z1-the-champ",
+   "name": "Z1 The Champ",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 17,
+   "water_ml": 270,
+   "ratio": "1:15.9",
+   "water_temp_c": 93,
+   "grind_size": "medium",
+   "description": "Martin Wölfl's World Brewers Cup 2024 winning recipe adapted for the Z1 via Melodrip. Enlarge pours and increase flow rate as the brew progresses. Juicy, high-quality results.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 60,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 60,
+     "wait_seconds": 40,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 45,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 100,
+     "wait_seconds": 50,
+     "note": "Circular pour via Melodrip, increase flow rate"
+    }
+   ],
+   "source": {
+    "name": "Martin Wölfl / Orea UK",
+    "url": "https://www.orea.uk/guides-z1",
+    "competition": "World Brewers Cup 2024"
+   },
+   "tags": [
+    "light-roast",
+    "competition",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-z1-the-clever",
+   "name": "Z1 The Clever",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 10,
+   "water_ml": 166,
+   "ratio": "1:16.6",
+   "water_temp_c": 92,
+   "grind_size": "medium-fine",
+   "description": "An immersion recipe for the Z1 with Switch adapter, adapted from James Hoffmann's Clever method. Add water first, then coffee on top — stir gently to saturate. No Melodrip needed. Steep 2 minutes then open valve.",
+   "phases": [
+    {
+     "label": "Add Coffee",
+     "water_g": 0,
+     "note": "Close valve, add 166ml water, then 10g coffee on top. Stir gently to saturate"
+    },
+    {
+     "label": "Steep",
+     "water_g": 0,
+     "wait_seconds": 120,
+     "note": "Let steep with valve closed"
+    },
+    {
+     "label": "Drain",
+     "water_g": 0,
+     "note": "Open valve and let drain"
+    }
+   ],
+   "source": {
+    "name": "James Hoffmann / Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "immersion",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "orea-z1-the-dara",
+   "name": "Z1 The Dara",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.7",
+   "water_temp_c": 94,
+   "grind_size": "medium",
+   "description": "DARA's balanced recipe adapted for the Z1 via Melodrip. Scale up to 18g by pouring to 60g/135g/225g/300g. Try grinding slightly coarser and pouring slower for a different cup profile.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 60,
+     "wait_seconds": 40,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 40,
+     "note": "Spiral pour via Melodrip"
+    }
+   ],
+   "source": {
+    "name": "DARA / Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "balanced",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "orea-z1-the-fine",
+   "name": "Z1 The Fine",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 10,
+   "water_ml": 200,
+   "ratio": "1:20",
+   "water_temp_c": 92,
+   "grind_size": "fine",
+   "description": "A two-pour high-extraction recipe for the Z1 via Melodrip. Bloom then one long slow pour at 3 G/S. Great for washed coffees — go finer for more intensity, or explore lower temps (86–88°C) as you grind finer.",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "note": "Spiral pour via Melodrip"
+    },
+    {
+     "label": "Long Pour",
+     "water_g": 160,
+     "wait_seconds": 40,
+     "note": "Spiral pour slowly at 3 G/S via Melodrip"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "sweet",
+    "single-pour"
+   ]
+  },
+  {
+   "id": "orea-z1-the-hybrid",
+   "name": "Z1 The Hybrid",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 16,
+   "water_ml": 260,
+   "ratio": "1:16.3",
+   "water_temp_c": 94,
+   "grind_size": "medium-coarse",
+   "description": "A hybrid percolation-immersion recipe by Matteo D'Ottavio for the Z1 with Switch adapter. Percolate the first two pours, then close the valve for a final immersion. Steep longer for more body, shorter for lighter texture.",
+   "phases": [
+    {
+     "label": "Bloom — Valve Closed",
+     "water_g": 60,
+     "note": "Close valve, spiral pour via Melodrip"
+    },
+    {
+     "label": "Second Pour — Valve Open",
+     "water_g": 100,
+     "wait_seconds": 40,
+     "note": "Open valve, spiral pour via Melodrip"
+    },
+    {
+     "label": "Immersion Pour — Valve Closed",
+     "water_g": 100,
+     "wait_seconds": 60,
+     "note": "Close valve, spiral pour to 260g"
+    },
+    {
+     "label": "Drain",
+     "water_g": 0,
+     "wait_seconds": 60,
+     "note": "Open valve and let drain"
+    }
+   ],
+   "source": {
+    "name": "Matteo D'Ottavio / Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "immersion",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-z1-the-micro",
+   "name": "Z1 The Micro",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 10,
+   "water_ml": 170,
+   "ratio": "1:17",
+   "water_temp_c": 95,
+   "grind_size": "medium",
+   "description": "A full-immersion recipe for the Z1 with Switch adapter. Open valve for a short bloom, then close and fill the chamber. Simple and clean results for any coffee type.",
+   "phases": [
+    {
+     "label": "Bloom — Valve Open",
+     "water_g": 20,
+     "note": "Open valve, spiral pour 20g via Melodrip"
+    },
+    {
+     "label": "Immersion Pour — Valve Closed",
+     "water_g": 150,
+     "wait_seconds": 40,
+     "note": "Close valve, spiral pour 150g slowly at 3 G/S"
+    },
+    {
+     "label": "Drain",
+     "water_g": 0,
+     "wait_seconds": 80,
+     "note": "Open valve and let drain"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "immersion",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-z1-the-pulse",
+   "name": "Z1 The Pulse",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.7",
+   "water_temp_c": 96,
+   "grind_size": "medium-coarse",
+   "description": "A classic 5-pulse recipe on the Z1 via Melodrip. Easy to remember — 40/80/120/160/200g. Scale up to 15g (50/100/150/200/250) or 18g (60/120/180/240/300).",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 40,
+     "wait_seconds": 40,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 40,
+     "wait_seconds": 45,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 40,
+     "wait_seconds": 50,
+     "note": "Circular pour via Melodrip"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 40,
+     "wait_seconds": 45,
+     "note": "Circular pour via Melodrip"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "orea-z1-the-scandi",
+   "name": "Z1 The Scandi",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.7",
+   "water_temp_c": 93,
+   "grind_size": "medium",
+   "description": "A super-simple 2-pour recipe on the Z1 via Melodrip. Two big fast circular pours — 100g in 20 seconds each. Easy, quick, and surprisingly balanced. Add 2g coffee and grind coarser for more intensity with cleanliness.",
+   "phases": [
+    {
+     "label": "First Pour",
+     "water_g": 100,
+     "note": "Circular pour within 20 seconds via Melodrip"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 100,
+     "wait_seconds": 75,
+     "note": "Circular pour within 20 seconds via Melodrip"
+    }
+   ],
+   "source": {
+    "name": "Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "balanced",
+    "beginner-friendly"
+   ]
+  },
+  {
+   "id": "orea-z1-the-tetsu",
+   "name": "Z1 The Tetsu",
+   "brewer": "Orea",
+   "variant": "z1",
+   "dose_g": 20,
+   "water_ml": 300,
+   "ratio": "1:15",
+   "water_temp_c": 94,
+   "grind_size": "coarse",
+   "description": "Tetsu Kasuya's Switch recipe adapted for the Z1 with Switch adapter. Uses two water temperatures — 94°C for the first three pours, then 80°C for the final immersion pour. If you have one kettle, add cold water after the third pour.",
+   "phases": [
+    {
+     "label": "Bloom — Valve Closed",
+     "water_g": 60,
+     "note": "Close valve, circular pour 60g at 94°C"
+    },
+    {
+     "label": "Second Pour — Valve Open",
+     "water_g": 60,
+     "wait_seconds": 40,
+     "note": "Open valve, circular pour to 120g at 94°C"
+    },
+    {
+     "label": "Third Pour — Valve Open",
+     "water_g": 80,
+     "wait_seconds": 50,
+     "note": "Circular pour to 200g at 94°C"
+    },
+    {
+     "label": "Immersion Pour — Valve Closed",
+     "water_g": 100,
+     "wait_seconds": 30,
+     "note": "Close valve, circular pour to 300g at 80°C"
+    },
+    {
+     "label": "Drain",
+     "water_g": 0,
+     "wait_seconds": 45,
+     "note": "Open valve and let drain"
+    }
+   ],
+   "source": {
+    "name": "Tetsu Kasuya / Orea UK",
+    "url": "https://www.orea.uk/guides-z1"
+   },
+   "tags": [
+    "light-roast",
+    "immersion",
+    "balanced"
+   ]
+  },
+  {
+   "id": "iaro-origami-wave",
+   "name": "IARO Beginner Origami Wave Method",
+   "brewer": "Origami",
+   "dose_g": 15,
+   "water_ml": 250,
+   "ratio": "1:16.7",
+   "paper_filter": "wave",
+   "water_temp_c": 93,
+   "grind_size": "medium",
+   "description": "IARO's beginner method uses a Kalita Wave filter in an Origami dripper. The medium grind and slow circular pour are designed for a simple, even brew. The archive standardizes the serving at 15g coffee and 250g water because the source article does not specify a dose or total water amount.\n",
+   "phases": [
+    {
+     "label": "Circular Pour",
+     "water_g": 250,
+     "wait_seconds": 0,
+     "note": "Pour slowly in a circular motion to wet and extract the coffee evenly"
+    }
+   ],
+   "source": {
+    "name": "iaro (Linus Friedmann)",
+    "url": "https://iaro.co/blogs/journal/origami-filter"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "single-pour"
+   ]
+  },
+  {
+   "id": "origami-coffeeshop-vol2",
+   "name": "ORIGAMI Dripper with THE COFFEESHOP Vol.2",
+   "brewer": "Origami",
+   "dose_g": 18,
+   "water_ml": 300,
+   "ratio": "1:16.7",
+   "variant": "S",
+   "paper_filter": "cone",
+   "water_temp_c": 92,
+   "grind_size": "medium",
+   "description": "Daichi Hagiwara's six-pour recipe for the classic ORIGAMI S dripper. Uses a distinctive 10-second pour / 10-second wait rhythm after a stirred bloom. Honduras Los Pinos Typica Honey coffee offers a silky mouthfeel, jasmine-like florals, and fruit notes of lemon and green apple. The spoon stir during bloom ensures all grounds are saturated evenly.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "wait_seconds": 40,
+     "note": "Circular pour, stir 5 times with spoon"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 10,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 60,
+     "wait_seconds": 10,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 60,
+     "wait_seconds": 10,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Fifth Pour",
+     "water_g": 50,
+     "wait_seconds": 10,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 40,
+     "wait_seconds": 0,
+     "note": "Circular pour, let draw down"
+    }
+   ],
+   "source": {
+    "name": "THE COFFEESHOP (Daichi Hagiwara)",
+    "url": "https://origami-kai.com/en/blogs/special-feature/origami%E3%83%89%E3%83%AA%E3%83%83%E3%83%91%E3%83%BC%E3%82%92%E4%BD%BF%E3%81%A3%E3%81%9F%E6%8A%BD%E5%87%BA%E3%83%AC%E3%82%B7%E3%83%94-with-the-coffeeshop-vol-2"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "origami-fuglen",
+   "name": "ORIGAMI Dripper with FUGLEN Vol.1",
+   "brewer": "Origami",
+   "dose_g": 15,
+   "water_ml": 250,
+   "ratio": "1:16.7",
+   "variant": "Air S",
+   "paper_filter": "cone",
+   "water_temp_c": 92,
+   "grind_size": "medium-fine",
+   "description": "Mika Jackson's hybrid pour recipe for the ORIGAMI Air S dripper. Starts with circular pours then switches to a single-point center pour — a technique that builds body while preserving clarity. Kenya AA KANGOCHO delivers black currant and stone fruit notes with a jammy sweetness, roasted in FUGLEN's signature Nordic style from Oslo.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "wait_seconds": 40,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 40,
+     "wait_seconds": 0,
+     "note": "Circular pour across entire bed"
+    },
+    {
+     "label": "Center Pour",
+     "water_g": 170,
+     "wait_seconds": 0,
+     "note": "Center pour to 250g, then stir to homogenize"
+    }
+   ],
+   "source": {
+    "name": "FUGLEN COFFEE ROASTERS (Mika Jackson)",
+    "url": "https://origami-kai.com/en/blogs/special-feature/origami-with-fuglen"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour"
+   ]
+  },
+  {
+   "id": "origami-kopikalyen-vol3",
+   "name": "ORIGAMI Dripper with KOPIKALYAN Vol.3",
+   "brewer": "Origami",
+   "dose_g": 18,
+   "water_ml": 300,
+   "ratio": "1:16.7",
+   "variant": "Air S",
+   "paper_filter": "cone",
+   "water_temp_c": 92,
+   "grind_size": "medium",
+   "description": "Masashi Nishio's five-pour recipe for the ORIGAMI Air S dripper. Features WANOJA KAMOJANG West Java anaerobic honey-process coffee — expect rich grape-like flavor, juicy fruitiness, and a long-lasting sweetness with depth. The circular pour technique works with the dripper's ribbed design for even extraction.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 60,
+     "wait_seconds": 15,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 60,
+     "wait_seconds": 15,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 60,
+     "wait_seconds": 15,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 80,
+     "wait_seconds": 0,
+     "note": "Circular pour, let draw down"
+    }
+   ],
+   "source": {
+    "name": "KOPIKALYAN (Masashi Nishio)",
+    "url": "https://origami-kai.com/en/blogs/special-feature/origami-with-kopikalyan-tokyo-vol-3"
+   },
+   "tags": [
+    "light-roast",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "origami-wave-filter",
+   "name": "ORIGAMI Dripper with Wave Filter",
+   "brewer": "Origami",
+   "dose_g": 15,
+   "water_ml": 240,
+   "ratio": "1:16",
+   "paper_filter": "wave",
+   "water_temp_c": 91,
+   "grind_size": "medium-coarse",
+   "description": "ORIGAMI's wave-filter recipe uses a medium-coarse grind and three pours at 30-second intervals. The wave filter keeps the paper close to the dripper, supporting a stable flow and a balanced, full-bodied cup.\n",
+   "phases": [
+    {
+     "label": "First Pour",
+     "water_g": 60,
+     "wait_seconds": 30,
+     "note": "Pour wide and evenly across the bed"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 90,
+     "wait_seconds": 30,
+     "note": "Pour wide and evenly across the bed"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 90,
+     "wait_seconds": 0,
+     "note": "Pour gently in the center, then let draw down"
+    }
+   ],
+   "source": {
+    "name": "ORIGAMI Online Store",
+    "url": "https://origami-kai.com/en/blogs/special-feature/howtochoose_filter"
+   }
+  },
+  {
+   "id": "hoffmann-1-cup-v60",
+   "name": "Hoffmann 1-Cup V60",
+   "brewer": "V60",
+   "dose_g": 15,
+   "water_ml": 250,
+   "ratio": "1:16.7",
+   "variant": "1-cup",
+   "water_temp_c": 100,
+   "grind_size": "medium-fine",
+   "description": "James Hoffmann's refined single-cup V60 technique. Uses boiling water and a pulsed pouring approach with gentle swirls between pours. The well in the coffee bed and the final swirl ensure even extraction.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "wait_seconds": 45,
+     "note": "Spiral pour. Swirl gently at 0:10-0:15 to knock grounds off walls"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 10,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Third Pour",
+     "water_g": 50,
+     "wait_seconds": 10,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Fourth Pour",
+     "water_g": 50,
+     "wait_seconds": 10,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 50,
+     "wait_seconds": 0,
+     "note": "Spiral pour. Swirl gently to flatten bed, let draw down"
+    }
+   ],
+   "source": {
+    "name": "James Hoffmann",
+    "url": "https://www.youtube.com/watch?v=1oB1oDrDkHM"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour",
+    "balanced"
+   ]
+  },
+  {
+   "id": "matt-perger-v60",
+   "name": "Matt Perger V60",
+   "brewer": "V60",
+   "dose_g": 12,
+   "water_ml": 200,
+   "ratio": "1:16.7",
+   "variant": "1-cup",
+   "water_temp_c": 97,
+   "grind_size": "medium-fine",
+   "description": "Matt Perger's high-extraction V60 method from his 2013 championship work. Notable for aggressively stirring the bloom and grinding finer than typical pour-over recipes. Targets ~20.8% extraction.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Pour then stir vigorously in a cross-pattern to maximize saturation"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 50,
+     "wait_seconds": 30,
+     "note": "Spiral pour"
+    },
+    {
+     "label": "Final Pour",
+     "water_g": 100,
+     "wait_seconds": 0,
+     "note": "Spiral pour. When water drains halfway, tap/swirl to flatten bed (\"Rao spin\")"
+    }
+   ],
+   "source": {
+    "name": "Matt Perger",
+    "url": "https://www.youtube.com/watch?v=MPDfn--vxK8",
+    "competition": "World Brewers Cup 2013"
+   },
+   "tags": [
+    "light-roast",
+    "competition",
+    "advanced"
+   ]
+  },
+  {
+   "id": "osmotic-flow-v60",
+   "name": "Osmotic Flow V60",
+   "brewer": "V60",
+   "dose_g": 18,
+   "water_ml": 300,
+   "ratio": "1:16.7",
+   "variant": "1-cup",
+   "water_temp_c": 93,
+   "grind_size": "medium-coarse",
+   "description": "The Japanese osmotic flow method emphasizes keeping the water level just above the coffee bed throughout the brew, creating a gentle osmotic extraction. A single, very slow continuous pour with precise kettle control.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 45,
+     "wait_seconds": 30,
+     "note": "Create a small crater in the center, center pour gently into it"
+    },
+    {
+     "label": "Osmotic Pour",
+     "water_g": 255,
+     "wait_seconds": 0,
+     "note": "Single slow continuous center pour, keeping water just 1-2cm above the bed. Takes about 2 minutes. Do not disturb the crust.\n"
+    }
+   ],
+   "source": {
+    "name": "Japanese Osmotic Flow Method",
+    "url": "https://www.youtube.com/watch?v=kqQDYf8BmIA"
+   },
+   "tags": [
+    "light-roast",
+    "single-pour",
+    "advanced",
+    "sweet"
+   ]
+  },
+  {
+   "id": "tetsu-kasuya-4-6-method",
+   "name": "Tetsu Kasuya 4:6 Method",
+   "brewer": "V60",
+   "dose_g": 20,
+   "water_ml": 300,
+   "ratio": "1:15",
+   "variant": "1-cup",
+   "water_temp_c": 92,
+   "grind_size": "coarse",
+   "description": "Tetsu Kasuya's winning 2016 World Brewers Cup recipe. The first 40% of water controls flavor balance (sweetness vs acidity), the remaining 60% controls strength/body. Let each pour fully drain before starting the next.\n",
+   "phases": [
+    {
+     "label": "Bloom (40% — sweetness)",
+     "water_g": 60,
+     "wait_seconds": 45,
+     "note": "Circular pour ~10s. Smaller bloom emphasizes sweetness; larger bloom emphasizes acidity"
+    },
+    {
+     "label": "Second Pour (40%)",
+     "water_g": 60,
+     "wait_seconds": 45,
+     "note": "Circular pour ~10s"
+    },
+    {
+     "label": "Third Pour (60% — strength)",
+     "water_g": 60,
+     "wait_seconds": 45,
+     "note": "Circular pour ~10s"
+    },
+    {
+     "label": "Fourth Pour (60%)",
+     "water_g": 60,
+     "wait_seconds": 45,
+     "note": "Circular pour ~10s"
+    },
+    {
+     "label": "Final Pour (60%)",
+     "water_g": 60,
+     "wait_seconds": 45,
+     "note": "Circular pour ~10s"
+    }
+   ],
+   "source": {
+    "name": "Tetsu Kasuya",
+    "url": "https://www.youtube.com/watch?v=wmCW8xSWGZY",
+    "competition": "World Brewers Cup 2016"
+   },
+   "tags": [
+    "light-roast",
+    "sweet",
+    "multi-pour",
+    "competition",
+    "advanced"
+   ]
+  },
+  {
+   "id": "the-barn-1-cup-v60",
+   "name": "The Barn 1-Cup V60",
+   "brewer": "V60",
+   "dose_g": 16,
+   "water_ml": 250,
+   "ratio": "1:15.6",
+   "variant": "1-cup",
+   "water_temp_c": 96,
+   "grind_size": "medium-fine",
+   "description": "The Barn Berlin's daily-driver V60 recipe. A simple, repeatable pulsed-pour approach. Keep pours within the \"bagel ring\" of the coffee bed and avoid hitting the paper filter edges.\n",
+   "phases": [
+    {
+     "label": "Bloom",
+     "water_g": 40,
+     "wait_seconds": 30,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Second Pour",
+     "water_g": 60,
+     "note": "Circular pour"
+    },
+    {
+     "label": "Pulse Pours",
+     "water_g": 50,
+     "pours": 3,
+     "note": "Circular pour. Three ~50g pours, pulsing gently between each"
+    }
+   ],
+   "source": {
+    "name": "The Barn Berlin",
+    "url": "https://thebarn.de/blogs/the-barn-blog/v60-drip"
+   },
+   "tags": [
+    "light-roast",
+    "beginner-friendly",
+    "multi-pour"
+   ]
+  }
+ ]
+}

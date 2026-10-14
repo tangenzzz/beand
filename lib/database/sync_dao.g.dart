@@ -1,0 +1,34 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'sync_dao.dart';
+
+// ignore_for_file: type=lint
+mixin _$SyncDaoMixin on DatabaseAccessor<AppDatabase> {
+  $BeansTable get beans => attachedDatabase.beans;
+  $ShotsTable get shots => attachedDatabase.shots;
+  $ShotReadingsTable get shotReadings => attachedDatabase.shotReadings;
+  $StoredProfilesTable get storedProfiles => attachedDatabase.storedProfiles;
+  $SyncedSettingsTable get syncedSettings => attachedDatabase.syncedSettings;
+  SyncDaoManager get managers => SyncDaoManager(this);
+}
+
+class SyncDaoManager {
+  final _$SyncDaoMixin _db;
+  SyncDaoManager(this._db);
+  $$BeansTableTableManager get beans =>
+      $$BeansTableTableManager(_db.attachedDatabase, _db.beans);
+  $$ShotsTableTableManager get shots =>
+      $$ShotsTableTableManager(_db.attachedDatabase, _db.shots);
+  $$ShotReadingsTableTableManager get shotReadings =>
+      $$ShotReadingsTableTableManager(_db.attachedDatabase, _db.shotReadings);
+  $$StoredProfilesTableTableManager get storedProfiles =>
+      $$StoredProfilesTableTableManager(
+        _db.attachedDatabase,
+        _db.storedProfiles,
+      );
+  $$SyncedSettingsTableTableManager get syncedSettings =>
+      $$SyncedSettingsTableTableManager(
+        _db.attachedDatabase,
+        _db.syncedSettings,
+      );
+}

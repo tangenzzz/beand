@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup up to Android 11 (android:fullBackupContent). Everything
+     except secure storage (AI keys, sync key, device ID): its keystore key
+     never moves along, so a restored copy would be unreadable on the new
+     device, and the device ID must never reach a second device. Also the
+     sync state (lib/sync/engine/sync_state_store.dart): a copied "last
+     synced" marker would make the new device miss data. Same list in
+     data_extraction_rules.xml. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml"/>
+    <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml"/>
+    <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml"/>
+    <exclude domain="file" path="sync_state.json"/>
+</full-backup-content>
