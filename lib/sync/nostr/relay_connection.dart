@@ -57,11 +57,16 @@ class RelayConnection {
   String? _authEventId;
   var _subCounter = 0;
   bool _closed = false;
+  bool _closedLocally = false;
 
   /// Reports the end of the connection (by the relay or due to an error).
   final _done = Completer<void>();
   Future<void> get done => _done.future;
   bool get isOpen => _channel != null && !_closed;
+
+  /// Closed by us ([close]), not by the relay or the network — errors of
+  /// requests still running then say nothing about the relay.
+  bool get closedLocally => _closedLocally;
 
   Future<void> connect() async {
     final channel = _connector(Uri.parse(url));
@@ -236,6 +241,7 @@ class RelayConnection {
   }
 
   Future<void> close() async {
+    if (!_closed) _closedLocally = true;
     _fail('Closed');
     await _subscription?.cancel();
     await _channel?.sink.close();

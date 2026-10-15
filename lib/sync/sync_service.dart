@@ -62,6 +62,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
     this.devicePresence = true,
     this.changeDelay = const Duration(seconds: 5),
     this.idleDisconnect = const Duration(minutes: 1),
+    this.retryDelay = const Duration(seconds: 30),
   });
 
   final AppDatabase db;
@@ -93,6 +94,13 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   /// Close connections when there has been nothing to do for a while.
   final Duration idleDisconnect;
 
+  /// A run left records unsent (all servers failed, or none accepted them):
+  /// try again by itself after this long, doubling each time up to
+  /// [maxRetryDelay]. Otherwise they would wait for the next change or the
+  /// next return to the app.
+  final Duration retryDelay;
+  static const maxRetryDelay = Duration(minutes: 15);
+
   SyncStateData _state = SyncStateData();
   SyncIdentity? _identity;
   String? _deviceId;
@@ -101,8 +109,12 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<int>? _pendingSub;
   Timer? _changeTimer;
   Timer? _idleTimer;
+  Timer? _retryTimer;
+  int _retries = 0;
+  bool _inBackground = false;
   Future<void>? _running;
   bool _again = false;
+  bool _againForce = false;
   bool _initialized = false;
 
   SyncPhase _phase = SyncPhase.off;
@@ -202,6 +214,8 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   void _stop() {
     _changeTimer?.cancel();
     _idleTimer?.cancel();
+    _retryTimer?.cancel();
+    _retries = 0;
     _pool?.removeListener(notifyListeners);
     _pool?.dispose();
     _pool = null;
@@ -239,11 +253,15 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
     // In the background Android cuts the network; the connections would look
     // open afterwards but be dead — on return all relays would first run
     // into an error (briefly red). So close cleanly when leaving …
-    if (state == AppLifecycleState.paused) unawaited(_pool?.closeAll());
+    if (state == AppLifecycleState.paused) {
+      _inBackground = true;
+      unawaited(_pool?.closeAll());
+    }
     // … and reconnect fresh on return, without the backoff after errors
     // that were only caused by the background.
-    if (state == AppLifecycleState.resumed && enabled && _engine != null) {
-      unawaited(syncNow());
+    if (state == AppLifecycleState.resumed) {
+      _inBackground = false;
+      if (enabled && _engine != null) unawaited(syncNow());
     }
   }
 
@@ -318,7 +336,10 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> syncNow({bool force = true}) {
     if (_engine == null) return Future.value();
     if (_running != null) {
+      // Run again afterwards — and keep a forced request forced (the return
+      // to the app may come while a run is still going).
       _again = true;
+      _againForce = _againForce || force;
       return _running!;
     }
     return _running = _run(force).whenComplete(() {
@@ -328,8 +349,10 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
         _onSettingsChanged();
       }
       if (_again) {
+        final again = _againForce;
         _again = false;
-        unawaited(syncNow(force: false));
+        _againForce = false;
+        unawaited(syncNow(force: again));
       }
     });
   }
@@ -337,6 +360,8 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> _run(bool force) async {
     final engine = _engine!;
     _idleTimer?.cancel();
+    _retryTimer?.cancel();
+    var incomplete = false;
     _phase = SyncPhase.syncing;
     _received = 0;
     notifyListeners();
@@ -352,6 +377,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
       await _blobs?.checkServers();
       final allFailed =
           relays.isNotEmpty && report.failedRelays.length == relays.length;
+      incomplete = allFailed || report.notSent > 0;
       if (allFailed) {
         _phase = SyncPhase.error;
         _error = relays.length == 1
@@ -366,13 +392,31 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('Sync failed: $e');
       _phase = SyncPhase.error;
       _error = 'Sync failed.';
+      incomplete = true;
     } finally {
       _received = null;
       if (_engine == engine && !_disposed) {
         _idleTimer = Timer(idleDisconnect, () => _pool?.closeAll());
+        if (incomplete) {
+          _scheduleRetry();
+        } else {
+          _retries = 0;
+        }
       }
       notifyListeners();
     }
+  }
+
+  // In the background Android has no network for us anyway — the return to
+  // the app syncs again by itself.
+  void _scheduleRetry() {
+    if (_inBackground) return;
+    final delay = retryDelay * (1 << _retries.clamp(0, 10));
+    _retries++;
+    _retryTimer = Timer(
+      delay < maxRetryDelay ? delay : maxRetryDelay,
+      () => unawaited(syncNow(force: false)),
+    );
   }
 
   // ---- Servers (relays) ----

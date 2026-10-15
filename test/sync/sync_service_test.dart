@@ -4,6 +4,7 @@ import 'package:beand/database/database.dart';
 import 'package:beand/screens/settings/sync_settings_screen.dart';
 import 'package:beand/sync/engine/sync_state_store.dart';
 import 'package:beand/sync/identity/key_store.dart';
+import 'package:beand/sync/nostr/relay_pool.dart';
 import 'package:beand/sync/sync_service.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:drift/native.dart';
@@ -290,6 +291,63 @@ void main() {
       expect(s.blobServerOk(blossom.url), isTrue);
     },
   );
+
+  Future<void> waitFor(bool Function() done, {int seconds = 10}) async {
+    final until = DateTime.now().add(Duration(seconds: seconds));
+    while (!done() && DateTime.now().isBefore(until)) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  test(
+    'leaving the app mid-upload: everything goes out after return',
+    () async {
+      // Seen on the phone after a restore: a dialog over the app closed all
+      // connections during the full upload. The rerun on return lost its
+      // "force", hit the backoff of the self-made errors and gave up.
+      for (var i = 0; i < 6; i++) {
+        await db.insertBean(BeansCompanion.insert(name: 'Bean $i'));
+      }
+      // Events are spaced 500 ms apart: this upload takes ~3 s.
+      final upload = sync.enable();
+      await waitFor(() => relay.events.isNotEmpty);
+      sync.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      sync.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await upload;
+      // The relay may already hold events whose OK was lost when closing —
+      // done is when nothing is pending anymore.
+      await waitFor(() => sync.pending == 0);
+      expect(relay.events, hasLength(6));
+      expect(sync.relayStatus(relay.url).state, isNot(RelayState.error));
+      expect(sync.pending, 0);
+    },
+  );
+
+  test('records left unsent: tried again by itself', () async {
+    final s = SyncService(
+      devicePresence: false,
+      db: db,
+      keyStore: keys,
+      stateStore: state,
+      changeDelay: const Duration(seconds: 30),
+      retryDelay: const Duration(milliseconds: 100),
+    );
+    addTearDown(s.dispose);
+    await s.init();
+    await db.insertBean(BeansCompanion.insert(name: 'Guji'));
+    relay.down = true;
+    await s.enable();
+    expect(s.phase, SyncPhase.error);
+    expect(relay.events, isEmpty);
+    relay.down = false;
+    // No change, no return to the app — only the retry (after the relay's
+    // own 5 s backoff has passed).
+    await waitFor(() => relay.events.isNotEmpty, seconds: 15);
+    expect(relay.events, hasLength(1));
+    await waitFor(() => s.phase == SyncPhase.idle);
+    expect(s.phase, SyncPhase.idle);
+  });
 
   group('Settings → Sync page', () {
     Future<void> pump(WidgetTester tester) async {

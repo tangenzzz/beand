@@ -170,7 +170,9 @@ class RelayPool extends ChangeNotifier {
               _set(url, const RelayStatus(RelayState.connected));
             }
           } on RelayException catch (e) {
-            _failed(url, e.message);
+            // Closed by us (app went to the background): not the relay's
+            // fault — no backoff, no red status.
+            if (!connection.closedLocally) _failed(url, e.message);
           }
         }(),
     ]);
@@ -201,7 +203,7 @@ class RelayPool extends ChangeNotifier {
     try {
       return await connection.query(filter);
     } on RelayException catch (e) {
-      _failed(url, e.message);
+      if (!connection.closedLocally) _failed(url, e.message);
       rethrow;
     }
   }
