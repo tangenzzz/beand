@@ -64,6 +64,20 @@ void main() {
       expect(GrinderStore.decode('not json'), isEmpty);
     });
 
+    test('mineral factors: g/L ↔ ppm as CaCO₃', () {
+      // 1 ppm GH from Epsom salt = 2.4627 mg/L (246.47 / 100.09).
+      expect(
+        Mineral.epsomSalt.ppmFromGramsPerLitre(0.0024627),
+        closeTo(1, 1e-6),
+      );
+      expect(
+        Mineral.bakingSoda.gramsPerLitreFromPpm(40),
+        closeTo(0.0671, 1e-4),
+      );
+      expect(Mineral.forGh, hasLength(3));
+      expect(Mineral.forKh, hasLength(3));
+    });
+
     test('grinders and waters travel with the synced settings', () {
       expect(syncedSettingKeys(), contains(GrinderStore.prefKey));
       expect(syncedSettingKeys(), contains(WaterStore.prefKey));
@@ -254,6 +268,27 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('water-kh')), '40,5');
     await tester.tap(find.text('Baking soda'));
     await tester.pump();
+    // Amount per ticked mineral, entered in g/L …
+    await tester.enterText(
+      find.byKey(const ValueKey('water-amount-epsomSalt')),
+      '0,12',
+    );
+    // … and shown converted after switching to ppm (0.12 g/L Epsom salt =
+    // 48.7 ppm as CaCO₃).
+    await tester.tap(find.text('ppm').first);
+    await tester.pump();
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const ValueKey('water-amount-epsomSalt')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .controller!
+          .text,
+      '48.7',
+    );
     await tester.enterText(find.byKey(const ValueKey('water-ppm')), '150');
     await tester.tap(find.text('Pour Over'));
     await tester.tap(find.text('Save'));
@@ -265,6 +300,9 @@ void main() {
     expect(w.ghMinerals, {Mineral.epsomSalt, Mineral.calciumChloride});
     expect(w.kh, 40.5);
     expect(w.khMinerals, {Mineral.bakingSoda});
+    expect(w.unit, MineralUnit.ppm);
+    expect(w.amounts[Mineral.epsomSalt], closeTo(0.12, 0.001));
+    expect(w.amounts.containsKey(Mineral.bakingSoda), isFalse);
     expect(w.ppm, 150);
     expect(w.use, WaterUse.pourOver);
     expect(Water.fromJson(w.toJson()), w);

@@ -48,6 +48,8 @@ class WaterStore extends ChangeNotifier {
             ghMinerals: water.ghMinerals,
             kh: water.kh,
             khMinerals: water.khMinerals,
+            amounts: water.amounts,
+            unit: water.unit,
             ppm: water.ppm,
             use: water.use,
           )

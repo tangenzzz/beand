@@ -213,6 +213,9 @@ class _WaterDialogState extends State<_WaterDialog> {
   late final _khMinerals = {...?widget.water?.khMinerals};
   late final _ppm = TextEditingController(text: _num(widget.water?.ppm));
   late WaterUse? _use = widget.water?.use;
+  late MineralUnit _unit = widget.water?.unit ?? MineralUnit.gramsPerLitre;
+  // Amount field per mineral, created on first tick; text in [_unit].
+  final _amounts = <Mineral, TextEditingController>{};
 
   static String _num(double? v) =>
       v == null ? '' : (v % 1 == 0 ? v.toStringAsFixed(0) : v.toString());
@@ -224,15 +227,52 @@ class _WaterDialogState extends State<_WaterDialog> {
   void initState() {
     super.initState();
     _recipe.addListener(() => setState(() {}));
+    widget.water?.amounts.forEach((m, grams) {
+      _amountField(m).text = _format(m, grams, _unit);
+    });
   }
 
   @override
   void dispose() {
-    for (final c in [_recipe, _gh, _kh, _ppm]) {
+    for (final c in [_recipe, _gh, _kh, _ppm, ..._amounts.values]) {
       c.dispose();
     }
     super.dispose();
   }
+
+  TextEditingController _amountField(Mineral m) =>
+      _amounts.putIfAbsent(m, TextEditingController.new);
+
+  // Grams per litre with up to three decimals, ppm with one; no trailing
+  // zeros.
+  static String _format(Mineral m, double grams, MineralUnit unit) {
+    final v = unit == MineralUnit.ppm ? m.ppmFromGramsPerLitre(grams) : grams;
+    final digits = unit == MineralUnit.ppm ? 1 : 3;
+    return v.toStringAsFixed(digits).replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  double? _gramsOf(Mineral m) {
+    final c = _amounts[m];
+    if (c == null) return null;
+    final v = _parse(c);
+    if (v == null) return null;
+    return _unit == MineralUnit.ppm ? m.gramsPerLitreFromPpm(v) : v;
+  }
+
+  // Switching the unit converts what is already entered.
+  void _setUnit(MineralUnit? unit) {
+    if (unit == null || unit == _unit) return;
+    final grams = {for (final m in _amounts.keys) m: _gramsOf(m)};
+    setState(() {
+      _unit = unit;
+      grams.forEach((m, g) {
+        if (g != null) _amounts[m]!.text = _format(m, g, unit);
+      });
+    });
+  }
+
+  void _toggle(Set<Mineral> set, Mineral m) =>
+      setState(() => set.remove(m) || set.add(m));
 
   void _save() {
     final recipe = _recipe.text.trim();
@@ -245,6 +285,11 @@ class _WaterDialogState extends State<_WaterDialog> {
         ghMinerals: _ghMinerals,
         kh: _parse(_kh),
         khMinerals: _khMinerals,
+        amounts: {
+          for (final m in {..._ghMinerals, ..._khMinerals})
+            if (_gramsOf(m) != null) m: _gramsOf(m)!,
+        },
+        unit: _unit,
         ppm: _parse(_ppm),
         use: _use,
       ),
@@ -258,6 +303,30 @@ class _WaterDialogState extends State<_WaterDialog> {
     context.read<WaterStore>().remove(water.id);
     Navigator.of(context).pop();
   }
+
+  Widget _amountRow(Mineral m) => Padding(
+    padding: const EdgeInsets.only(left: 12, bottom: 4),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            m.label,
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
+          ),
+        ),
+        SizedBox(
+          width: 110,
+          child: _Field(
+            key: ValueKey('water-amount-${m.name}'),
+            controller: _amountField(m),
+            label: 'Amount',
+            suffix: _unit.label,
+            numeric: true,
+          ),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -275,6 +344,27 @@ class _WaterDialogState extends State<_WaterDialog> {
           label: 'Recipe',
           autofocus: !editing,
         ),
+        const SizedBox(height: 12),
+        // Unit of the mineral amounts; switching converts what is entered.
+        Row(
+          children: [
+            Text(
+              'Amounts in',
+              style: TextStyle(
+                color: context.colors.textSecondary,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 8),
+            DotChoiceGroup<MineralUnit>(
+              options: [
+                for (final u in MineralUnit.values) DotChoice(u, u.label),
+              ],
+              value: _unit,
+              onChanged: _setUnit,
+            ),
+          ],
+        ),
         _Field(
           key: const ValueKey('water-gh'),
           controller: _gh,
@@ -285,9 +375,10 @@ class _WaterDialogState extends State<_WaterDialog> {
         _MineralChoice(
           minerals: Mineral.forGh,
           selected: _ghMinerals,
-          onToggle: (m) =>
-              setState(() => _ghMinerals.remove(m) || _ghMinerals.add(m)),
+          onToggle: (m) => _toggle(_ghMinerals, m),
         ),
+        for (final m in Mineral.forGh)
+          if (_ghMinerals.contains(m)) _amountRow(m),
         _Field(
           key: const ValueKey('water-kh'),
           controller: _kh,
@@ -298,9 +389,10 @@ class _WaterDialogState extends State<_WaterDialog> {
         _MineralChoice(
           minerals: Mineral.forKh,
           selected: _khMinerals,
-          onToggle: (m) =>
-              setState(() => _khMinerals.remove(m) || _khMinerals.add(m)),
+          onToggle: (m) => _toggle(_khMinerals, m),
         ),
+        for (final m in Mineral.forKh)
+          if (_khMinerals.contains(m)) _amountRow(m),
         _Field(
           key: const ValueKey('water-ppm'),
           controller: _ppm,
