@@ -40,6 +40,11 @@ abstract class LiveShotService extends ChangeNotifier {
   ShotStage? _previousStage;
   ActiveCard activeCard = ActiveCard.pre;
 
+  // A finished shot waits in the Post-Shot card for its Save. Stays true
+  // when the next shot is started on the machine first (then PRE/LIVE is
+  // the active card again), so Save still has something to complete.
+  bool postShotPending = false;
+
   // Key of the machine in the `Shots.machine` column (see ShotMachine).
   // The Post-Shot card thus shows the last shot of THIS machine — so never
   // a Meticulous brew on the GaggiMate Home.
@@ -209,10 +214,21 @@ abstract class LiveShotService extends ChangeNotifier {
 
   // The Post-Shot card's save button: completes the cycle and releases PRE
   // again.
+  //
+  // If the next shot was already started on the machine, the cycle has
+  // moved on by itself: then Save only completes the old shot and jumps back
+  // to the card of the running one instead of doing nothing.
   void confirmPostShot() {
-    if (activeCard != ActiveCard.post) return;
-    activeCard = ActiveCard.pre;
-    _pageJumps.add(0);
+    final pending = postShotPending;
+    postShotPending = false;
+    if (activeCard == ActiveCard.post) {
+      activeCard = ActiveCard.pre;
+      _pageJumps.add(0);
+    } else if (pending) {
+      _pageJumps.add(activeCard == ActiveCard.live ? 1 : 0);
+    } else {
+      return;
+    }
     notifyListeners();
   }
 
@@ -249,6 +265,7 @@ abstract class LiveShotService extends ChangeNotifier {
         activeCard = ActiveCard.live;
       case ShotStage.purging:
         activeCard = ActiveCard.post;
+        postShotPending = true;
       case ShotStage.idle:
         if (activeCard == ActiveCard.live) activeCard = ActiveCard.pre;
         _autoStartFired = false;

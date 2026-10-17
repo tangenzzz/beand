@@ -402,7 +402,9 @@ class PourOverBrewService extends LiveShotService {
   @override
   void confirmPostShot() {
     super.confirmPostShot();
-    applyStage(ShotStage.idle);
+    // Only end the finished brew — a new one may already be running when
+    // the old one is saved late.
+    if (stage == ShotStage.purging) applyStage(ShotStage.idle);
     notifyListeners();
   }
 

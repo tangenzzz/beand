@@ -155,6 +155,51 @@ void main() {
     expect(jumps, [1, 2, 0], reason: 'saving jumps back to the Pre-Shot card');
   });
 
+  // Bug 2026-10-17: the next shot was started on the machine before the
+  // previous one was saved — then "Save" in the Post-Shot card did nothing.
+  // It still has to work and bring the card of the running shot back up.
+  test(
+    'Save still works after the next shot was started on the machine',
+    () async {
+      final socket = FakeSocket();
+      final live = MeticulousLiveShotService(socket)..start();
+      addTearDown(live.dispose);
+      final jumps = <int>[];
+      live.pageJumps.listen(jumps.add);
+
+      runThroughShot(socket);
+      socket.phase('idle');
+      expect(live.activeCard, ActiveCard.post);
+
+      // New shot heats up: PRE is the active card again, Post not saved yet.
+      socket.phase('heating');
+      expect(live.activeCard, ActiveCard.pre);
+      expect(live.postShotPending, isTrue);
+      await Future<void>.delayed(Duration.zero);
+      jumps.clear();
+
+      live.confirmPostShot();
+      expect(live.postShotPending, isFalse);
+      expect(live.activeCard, ActiveCard.pre);
+      await Future<void>.delayed(Duration.zero);
+      expect(jumps, [0], reason: 'back to the card of the running shot');
+
+      // Same while the new shot is already extracting: back to LIVE.
+      runThroughShot(socket);
+      socket.phase('idle');
+      socket.phase('heating');
+      socket.phase('click to start');
+      socket.phase('Initial Saturation');
+      expect(live.activeCard, ActiveCard.live);
+      await Future<void>.delayed(Duration.zero);
+      jumps.clear();
+      live.confirmPostShot();
+      expect(live.activeCard, ActiveCard.live);
+      await Future<void>.delayed(Duration.zero);
+      expect(jumps, [1]);
+    },
+  );
+
   test('active card: next profile without saving releases PRE again', () {
     final socket = FakeSocket();
     final live = MeticulousLiveShotService(socket)..start();
