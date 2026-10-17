@@ -207,19 +207,27 @@ class _WaterEntry extends StatelessWidget {
 
   final Water water;
 
-  // Bars run up to this value — enough for common brew waters (most stay
-  // well below 150 ppm GH).
-  static const _barMax = 150.0;
+  static String _n(double v, {int digits = 1}) =>
+      v.toStringAsFixed(digits).replaceFirst(RegExp(r'\.?0+$'), '');
 
-  static String _n(double v) =>
-      v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+  // "Epsom salt 0.12 g · Calcium chloride 0.05 g" — grams per litre of each
+  // ticked mineral, in the order of the list.
+  String _composition(Set<Mineral> minerals) => [
+    for (final m in Mineral.values)
+      if (minerals.contains(m))
+        water.amounts[m] == null
+            ? m.label
+            : '${m.label} ${_n(water.amounts[m]!, digits: 3)} g',
+  ].join(' · ');
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final minerals = [
-      for (final m in [...water.ghMinerals, ...water.khMinerals]) m.label,
-    ].join(' · ');
+    final use = switch (water.use) {
+      WaterUse.both => 'Espresso · Pour Over',
+      final u? => u.label,
+      null => null,
+    };
     return InkWell(
       onTap: () => showWaterDialog(context, water: water),
       child: Padding(
@@ -244,41 +252,25 @@ class _WaterEntry extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (water.ppm != null)
+                if (use != null)
                   Text(
-                    '${_n(water.ppm!)} ppm',
+                    use,
                     style: TextStyle(color: colors.textSecondary, fontSize: 12),
                   ),
-                if (water.use != null) ...[
-                  if (water.ppm != null) const SizedBox(width: 10),
-                  Text(
-                    water.use!.label,
-                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
-                  ),
-                ],
               ],
             ),
-            if (water.gh != null)
-              _HardnessBar(
+            if (water.gh != null || water.ghMinerals.isNotEmpty)
+              _HardnessLine(
                 label: 'GH',
-                value: water.gh!,
-                max: _barMax,
-                color: colors.sensorDown,
+                value: water.gh,
+                composition: _composition(water.ghMinerals),
               ),
-            if (water.kh != null)
-              _HardnessBar(
+            if (water.kh != null || water.khMinerals.isNotEmpty)
+              _HardnessLine(
                 label: 'KH',
-                value: water.kh!,
-                max: _barMax,
-                color: colors.success,
+                value: water.kh,
+                composition: _composition(water.khMinerals),
               ),
-            if (minerals.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                minerals,
-                style: TextStyle(color: colors.textTertiary, fontSize: 12),
-              ),
-            ],
           ],
         ),
       ),
@@ -286,50 +278,48 @@ class _WaterEntry extends StatelessWidget {
   }
 }
 
-class _HardnessBar extends StatelessWidget {
-  const _HardnessBar({
+// "GH  68 ppm   Epsom salt 0.12 g · Calcium chloride 0.05 g".
+class _HardnessLine extends StatelessWidget {
+  const _HardnessLine({
     required this.label,
     required this.value,
-    required this.max,
-    required this.color,
+    required this.composition,
   });
 
   final String label;
-  final double value;
-  final double max;
-  final Color color;
+  final double? value;
+  final String composition;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 26,
             child: Text(
               label,
-              style: TextStyle(color: colors.textSecondary, fontSize: 11),
-            ),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: (value / max).clamp(0.0, 1.0),
-                minHeight: 6,
-                color: color,
-                backgroundColor: colors.divider,
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
           SizedBox(
-            width: 62,
+            width: 64,
             child: Text(
-              '${_WaterEntry._n(value)} ppm',
-              textAlign: TextAlign.right,
-              style: TextStyle(color: colors.textSecondary, fontSize: 11),
+              value == null ? '—' : '${_WaterEntry._n(value!)} ppm',
+              style: TextStyle(color: colors.textPrimary, fontSize: 12),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              composition,
+              style: TextStyle(color: colors.textSecondary, fontSize: 12),
             ),
           ),
         ],

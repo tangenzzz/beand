@@ -337,15 +337,13 @@ void main() {
     expect(w.ppm, 150);
     expect(w.use, WaterUse.pourOver);
     expect(Water.fromJson(w.toJson()), w);
-    // GH and KH as bars with their values, total and use in the title row.
-    expect(find.byType(LinearProgressIndicator), findsNWidgets(2));
+    // No bars: per GH/KH the value and what it is made of, in grams of
+    // each mineral; the use at the right of the title.
+    expect(find.byType(LinearProgressIndicator), findsNothing);
     expect(find.text('68 ppm'), findsOneWidget);
     expect(find.text('40.5 ppm'), findsOneWidget);
-    expect(find.text('150 ppm'), findsOneWidget);
+    expect(find.text('Epsom salt 0.12 g · Calcium chloride'), findsOneWidget);
+    expect(find.text('Baking soda'), findsOneWidget);
     expect(find.text('Pour Over'), findsOneWidget);
-    expect(
-      find.text('Epsom salt · Calcium chloride · Baking soda'),
-      findsOneWidget,
-    );
   });
 }
