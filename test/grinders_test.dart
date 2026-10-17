@@ -14,6 +14,7 @@ import 'package:beand/services/shot_setup.dart';
 import 'package:beand/services/water_store.dart';
 import 'package:beand/sync/records/setting_codec.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:beand/widgets/dot_choice_group.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -136,9 +137,12 @@ void main() {
     final store = GrinderStore.inMemory();
     await tester.pumpWidget(mySetup(store, WaterStore.inMemory()));
     // Both sections in the one card, each with its own "+".
-    expect(find.text('Grinders'), findsOneWidget);
-    expect(find.text('Water'), findsOneWidget);
-    expect(find.text('No grinders yet.'), findsOneWidget);
+    expect(find.text('GRINDERS'), findsOneWidget);
+    expect(find.text('WATER'), findsOneWidget);
+    expect(
+      find.text('Add your grinder to see it on every shot.'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byTooltip('Add grinder'));
     await tester.pumpAndSettle();
@@ -173,11 +177,21 @@ void main() {
     );
     expect(find.text('Stock'), findsOneWidget);
     expect(find.text('SSP'), findsOneWidget);
-    expect(find.byIcon(Icons.check), findsOneWidget);
+    bool fitted(String burr) => tester
+        .widget<DotChoiceItem>(
+          find.ancestor(
+            of: find.text(burr),
+            matching: find.byType(DotChoiceItem),
+          ),
+        )
+        .selected;
+    expect(fitted('Stock'), isTrue);
+    expect(fitted('SSP'), isFalse);
 
     await tester.tap(find.text('SSP'));
     await tester.pump();
     expect(store.grinders.single.activeBurrs, 'SSP');
+    expect(fitted('SSP'), isTrue);
 
     // Edit → delete at the bottom of the dialog.
     await tester.tap(find.textContaining('Niche Zero', findRichText: true));
@@ -256,7 +270,10 @@ void main() {
     addTearDown(tester.view.reset);
     final waters = WaterStore.inMemory();
     await tester.pumpWidget(mySetup(GrinderStore.inMemory(), waters));
-    expect(find.text('No water recipes yet.'), findsOneWidget);
+    expect(
+      find.text('Add a water recipe to keep its minerals.'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byTooltip('Add water'));
     await tester.pumpAndSettle();
@@ -306,6 +323,15 @@ void main() {
     expect(w.ppm, 150);
     expect(w.use, WaterUse.pourOver);
     expect(Water.fromJson(w.toJson()), w);
-    expect(find.text('GH 68 · KH 40.5 · 150 ppm · Pour Over'), findsOneWidget);
+    // GH and KH as bars with their values, total and use in the title row.
+    expect(find.byType(LinearProgressIndicator), findsNWidgets(2));
+    expect(find.text('68 ppm'), findsOneWidget);
+    expect(find.text('40.5 ppm'), findsOneWidget);
+    expect(find.text('150 ppm'), findsOneWidget);
+    expect(find.text('Pour Over'), findsOneWidget);
+    expect(
+      find.text('Epsom salt · Calcium chloride · Baking soda'),
+      findsOneWidget,
+    );
   });
 }

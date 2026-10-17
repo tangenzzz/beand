@@ -6,13 +6,15 @@ import '../../models/water.dart';
 import '../../services/grinder_store.dart';
 import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/dot_choice_group.dart';
 import 'my_setup_dialogs.dart';
 import 'settings_widgets.dart';
 
 // Settings → My Setup: the user's own equipment in ONE card — "Grinders"
-// and below it "Water", each with "+" at the far right. A grinder shows all
-// its burr sets with the fitted one ticked (tap to switch); tapping a name
-// edits the entry.
+// and below it "Water", each section with its icon and "+" at the far
+// right. A grinder shows brand + name and its burr sets as choices (the
+// fitted one has the dot, tap to switch); a water shows GH and KH as bars
+// so recipes compare at a glance. Tapping a name opens the form.
 class MySetupScreen extends StatelessWidget {
   const MySetupScreen({super.key});
 
@@ -28,19 +30,23 @@ class MySetupScreen extends StatelessWidget {
           SettingsCard(
             children: [
               _SectionHeader(
+                icon: Icons.blender_outlined,
                 title: 'Grinders',
                 addTooltip: 'Add grinder',
                 onAdd: () => showGrinderDialog(context),
               ),
-              if (grinders.isEmpty) const _Empty('No grinders yet.'),
-              for (final g in grinders) _GrinderSection(grinder: g),
+              if (grinders.isEmpty)
+                const _Empty('Add your grinder to see it on every shot.'),
+              for (final g in grinders) _GrinderEntry(grinder: g),
               _SectionHeader(
+                icon: Icons.water_drop_outlined,
                 title: 'Water',
                 addTooltip: 'Add water',
                 onAdd: () => showWaterDialog(context),
               ),
-              if (waters.isEmpty) const _Empty('No water recipes yet.'),
-              for (final w in waters) _WaterRow(water: w),
+              if (waters.isEmpty)
+                const _Empty('Add a water recipe to keep its minerals.'),
+              for (final w in waters) _WaterEntry(water: w),
             ],
           ),
         ],
@@ -49,27 +55,43 @@ class MySetupScreen extends StatelessWidget {
   }
 }
 
+// Small uppercase title with the section's icon; "+" at the far right.
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
+    required this.icon,
     required this.title,
     required this.addTooltip,
     required this.onAdd,
   });
 
+  final IconData icon;
   final String title;
   final String addTooltip;
   final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.dividerInset, 4, 4, 0),
       child: Row(
         children: [
-          Expanded(child: SettingsTitle(title)),
+          Icon(icon, size: 17, color: colors.textSecondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                color: colors.textSecondary,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.1,
+              ),
+            ),
+          ),
           IconButton(
             tooltip: addTooltip,
-            icon: Icon(Icons.add, color: context.colors.textSecondary),
+            icon: Icon(Icons.add, color: colors.textSecondary),
             onPressed: onAdd,
           ),
         ],
@@ -78,6 +100,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+// An empty section is just one short line — no box, the "+" is right above.
 class _Empty extends StatelessWidget {
   const _Empty(this.text);
 
@@ -89,7 +112,7 @@ class _Empty extends StatelessWidget {
       AppSpacing.dividerInset,
       0,
       AppSpacing.dividerInset,
-      14,
+      16,
     ),
     child: Text(
       text,
@@ -98,27 +121,27 @@ class _Empty extends StatelessWidget {
   );
 }
 
-class _GrinderSection extends StatelessWidget {
-  const _GrinderSection({required this.grinder});
+class _GrinderEntry extends StatelessWidget {
+  const _GrinderEntry({required this.grinder});
 
   final Grinder grinder;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: () => showGrinderDialog(context, grinder: grinder),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.dividerInset,
-              10,
-              AppSpacing.dividerInset,
-              grinder.burrs.isEmpty ? 12 : 2,
-            ),
-            child: Text.rich(
+    return InkWell(
+      onTap: () => showGrinderDialog(context, grinder: grinder),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.dividerInset,
+          12,
+          AppSpacing.dividerInset,
+          12,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text.rich(
               TextSpan(
                 children: [
                   if (grinder.brand != null)
@@ -137,27 +160,34 @@ class _GrinderSection extends StatelessWidget {
               ),
               style: const TextStyle(fontSize: 15),
             ),
-          ),
+            if (grinder.burrs.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              // The fitted burr set has the dot; tap another to switch.
+              DotChoiceGroup<String>(
+                options: [for (final b in grinder.burrs) DotChoice(b, b)],
+                value: grinder.activeBurrs,
+                onChanged: (b) {
+                  if (b != null) {
+                    context.read<GrinderStore>().setActiveBurr(grinder.id, b);
+                  }
+                },
+              ),
+            ],
+          ],
         ),
-        for (final burr in grinder.burrs)
-          SettingsChoiceRow(
-            compact: true,
-            leading: const SizedBox.shrink(),
-            title: burr,
-            selected: burr == grinder.activeBurrs,
-            onTap: () =>
-                context.read<GrinderStore>().setActiveBurr(grinder.id, burr),
-          ),
-        if (grinder.burrs.isNotEmpty) const SizedBox(height: 4),
-      ],
+      ),
     );
   }
 }
 
-class _WaterRow extends StatelessWidget {
-  const _WaterRow({required this.water});
+class _WaterEntry extends StatelessWidget {
+  const _WaterEntry({required this.water});
 
   final Water water;
+
+  // Bars run up to this value — enough for common brew waters (most stay
+  // well below 150 ppm GH).
+  static const _barMax = 150.0;
 
   static String _n(double v) =>
       v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
@@ -165,41 +195,122 @@ class _WaterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final details = [
-      if (water.gh != null) 'GH ${_n(water.gh!)}',
-      if (water.kh != null) 'KH ${_n(water.kh!)}',
-      if (water.ppm != null) '${_n(water.ppm!)} ppm',
-      ?water.use?.label,
+    final minerals = [
+      for (final m in [...water.ghMinerals, ...water.khMinerals]) m.label,
     ].join(' · ');
     return InkWell(
       onTap: () => showWaterDialog(context, water: water),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.dividerInset,
-          10,
-          AppSpacing.dividerInset,
           12,
+          AppSpacing.dividerInset,
+          14,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              water.recipe,
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    water.recipe,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (water.ppm != null)
+                  Text(
+                    '${_n(water.ppm!)} ppm',
+                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                  ),
+                if (water.use != null) ...[
+                  if (water.ppm != null) const SizedBox(width: 10),
+                  Text(
+                    water.use!.label,
+                    style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ],
             ),
-            if (details.isNotEmpty) ...[
-              const SizedBox(height: 3),
+            if (water.gh != null)
+              _HardnessBar(
+                label: 'GH',
+                value: water.gh!,
+                max: _barMax,
+                color: colors.sensorDown,
+              ),
+            if (water.kh != null)
+              _HardnessBar(
+                label: 'KH',
+                value: water.kh!,
+                max: _barMax,
+                color: colors.success,
+              ),
+            if (minerals.isNotEmpty) ...[
+              const SizedBox(height: 8),
               Text(
-                details,
+                minerals,
                 style: TextStyle(color: colors.textTertiary, fontSize: 12),
               ),
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HardnessBar extends StatelessWidget {
+  const _HardnessBar({
+    required this.label,
+    required this.value,
+    required this.max,
+    required this.color,
+  });
+
+  final String label;
+  final double value;
+  final double max;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 26,
+            child: Text(
+              label,
+              style: TextStyle(color: colors.textSecondary, fontSize: 11),
+            ),
+          ),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: (value / max).clamp(0.0, 1.0),
+                minHeight: 6,
+                color: color,
+                backgroundColor: colors.divider,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 62,
+            child: Text(
+              '${_WaterEntry._n(value)} ppm',
+              textAlign: TextAlign.right,
+              style: TextStyle(color: colors.textSecondary, fontSize: 11),
+            ),
+          ),
+        ],
       ),
     );
   }
