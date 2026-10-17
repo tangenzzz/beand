@@ -88,6 +88,20 @@ class MeticulousSocketService extends ChangeNotifier
 
   double? get preheatCountdownSeconds => _lastPreheatCountdown;
 
+  // Water detection (meticulous-backend, head stage "water detection"):
+  // before heating, the machine checks the raw detector `w_stat`. With
+  // water the stage passes within one tick (never seen in captures);
+  // without it the machine waits and asks to "Pour water and click to
+  // continue". `w_stat` alone is not trusted outside that stage: its idle
+  // value is unverified, and a missing field must not raise an alarm.
+  bool? lastWaterStatus;
+
+  bool get isWaterMissing {
+    final phase = latestStatus?.phase.toLowerCase() ?? '';
+    if (phase.startsWith('pour water')) return true;
+    return phase == 'water detection' && lastWaterStatus == false;
+  }
+
   bool get isPreheatActive =>
       _lastPreheatCountdown != null &&
       _lastPreheatCountdown! > 0 &&
@@ -165,9 +179,9 @@ class MeticulousSocketService extends ChangeNotifier
         notifyListeners();
       })
       ..on('sensors', (data) {
-        final sample = MachineSensors.fromJson(
-          Map<String, dynamic>.from(data as Map),
-        );
+        final raw = Map<String, dynamic>.from(data as Map);
+        final sample = MachineSensors.fromJson(raw);
+        lastWaterStatus = raw['w_stat'] as bool?;
         latestSensors = sample;
         _recentSensors.addLast(sample);
         if (_recentSensors.length > _maxSamples) {

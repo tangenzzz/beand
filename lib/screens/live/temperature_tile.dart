@@ -617,6 +617,10 @@ class _TemperatureTileState extends State<TemperatureTile> {
                 statusText: statusText,
                 statusColor: statusColor,
                 showCheck: stabilized,
+                // The machine stops before heating when its detector finds
+                // no water — say so instead of showing a stalled ring.
+                warning: service.isWaterMissing ? 'No water' : null,
+                warningHint: 'Fill, then press the dial',
               ),
               const SizedBox(width: SensorStack.ringToValues),
               SensorStack(

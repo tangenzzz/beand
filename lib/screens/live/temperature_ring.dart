@@ -27,6 +27,8 @@ class TemperatureRing extends StatelessWidget {
     required this.statusColor,
     required this.showCheck,
     this.size = defaultSize,
+    this.warning,
+    this.warningHint,
   });
 
   final double? heroValue;
@@ -42,6 +44,11 @@ class TemperatureRing extends StatelessWidget {
   // more room (GaggiMate hero).
   final double size;
 
+  /// A machine warning (e.g. "No water"): shown in red instead of the
+  /// temperature, with the whole ring in red. [warningHint] says what to do.
+  final String? warning;
+  final String? warningHint;
+
   // Ring and text slightly larger (previously 128, hero 24 / target 9 /
   // status 10). Public because the sensor column next to it sizes itself
   // exactly by this and must never be taller.
@@ -52,6 +59,10 @@ class TemperatureRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final warn = warning != null;
+    final ringProgress = warn ? 1.0 : progress;
+    final ringOuter = warn ? null : outerProgress;
+    final ringColor = warn ? context.colors.danger : color;
     return SizedBox(
       width: size,
       height: size,
@@ -63,19 +74,19 @@ class TemperatureRing extends StatelessWidget {
           // readings/s the ring follows the temperature as a calm,
           // continuous motion.
           TweenAnimationBuilder<double>(
-            tween: Tween(end: progress),
+            tween: Tween(end: ringProgress),
             duration: _glide,
             curve: Curves.easeOutCubic,
             builder: (context, inner, _) => TweenAnimationBuilder<double>(
-              tween: Tween(end: outerProgress ?? 0),
+              tween: Tween(end: ringOuter ?? 0),
               duration: _glide,
               curve: Curves.easeOutCubic,
               builder: (context, outer, _) => CustomPaint(
                 size: Size(size, size),
                 painter: _RingPainter(
                   progress: inner,
-                  outerProgress: outerProgress == null ? null : outer,
-                  color: color,
+                  outerProgress: ringOuter == null ? null : outer,
+                  color: ringColor,
                   track: context.colors.divider,
                   // The same token as the inner ring at target — not the
                   // accent color, which changed with the setting.
@@ -84,60 +95,100 @@ class TemperatureRing extends StatelessWidget {
               ),
             ),
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                heroValue == null ? '—' : '${heroValue!.toStringAsFixed(1)}°',
-                style: TextStyle(
-                  color: context.colors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.flag_rounded,
-                    size: 12,
-                    color: context.colors.textSecondary,
+          if (warn)
+            _WarningCenter(warning: warning!, hint: warningHint)
+          else
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  heroValue == null ? '—' : '${heroValue!.toStringAsFixed(1)}°',
+                  style: TextStyle(
+                    color: context.colors.textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w500,
                   ),
-                  if (targetTemp != null) ...[
-                    const SizedBox(width: 3),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.flag_rounded,
+                      size: 12,
+                      color: context.colors.textSecondary,
+                    ),
+                    if (targetTemp != null) ...[
+                      const SizedBox(width: 3),
+                      Text(
+                        '${targetTemp!.toStringAsFixed(1)}°',
+                        style: TextStyle(
+                          color: context.colors.textSecondary,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      '${targetTemp!.toStringAsFixed(1)}°',
+                      statusText ?? '~',
                       style: TextStyle(
-                        color: context.colors.textSecondary,
-                        fontSize: 10.5,
+                        color: statusColor,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
+                    if (showCheck) ...[
+                      const SizedBox(width: 2),
+                      Icon(Icons.check_rounded, size: 13, color: statusColor),
+                    ],
                   ],
-                ],
-              ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    statusText ?? '~',
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (showCheck) ...[
-                    const SizedBox(width: 2),
-                    Icon(Icons.check_rounded, size: 13, color: statusColor),
-                  ],
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
         ],
       ),
+    );
+  }
+}
+
+class _WarningCenter extends StatelessWidget {
+  const _WarningCenter({required this.warning, required this.hint});
+
+  final String warning;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final danger = context.colors.danger;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.format_color_reset_outlined, size: 24, color: danger),
+        const SizedBox(height: 2),
+        Text(
+          warning,
+          style: TextStyle(
+            color: danger,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (hint != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            hint!,
+            style: TextStyle(
+              color: context.colors.textSecondary,
+              fontSize: 10.5,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
