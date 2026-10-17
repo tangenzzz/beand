@@ -130,7 +130,7 @@ class PourOverHero extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: SensorStack.ringToValues),
-              SensorStack(sensors: values),
+              SensorStack(sensors: values, large: true),
             ],
           ),
           // Pour info below the ring instead of inside — inside the ring it

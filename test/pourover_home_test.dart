@@ -8,6 +8,7 @@ import 'package:beand/scale/simulated_scale.dart';
 import 'package:beand/screens/live/pourover/live_brew_card.dart';
 import 'package:beand/screens/live/pourover/pourover_home.dart';
 import 'package:beand/screens/live/pourover/pre_brew_card.dart';
+import 'package:beand/screens/live/sensor_stack.dart';
 import 'package:beand/screens/profile/pourover_profile_detail_screen.dart';
 import 'package:beand/services/ai/ai_key_store.dart';
 import 'package:beand/services/ai/ai_settings.dart';
@@ -97,6 +98,27 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 10));
   }
+
+  // Time and weight next to the ring are large (read while pouring), on a
+  // phone-width screen without overflowing.
+  testWidgets('hero: time and weight are shown large', (tester) async {
+    tester.view.physicalSize = const Size(412, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(wrap());
+      await tester.pump();
+      final time = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(SensorStack),
+          matching: find.text('0:00'),
+        ),
+      );
+      expect(time.style?.fontSize, 28);
+      expect(tester.takeException(), isNull);
+      await disposeTree(tester);
+    });
+  });
 
   testWidgets('connects the scale, brews a recipe and lands on Post Brew', (
     tester,

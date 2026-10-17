@@ -44,9 +44,15 @@ class SensorStack extends StatelessWidget {
     super.key,
     required this.sensors,
     this.dimMissing = false,
+    this.large = false,
   });
 
   final List<SensorValue> sensors;
+
+  // Larger values and a wider column — for Pour Over, where only two values
+  // (time and weight) stand next to the ring and should be read at a glance
+  // while pouring.
+  final bool large;
 
   // Additionally dim a row without a value. Only the GaggiMate does this:
   // there a missing value means "the machine can't" (pressure/flow only on
@@ -65,18 +71,19 @@ class SensorStack extends StatelessWidget {
   // value gets three digits.
   static const ringToValues = 30.0;
   static const _width = 92.0;
+  static const _largeWidth = 118.0;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: _width,
+      width: large ? _largeWidth : _width,
       height: TemperatureRing.defaultSize,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           for (var i = 0; i < sensors.length; i++) ...[
             if (i > 0) const SizedBox(height: _gap),
-            SensorRow(sensors[i], dimMissing: dimMissing),
+            SensorRow(sensors[i], dimMissing: dimMissing, large: large),
           ],
         ],
       ),
@@ -85,10 +92,16 @@ class SensorStack extends StatelessWidget {
 }
 
 class SensorRow extends StatelessWidget {
-  const SensorRow(this.data, {super.key, this.dimMissing = false});
+  const SensorRow(
+    this.data, {
+    super.key,
+    this.dimMissing = false,
+    this.large = false,
+  });
 
   final SensorValue data;
   final bool dimMissing;
+  final bool large;
 
   // Row heights fixed instead of left to the font: only then can we
   // compute that the column fits within the ring.
@@ -106,7 +119,7 @@ class SensorRow extends StatelessWidget {
           // Color mark next to the name/value pair.
           Container(
             width: 3,
-            height: 30,
+            height: large ? 48 : 30,
             decoration: BoxDecoration(
               color: data.color,
               borderRadius: BorderRadius.circular(2),
@@ -124,7 +137,7 @@ class SensorRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: context.colors.textSecondary,
-                    fontSize: 10,
+                    fontSize: large ? 11 : 10,
                     height: _labelHeight,
                     letterSpacing: 0.8,
                   ),
@@ -136,7 +149,7 @@ class SensorRow extends StatelessWidget {
                             '${data.value!.toStringAsFixed(data.digits)}${data.unit}',
                   style: TextStyle(
                     color: context.colors.textPrimary,
-                    fontSize: 15,
+                    fontSize: large ? 28 : 15,
                     height: _valueHeight,
                     fontWeight: FontWeight.w600,
                   ),
