@@ -82,15 +82,6 @@ class _GrinderDialogState extends State<_GrinderDialog> {
       if (c.text.trim().isNotEmpty) c.text.trim(),
   ];
 
-  void _takeBurrSuggestion(String burr) {
-    final empty = _burrs.where((c) => c.text.trim().isEmpty);
-    if (empty.isNotEmpty) {
-      empty.first.text = burr;
-    } else {
-      setState(() => _addBurrField(burr));
-    }
-  }
-
   void _save() {
     final name = _name.text.trim();
     if (name.isEmpty) return;
@@ -142,12 +133,8 @@ class _GrinderDialogState extends State<_GrinderDialog> {
           key: const ValueKey('grinder-brand'),
           controller: _brand,
           label: 'Brand',
+          suggestions: store.brandSuggestions,
         ),
-        if (_brand.text.trim().isEmpty)
-          _Suggestions(
-            values: store.brandSuggestions,
-            onPick: (v) => _brand.text = v,
-          ),
         _Field(
           key: const ValueKey('grinder-name'),
           controller: _name,
@@ -163,6 +150,10 @@ class _GrinderDialogState extends State<_GrinderDialog> {
                   key: ValueKey('grinder-burrs-$i'),
                   controller: _burrs[i],
                   label: 'Burrs',
+                  suggestions: [
+                    for (final s in store.burrSuggestions)
+                      if (!burrTaken.contains(s.toLowerCase())) s,
+                  ],
                 ),
               ),
               if (_burrs.length > 1)
@@ -177,19 +168,16 @@ class _GrinderDialogState extends State<_GrinderDialog> {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: () => setState(_addBurrField),
-            icon: Icon(Icons.add, color: context.colors.accent, size: 18),
+            icon: Icon(
+              Icons.add,
+              color: context.colors.textSecondary,
+              size: 18,
+            ),
             label: Text(
               'Add burrs',
-              style: TextStyle(color: context.colors.accent),
+              style: TextStyle(color: context.colors.textSecondary),
             ),
           ),
-        ),
-        _Suggestions(
-          values: [
-            for (final s in store.burrSuggestions)
-              if (!burrTaken.contains(s.toLowerCase())) s,
-          ],
-          onPick: _takeBurrSuggestion,
         ),
       ],
     );
@@ -511,7 +499,10 @@ class _SetupDialog extends StatelessWidget {
   }
 }
 
-class _Field extends StatelessWidget {
+// A text field in the My Setup dialogs: label and underline in neutral
+// tones (not the accent), and — like the bean form — matching earlier
+// entries as tappable chips below while typing.
+class _Field extends StatefulWidget {
   const _Field({
     super.key,
     required this.controller,
@@ -519,6 +510,7 @@ class _Field extends StatelessWidget {
     this.autofocus = false,
     this.numeric = false,
     this.suffix,
+    this.suggestions = const [],
   });
 
   final TextEditingController controller;
@@ -526,46 +518,135 @@ class _Field extends StatelessWidget {
   final bool autofocus;
   final bool numeric;
   final String? suffix;
+  final List<String> suggestions;
 
   @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      autofocus: autofocus,
-      textCapitalization: numeric
-          ? TextCapitalization.none
-          : TextCapitalization.words,
-      keyboardType: numeric
-          ? const TextInputType.numberWithOptions(decimal: true)
-          : null,
-      inputFormatters: numeric
-          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))]
-          : null,
-      style: TextStyle(color: context.colors.textPrimary),
-      decoration: InputDecoration(labelText: label, suffixText: suffix),
-    );
-  }
+  State<_Field> createState() => _FieldState();
 }
 
-class _Suggestions extends StatelessWidget {
-  const _Suggestions({required this.values, required this.onPick});
+class _FieldState extends State<_Field> {
+  final _focus = FocusNode();
 
-  final List<String> values;
-  final ValueChanged<String> onPick;
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(_refresh);
+    widget.controller.addListener(_refresh);
+  }
+
+  @override
+  void didUpdateWidget(_Field old) {
+    super.didUpdateWidget(old);
+    if (old.controller != widget.controller) {
+      old.controller.removeListener(_refresh);
+      widget.controller.addListener(_refresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_refresh);
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  // Only entries starting with what is typed; nothing without input.
+  List<String> _matches() {
+    if (!_focus.hasFocus) return const [];
+    final q = widget.controller.text.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+    return [
+      for (final s in widget.suggestions)
+        if (s.toLowerCase() != q && s.toLowerCase().startsWith(q)) s,
+    ];
+  }
+
+  void _apply(String value) {
+    widget.controller.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (values.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (final v in values)
-            ActionChip(label: Text(v), onPressed: () => onPick(v)),
-        ],
-      ),
+    final colors = context.colors;
+    final neutral = TextStyle(color: colors.textSecondary);
+    final matches = _matches();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: widget.controller,
+          focusNode: _focus,
+          autofocus: widget.autofocus,
+          textCapitalization: widget.numeric
+              ? TextCapitalization.none
+              : TextCapitalization.words,
+          keyboardType: widget.numeric
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : null,
+          inputFormatters: widget.numeric
+              ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))]
+              : null,
+          cursorColor: colors.textSecondary,
+          style: TextStyle(color: colors.textPrimary),
+          decoration: InputDecoration(
+            labelText: widget.label,
+            labelStyle: neutral,
+            floatingLabelStyle: neutral,
+            suffixText: widget.suffix,
+            suffixStyle: neutral,
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: colors.divider),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: colors.textSecondary),
+            ),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 150),
+          alignment: Alignment.topCenter,
+          child: matches.isEmpty
+              ? const SizedBox(width: double.infinity)
+              // Without TextFieldTapRegion, a tap on a chip counts as
+              // "outside" and takes focus from the field.
+              : TextFieldTapRegion(
+                  child: SizedBox(
+                    height: 40,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(top: 6, bottom: 2),
+                      itemCount: matches.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) => GestureDetector(
+                        onTap: () => _apply(matches[i]),
+                        child: Container(
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: colors.divider),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            matches[i],
+                            style: TextStyle(
+                              color: colors.accent,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }
