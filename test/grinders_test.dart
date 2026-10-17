@@ -248,15 +248,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('water-recipe')), 'Lotus');
     await tester.enterText(find.byKey(const ValueKey('water-gh')), '68');
-    await tester.enterText(
-      find.byKey(const ValueKey('water-gh-source')),
-      'Epsom salt',
-    );
+    // Fixed minerals instead of free text; GH from two of them.
+    await tester.tap(find.text('Epsom salt'));
+    await tester.tap(find.text('Calcium chloride'));
     await tester.enterText(find.byKey(const ValueKey('water-kh')), '40,5');
-    await tester.enterText(
-      find.byKey(const ValueKey('water-kh-source')),
-      'Baking soda',
-    );
+    await tester.tap(find.text('Baking soda'));
+    await tester.pump();
     await tester.enterText(find.byKey(const ValueKey('water-ppm')), '150');
     await tester.tap(find.text('Pour Over'));
     await tester.tap(find.text('Save'));
@@ -265,9 +262,9 @@ void main() {
     final w = waters.waters.single;
     expect(w.recipe, 'Lotus');
     expect(w.gh, 68);
-    expect(w.ghSource, 'Epsom salt');
+    expect(w.ghMinerals, {Mineral.epsomSalt, Mineral.calciumChloride});
     expect(w.kh, 40.5);
-    expect(w.khSource, 'Baking soda');
+    expect(w.khMinerals, {Mineral.bakingSoda});
     expect(w.ppm, 150);
     expect(w.use, WaterUse.pourOver);
     expect(Water.fromJson(w.toJson()), w);

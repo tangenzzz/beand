@@ -38,10 +38,6 @@ class WaterStore extends ChangeNotifier {
 
   List<Water> get waters => List.unmodifiable(_waters);
 
-  /// Sources already used for GH or KH — suggestions for the form.
-  List<String> get ghSources => _distinct(_waters.map((w) => w.ghSource));
-  List<String> get khSources => _distinct(_waters.map((w) => w.khSource));
-
   /// Saves [water]; a new ID ('') gets one.
   Water save(Water water) {
     final saved = water.id.isEmpty
@@ -49,9 +45,9 @@ class WaterStore extends ChangeNotifier {
             id: newSyncId(),
             recipe: water.recipe.trim(),
             gh: water.gh,
-            ghSource: water.ghSource,
+            ghMinerals: water.ghMinerals,
             kh: water.kh,
-            khSource: water.khSource,
+            khMinerals: water.khMinerals,
             ppm: water.ppm,
             use: water.use,
           )
@@ -80,14 +76,6 @@ class WaterStore extends ChangeNotifier {
     if (listEquals(fresh, _waters)) return;
     _waters = fresh;
     notifyListeners();
-  }
-
-  static List<String> _distinct(Iterable<String?> values) {
-    final seen = <String>{};
-    return [
-      for (final v in values)
-        if (v != null && seen.add(v.toLowerCase())) v,
-    ];
   }
 
   void _save() {

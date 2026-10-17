@@ -10,18 +10,44 @@ enum WaterUse {
   final String label;
 }
 
+// The salts commonly used to build coffee water — the same set
+// coffeewater.app offers (Roberto Asami's "Water you doing" also names
+// calcium bicarbonate). GH ones add hardness, KH ones buffer.
+enum Mineral {
+  epsomSalt('Epsom salt', 'MgSO₄·7H₂O', gh: true),
+  calciumChloride('Calcium chloride', 'CaCl₂', gh: true),
+  magnesiumChloride('Magnesium chloride', 'MgCl₂·6H₂O', gh: true),
+  bakingSoda('Baking soda', 'NaHCO₃', gh: false),
+  potassiumBicarbonate('Potassium bicarbonate', 'KHCO₃', gh: false),
+  calciumBicarbonate('Calcium bicarbonate', 'Ca(HCO₃)₂', gh: false);
+
+  const Mineral(this.label, this.formula, {required this.gh});
+  final String label;
+  final String formula;
+  final bool gh;
+
+  static List<Mineral> get forGh => [
+    for (final m in values)
+      if (m.gh) m,
+  ];
+  static List<Mineral> get forKh => [
+    for (final m in values)
+      if (!m.gh) m,
+  ];
+}
+
 // A brew water from My Setup: a recipe name plus hardness. GH and KH are in
-// ppm, each with where it comes from (e.g. GH from Epsom salt, KH from
-// baking soda) — free text with suggestions from the user's own entries.
+// ppm, each with the minerals it comes from (several are common, e.g. GH
+// from Epsom salt and calcium chloride).
 @immutable
 class Water {
   const Water({
     required this.id,
     required this.recipe,
     this.gh,
-    this.ghSource,
+    this.ghMinerals = const {},
     this.kh,
-    this.khSource,
+    this.khMinerals = const {},
     this.ppm,
     this.use,
   });
@@ -29,9 +55,9 @@ class Water {
   final String id;
   final String recipe;
   final double? gh;
-  final String? ghSource;
+  final Set<Mineral> ghMinerals;
   final double? kh;
-  final String? khSource;
+  final Set<Mineral> khMinerals;
   // Total dissolved solids.
   final double? ppm;
   final WaterUse? use;
@@ -40,9 +66,11 @@ class Water {
     'id': id,
     'recipe': recipe,
     'gh': ?gh,
-    'ghSource': ?ghSource,
+    if (ghMinerals.isNotEmpty)
+      'ghMinerals': [for (final m in ghMinerals) m.name],
     'kh': ?kh,
-    'khSource': ?khSource,
+    if (khMinerals.isNotEmpty)
+      'khMinerals': [for (final m in khMinerals) m.name],
     'ppm': ?ppm,
     'use': ?use?.name,
   };
@@ -60,18 +88,24 @@ class Water {
       return v is num ? v.toDouble() : null;
     }
 
-    String? text(String key) {
+    // Unknown names (a later app version) are skipped.
+    Set<Mineral> minerals(String key) {
       final v = json[key];
-      return v is String && v.trim().isNotEmpty ? v : null;
+      if (v is! List) return const {};
+      final byName = Mineral.values.asNameMap();
+      return {
+        for (final n in v)
+          if (byName[n] != null) byName[n]!,
+      };
     }
 
     return Water(
       id: id,
       recipe: recipe,
       gh: number('gh'),
-      ghSource: text('ghSource'),
+      ghMinerals: minerals('ghMinerals'),
       kh: number('kh'),
-      khSource: text('khSource'),
+      khMinerals: minerals('khMinerals'),
       ppm: number('ppm'),
       use: WaterUse.values.asNameMap()[json['use']],
     );
@@ -83,13 +117,21 @@ class Water {
       other.id == id &&
       other.recipe == recipe &&
       other.gh == gh &&
-      other.ghSource == ghSource &&
+      setEquals(other.ghMinerals, ghMinerals) &&
       other.kh == kh &&
-      other.khSource == khSource &&
+      setEquals(other.khMinerals, khMinerals) &&
       other.ppm == ppm &&
       other.use == use;
 
   @override
-  int get hashCode =>
-      Object.hash(id, recipe, gh, ghSource, kh, khSource, ppm, use);
+  int get hashCode => Object.hash(
+    id,
+    recipe,
+    gh,
+    Object.hashAllUnordered(ghMinerals),
+    kh,
+    Object.hashAllUnordered(khMinerals),
+    ppm,
+    use,
+  );
 }

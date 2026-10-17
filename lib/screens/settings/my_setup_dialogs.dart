@@ -208,9 +208,9 @@ class _WaterDialog extends StatefulWidget {
 class _WaterDialogState extends State<_WaterDialog> {
   late final _recipe = TextEditingController(text: widget.water?.recipe);
   late final _gh = TextEditingController(text: _num(widget.water?.gh));
-  late final _ghSource = TextEditingController(text: widget.water?.ghSource);
   late final _kh = TextEditingController(text: _num(widget.water?.kh));
-  late final _khSource = TextEditingController(text: widget.water?.khSource);
+  late final _ghMinerals = {...?widget.water?.ghMinerals};
+  late final _khMinerals = {...?widget.water?.khMinerals};
   late final _ppm = TextEditingController(text: _num(widget.water?.ppm));
   late WaterUse? _use = widget.water?.use;
 
@@ -220,22 +220,15 @@ class _WaterDialogState extends State<_WaterDialog> {
   static double? _parse(TextEditingController c) =>
       double.tryParse(c.text.trim().replaceAll(',', '.'));
 
-  static String? _text(TextEditingController c) {
-    final t = c.text.trim();
-    return t.isEmpty ? null : t;
-  }
-
   @override
   void initState() {
     super.initState();
-    for (final c in [_recipe, _ghSource, _khSource]) {
-      c.addListener(() => setState(() {}));
-    }
+    _recipe.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    for (final c in [_recipe, _gh, _ghSource, _kh, _khSource, _ppm]) {
+    for (final c in [_recipe, _gh, _kh, _ppm]) {
       c.dispose();
     }
     super.dispose();
@@ -249,9 +242,9 @@ class _WaterDialogState extends State<_WaterDialog> {
         id: widget.water?.id ?? '',
         recipe: recipe,
         gh: _parse(_gh),
-        ghSource: _text(_ghSource),
+        ghMinerals: _ghMinerals,
         kh: _parse(_kh),
-        khSource: _text(_khSource),
+        khMinerals: _khMinerals,
         ppm: _parse(_ppm),
         use: _use,
       ),
@@ -268,7 +261,6 @@ class _WaterDialogState extends State<_WaterDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final store = context.watch<WaterStore>();
     final editing = widget.water != null;
     return _SetupDialog(
       title: editing ? 'Edit water' : 'Add water',
@@ -283,60 +275,32 @@ class _WaterDialogState extends State<_WaterDialog> {
           label: 'Recipe',
           autofocus: !editing,
         ),
-        Row(
-          children: [
-            SizedBox(
-              width: 86,
-              child: _Field(
-                key: const ValueKey('water-gh'),
-                controller: _gh,
-                label: 'GH',
-                suffix: 'ppm',
-                numeric: true,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _Field(
-                key: const ValueKey('water-gh-source'),
-                controller: _ghSource,
-                label: 'GH from',
-              ),
-            ),
-          ],
+        _Field(
+          key: const ValueKey('water-gh'),
+          controller: _gh,
+          label: 'GH',
+          suffix: 'ppm',
+          numeric: true,
         ),
-        if (_ghSource.text.trim().isEmpty)
-          _Suggestions(
-            values: store.ghSources,
-            onPick: (v) => _ghSource.text = v,
-          ),
-        Row(
-          children: [
-            SizedBox(
-              width: 86,
-              child: _Field(
-                key: const ValueKey('water-kh'),
-                controller: _kh,
-                label: 'KH',
-                suffix: 'ppm',
-                numeric: true,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _Field(
-                key: const ValueKey('water-kh-source'),
-                controller: _khSource,
-                label: 'KH from',
-              ),
-            ),
-          ],
+        _MineralChoice(
+          minerals: Mineral.forGh,
+          selected: _ghMinerals,
+          onToggle: (m) =>
+              setState(() => _ghMinerals.remove(m) || _ghMinerals.add(m)),
         ),
-        if (_khSource.text.trim().isEmpty)
-          _Suggestions(
-            values: store.khSources,
-            onPick: (v) => _khSource.text = v,
-          ),
+        _Field(
+          key: const ValueKey('water-kh'),
+          controller: _kh,
+          label: 'KH',
+          suffix: 'ppm',
+          numeric: true,
+        ),
+        _MineralChoice(
+          minerals: Mineral.forKh,
+          selected: _khMinerals,
+          onToggle: (m) =>
+              setState(() => _khMinerals.remove(m) || _khMinerals.add(m)),
+        ),
         _Field(
           key: const ValueKey('water-ppm'),
           controller: _ppm,
@@ -352,6 +316,39 @@ class _WaterDialogState extends State<_WaterDialog> {
           onChanged: (v) => setState(() => _use = v),
         ),
       ],
+    );
+  }
+}
+
+// Which salts the hardness comes from — several may be ticked (many recipes
+// mix two). Fixed list, see [Mineral].
+class _MineralChoice extends StatelessWidget {
+  const _MineralChoice({
+    required this.minerals,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final List<Mineral> minerals;
+  final Set<Mineral> selected;
+  final ValueChanged<Mineral> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 6),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 2,
+        children: [
+          for (final m in minerals)
+            DotChoiceItem(
+              label: m.label,
+              selected: selected.contains(m),
+              onTap: () => onToggle(m),
+            ),
+        ],
+      ),
     );
   }
 }
