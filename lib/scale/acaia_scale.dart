@@ -230,6 +230,15 @@ class AcaiaScale extends BrewScale {
   @override
   Future<void> tare() => _write(AcaiaCommands.tare);
 
+  @override
+  Future<void> startTimer() => _write(AcaiaCommands.startTimer);
+
+  @override
+  Future<void> stopTimer() => _write(AcaiaCommands.stopTimer);
+
+  @override
+  Future<void> resetTimer() => _write(AcaiaCommands.resetTimer);
+
   // ---------------------------------------------------------------------
 
   Future<void> _ensurePermissions() async {

@@ -55,6 +55,14 @@ class _ManualScale extends BrewScale {
   @override
   Future<void> tare() async => tares++;
 
+  final timer = <String>[];
+  @override
+  Future<void> startTimer() async => timer.add('start');
+  @override
+  Future<void> stopTimer() async => timer.add('stop');
+  @override
+  Future<void> resetTimer() async => timer.add('reset');
+
   void send(double g, DateTime at) {
     grams = g;
     _ctrl.add(ScaleReading(g, at));
@@ -251,6 +259,8 @@ void main() {
         at(0.0);
         at(0.5);
         expect(service.phase, BrewState.armed);
+        // Start resets the scale's timer, the first water starts it.
+        expect(scale.timer, ['reset']);
         at(5);
         expect(service.phase, BrewState.pouring);
         for (var g = 10.0; g <= 50; g += 5) {
@@ -272,12 +282,20 @@ void main() {
         }
         expect(service.phase, BrewState.drawdown);
 
-        // Weight is steady → saved automatically after settleDuration.
-        for (var i = 0; i < 60; i++) {
+        // Weight is steady while the water drips through — the brew keeps
+        // running (time and chart) until "Finish".
+        for (var i = 0; i < 240; i++) {
           at(250);
         }
         async.flushMicrotasks();
+        expect(service.stage, ShotStage.running);
+        expect(service.phase, BrewState.drawdown);
+        expect(service.elapsedMs, greaterThan(60000));
+        expect(scale.timer, ['reset', 'start']);
+        service.stopShot();
+        async.flushMicrotasks();
         expect(service.stage, ShotStage.purging);
+        expect(scale.timer, ['reset', 'start', 'stop']);
         expect(service.activeCard, ActiveCard.post);
       });
 
@@ -330,6 +348,10 @@ void main() {
         for (var i = 0; i < 60; i++) {
           at(200);
         }
+        async.flushMicrotasks();
+        // Target reached, weight still: runs on until "Finish".
+        expect(service.stage, ShotStage.running);
+        service.stopShot();
         async.flushMicrotasks();
         expect(service.stage, ShotStage.purging);
       });

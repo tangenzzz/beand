@@ -34,10 +34,12 @@ enum BrewState {
 // card for all machines). The "machine" here is the scale: no start without
 // a connected scale.
 //
-// Flow: Start → tare → [armed] → first water starts the timer →
-// [pouring] until target weight → [waiting] pause from the recipe → next
-// pour … → [drawdown] → once the weight settles it is saved (or right away
-// via "Finish") → Post Brew.
+// Flow: Start → tare → [armed] → first water starts the timer (also the
+// scale's own) → [pouring] until target weight → [waiting] pause from the
+// recipe → next pour … → [drawdown] → runs on while the water drips through
+// and is only saved via "Finish" → Post Brew. (Until 2026-10-17 it ended by
+// itself once the weight was still — but the dripping water stays on the
+// scale, so the weight is still long before the brew is done.)
 class PourOverBrewService extends LiveShotService {
   PourOverBrewService({
     required this.scale,
@@ -53,13 +55,6 @@ class PourOverBrewService extends LiveShotService {
 
   /// Weight from which the first pour counts as started.
   static const startThreshold = 1.0;
-
-  /// If the weight stays still this long after the last pour, the brew is
-  /// done.
-  static const settleDuration = Duration(seconds: 8);
-
-  /// Flow below this counts as "still".
-  static const settledFlow = 0.3;
 
   @override
   String get machineKey => 'pourover';
@@ -84,9 +79,8 @@ class PourOverBrewService extends LiveShotService {
   //
   // Without a recipe: no pour sequence, just a target water amount (toggle
   // in the command row). Internally this is a plan with ONE pour up to the
-  // target — so the ring, auto-save after drawdown and the history work
-  // without special cases. Below the target the brew only ends via
-  // "Finish": pauses (bloom) must not end it.
+  // target — so the ring, the drawdown and the history work without
+  // special cases. Like every brew it only ends via "Finish".
   static const manualPrefKey = 'pourover_manual';
   static const manualWaterPrefKey = 'pourover_manual_water';
   static const manualStepLabel = 'Free pour';
@@ -185,7 +179,6 @@ class PourOverBrewService extends LiveShotService {
   int get stepIndex => _stepIndex;
   DateTime? _startedAt;
   DateTime? _waitUntil;
-  DateTime? _settledSince;
   double _grams = 0;
   double get grams => _grams;
   double _flow = 0;
@@ -267,12 +260,12 @@ class PourOverBrewService extends LiveShotService {
       notifyListeners();
       return false;
     }
+    _scaleTimer(scale.resetTimer);
     _runningPlan = p;
     _phase = BrewState.armed;
     _stepIndex = 0;
     _startedAt = null;
     _waitUntil = null;
-    _settledSince = null;
     _grams = 0;
     _flow = 0;
     _flowEstimator.reset();
@@ -301,6 +294,7 @@ class PourOverBrewService extends LiveShotService {
       _startedAt = r.at;
       _phase = BrewState.pouring;
       markExtracting(true);
+      _scaleTimer(scale.startTimer);
     }
     final ms = r.at.difference(_startedAt!).inMilliseconds;
     _grams = math.max(0, r.grams);
@@ -346,15 +340,6 @@ class PourOverBrewService extends LiveShotService {
         _waitUntil = null;
       }
     }
-    if (_phase == BrewState.drawdown && _flow < settledFlow) {
-      _settledSince ??= now;
-      if (now.difference(_settledSince!) >= settleDuration) {
-        unawaited(stopShot());
-        return;
-      }
-    } else {
-      _settledSince = null;
-    }
     // Without new packets (scale gone) the flow would otherwise never drop
     // to 0.
     if (_startedAt != null) {
@@ -372,6 +357,7 @@ class PourOverBrewService extends LiveShotService {
     try {
       _stopListening();
       markExtracting(false);
+      if (_startedAt != null) _scaleTimer(scale.stopTimer);
       if (_startedAt == null || !hasReadings) {
         _runningPlan = null;
         applyStage(ShotStage.idle);
@@ -435,6 +421,12 @@ class PourOverBrewService extends LiveShotService {
           ),
       ],
     );
+  }
+
+  // The scale's timer is a nice-to-have: a lost command must not disturb
+  // the brew.
+  static void _scaleTimer(Future<void> Function() command) {
+    unawaited(command().catchError((Object _) {}));
   }
 
   void _stopListening() {

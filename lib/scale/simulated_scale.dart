@@ -68,6 +68,18 @@ class SimulatedScale extends BrewScale {
     if (plan != null) simulate(plan);
   }
 
+  /// Timer commands received, in order (tests).
+  final timerCommands = <String>[];
+
+  @override
+  Future<void> startTimer() async => timerCommands.add('start');
+
+  @override
+  Future<void> stopTimer() async => timerCommands.add('stop');
+
+  @override
+  Future<void> resetTimer() async => timerCommands.add('reset');
+
   /// Set the weight directly (tests).
   void setGrams(double g) {
     _raw = _offset + g;

@@ -83,6 +83,12 @@ abstract class BrewScale extends ChangeNotifier {
   Future<void> forget() => disconnect();
 
   Future<void> tare();
+
+  /// The scale's own timer on its display, so it runs along with the app.
+  /// Scales without one simply do nothing.
+  Future<void> startTimer() async {}
+  Future<void> stopTimer() async {}
+  Future<void> resetTimer() async {}
 }
 
 /// Short model name for tight spots (command row): the Acaia advertises
