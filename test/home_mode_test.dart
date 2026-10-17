@@ -103,6 +103,22 @@ void main() {
     expect(find.text('Pour Over'), findsNothing);
   });
 
+  testWidgets('all pills have the same height, also with the wordmark', (
+    tester,
+  ) async {
+    final settings = AppSettings();
+    await settings.setHomeModeEnabled(HomeMode.gaggimate, true);
+    await tester.pumpWidget(wrap(settings, const HomeModeBar()));
+
+    double pillHeight(Finder content) => tester
+        .getSize(find.ancestor(of: content, matching: find.byType(InkWell)))
+        .height;
+
+    final meticulous = pillHeight(find.text('Meticulous'));
+    expect(pillHeight(find.text('Pour Over')), meticulous);
+    expect(pillHeight(find.byType(GaggiMateWordmark)), meticulous);
+  });
+
   testWidgets('tapping a pill switches the active mode', (tester) async {
     final settings = AppSettings();
     await tester.pumpWidget(wrap(settings, const HomeModeBar()));

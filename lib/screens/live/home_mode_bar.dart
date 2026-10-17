@@ -59,6 +59,10 @@ class HomeModeBar extends StatelessWidget {
   static const _barHeight = 30.0;
 }
 
+// Inside height of every pill (without border): one 12 px line of text plus
+// 4 px above and below, as before.
+const _pillHeight = 24.0;
+
 class _ModePill extends StatelessWidget {
   const _ModePill({
     required this.mode,
@@ -89,8 +93,13 @@ class _ModePill extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+        // Fixed height instead of padding around the content: the wordmark
+        // is lower than a line of text, and every pill (also future ones)
+        // should have the same outline.
+        child: Container(
+          height: _pillHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 11),
+          alignment: Alignment.center,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
