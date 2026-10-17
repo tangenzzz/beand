@@ -20,6 +20,7 @@ import 'screens/settings/meticulous_settings_screen.dart';
 import 'services/ai/ai_service.dart';
 import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
+import 'services/grinder_store.dart';
 import 'services/brew_recipe_store.dart';
 import 'services/live_shot_service.dart';
 import 'services/machine_address_fallback.dart';
@@ -55,6 +56,7 @@ Future<void> main() async {
   final hostname = prefs.getString(hostnamePrefKey) ?? _defaultHostname;
 
   final appSettings = await AppSettings.load();
+  final grinders = await GrinderStore.load();
   // AI settings (Settings → AI). Loaded before runApp so no AI button
   // briefly appears and disappears; the keys themselves stay in the
   // keystore and are fetched per call.
@@ -89,7 +91,9 @@ Future<void> main() async {
   // Each machine has its own setup store — otherwise the GaggiMate home
   // would show the Meticulous profile.
   final shotSetup = await ShotSetup.load();
+  shotSetup.grinders = grinders;
   final gaggimateSetup = await ShotSetup.load(machineKey: 'gaggimate');
+  gaggimateSetup.grinders = grinders;
   final shotSetups = ShotSetups(
     meticulous: shotSetup,
     gaggimate: gaggimateSetup,
@@ -160,6 +164,7 @@ Future<void> main() async {
   );
   await recipeStore.load();
   final pourOverSetup = await ShotSetup.load(machineKey: 'pourover');
+  pourOverSetup.grinders = grinders;
   if (pourOverSetup.profileId == null ||
       recipeStore.byId(pourOverSetup.profileId!) == null) {
     final first =
@@ -197,9 +202,10 @@ Future<void> main() async {
       reload: () async {
         await appSettings.reload();
         await aiSettings.reload();
+        await grinders.reload();
       },
     ),
-    settingsSources: [appSettings, aiSettings],
+    settingsSources: [appSettings, aiSettings, grinders],
     docsDir: getApplicationDocumentsDirectory,
   );
   await deviceSync.init();
@@ -209,6 +215,7 @@ Future<void> main() async {
       providers: [
         Provider<AppDatabase>.value(value: database),
         ChangeNotifierProvider<AppSettings>.value(value: appSettings),
+        ChangeNotifierProvider<GrinderStore>.value(value: grinders),
         ChangeNotifierProvider<AiSettings>.value(value: aiSettings),
         // The service depends on the settings and holds no state itself —
         // building it once is enough, and screens can swap it in tests for

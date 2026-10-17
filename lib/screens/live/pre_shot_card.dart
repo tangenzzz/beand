@@ -20,6 +20,7 @@ import 'brew_control_button.dart';
 import 'inline_picker.dart';
 import 'ruler_picker.dart';
 import 'tile_title.dart';
+import 'grinder_choice.dart';
 
 // Pre-Shot card. "Bean" is real: picks from the beans created in the Beans
 // tab (purely local, not sent to the machine). "Profile" is real: picks from
@@ -43,7 +44,7 @@ class PreShotCard extends StatefulWidget {
   State<PreShotCard> createState() => _PreShotCardState();
 }
 
-enum _OpenList { bean, profile, dose, grind }
+enum _OpenList { bean, profile, dose, grind, grinder }
 
 // Value ranges of the two rulers (also the bounds for values carried over
 // from an earlier shot).
@@ -133,6 +134,7 @@ class _PreShotCardState extends State<PreShotCard> {
     _OpenList.bean => InlinePicker.heightFor(_pickableBeans.length),
     _OpenList.profile => InlinePicker.heightFor(_profiles?.length ?? 1),
     _OpenList.dose || _OpenList.grind => RulerPicker.height,
+    _OpenList.grinder => GrinderPickerList.heightFor(context),
     null => 0,
   };
 
@@ -393,7 +395,13 @@ class _PreShotCardState extends State<PreShotCard> {
                           : Icons.expand_more,
                       isLast: true,
                       onTap: () => _toggle(_OpenList.grind),
+                      extra: GrinderPill(
+                        open: _open == _OpenList.grinder,
+                        onTap: () => _toggle(_OpenList.grinder),
+                      ),
                     ),
+                    if (_open == _OpenList.grinder)
+                      GrinderPickerList(onChosen: _close),
                     if (_open == _OpenList.grind)
                       RulerPicker(
                         value: _grindSize ?? ShotSetup.defaultGrind,
@@ -735,6 +743,7 @@ class PreShotRow extends StatelessWidget {
     this.trailingIcon,
     this.isLast = false,
     this.onTap,
+    this.extra,
   });
 
   final IconData icon;
@@ -747,6 +756,9 @@ class PreShotRow extends StatelessWidget {
   final IconData? trailingIcon;
   final bool isLast;
   final VoidCallback? onTap;
+  // Sits right after the value with its own tap (e.g. the grinder pill
+  // next to the grind size).
+  final Widget? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -794,6 +806,7 @@ class PreShotRow extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (extra != null) ...[const SizedBox(width: 10), extra!],
                 const SizedBox(width: 4),
                 SizedBox(
                   width: 19,

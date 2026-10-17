@@ -67,6 +67,11 @@ void main() {
       buildNumber: '42',
       buildSignature: '',
     );
+    // Tall enough for all entries; the list is lazy and would not build a
+    // line below the fold.
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(() => tester.runAsync(db.close));
     await tester.pumpWidget(app(db, const SettingsScreen()));

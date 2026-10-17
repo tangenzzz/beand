@@ -12,6 +12,7 @@ import 'beans_settings_screen.dart';
 import 'connections_screen.dart';
 import 'history_settings_screen.dart';
 import 'home_settings_screen.dart';
+import 'my_setup_screen.dart';
 import 'settings_widgets.dart';
 import 'sync_settings_screen.dart';
 
@@ -54,6 +55,11 @@ class SettingsScreen extends StatelessWidget {
                 builder: (_) => const HomeSettingsScreen(),
               ),
 
+              SettingsEntry(
+                icon: Icons.blender_outlined,
+                title: 'My Setup',
+                builder: (_) => const MySetupScreen(),
+              ),
               SettingsEntry(
                 icon: Icons.palette_outlined,
                 title: 'Appearance',

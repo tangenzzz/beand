@@ -23,8 +23,9 @@ import '../ruler_picker.dart';
 import '../tile_title.dart';
 import 'pourover_profile_row.dart';
 import 'recipe_format.dart';
+import '../grinder_choice.dart';
 
-enum _OpenList { recipe, bean, dose, grind, water, temp }
+enum _OpenList { recipe, bean, dose, grind, grinder, water, temp }
 
 // Pre-brew card: recipe, bean, dose, grind size, water + ratio (derived
 // from recipe and dose, hence with a lock) and temperature. Same rows,
@@ -88,6 +89,7 @@ class _PreBrewCardState extends State<PreBrewCard> {
     _OpenList.grind ||
     _OpenList.water ||
     _OpenList.temp => RulerPicker.height,
+    _OpenList.grinder => GrinderPickerList.heightFor(context),
     null => 0,
   };
 
@@ -274,7 +276,15 @@ class _PreBrewCardState extends State<PreBrewCard> {
                       dimValue: grind == null || locked,
                       trailingIcon: locked ? null : _chevron(_OpenList.grind),
                       onTap: tap(_OpenList.grind),
+                      extra: GrinderPill(
+                        open: _open == _OpenList.grinder,
+                        onTap: tap(_OpenList.grinder),
+                      ),
                     ),
+                    if (_open == _OpenList.grinder)
+                      GrinderPickerList(
+                        onChosen: () => _toggle(_OpenList.grinder),
+                      ),
                     if (_open == _OpenList.grind)
                       RulerPicker(
                         value: grind ?? 20,

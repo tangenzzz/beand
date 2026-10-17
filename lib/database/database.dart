@@ -89,6 +89,11 @@ class Shots extends Table with SyncColumns {
   RealColumn get finalWeight => real().nullable()();
   IntColumn get durationMs => integer().nullable()();
   TextColumn get grindSize => text().nullable()();
+  // Grinder and fitted burr set at brew time (Settings → My Setup →
+  // Grinders), as text like the profile name: renaming a grinder later
+  // doesn't rewrite old shots.
+  TextColumn get grinder => text().nullable()();
+  TextColumn get burrs => text().nullable()();
   IntColumn get rating => integer().nullable()();
   // The eight axes of the rating flower, 0-5 each (null = not rated).
   // Separate columns instead of an encoded string so they can be filtered
@@ -260,7 +265,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -373,6 +378,13 @@ class AppDatabase extends _$AppDatabase {
       if (from < 14) {
         // GaggiMate exit reasons per stage.
         await m.addColumn(shots, shots.stageExits);
+      }
+      if (from < 19) {
+        // Grinder + burrs per shot. Before the sync rebuild of schema 15,
+        // which copies the shots per the current definition and so needs
+        // the columns to exist.
+        await m.addColumn(shots, shots.grinder);
+        await m.addColumn(shots, shots.burrs);
       }
       if (from < 15) {
         // Sync foundation: syncId, updatedAt, deviceId, syncState; beans and

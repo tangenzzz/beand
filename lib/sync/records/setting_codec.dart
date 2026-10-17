@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/ai/ai_provider.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../services/app_settings.dart';
+import '../../services/grinder_store.dart';
 
 // Which settings travel between devices (whitelist). Everything not listed
 // here stays on the device — above all machine addresses, the currently
@@ -26,6 +27,8 @@ List<String> syncedSettingKeys() => [
   AppSettings.historyAvatarPrefKey,
   AppSettings.themeModePrefKey,
   AppSettings.accentPrefKey,
+  // Settings → My Setup → Grinders (JSON list).
+  GrinderStore.prefKey,
   AiSettings.providerPrefKey,
   AiSettings.baseUrlPrefKey,
   for (final p in AiProvider.values) AiSettings.modelPrefKey(p),

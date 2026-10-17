@@ -60,6 +60,8 @@ void main() {
     await fresh.insertBean(BeansCompanion.insert(name: 'Guji'));
     await fresh.close();
     raw.execute('ALTER TABLE beans DROP COLUMN emptied_at');
+    raw.execute('ALTER TABLE shots DROP COLUMN grinder');
+    raw.execute('ALTER TABLE shots DROP COLUMN burrs');
     raw.execute('PRAGMA user_version = 17');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -73,4 +75,33 @@ void main() {
     expect((await db.allBeans()).single.emptiedAt, DateTime(2026, 10, 12));
     await db.close();
   });
+
+  test(
+    'migration v18 -> v19: grinder and burrs are added, shots stay',
+    () async {
+      final raw = sql.sqlite3.openInMemory();
+      final fresh = AppDatabase(
+        NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+      );
+      await fresh
+          .into(fresh.shots)
+          .insert(ShotsCompanion.insert(timestamp: DateTime(2026, 10, 1)));
+      await fresh.close();
+      raw.execute('ALTER TABLE shots DROP COLUMN grinder');
+      raw.execute('ALTER TABLE shots DROP COLUMN burrs');
+      raw.execute('PRAGMA user_version = 18');
+
+      final db = AppDatabase(NativeDatabase.opened(raw));
+      final shot = (await db.select(db.shots).get()).single;
+      expect(shot.grinder, isNull);
+      expect(shot.burrs, isNull);
+      await (db.update(db.shots)..where((s) => s.id.equals(shot.id))).write(
+        const ShotsCompanion(grinder: Value('Niche Zero'), burrs: Value('SSP')),
+      );
+      final updated = (await db.select(db.shots).get()).single;
+      expect(updated.grinder, 'Niche Zero');
+      expect(updated.burrs, 'SSP');
+      await db.close();
+    },
+  );
 }

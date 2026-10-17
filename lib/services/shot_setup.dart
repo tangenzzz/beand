@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database.dart';
+import '../models/grinder.dart';
+import 'grinder_store.dart';
 
 // What is set in the pre-shot card (profile, bean, dose, grind size). Lives
 // as a service so the shot import can take a snapshot of it when a shot
@@ -20,6 +22,8 @@ class ShotSetupSnapshot {
     required this.beanId,
     required this.doseGrams,
     required this.grindSize,
+    this.grinder,
+    this.burrs,
   });
 
   // Dose and grind size are empty as long as nothing has been brewed with
@@ -28,6 +32,9 @@ class ShotSetupSnapshot {
   final int? beanId;
   final double? doseGrams;
   final double? grindSize;
+  // Name and fitted burrs of the chosen grinder at this moment.
+  final String? grinder;
+  final String? burrs;
 }
 
 class ShotSetup extends ChangeNotifier {
@@ -59,6 +66,7 @@ class ShotSetup extends ChangeNotifier {
   static const _grindKey = 'shot_setup_grind';
   static const _profileIdKey = 'shot_setup_profile_id';
   static const _profileNameKey = 'shot_setup_profile_name';
+  static const _grinderKey = 'shot_setup_grinder_id';
 
   final SharedPreferences? _prefs;
   int? _beanId;
@@ -66,7 +74,12 @@ class ShotSetup extends ChangeNotifier {
   double? _grindSize;
   String? _profileId;
   String? _profileName;
+  String? _grinderId;
   Timer? _saveTimer;
+
+  /// The user's grinders, to turn the chosen ID into name + burrs. Set by
+  /// main(); without it (tests) shots get no grinder.
+  GrinderStore? grinders;
 
   // Without prefs (tests): in memory only.
   factory ShotSetup.inMemory({
@@ -94,6 +107,7 @@ class ShotSetup extends ChangeNotifier {
     setup._grindSize = prefs.getDouble(setup._key(_grindKey));
     setup._profileId = prefs.getString(setup._key(_profileIdKey));
     setup._profileName = prefs.getString(setup._key(_profileNameKey));
+    setup._grinderId = prefs.getString(setup._key(_grinderKey));
     return setup;
   }
 
@@ -102,6 +116,22 @@ class ShotSetup extends ChangeNotifier {
   double? get grindSize => _grindSize;
   String? get profileId => _profileId;
   String? get profileName => _profileName;
+
+  /// The chosen grinder, null if none is chosen or it was deleted. With
+  /// exactly one grinder that one counts as chosen.
+  Grinder? get grinder {
+    final store = grinders;
+    if (store == null) return null;
+    final chosen = store.byId(_grinderId);
+    if (chosen != null) return chosen;
+    return store.grinders.length == 1 ? store.grinders.single : null;
+  }
+
+  void setGrinder(String? id) {
+    if (id == _grinderId) return;
+    _grinderId = id;
+    _changed();
+  }
 
   void setBean(int? id) {
     if (id == _beanId) return;
@@ -175,6 +205,8 @@ class ShotSetup extends ChangeNotifier {
     beanId: _beanId,
     doseGrams: _doseGrams,
     grindSize: _grindSize,
+    grinder: grinder?.name,
+    burrs: grinder?.activeBurrs,
   );
 
   // The rulers report every change while dragging: debounce writes.
@@ -194,6 +226,10 @@ class ShotSetup extends ChangeNotifier {
       writeInt(_beanKey, _beanId);
       writeDouble(_doseKey, _doseGrams);
       writeDouble(_grindKey, _grindSize);
+      final grinderId = _grinderId;
+      grinderId == null
+          ? prefs.remove(_key(_grinderKey))
+          : prefs.setString(_key(_grinderKey), grinderId);
       final profileId = _profileId;
       final profileName = _profileName;
       if (profileId == null || profileName == null) {

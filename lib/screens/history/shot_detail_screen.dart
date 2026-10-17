@@ -504,6 +504,34 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             ),
           ],
         ),
+        // Grinder and burrs as they were at brew time (My Setup).
+        if (shot.grinder != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.blender_outlined,
+                  size: 14,
+                  color: context.colors.textTertiary,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    [shot.grinder!, ?shot.burrs].join('  ·  '),
+                    key: const ValueKey('shot-grinder'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (_open == _Open.dose)
           Padding(
             padding: const EdgeInsets.only(top: 10),

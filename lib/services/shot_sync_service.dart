@@ -224,6 +224,8 @@ class ShotSyncService {
         profileImagePath: Value(imagePath),
         doseGrams: Value(attachSetup?.doseGrams),
         grindSize: Value(attachSetup?.grindSize?.toStringAsFixed(1)),
+        grinder: Value(attachSetup?.grinder),
+        burrs: Value(attachSetup?.burrs),
         finalWeight: Value(parsed.finalWeight),
         durationMs: Value(parsed.durationMs),
         brewTemp: Value(parsed.brewTemp),
@@ -236,7 +238,8 @@ class ShotSyncService {
       untouchedImport:
           beanId == null &&
           attachSetup?.doseGrams == null &&
-          attachSetup?.grindSize == null,
+          attachSetup?.grindSize == null &&
+          attachSetup?.grinder == null,
     );
   }
 }
