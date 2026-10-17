@@ -33,6 +33,10 @@ class _HistoryTabState extends State<HistoryTab> {
   late final StreamSubscription<List<ShotEntry>> _sub;
   List<ShotEntry>? _entries;
   HistoryFilter _filter = HistoryFilter.empty;
+  // Free-text search over bean, roastery, profile, notes and machine (same
+  // pattern as the bean list: magnifier opens a text field in the header).
+  final _search = TextEditingController();
+  bool _searching = false;
   // Multi-select for deleting (long press starts it).
   final Set<int> _selected = {};
   bool get _selecting => _selected.isNotEmpty;
@@ -45,6 +49,7 @@ class _HistoryTabState extends State<HistoryTab> {
     _sub = context.read<AppDatabase>().watchShotEntries().listen((entries) {
       if (mounted) setState(() => _entries = entries);
     });
+    _search.addListener(() => setState(() {}));
   }
 
   @override
@@ -61,6 +66,7 @@ class _HistoryTabState extends State<HistoryTab> {
     widget.scrollToTop?.removeListener(_scrollToTop);
     _scroll.dispose();
     _sub.cancel();
+    _search.dispose();
     super.dispose();
   }
 
@@ -80,10 +86,15 @@ class _HistoryTabState extends State<HistoryTab> {
       context,
       entries: entries,
       initial: _filter,
-      query: '',
+      query: _search.text,
     );
     if (result != null && mounted) setState(() => _filter = result);
   }
+
+  void _closeSearch() => setState(() {
+    _searching = false;
+    _search.clear();
+  });
 
   void _toggleSelected(ShotEntry entry) => setState(() {
     if (!_selected.remove(entry.shot.id)) _selected.add(entry.shot.id);
@@ -157,8 +168,45 @@ class _HistoryTabState extends State<HistoryTab> {
         ],
       );
     }
+    if (_searching) {
+      return Row(
+        children: [
+          HeaderIconButton(
+            tooltip: 'Close search',
+            icon: Icon(Icons.arrow_back, color: context.colors.textSecondary),
+            onPressed: _closeSearch,
+          ),
+          Expanded(
+            child: TextField(
+              controller: _search,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              style: TextStyle(color: context.colors.textPrimary, fontSize: 16),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: 'Search shots',
+                hintStyle: TextStyle(color: context.colors.textTertiary),
+              ),
+            ),
+          ),
+          if (_search.text.isNotEmpty)
+            HeaderIconButton(
+              tooltip: 'Clear',
+              icon: Icon(Icons.close, color: context.colors.textSecondary),
+              onPressed: _search.clear,
+            ),
+          _filterButton(),
+        ],
+      );
+    }
     return Row(
       children: [
+        HeaderIconButton(
+          tooltip: 'Search',
+          icon: Icon(Icons.search, color: context.colors.textSecondary),
+          onPressed: () => setState(() => _searching = true),
+        ),
         _filterButton(),
         const Spacer(),
         HeaderIconButton(
@@ -201,7 +249,7 @@ class _HistoryTabState extends State<HistoryTab> {
         ),
       ];
     }
-    final visible = filterShots(entries, query: '', filter: _filter);
+    final visible = filterShots(entries, query: _search.text, filter: _filter);
     if (visible.isEmpty) {
       return [
         _message(

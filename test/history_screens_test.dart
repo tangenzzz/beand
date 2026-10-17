@@ -136,7 +136,9 @@ void main() {
     await teardownApp(tester);
   });
 
-  testWidgets('History: rows grouped by day, no magnifier', (tester) async {
+  testWidgets('History: rows grouped by day, search finds shots', (
+    tester,
+  ) async {
     bigScreen(tester);
     await tester.runAsync(() async {
       final bean = await db.insertBean(
@@ -172,10 +174,29 @@ void main() {
     // A shot without a bean shows the profile in the first row.
     expect(find.text('Soup'), findsOneWidget);
 
-    // No search in the History tab (only filter and settings).
-    expect(find.byTooltip('Search'), findsNothing);
+    // Search like in the bean list (wanted since 2026-10-17; before, the
+    // History tab deliberately had only filter and settings).
     expect(find.byTooltip('Filter'), findsOneWidget);
     expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pump();
+    // Matches bean, roastery, profile, notes or machine.
+    await tester.enterText(find.byType(TextField), 'cabra');
+    await tester.pump();
+    expect(find.text('Guji Natural'), findsOneWidget);
+    expect(find.text('Soup'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'soup');
+    await tester.pump();
+    expect(find.text('Guji Natural'), findsNothing);
+    expect(find.text('Soup'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'nothing like this');
+    await tester.pump();
+    expect(find.text('No matching shots.'), findsOneWidget);
+    // Closing the search shows everything again.
+    await tester.tap(find.byTooltip('Close search'));
+    await tester.pump();
+    expect(find.text('Guji Natural'), findsOneWidget);
+    expect(find.text('Soup'), findsOneWidget);
 
     await teardownApp(tester);
   });
