@@ -4,12 +4,14 @@ import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/models/grinder.dart';
 import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/screens/live/shot_cards_carousel.dart';
-import 'package:beand/screens/settings/grinders_screen.dart';
+import 'package:beand/models/water.dart';
+import 'package:beand/screens/settings/my_setup_screen.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/grinder_store.dart';
 import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/services/shot_setup.dart';
+import 'package:beand/services/water_store.dart';
 import 'package:beand/sync/records/setting_codec.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:drift/native.dart';
@@ -62,8 +64,18 @@ void main() {
       expect(GrinderStore.decode('not json'), isEmpty);
     });
 
-    test('the list travels with the synced settings', () {
+    test('grinders and waters travel with the synced settings', () {
       expect(syncedSettingKeys(), contains(GrinderStore.prefKey));
+      expect(syncedSettingKeys(), contains(WaterStore.prefKey));
+    });
+
+    test('brand is optional and round-trips', () {
+      final store = GrinderStore.inMemory();
+      final g = store.add('Zero', const [], brand: ' Niche ');
+      expect(g.brand, 'Niche');
+      expect(Grinder.fromJson(g.toJson()), g);
+      expect(store.add('K-Ultra', const [], brand: '  ').brand, isNull);
+      expect(store.brandSuggestions, ['Niche']);
     });
   });
 
@@ -93,27 +105,34 @@ void main() {
     });
   });
 
-  testWidgets('Grinders page: add with two burr sets, tick to switch', (
+  Widget mySetup(GrinderStore grinders, WaterStore waters) => MultiProvider(
+    providers: [
+      ChangeNotifierProvider<GrinderStore>.value(value: grinders),
+      ChangeNotifierProvider<WaterStore>.value(value: waters),
+    ],
+    child: MaterialApp(theme: buildAppTheme(), home: const MySetupScreen()),
+  );
+
+  testWidgets('My Setup: add a grinder with two burr sets, tick to switch', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(800, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final store = GrinderStore.inMemory();
-    await tester.pumpWidget(
-      ChangeNotifierProvider<GrinderStore>.value(
-        value: store,
-        child: MaterialApp(
-          theme: buildAppTheme(),
-          home: const GrindersScreen(),
-        ),
-      ),
-    );
-    expect(find.text('No grinders yet. Tap + to add yours.'), findsOneWidget);
+    await tester.pumpWidget(mySetup(store, WaterStore.inMemory()));
+    // Both sections in the one card, each with its own "+".
+    expect(find.text('Grinders'), findsOneWidget);
+    expect(find.text('Water'), findsOneWidget);
+    expect(find.text('No grinders yet.'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Add grinder'));
     await tester.pumpAndSettle();
     expect(find.text('Add grinder'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('grinder-brand')),
+      'Niche',
+    );
     await tester.enterText(
       find.byKey(const ValueKey('grinder-name')),
       'Niche Zero',
@@ -132,8 +151,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(store.grinders.single.burrs, ['Stock', 'SSP']);
+    expect(store.grinders.single.brand, 'Niche');
     // One card: the grinder with both burr sets, the first one ticked.
-    expect(find.text('Niche Zero'), findsOneWidget);
+    expect(
+      find.textContaining('Niche Zero', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('Stock'), findsOneWidget);
     expect(find.text('SSP'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsOneWidget);
@@ -143,7 +166,7 @@ void main() {
     expect(store.grinders.single.activeBurrs, 'SSP');
 
     // Edit → delete at the bottom of the dialog.
-    await tester.tap(find.text('Niche Zero'));
+    await tester.tap(find.textContaining('Niche Zero', findRichText: true));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete grinder'));
     await tester.pumpAndSettle();
@@ -211,5 +234,43 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(Duration.zero);
+  });
+
+  testWidgets('My Setup: add a water recipe', (tester) async {
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final waters = WaterStore.inMemory();
+    await tester.pumpWidget(mySetup(GrinderStore.inMemory(), waters));
+    expect(find.text('No water recipes yet.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Add water'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('water-recipe')), 'Lotus');
+    await tester.enterText(find.byKey(const ValueKey('water-gh')), '68');
+    await tester.enterText(
+      find.byKey(const ValueKey('water-gh-source')),
+      'Epsom salt',
+    );
+    await tester.enterText(find.byKey(const ValueKey('water-kh')), '40,5');
+    await tester.enterText(
+      find.byKey(const ValueKey('water-kh-source')),
+      'Baking soda',
+    );
+    await tester.enterText(find.byKey(const ValueKey('water-ppm')), '150');
+    await tester.tap(find.text('Pour Over'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final w = waters.waters.single;
+    expect(w.recipe, 'Lotus');
+    expect(w.gh, 68);
+    expect(w.ghSource, 'Epsom salt');
+    expect(w.kh, 40.5);
+    expect(w.khSource, 'Baking soda');
+    expect(w.ppm, 150);
+    expect(w.use, WaterUse.pourOver);
+    expect(Water.fromJson(w.toJson()), w);
+    expect(find.text('GH 68 · KH 40.5 · 150 ppm · Pour Over'), findsOneWidget);
   });
 }

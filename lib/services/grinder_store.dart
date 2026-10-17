@@ -57,10 +57,20 @@ class GrinderStore extends ChangeNotifier {
     ];
   }
 
-  Grinder add(String name, List<String> burrs) {
+  /// Brands already used — suggestions for the form.
+  List<String> get brandSuggestions {
+    final seen = <String>{};
+    return [
+      for (final g in _grinders)
+        if (g.brand != null && seen.add(g.brand!.toLowerCase())) g.brand!,
+    ];
+  }
+
+  Grinder add(String name, List<String> burrs, {String? brand}) {
     final grinder = Grinder(
       id: newSyncId(),
       name: name.trim(),
+      brand: _blankToNull(brand),
       burrs: _clean(burrs),
     );
     _grinders = [..._grinders, grinder];
@@ -71,7 +81,15 @@ class GrinderStore extends ChangeNotifier {
   void update(Grinder grinder) {
     _grinders = [
       for (final g in _grinders)
-        g.id == grinder.id ? grinder.copyWith(burrs: _clean(grinder.burrs)) : g,
+        g.id == grinder.id
+            ? Grinder(
+                id: grinder.id,
+                name: grinder.name.trim(),
+                brand: _blankToNull(grinder.brand),
+                burrs: _clean(grinder.burrs),
+                activeBurr: grinder.activeBurr,
+              )
+            : g,
     ];
     _save();
   }
@@ -100,6 +118,11 @@ class GrinderStore extends ChangeNotifier {
     if (listEquals(fresh, _grinders)) return;
     _grinders = fresh;
     notifyListeners();
+  }
+
+  static String? _blankToNull(String? s) {
+    final t = s?.trim();
+    return t == null || t.isEmpty ? null : t;
   }
 
   static List<String> _clean(List<String> burrs) {

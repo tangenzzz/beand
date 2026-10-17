@@ -5,7 +5,7 @@ import '../../models/grinder.dart';
 import '../../services/grinder_store.dart';
 import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
-import '../settings/grinders_screen.dart';
+import '../settings/my_setup_dialogs.dart';
 import 'inline_picker.dart';
 
 // Screens built without a grinder store (tests, previews) simply show no
@@ -18,9 +18,10 @@ GrinderStore? _watchStore(BuildContext context) {
   }
 }
 
-// Grinder choice right next to the grind size (Pre-Shot and Pre-Brew): a
-// small pill with the chosen grinder; tapping it opens the list below the
-// row. With exactly one grinder the pill just names it — nothing to choose.
+// Grinder choice at the right end of the grind row (Pre-Shot and
+// Pre-Brew): the chosen grinder's name, styled like the other values in
+// the card; tapping it opens the list below the row. With exactly one
+// grinder it just names it — nothing to choose.
 class GrinderPill extends StatelessWidget {
   const GrinderPill({super.key, required this.open, required this.onTap});
 
@@ -34,44 +35,39 @@ class GrinderPill extends StatelessWidget {
     final chosen = context.select<ShotSetup, Grinder?>((s) => s.grinder);
     final choosable = grinders.length > 1 && onTap != null;
     final colors = context.colors;
-    return Material(
-      color: colors.accent.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(AppRadii.button),
-      child: InkWell(
-        key: const ValueKey('grinder-pill'),
-        borderRadius: BorderRadius.circular(AppRadii.button),
-        onTap: choosable ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(9, 4, 6, 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 110),
-                child: Text(
-                  chosen?.name ?? 'Grinder',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: chosen == null
-                        ? colors.textSecondary
-                        : colors.accent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+    return InkWell(
+      key: const ValueKey('grinder-pill'),
+      onTap: choosable ? onTap : null,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: Text(
+              chosen?.name ?? 'Grinder',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: chosen == null
+                    ? colors.textTertiary
+                    : colors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
-              if (choosable)
-                Icon(
-                  open ? Icons.expand_less : Icons.expand_more,
-                  size: 16,
-                  color: colors.accent,
-                )
-              else
-                const SizedBox(width: 3),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 19,
+            child: choosable
+                ? Icon(
+                    open ? Icons.expand_less : Icons.expand_more,
+                    size: 19,
+                    color: colors.textTertiary,
+                  )
+                : null,
+          ),
+        ],
       ),
     );
   }

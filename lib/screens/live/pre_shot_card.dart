@@ -756,7 +756,7 @@ class PreShotRow extends StatelessWidget {
   final IconData? trailingIcon;
   final bool isLast;
   final VoidCallback? onTap;
-  // Sits right after the value with its own tap (e.g. the grinder pill
+  // Right-aligned at the end of the row with its own tap (e.g. the grinder
   // next to the grind size).
   final Widget? extra;
 
@@ -806,7 +806,6 @@ class PreShotRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (extra != null) ...[const SizedBox(width: 10), extra!],
                 const SizedBox(width: 4),
                 SizedBox(
                   width: 19,
@@ -818,6 +817,11 @@ class PreShotRow extends StatelessWidget {
                           size: 19,
                         ),
                 ),
+                if (extra != null) ...[
+                  const Spacer(),
+                  const SizedBox(width: 10),
+                  extra!,
+                ],
               ],
             ),
           ),

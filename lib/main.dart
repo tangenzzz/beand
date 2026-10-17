@@ -21,6 +21,7 @@ import 'services/ai/ai_service.dart';
 import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
 import 'services/grinder_store.dart';
+import 'services/water_store.dart';
 import 'services/brew_recipe_store.dart';
 import 'services/live_shot_service.dart';
 import 'services/machine_address_fallback.dart';
@@ -57,6 +58,7 @@ Future<void> main() async {
 
   final appSettings = await AppSettings.load();
   final grinders = await GrinderStore.load();
+  final waters = await WaterStore.load();
   // AI settings (Settings → AI). Loaded before runApp so no AI button
   // briefly appears and disappears; the keys themselves stay in the
   // keystore and are fetched per call.
@@ -203,9 +205,10 @@ Future<void> main() async {
         await appSettings.reload();
         await aiSettings.reload();
         await grinders.reload();
+        await waters.reload();
       },
     ),
-    settingsSources: [appSettings, aiSettings, grinders],
+    settingsSources: [appSettings, aiSettings, grinders, waters],
     docsDir: getApplicationDocumentsDirectory,
   );
   await deviceSync.init();
@@ -216,6 +219,7 @@ Future<void> main() async {
         Provider<AppDatabase>.value(value: database),
         ChangeNotifierProvider<AppSettings>.value(value: appSettings),
         ChangeNotifierProvider<GrinderStore>.value(value: grinders),
+        ChangeNotifierProvider<WaterStore>.value(value: waters),
         ChangeNotifierProvider<AiSettings>.value(value: aiSettings),
         // The service depends on the settings and holds no state itself —
         // building it once is enough, and screens can swap it in tests for
