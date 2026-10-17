@@ -212,6 +212,8 @@ const nostrExplanation =
     'Nostr is a decentralized network: lots of independent servers instead '
     "of one company's cloud. bean'd rents a locker on several of them and "
     'stores your data inside.\n\n'
+    'Everything is encrypted on this device before it is uploaded. The '
+    "servers only store it — they can't read it.\n\n"
     'The QR code holds your sync key (nsec) — scan it on another device and '
     'sync is on.\n\n'
     'npub = the name on the locker. nsec = the only key. Lose the name and '
@@ -219,9 +221,10 @@ const nostrExplanation =
     'Add your own server for a locker at home.';
 
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child, this.info});
+  const _Section({this.title, required this.child, this.info});
 
-  final String title;
+  /// Null where the child already says it (e.g. a labelled button).
+  final String? title;
   final Widget child;
   final String? info;
 
@@ -237,8 +240,10 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SettingsTitle(title, info: info),
-          const SizedBox(height: 8),
+          if (title != null) ...[
+            SettingsTitle(title!, info: info),
+            const SizedBox(height: 8),
+          ],
           child,
         ],
       ),
@@ -773,7 +778,9 @@ class _DeleteDataSectionState extends State<_DeleteDataSection> {
                 'servers and forgets the key on this device. Your data in '
                 'the app stays.\n\n'
                 'Turn sync off on your other devices first — they still '
-                'have this key.',
+                'have this key.\n\n'
+                'Public servers may keep copies anyway — they stay encrypted '
+                'and unreadable without your nsec.',
                 style: TextStyle(color: colors.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 14),
@@ -828,11 +835,8 @@ class _DeleteDataSectionState extends State<_DeleteDataSection> {
 
   @override
   Widget build(BuildContext context) {
+    // No title above it: the red button already says what it does.
     return _Section(
-      title: 'Delete synced data',
-      info:
-          'Public servers may keep copies anyway — they stay encrypted and '
-          'unreadable without your nsec.',
       child: AppButton(
         key: const ValueKey('sync-delete-data'),
         label: _busy ? 'Deleting…' : 'Delete synced data',

@@ -231,6 +231,8 @@ void main() {
     expect(find.text('QR code with password'), findsNothing);
     expect(find.text('Enter key by hand'), findsNothing);
     expect(nostrExplanation, contains('Nostr'));
+    // Must say plainly that the upload is encrypted.
+    expect(nostrExplanation, contains('encrypted on this device'));
     await finish(tester);
   });
 
