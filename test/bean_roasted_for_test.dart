@@ -9,6 +9,7 @@ import 'package:beand/services/ai/ai_settings.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,6 +174,80 @@ void main() {
     );
     expect(filterBeans(beans), beans);
     expect(const BeanFilter(roastedFor: {'omni'}).activeCount, 1);
+  });
+
+  // Seen 2026-10-14: after changing the taste of an existing bean and saving,
+  // "Roasted for" looked empty. Replays exactly that: edit taste (typed and
+  // via a suggestion chip), save, reopen.
+  testWidgets('editing only the taste keeps Roasted for', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(() => tester.runAsync(db.close));
+
+    final bean = await tester.runAsync(
+      () => db.insertBean(
+        const BeansCompanion(
+          name: Value('Superfreak'),
+          roaster: Value('Some Roaster'),
+          isBlend: Value(false),
+          roastedFor: Value('filter'),
+          taste: Value('cherry'),
+        ),
+      ),
+    );
+    // A second bean so the taste field offers a suggestion chip.
+    await tester.runAsync(
+      () => db.insertBean(
+        const BeansCompanion(
+          name: Value('Other'),
+          taste: Value('blackberry, chocolate'),
+        ),
+      ),
+    );
+
+    Future<void> settle() async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump();
+    }
+
+    await tester.pumpWidget(app(db, BeanFormScreen(bean: bean)));
+    await settle();
+    expect(pillSelected(tester, 'Filter'), true);
+
+    final taste = find.ancestor(
+      of: find.text('e.g. blackcurrant, grapefruit'),
+      matching: find.byType(TextField),
+    );
+    await tester.tap(taste);
+    await tester.pump();
+    await tester.enterText(taste, 'cherry, bl');
+    // Let the chip row finish growing before tapping into it.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('blackberry'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(pillSelected(tester, 'Filter'), true);
+
+    await tester.tap(find.text('Save'));
+    await settle();
+
+    final saved = await tester.runAsync(
+      () => (db.select(
+        db.beans,
+      )..where((b) => b.name.equals('Superfreak'))).getSingle(),
+    );
+    expect(saved!.taste, 'cherry, blackberry');
+    expect(saved.roastedFor, 'filter');
+    expect(saved.isBlend, false);
+
+    await tester.pumpWidget(app(db, BeanFormScreen(bean: saved)));
+    await settle();
+    expect(pillSelected(tester, 'Filter'), true);
   });
 
   test('migration v7 -> v8: type is kept, Roasted for is empty', () async {
