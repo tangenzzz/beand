@@ -113,7 +113,13 @@ bean'd builds on the work and documentation of others:
   validation rules (rewritten, not copied).
 - [nickwilsonr/meticulous-addon](https://github.com/nickwilsonr/meticulous-addon):
   preheat detection.
-- [GaggiMate](https://github.com/jniebuhr/gaggimate): machine API.
+- [GaggiMate](https://github.com/jniebuhr/gaggimate): machine API. The
+  GaggiMate wordmark and cup logo are used with permission of GaggiMate for
+  this non-commercial project.
+- [Uicons by Flaticon](https://www.flaticon.com/uicons): GaggiMate mode
+  icons (brew, steam, water), as used on the machine's display.
+  These assets are not covered by the GPL; see
+  [assets/gaggimate/README.md](assets/gaggimate/README.md).
 - [Nostr NIPs](https://github.com/nostr-protocol/nips),
   [paulmillr/nip44](https://github.com/paulmillr/nip44) test vectors and
   [Blossom](https://github.com/hzrd149/blossom).

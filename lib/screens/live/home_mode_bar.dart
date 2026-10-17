@@ -6,6 +6,7 @@ import '../../scale/brew_scale.dart';
 import '../../services/app_settings.dart';
 import '../../services/meticulous_socket_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/gaggimate_icons.dart';
 
 // Header bar in the Home tab (design H1): oval pills to switch the Home
 // view, each with connection status. Which pills appear is controlled by
@@ -73,6 +74,9 @@ class _ModePill extends StatelessWidget {
   Widget build(BuildContext context) {
     // Subtle: same (transparent) background for all; the active pill only
     // has a slightly lighter border + white text, no accent teal.
+    final textColor = selected
+        ? context.colors.textPrimary
+        : context.colors.textSecondary;
     return Material(
       color: Colors.transparent,
       shape: StadiumBorder(
@@ -90,16 +94,19 @@ class _ModePill extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                mode.label,
-                style: TextStyle(
-                  color: selected
-                      ? context.colors.textPrimary
-                      : context.colors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+              // GaggiMate shows its wordmark (with permission), sized to
+              // the cap height of the other pills' text.
+              if (mode == HomeMode.gaggimate)
+                GaggiMateWordmark(height: 8.5, color: textColor)
+              else
+                Text(
+                  mode.label,
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
               const SizedBox(width: 6),
               _StatusIndicator(mode: mode),
             ],

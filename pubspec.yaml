@@ -76,6 +76,7 @@ dependencies:
   qr_flutter: ^4.1.0
   mobile_scanner: ^7.4.2
   local_auth: ^3.0.2
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -108,6 +109,12 @@ flutter:
   assets:
     - assets/brew_recipes.json
     - assets/branding/wordmark.png
+    # GaggiMate logo + mode icons, not GPL (see assets/gaggimate/README.md)
+    - assets/gaggimate/wordmark.svg
+    - assets/gaggimate/cup.svg
+    - assets/gaggimate/brew.svg
+    - assets/gaggimate/steam.svg
+    - assets/gaggimate/water.svg
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -70,6 +70,18 @@ const credits = [
     'https://github.com/jniebuhr/gaggimate',
   ),
   Credit(
+    'GaggiMate logo',
+    'Wordmark and cup logo, used with permission',
+    null,
+    'https://gaggimate.eu',
+  ),
+  Credit(
+    'Uicons by Flaticon',
+    'GaggiMate mode icons',
+    'Flaticon license',
+    'https://www.flaticon.com/uicons',
+  ),
+  Credit(
     'Nostr NIPs',
     'Sync protocol',
     'Public domain',

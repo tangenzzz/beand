@@ -10,6 +10,7 @@ import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/brew_recipe_store.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:beand/widgets/gaggimate_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -77,7 +78,7 @@ void main() {
     await tester.pumpWidget(wrap(settings, const HomeModeBar()));
     expect(find.text('Meticulous'), findsOneWidget);
     expect(find.text('Pour Over'), findsOneWidget);
-    expect(find.text('GaggiMate'), findsNothing);
+    expect(find.byType(GaggiMateWordmark), findsNothing);
     expect(find.byIcon(Icons.bluetooth), findsOneWidget);
 
     await tester.pumpWidget(wrap(settings, const HomeSettingsScreen()));
@@ -97,7 +98,8 @@ void main() {
     // Fresh tree: otherwise the opened Pour Over page would still be on top.
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(wrap(settings, const HomeModeBar()));
-    expect(find.text('GaggiMate'), findsOneWidget);
+    // GaggiMate shows its wordmark instead of the text.
+    expect(find.byType(GaggiMateWordmark), findsOneWidget);
     expect(find.text('Pour Over'), findsNothing);
   });
 
