@@ -71,7 +71,7 @@ const credits = [
   ),
   Credit(
     'GaggiMate logo',
-    'Wordmark and cup logo, used with permission',
+    'Wordmark, used with permission',
     null,
     'https://gaggimate.eu',
   ),

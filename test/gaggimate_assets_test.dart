@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  for (final name in ['wordmark', 'cup', 'brew', 'steam', 'water']) {
+  for (final name in ['wordmark', 'brew', 'steam', 'water']) {
     test('$name.svg is bundled', () async {
       final svg = await rootBundle.loadString('assets/gaggimate/$name.svg');
       expect(svg, contains('<svg'));

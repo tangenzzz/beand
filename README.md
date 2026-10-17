@@ -114,7 +114,7 @@ bean'd builds on the work and documentation of others:
 - [nickwilsonr/meticulous-addon](https://github.com/nickwilsonr/meticulous-addon):
   preheat detection.
 - [GaggiMate](https://github.com/jniebuhr/gaggimate): machine API. The
-  GaggiMate wordmark and cup logo are used with permission of GaggiMate for
+  GaggiMate wordmark is used with permission of GaggiMate for
   this non-commercial project.
 - [Uicons by Flaticon](https://www.flaticon.com/uicons): GaggiMate mode
   icons (brew, steam, water), as used on the machine's display.

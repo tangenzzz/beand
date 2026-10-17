@@ -111,7 +111,6 @@ flutter:
     - assets/branding/wordmark.png
     # GaggiMate logo + mode icons, not GPL (see assets/gaggimate/README.md)
     - assets/gaggimate/wordmark.svg
-    - assets/gaggimate/cup.svg
     - assets/gaggimate/brew.svg
     - assets/gaggimate/steam.svg
     - assets/gaggimate/water.svg

@@ -59,22 +59,3 @@ class GaggiMateWordmark extends StatelessWidget {
     );
   }
 }
-
-// The square cup logo in its own colors (used with permission of GaggiMate).
-class GaggiMateCupLogo extends StatelessWidget {
-  const GaggiMateCupLogo({super.key, this.size});
-
-  /// Without a size it takes the surrounding icon size (e.g. a settings row).
-  final double? size;
-
-  @override
-  Widget build(BuildContext context) {
-    final side = size ?? IconTheme.of(context).size ?? 24;
-    return SvgPicture.asset(
-      'assets/gaggimate/cup.svg',
-      width: side,
-      height: side,
-      semanticsLabel: 'GaggiMate',
-    );
-  }
-}

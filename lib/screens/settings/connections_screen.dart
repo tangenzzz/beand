@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
-import '../../widgets/gaggimate_icons.dart';
 import 'gaggimate_settings_screen.dart';
 import 'meticulous_settings_screen.dart';
 import 'scale_settings_screen.dart';
@@ -25,7 +24,7 @@ class ConnectionsScreen extends StatelessWidget {
                 builder: (_) => const MeticulousSettingsScreen(),
               ),
               SettingsEntry(
-                iconWidget: const GaggiMateCupLogo(),
+                icon: Icons.memory,
                 title: 'GaggiMate',
                 builder: (_) => const GaggiMateSettingsScreen(),
               ),
