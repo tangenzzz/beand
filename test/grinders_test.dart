@@ -6,6 +6,7 @@ import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/screens/live/shot_cards_carousel.dart';
 import 'package:beand/models/water.dart';
 import 'package:beand/screens/settings/my_setup_screen.dart';
+import 'package:beand/screens/settings/settings_widgets.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/grinder_store.dart';
 import 'package:beand/services/live_shot_service.dart';
@@ -147,6 +148,17 @@ void main() {
     await tester.tap(find.byTooltip('Add grinder'));
     await tester.pumpAndSettle();
     expect(find.text('Add grinder'), findsOneWidget);
+    // Neutral label and line, but the blinking cursor in the accent color.
+    final brandField = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey('grinder-brand')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(
+      brandField.cursorColor,
+      buildAppTheme().extension<AppColors>()!.accent,
+    );
     await tester.enterText(
       find.byKey(const ValueKey('grinder-brand')),
       'Niche',
@@ -170,6 +182,8 @@ void main() {
 
     expect(store.grinders.single.burrs, ['Stock', 'SSP']);
     expect(store.grinders.single.brand, 'Niche');
+    // Only one divider: between Grinders and Water, not between entries.
+    expect(find.byType(SettingsDivider), findsOneWidget);
     // One card: the grinder with both burr sets, the first one ticked.
     expect(
       find.textContaining('Niche Zero', findRichText: true),

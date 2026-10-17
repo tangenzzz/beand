@@ -27,32 +27,54 @@ class MySetupScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
+          // One divider only: between the two sections, not between their
+          // entries.
           SettingsCard(
             children: [
-              _SectionHeader(
-                icon: Icons.blender_outlined,
-                title: 'Grinders',
-                addTooltip: 'Add grinder',
-                onAdd: () => showGrinderDialog(context),
+              _Section(
+                children: [
+                  _SectionHeader(
+                    icon: Icons.blender_outlined,
+                    title: 'Grinders',
+                    addTooltip: 'Add grinder',
+                    onAdd: () => showGrinderDialog(context),
+                  ),
+                  if (grinders.isEmpty)
+                    const _Empty('Add your grinder to see it on every shot.'),
+                  for (final g in grinders) _GrinderEntry(grinder: g),
+                ],
               ),
-              if (grinders.isEmpty)
-                const _Empty('Add your grinder to see it on every shot.'),
-              for (final g in grinders) _GrinderEntry(grinder: g),
-              _SectionHeader(
-                icon: Icons.water_drop_outlined,
-                title: 'Water',
-                addTooltip: 'Add water',
-                onAdd: () => showWaterDialog(context),
+              _Section(
+                children: [
+                  _SectionHeader(
+                    icon: Icons.water_drop_outlined,
+                    title: 'Water',
+                    addTooltip: 'Add water',
+                    onAdd: () => showWaterDialog(context),
+                  ),
+                  if (waters.isEmpty)
+                    const _Empty('Add a water recipe to keep its minerals.'),
+                  for (final w in waters) _WaterEntry(water: w),
+                ],
               ),
-              if (waters.isEmpty)
-                const _Empty('Add a water recipe to keep its minerals.'),
-              for (final w in waters) _WaterEntry(water: w),
             ],
           ),
         ],
       ),
     );
   }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: children,
+  );
 }
 
 // Small uppercase title with the section's icon; "+" at the far right.

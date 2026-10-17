@@ -593,7 +593,8 @@ class _FieldState extends State<_Field> {
           inputFormatters: widget.numeric
               ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))]
               : null,
-          cursorColor: colors.textSecondary,
+          // The blinking cursor keeps the accent; label and line don't.
+          cursorColor: colors.accent,
           style: TextStyle(color: colors.textPrimary),
           decoration: InputDecoration(
             labelText: widget.label,
