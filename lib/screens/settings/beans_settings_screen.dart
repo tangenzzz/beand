@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../beans/freshness.dart';
 import 'beans_form_settings_screen.dart';
 import 'settings_widgets.dart';
+import '../../widgets/app_switch_tile.dart';
 
 class BeansSettingsScreen extends StatelessWidget {
   const BeansSettingsScreen({super.key});
@@ -22,7 +23,7 @@ class BeansSettingsScreen extends StatelessWidget {
           // in the same container.
           SettingsCard(
             children: [
-              SwitchListTile(
+              AppSwitchTile(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.dividerInset,
                   vertical: 6,
@@ -36,7 +37,7 @@ class BeansSettingsScreen extends StatelessWidget {
                 value: settings.showFreshnessRing,
                 onChanged: settings.setShowFreshnessRing,
               ),
-              SwitchListTile(
+              AppSwitchTile(
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.dividerInset,
                   vertical: 6,

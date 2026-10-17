@@ -6,6 +6,7 @@ import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/bean_icon.dart';
 import 'settings_widgets.dart';
+import '../../widgets/app_switch_tile.dart';
 
 // History settings: which photo is shown in the circle on the shot
 // (thumbnail), and which evaluations appear in the shot detail.
@@ -71,7 +72,7 @@ class _Switch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
+    return AppSwitchTile(
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.dividerInset,
         vertical: 6,

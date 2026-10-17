@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/dot_choice_group.dart';
 import 'settings_widgets.dart';
+import '../../widgets/app_switch_tile.dart';
 
 // Settings → AI. One card, like on every settings page.
 //
@@ -384,7 +385,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   ),
                 ),
                 for (final feature in AiFeature.values)
-                  SwitchListTile(
+                  AppSwitchTile(
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.dividerInset,
                       vertical: 6,

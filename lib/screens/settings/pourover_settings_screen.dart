@@ -5,6 +5,7 @@ import '../../services/app_settings.dart';
 import '../../services/brew_recipe_store.dart';
 import '../../theme/app_theme.dart';
 import 'pourover_profiles_screen.dart';
+import '../../widgets/app_switch_tile.dart';
 
 // Settings → Home → Pour Over: the switch for the pill on Home and the way
 // to the profiles available for selection. One card per page.
@@ -30,7 +31,7 @@ class PourOverSettingsScreen extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                SwitchListTile(
+                AppSwitchTile(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.dividerInset,
                     vertical: 4,

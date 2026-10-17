@@ -64,7 +64,12 @@ void main() {
     // Create: dialog, encryption on, password twice.
     await tester.tap(find.text('Create backup'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('encrypt-backup')));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('encrypt-backup')),
+        matching: find.byType(Switch),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(
       find.textContaining('Without it the backup is lost.'),

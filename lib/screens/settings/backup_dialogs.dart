@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../widgets/app_switch_tile.dart';
 
 // Dialogs for Settings → Backup with sync key and encryption (encrypting
 // the whole backup can be chosen when creating it).
@@ -88,7 +89,7 @@ class _OptionsDialogState extends State<_OptionsDialog> {
                 'Includes your sync key, locked with the password.',
                 style: TextStyle(color: colors.textSecondary, height: 1.4),
               ),
-            SwitchListTile(
+            AppSwitchTile(
               key: const ValueKey('encrypt-backup'),
               contentPadding: EdgeInsets.zero,
               title: Text(

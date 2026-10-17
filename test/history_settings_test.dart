@@ -4,6 +4,7 @@ import 'package:beand/services/ai/ai_provider.dart';
 import 'package:beand/services/ai/ai_settings.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:beand/widgets/app_switch_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -16,6 +17,12 @@ import 'package:beand/screens/settings/settings_widgets.dart';
 // Explanations sit behind an ⓘ (SettingsInfo), not as visible text.
 Finder findInfo(String part) =>
     find.byWidgetPredicate((w) => w is SettingsInfo && w.text.contains(part));
+
+// Only the switch toggles (AppSwitchTile), not the label.
+Finder switchOf(String label) => find.descendant(
+  of: find.ancestor(of: find.text(label), matching: find.byType(ListTile)),
+  matching: find.byType(Switch),
+);
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -43,7 +50,7 @@ void main() {
     expect(ai.isFeatureOn(AiFeature.shotAnalysis), isTrue);
     expect(findInfo('Needs an AI API key'), findsOneWidget);
 
-    await tester.tap(find.text('Local analysis'));
+    await tester.tap(switchOf('Local analysis'));
     await tester.pump();
     expect(app.showShotFacts, isFalse);
     expect(
@@ -53,26 +60,26 @@ void main() {
       isFalse,
     );
 
-    await tester.tap(find.text('AI analysis'));
+    await tester.tap(switchOf('AI analysis'));
     await tester.pump();
     expect(ai.isFeatureOn(AiFeature.shotAnalysis), isFalse);
     expect(ai.isEnabled(AiFeature.shotAnalysis), isFalse);
 
     // Without AI set up: grayed out and off, tapping changes nothing.
-    await tester.tap(find.text('AI analysis'));
+    await tester.tap(switchOf('AI analysis'));
     await tester.pump();
     expect(ai.isFeatureOn(AiFeature.shotAnalysis), isTrue);
     await ai.setEnabled(false);
     await tester.pump();
-    final aiSwitch = tester.widget<SwitchListTile>(
+    final aiSwitch = tester.widget<AppSwitchTile>(
       find.ancestor(
         of: find.text('AI analysis'),
-        matching: find.byType(SwitchListTile),
+        matching: find.byType(AppSwitchTile),
       ),
     );
     expect(aiSwitch.onChanged, isNull);
     expect(aiSwitch.value, isFalse);
-    await tester.tap(find.text('AI analysis'));
+    await tester.tap(switchOf('AI analysis'));
     await tester.pump();
     expect(ai.isFeatureOn(AiFeature.shotAnalysis), isTrue);
   });

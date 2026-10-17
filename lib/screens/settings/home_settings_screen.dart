@@ -5,6 +5,7 @@ import '../../machines/gaggimate/gaggimate_service.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import 'pourover_settings_screen.dart';
+import '../../widgets/app_switch_tile.dart';
 
 // Settings → Home: one switch per view that shows or hides the matching
 // pill at the top left of the Home tab. Pour Over instead leads to its own
@@ -76,7 +77,7 @@ class HomeSettingsScreen extends StatelessWidget {
                       ),
                     )
                   else
-                    SwitchListTile(
+                    AppSwitchTile(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.dividerInset,
                         vertical: 4,

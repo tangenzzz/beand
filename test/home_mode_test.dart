@@ -119,6 +119,23 @@ void main() {
     expect(pillHeight(find.byType(GaggiMateWordmark)), meticulous);
   });
 
+  // Only the switch itself toggles; tapping the row label must not.
+  testWidgets('Settings → Home: tapping the label does not toggle', (
+    tester,
+  ) async {
+    final settings = AppSettings();
+    await tester.pumpWidget(wrap(settings, const HomeSettingsScreen()));
+    final before = settings.isHomeModeEnabled(HomeMode.meticulous);
+
+    await tester.tap(find.text('Meticulous'));
+    await tester.pump();
+    expect(settings.isHomeModeEnabled(HomeMode.meticulous), before);
+
+    await tester.tap(find.byType(Switch).first);
+    await tester.pump();
+    expect(settings.isHomeModeEnabled(HomeMode.meticulous), !before);
+  });
+
   testWidgets('tapping a pill switches the active mode', (tester) async {
     final settings = AppSettings();
     await tester.pumpWidget(wrap(settings, const HomeModeBar()));
