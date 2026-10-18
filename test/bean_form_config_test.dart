@@ -94,6 +94,9 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     final settings = AppSettings();
     await tester.pumpWidget(app(db, settings, const BeansFormSettingsScreen()));
+    // One card, one line: between "Always shown" and the movable fields.
+    expect(find.byType(Divider), findsOneWidget);
+    expect(find.text('ALWAYS SHOWN'), findsOneWidget);
 
     for (final fixed in ['Photo', 'Name', 'Roastery']) {
       expect(find.text(fixed), findsOneWidget);
