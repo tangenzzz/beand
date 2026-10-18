@@ -132,7 +132,8 @@ void main() {
         ValueOption(value: i, title: 'x', subtitle: 'y'),
     ];
 
-    // Expand bean: sorted by roaster, then name; "New bean" at the end.
+    // Expand bean: sorted by roaster, then name; the bar with search and
+    // "+" at the end.
     await tester.tap(find.text('Select bean'));
     // Let the list fold out before tapping into it.
     await tester.pump();
@@ -140,7 +141,7 @@ void main() {
     await tester.pump();
     expect(extra.last, ValueSelectRow.listHeightFor(two(), action: true));
     expect(
-      tester.getTopLeft(find.text('New bean')).dy,
+      tester.getTopLeft(find.byTooltip('New bean')).dy,
       greaterThan(tester.getTopLeft(find.textContaining('Kiambu')).dy),
     );
     expect(
@@ -148,8 +149,8 @@ void main() {
       lessThan(tester.getTopLeft(find.textContaining('Kiambu')).dy),
     );
     expect(find.textContaining('Guji'), findsOneWidget);
-    // Up to 8 entries there is no search field.
-    expect(find.byIcon(Icons.search), findsNothing);
+    // With a "+" the search is there however short the list is.
+    expect(find.byTooltip('Search'), findsOneWidget);
 
     await tester.tap(find.textContaining('Guji'));
     // Let the list fold away.
@@ -168,7 +169,8 @@ void main() {
     service.setActive('', '');
     await tester.pump();
 
-    // Expand profile (without "+"), selection only calls hoverProfile.
+    // Expand profile, selection only calls hoverProfile; its "+" adds a
+    // profile.
     await tester.tap(find.text('Select profile'));
     // Let the list fold out before tapping into it.
     await tester.pump();
@@ -190,8 +192,9 @@ void main() {
         ?_fileOf(image.image),
     ];
     expect(files, [photo.path], reason: 'only the profile with its own photo');
-    expect(find.text('New bean'), findsNothing);
-    expect(extra.last, ValueSelectRow.listHeightFor(two()));
+    expect(find.byTooltip('New bean'), findsNothing);
+    expect(find.byTooltip('Add profile'), findsOneWidget);
+    expect(extra.last, ValueSelectRow.listHeightFor(two(), action: true));
     await tester.tap(find.textContaining('Classic'));
     // Let the list fold away.
     await tester.pump();
@@ -285,7 +288,7 @@ void main() {
       ValueSelectList.heightFor(n(5)) < ValueSelectList.heightFor(n(6)),
       true,
     );
-    // From 9 entries on the search field sits on top.
+    // From 9 entries on the search bar sits at the bottom.
     expect(
       ValueSelectList.heightFor(n(9)) > ValueSelectList.heightFor(n(8)),
       true,

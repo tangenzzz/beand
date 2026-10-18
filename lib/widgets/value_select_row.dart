@@ -33,7 +33,9 @@ class ValueOption<T> {
   final Widget? leading;
 }
 
-/// The optional last entry of a list, e.g. "+ New bean".
+/// The optional "+" at the right of a list's bottom bar, e.g. a new bean.
+/// [label] is not shown — it is the button's tooltip and screen-reader
+/// name.
 class ValueSelectAction {
   const ValueSelectAction(this.label, this.onTap, {this.icon = Icons.add});
 
@@ -513,7 +515,8 @@ class ValueSelectList<T> extends StatefulWidget {
   final String? placeholder;
   final Widget? footer;
 
-  /// Above this many options a search field sits at the top.
+  /// Above this many options a list without an action gets the search bar
+  /// too; with an action it is always there.
   static const searchThreshold = 8;
 
   /// At most this many rows are visible; the rest scrolls.
@@ -521,8 +524,11 @@ class ValueSelectList<T> extends StatefulWidget {
 
   static const _plainRow = 44.0;
   static const _richRow = 54.0;
-  static const _searchHeight = 44.0;
-  static const _actionHeight = 44.5;
+  static const _barHeight = 44.5;
+
+  /// The bottom bar: search at the left, the action's "+" at the right.
+  static bool hasBar<T>(List<ValueOption<T>> options, {bool action = false}) =>
+      action || options.length > searchThreshold;
 
   static double rowHeightFor<T>(List<ValueOption<T>> options) =>
       options.any((o) => o.subtitle != null || o.leading != null)
@@ -539,9 +545,8 @@ class ValueSelectList<T> extends StatefulWidget {
         ? 1.0
         : options.length.toDouble().clamp(1.0, visibleRows);
     return 1 +
-        (options.length > searchThreshold ? _searchHeight : 0) +
         rowHeightFor(options) * rows +
-        (action ? _actionHeight : 0);
+        (hasBar(options, action: action) ? _barHeight : 0);
   }
 
   @override
@@ -552,6 +557,9 @@ class _ValueSelectListState<T> extends State<ValueSelectList<T>> {
   final _search = TextEditingController();
   final _focus = FocusNode();
   late final ScrollController _scroll;
+
+  // The bar shows the search field instead of its icons.
+  bool _searching = false;
 
   @override
   void initState() {
@@ -573,6 +581,12 @@ class _ValueSelectListState<T> extends State<ValueSelectList<T>> {
     super.dispose();
   }
 
+  void _closeSearch() {
+    _search.clear();
+    _focus.unfocus();
+    setState(() => _searching = false);
+  }
+
   List<ValueOption<T>> _visible() {
     final q = _search.text.trim().toLowerCase();
     if (q.isEmpty) return widget.options;
@@ -582,11 +596,65 @@ class _ValueSelectListState<T> extends State<ValueSelectList<T>> {
     ];
   }
 
+  // Magnifier at the left, the action's "+" at the right — icons only.
+  Widget _barIcons(AppColors colors) => Row(
+    children: [
+      IconButton(
+        tooltip: 'Search',
+        visualDensity: VisualDensity.compact,
+        icon: Icon(Icons.search, size: 20, color: colors.textSecondary),
+        onPressed: () {
+          setState(() => _searching = true);
+          _focus.requestFocus();
+        },
+      ),
+      const Spacer(),
+      if (widget.action != null)
+        IconButton(
+          tooltip: widget.action!.label,
+          visualDensity: VisualDensity.compact,
+          icon: Icon(widget.action!.icon, size: 22, color: colors.accent),
+          onPressed: widget.action!.onTap,
+        ),
+    ],
+  );
+
+  Widget _searchField(AppColors colors) => Padding(
+    padding: const EdgeInsets.only(left: 12),
+    child: Row(
+      children: [
+        Icon(Icons.search, size: 18, color: colors.textTertiary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: _search,
+            focusNode: _focus,
+            autofocus: true,
+            style: TextStyle(color: colors.textPrimary, fontSize: 14),
+            cursorColor: colors.accent,
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              hintText: 'Search',
+              hintStyle: TextStyle(color: colors.textTertiary, fontSize: 14),
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Close search',
+          visualDensity: VisualDensity.compact,
+          icon: Icon(Icons.close, size: 20, color: colors.textSecondary),
+          onPressed: _closeSearch,
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final options = widget.options;
-    final searchable = options.length > ValueSelectList.searchThreshold;
+    final bar = ValueSelectList.hasBar(options, action: widget.action != null);
     final row = ValueSelectList.rowHeightFor(options);
     final rows = options.isEmpty
         ? 1.0
@@ -610,42 +678,6 @@ class _ValueSelectListState<T> extends State<ValueSelectList<T>> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (searchable)
-              SizedBox(
-                height: ValueSelectList._searchHeight,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: TextField(
-                    controller: _search,
-                    focusNode: _focus,
-                    style: TextStyle(color: colors.textPrimary, fontSize: 14),
-                    cursorColor: colors.accent,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      prefixIcon: Icon(
-                        Icons.search,
-                        size: 18,
-                        color: colors.textTertiary,
-                      ),
-                      prefixIconConstraints: const BoxConstraints(minWidth: 28),
-                      hintText: 'Search',
-                      hintStyle: TextStyle(
-                        color: colors.textTertiary,
-                        fontSize: 14,
-                      ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: colors.divider,
-                          width: 0.5,
-                        ),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: colors.textSecondary),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             SizedBox(
               height: row * rows,
               child: message != null
@@ -674,30 +706,11 @@ class _ValueSelectListState<T> extends State<ValueSelectList<T>> {
                       ),
                     ),
             ),
-            if (widget.action != null) ...[
+            if (bar) ...[
               Container(height: 0.5, color: colors.divider),
-              InkWell(
-                onTap: widget.action!.onTap,
-                child: SizedBox(
-                  height: ValueSelectList._actionHeight - 0.5,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      children: [
-                        Icon(
-                          widget.action!.icon,
-                          size: 18,
-                          color: colors.accent,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          widget.action!.label,
-                          style: TextStyle(color: colors.accent, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              SizedBox(
+                height: ValueSelectList._barHeight - 0.5,
+                child: _searching ? _searchField(colors) : _barIcons(colors),
               ),
             ],
             ?widget.footer,

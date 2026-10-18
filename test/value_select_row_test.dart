@@ -129,16 +129,38 @@ void main() {
     );
     await tester.tap(find.text('Select bean'));
     await settle(tester);
-    expect(find.byIcon(Icons.search), findsOneWidget);
+    // Bottom bar: magnifier left, "+" right — icons only, no field yet.
+    expect(find.byTooltip('Search'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('New bean'), findsNothing, reason: 'icon only');
     expect(find.text('Roaster 0'), findsOneWidget);
+    expect(
+      tester.getCenter(find.byTooltip('Search')).dx,
+      lessThan(tester.getCenter(find.byTooltip('New bean')).dx),
+    );
+    expect(
+      tester.getTopLeft(find.byTooltip('Search')).dy,
+      greaterThan(tester.getTopLeft(find.text('Roaster 0')).dy),
+      reason: 'the bar sits below the list',
+    );
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pump();
     await tester.enterText(find.byType(TextField), 'bean 7');
     await tester.pump();
     expect(find.text('Bean 7'), findsOneWidget);
     expect(find.text('Bean 0'), findsNothing);
+    await tester.tap(find.byTooltip('Close search'));
+    await tester.pump();
+    expect(find.text('Bean 0'), findsOneWidget, reason: 'closing clears it');
 
-    final action = tester.widget<Text>(find.text('New bean'));
-    expect(action.style!.color, colors.accent);
-    await tester.tap(find.text('New bean'));
+    final plus = tester.widget<Icon>(
+      find.descendant(
+        of: find.byTooltip('New bean'),
+        matching: find.byIcon(Icons.add),
+      ),
+    );
+    expect(plus.color, colors.accent);
+    await tester.tap(find.byTooltip('New bean'));
     await settle(tester);
     expect(added, isTrue);
     expect(find.text('Bean 7'), findsNothing, reason: 'the action closes it');
@@ -158,7 +180,7 @@ void main() {
     );
     await tester.tap(find.text('pick'));
     await settle(tester);
-    expect(find.byIcon(Icons.search), findsNothing);
+    expect(find.byTooltip('Search'), findsNothing);
   });
 
   testWidgets('a tap outside closes the list, scrolling does not', (

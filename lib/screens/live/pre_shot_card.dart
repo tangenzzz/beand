@@ -15,6 +15,7 @@ import '../beans/bean_form_screen.dart';
 import '../beans/bean_stock.dart';
 import '../beans/bean_widgets.dart';
 import '../../widgets/app_button.dart';
+import 'add_profile_dialog.dart';
 import 'brew_control_button.dart';
 import 'ruler_picker.dart';
 import 'tile_title.dart';
@@ -134,7 +135,10 @@ class _PreShotCardState extends State<PreShotCard> {
       _beanOptions(context.read<AppSettings>().showBeanStock),
       action: true,
     ),
-    _OpenList.profile => ValueSelectRow.listHeightFor(_profileOptions()),
+    _OpenList.profile => ValueSelectRow.listHeightFor(
+      _profileOptions(),
+      action: true,
+    ),
     _OpenList.dose || _OpenList.grind => RulerPicker.height,
     _OpenList.grinder => GrinderPickerList.heightFor(context),
     null => 0,
@@ -300,6 +304,10 @@ class _PreShotCardState extends State<PreShotCard> {
                       listPlaceholder: _profiles == null
                           ? (_profilesError ?? 'Loading…')
                           : null,
+                      action: ValueSelectAction(
+                        'Add profile',
+                        () => showAddProfileDialog(context),
+                      ),
                       emptyText: 'No profiles on the machine.',
                       options: _profileOptions(),
                       onChanged: (id) {
