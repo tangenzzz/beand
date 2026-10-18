@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
 import '../theme/bean_icon.dart';
 import 'beans/beans_tab.dart';
 import 'history/history_tab.dart';
@@ -172,6 +173,11 @@ class _RootScaffoldState extends State<RootScaffold> {
             ),
             child: BottomNavigationBar(
               currentIndex: _index,
+              // Settings is not one of the tabs: while it is open, no tab
+              // looks active.
+              selectedItemColor: _settingsOpen
+                  ? context.colors.textSecondary
+                  : null,
               onTap: _selectTab,
               type: BottomNavigationBarType.fixed,
               showSelectedLabels: false,

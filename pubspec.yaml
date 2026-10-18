@@ -114,6 +114,8 @@ flutter:
     - assets/gaggimate/brew.svg
     - assets/gaggimate/steam.svg
     - assets/gaggimate/water.svg
+    # Line icons of the gear types (My Coffee Desk), currentColor strokes
+    - assets/icons/gear/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

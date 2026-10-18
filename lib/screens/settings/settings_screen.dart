@@ -12,7 +12,7 @@ import 'beans_settings_screen.dart';
 import 'connections_screen.dart';
 import 'history_settings_screen.dart';
 import 'home_settings_screen.dart';
-import 'my_setup_screen.dart';
+import 'my_coffee_desk_screen.dart';
 import 'settings_widgets.dart';
 import 'sync_settings_screen.dart';
 
@@ -57,8 +57,8 @@ class SettingsScreen extends StatelessWidget {
 
               SettingsEntry(
                 icon: Icons.blender_outlined,
-                title: 'My Setup',
-                builder: (_) => const MySetupScreen(),
+                title: 'My Coffee Desk',
+                builder: (_) => const MyCoffeeDeskScreen(),
               ),
               SettingsEntry(
                 icon: Icons.palette_outlined,

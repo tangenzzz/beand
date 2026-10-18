@@ -99,18 +99,41 @@ class SettingsGroup extends StatelessWidget {
 
 // Level 1: small uppercase heading of a block.
 class SettingsGroupLabel extends StatelessWidget {
-  const SettingsGroupLabel(this.text, {super.key, this.icon, this.trailing});
+  const SettingsGroupLabel(
+    this.text, {
+    super.key,
+    this.icon,
+    this.leading,
+    this.count,
+    this.trailing,
+  });
 
   final String text;
   final IconData? icon;
+
+  /// A custom icon instead of [icon] (e.g. an SVG line icon), 17 px.
+  final Widget? leading;
+
+  /// Right after the label in a lighter tone, e.g. how many entries.
+  final int? count;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final label = Text(
-      text.toUpperCase(),
-      style: settingsGroupLabelStyle(context),
+    final style = settingsGroupLabelStyle(context);
+    final label = Text.rich(
+      TextSpan(
+        text: text.toUpperCase(),
+        children: [
+          if (count != null)
+            TextSpan(
+              text: '  $count',
+              style: TextStyle(color: colors.textTertiary),
+            ),
+        ],
+      ),
+      style: style,
     );
     // With an action at the right the row is as tall as its tap target;
     // the padding shrinks so the label sits at the same height either way.
@@ -123,8 +146,12 @@ class SettingsGroupLabel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (icon != null) ...[
-            Icon(icon, size: 17, color: colors.textSecondary),
+          if (leading != null || icon != null) ...[
+            SizedBox.square(
+              dimension: 17,
+              child:
+                  leading ?? Icon(icon, size: 17, color: colors.textSecondary),
+            ),
             const SizedBox(width: 8),
           ],
           Expanded(child: label),

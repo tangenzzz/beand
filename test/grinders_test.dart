@@ -5,8 +5,7 @@ import 'package:beand/models/grinder.dart';
 import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/screens/live/shot_cards_carousel.dart';
 import 'package:beand/models/water.dart';
-import 'package:beand/screens/settings/my_setup_screen.dart';
-import 'package:beand/screens/settings/settings_widgets.dart';
+import 'package:beand/screens/settings/my_coffee_desk_screen.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/grinder_store.dart';
 import 'package:beand/services/live_shot_service.dart';
@@ -126,7 +125,10 @@ void main() {
       ChangeNotifierProvider<GrinderStore>.value(value: grinders),
       ChangeNotifierProvider<WaterStore>.value(value: waters),
     ],
-    child: MaterialApp(theme: buildAppTheme(), home: const MySetupScreen()),
+    child: MaterialApp(
+      theme: buildAppTheme(),
+      home: const MyCoffeeDeskScreen(),
+    ),
   );
 
   testWidgets('My Setup: add a grinder with two burr sets, tick to switch', (
@@ -137,13 +139,9 @@ void main() {
     addTearDown(tester.view.reset);
     final store = GrinderStore.inMemory();
     await tester.pumpWidget(mySetup(store, WaterStore.inMemory()));
-    // Both sections in the one card, each with its own "+".
-    expect(find.text('GRINDERS'), findsOneWidget);
-    expect(find.text('WATER'), findsOneWidget);
-    expect(
-      find.text('Add your grinder to see it on every shot.'),
-      findsOneWidget,
-    );
+    // Shelves in the one card; Grinders and Water have their own "+".
+    expect(find.textContaining('GRINDERS', findRichText: true), findsOneWidget);
+    expect(find.textContaining('WATER', findRichText: true), findsOneWidget);
 
     await tester.tap(find.byTooltip('Add grinder'));
     await tester.pumpAndSettle();
@@ -182,15 +180,11 @@ void main() {
 
     expect(store.grinders.single.burrs, ['Stock', 'SSP']);
     expect(store.grinders.single.brand, 'Niche');
-    // Only one divider: between Grinders and Water, not between entries.
-    expect(find.byType(SettingsDivider), findsOneWidget);
-    // One card: the grinder with both burr sets, the first one ticked.
-    expect(
-      find.textContaining('Niche Zero', findRichText: true),
-      findsOneWidget,
-    );
-    expect(find.text('Stock'), findsOneWidget);
-    expect(find.text('SSP'), findsOneWidget);
+    // The new grinder stands on the shelf; a tap folds out its detail,
+    // where the fitted burr set is picked.
+    await tester.tap(find.text('Niche Zero'));
+    await tester.pumpAndSettle();
+    expect(find.text('Niche Zero'), findsNWidgets(2), reason: 'label + title');
     bool fitted(String burr) => tester
         .widget<UnderlineItem>(
           find.ancestor(
@@ -208,7 +202,7 @@ void main() {
     expect(fitted('SSP'), isTrue);
 
     // Edit → delete at the bottom of the dialog.
-    await tester.tap(find.textContaining('Niche Zero', findRichText: true));
+    await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete grinder'));
     await tester.pumpAndSettle();
@@ -284,10 +278,6 @@ void main() {
     addTearDown(tester.view.reset);
     final waters = WaterStore.inMemory();
     await tester.pumpWidget(mySetup(GrinderStore.inMemory(), waters));
-    expect(
-      find.text('Add a water recipe to keep its minerals.'),
-      findsOneWidget,
-    );
 
     await tester.tap(find.byTooltip('Add water'));
     await tester.pumpAndSettle();
@@ -337,14 +327,48 @@ void main() {
     expect(w.ppm, 150);
     expect(w.use, WaterUse.pourOver);
     expect(Water.fromJson(w.toJson()), w);
-    // No bars: per GH/KH the value and what it is made of, in grams of
-    // each mineral; the use at the right of the title.
-    expect(find.byType(LinearProgressIndicator), findsNothing);
+    // The detail lists GH, KH, what the water is made of and its use.
+    await tester.tap(find.text('Lotus'));
+    await tester.pumpAndSettle();
     expect(find.text('68 ppm'), findsOneWidget);
     expect(find.text('40.5 ppm'), findsOneWidget);
-    expect(find.text('Epsom salt 0.12 g · Calcium chloride'), findsOneWidget);
-    expect(find.text('Baking soda'), findsOneWidget);
-    expect(find.text('Pour Over'), findsOneWidget);
+    expect(
+      find.text('Epsom salt, Calcium chloride, Baking soda'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('My Coffee Desk: filter narrows the shelves, empty ones go', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      mySetup(GrinderStore.inMemory(), WaterStore.inMemory()),
+    );
+    expect(find.text('V60 02'), findsOneWidget);
+    expect(find.text('Air M'), findsOneWidget);
+    expect(find.textContaining('KETTLES', findRichText: true), findsOneWidget);
+
+    // An open detail closes on a filter change.
+    await tester.tap(find.text('Air M'));
+    await tester.pumpAndSettle();
+    expect(find.text('Air M'), findsNWidgets(2));
+
+    // Stored: only what no active chain uses; the kettle is in use, so its
+    // whole shelf goes.
+    await tester.tap(find.text('Stored'));
+    await tester.pumpAndSettle();
+    expect(find.text('Air M'), findsOneWidget);
+    expect(find.text('V60 02'), findsNothing);
+    expect(find.textContaining('KETTLES', findRichText: true), findsNothing);
+
+    // Espresso: no brewers.
+    await tester.tap(find.text('Espresso').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('BREWERS', findRichText: true), findsNothing);
+    expect(find.text('Meticulous'), findsOneWidget);
   });
 
   // Bug 2026-10-18: adding a grinder only worked with burrs that already
