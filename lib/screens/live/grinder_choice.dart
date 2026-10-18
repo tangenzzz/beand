@@ -91,15 +91,13 @@ class GrinderPickerList extends StatelessWidget {
     action: true,
   );
 
-  // Same indent as a ValueSelectRow with icon: icon, gap, label, gap.
-  static const _indent = 18.0 + 12 + ValueSelectRow.defaultLabelWidth + 12;
-
   @override
   Widget build(BuildContext context) {
     final grinders = context.watch<GrinderStore>().grinders;
     final chosen = context.select<ShotSetup, Grinder?>((s) => s.grinder);
     return Padding(
-      padding: const EdgeInsets.only(left: _indent, bottom: 8),
+      // Nearly the full card width, like the other lists in the card.
+      padding: const EdgeInsets.only(bottom: 8),
       child: ValueSelectList<String>(
         options: _options(grinders),
         selected: chosen?.id,

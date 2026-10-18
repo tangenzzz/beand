@@ -161,7 +161,7 @@ void main() {
     expect(find.byIcon(Icons.search), findsNothing);
   });
 
-  testWidgets('a tap outside or scrolling the screen closes the list', (
+  testWidgets('a tap outside closes the list, scrolling does not', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -194,9 +194,10 @@ void main() {
     await tester.tap(find.text('pick'));
     await settle(tester);
     expect(find.text('Option 0'), findsOneWidget);
-    await tester.drag(find.text('elsewhere'), const Offset(0, -200));
+    // Scrolling the page keeps the list open (it scrolls along).
+    await tester.drag(find.text('elsewhere'), const Offset(0, -100));
     await settle(tester);
-    expect(find.text('Option 0'), findsNothing);
+    expect(find.text('Option 0'), findsOneWidget);
   });
 
   testWidgets('semantics: label, value and expanded state', (tester) async {

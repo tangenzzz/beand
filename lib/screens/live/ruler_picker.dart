@@ -5,9 +5,9 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 
 // Expanding picker for numbers (dose, grind) directly in the card: large
-// value on top, below it a ruler you slide sideways (step 0.1, snaps). At
-// the very bottom the footer with a keyboard icon for direct input (same
-// rules as all dropdowns).
+// value on top with the keyboard icon for direct input right next to it,
+// below it a ruler you slide sideways (step 0.1, snaps). Framed like the
+// choice lists of ValueSelectRow (0.5 px line, radius 10).
 class RulerPicker extends StatefulWidget {
   const RulerPicker({
     super.key,
@@ -32,7 +32,6 @@ class RulerPicker extends StatefulWidget {
   static const _valueAreaHeight = 64.0;
   static const _rulerHeight = 58.0;
   static const _gapBelow = 12.0;
-  static const _footerHeight = 48.0;
   static const _marginTop = 2.0;
   static const _marginBottom = 8.0;
   // Distance between two ticks (= 0.1) in px.
@@ -45,7 +44,6 @@ class RulerPicker extends StatefulWidget {
       _rulerHeight +
       _gapBelow +
       1 +
-      _footerHeight +
       _marginBottom;
 
   @override
@@ -123,56 +121,72 @@ class _RulerPickerState extends State<RulerPicker> {
         bottom: RulerPicker._marginBottom,
       ),
       // Material, so tap animations stay visible on the card.
-      child: Material(
-        color: context.colors.card,
-        borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: context.colors.divider, width: 0.5),
+          borderRadius: BorderRadius.circular(10),
+        ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            SizedBox(
-              height:
-                  RulerPicker._valueAreaHeight +
-                  RulerPicker._rulerHeight +
-                  RulerPicker._gapBelow,
-              child: _typing
-                  ? _ValueEditor(
-                      initial: _valueOf(_tenths),
-                      digits: _digits,
-                      unit: widget.unit,
-                      onSet: _setTyped,
-                    )
-                  : Column(
-                      children: [
-                        SizedBox(
-                          height: RulerPicker._valueAreaHeight,
-                          child: Center(child: _bigValue()),
+        child: Material(
+          type: MaterialType.transparency,
+          child: SizedBox(
+            height:
+                RulerPicker._valueAreaHeight +
+                RulerPicker._rulerHeight +
+                RulerPicker._gapBelow,
+            child: _typing
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: _ValueEditor(
+                          initial: _valueOf(_tenths),
+                          digits: _digits,
+                          unit: widget.unit,
+                          onSet: _setTyped,
                         ),
-                        SizedBox(
-                          height: RulerPicker._rulerHeight,
-                          child: _ruler(),
+                      ),
+                      IconButton(
+                        tooltip: 'Cancel',
+                        icon: Icon(
+                          Icons.close,
+                          color: context.colors.textSecondary,
                         ),
-                        const SizedBox(height: RulerPicker._gapBelow),
-                      ],
-                    ),
-            ),
-            Divider(height: 1, color: context.colors.divider),
-            SizedBox(
-              height: RulerPicker._footerHeight,
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: _typing ? 'Cancel' : 'Type value',
-                    icon: Icon(
-                      _typing ? Icons.close : Icons.keyboard_outlined,
-                      color: context.colors.textSecondary,
-                    ),
-                    onPressed: () => setState(() => _typing = !_typing),
+                        onPressed: () => setState(() => _typing = false),
+                      ),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      SizedBox(
+                        height: RulerPicker._valueAreaHeight,
+                        child: Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Same width as the icon, so the number stays
+                              // centered over the ruler's mark.
+                              const SizedBox(width: 48),
+                              _bigValue(),
+                              IconButton(
+                                tooltip: 'Type value',
+                                icon: Icon(
+                                  Icons.keyboard_outlined,
+                                  color: context.colors.textSecondary,
+                                ),
+                                onPressed: () => setState(() => _typing = true),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: RulerPicker._rulerHeight,
+                        child: _ruler(),
+                      ),
+                      const SizedBox(height: RulerPicker._gapBelow),
+                    ],
                   ),
-                  const Spacer(),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

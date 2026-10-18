@@ -285,6 +285,8 @@ class _PreShotCardState extends State<PreShotCard> {
                     TileTitle(short: 'PRE', active: isActiveCard),
                     const SizedBox(height: 6),
                     ValueSelectRow<String>(
+                      // Nearly the full card width, like Compare.
+                      listIndent: 0,
                       icon: Icons.tune,
                       label: 'Profile',
                       valueText: _profileLabel(activeProfile.loadedName),
@@ -310,6 +312,8 @@ class _PreShotCardState extends State<PreShotCard> {
                     // Bean looked up by ID from the list so edits/deletes
                     // in the Beans tab show up here immediately.
                     ValueSelectRow<int>(
+                      // Nearly the full card width, like Compare.
+                      listIndent: 0,
                       icon: Icons.coffee_outlined,
                       label: 'Bean',
                       valueText: _selectedBean?.name,

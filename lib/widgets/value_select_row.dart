@@ -1,5 +1,5 @@
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
@@ -14,7 +14,7 @@ import '../theme/app_theme.dart';
 // Only one list is open at a time: rows either take [open]/[onToggle] from
 // their screen (the shot cards, which also need the extra height), or share
 // a [ValueSelectGroup]; without either, a row keeps its own state. A tap
-// outside or scrolling the screen closes the open list.
+// outside closes the open list; scrolling the screen keeps it open.
 
 /// One choice in a [ValueSelectList].
 class ValueOption<T> {
@@ -115,6 +115,7 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.onClose,
     this.labelWidth = defaultLabelWidth,
     this.horizontalPadding = 0,
+    this.listIndent,
   }) : panel = null;
 
   /// The same closed row with an own [panel] (e.g. the ruler for numbers).
@@ -134,6 +135,7 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.onClose,
     this.labelWidth = defaultLabelWidth,
     this.horizontalPadding = 0,
+    this.listIndent,
   }) : options = null,
        value = null,
        onChanged = null,
@@ -183,6 +185,10 @@ class ValueSelectRow<T> extends StatefulWidget {
   /// Inset of label and divider from the card edge.
   final double horizontalPadding;
 
+  /// Left inset of the open list; by default aligned with the value
+  /// column. The shot cards use 0: the list spans nearly the whole card.
+  final double? listIndent;
+
   static const defaultLabelWidth = 64.0;
   static const minHeight = 50.0;
   static const _iconSize = 18.0;
@@ -205,7 +211,6 @@ class ValueSelectRow<T> extends StatefulWidget {
 class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
     with SingleTickerProviderStateMixin {
   bool _localOpen = false;
-  final _scrolls = <ScrollPosition>[];
 
   // Fold in/out via SizeTransition rather than AnimatedSize: the shot cards
   // measure their content (IntrinsicHeight), and a SizeTransition reports
@@ -271,45 +276,22 @@ class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
     _close();
   }
 
-  // Scrolling the screen (or swiping the card carousel) closes the list —
-  // not while typing a search, when the field scrolls itself into view.
-  void _onScroll() {
-    // Not while typing in the open list (search, a footer field): the
-    // field scrolls itself into view above the keyboard.
-    final focused = FocusManager.instance.primaryFocus?.context;
-    if (focused != null &&
-        focused.findAncestorStateOfType<_ValueSelectRowState<T>>() == this) {
-      return;
-    }
-    // Only the user's own scrolling: programmatic scrolls (ensureVisible,
-    // the keyboard) leave the direction idle.
-    if (_scrolls.any(
-      (p) =>
-          p.isScrollingNotifier.value &&
-          p.userScrollDirection != ScrollDirection.idle,
-    )) {
-      _close();
-    }
-  }
+  // A real tap somewhere else closes the list; scrolling the page does not
+  // (the list stays open and scrolls along). So the decision waits for the
+  // finger to lift: down and up close together = tap, otherwise a drag.
+  Offset? _outsideDown;
 
-  void _syncScrollListeners(bool open) {
-    for (final p in _scrolls) {
-      p.isScrollingNotifier.removeListener(_onScroll);
-    }
-    _scrolls.clear();
-    if (!open) return;
-    var scrollable = Scrollable.maybeOf(context);
-    while (scrollable != null) {
-      final position = scrollable.position;
-      position.isScrollingNotifier.addListener(_onScroll);
-      _scrolls.add(position);
-      scrollable = Scrollable.maybeOf(scrollable.context);
-    }
+  void _onOutsideDown(PointerDownEvent event) => _outsideDown = event.position;
+
+  void _onOutsideUp(PointerUpEvent event) {
+    final down = _outsideDown;
+    _outsideDown = null;
+    if (down == null) return;
+    if ((event.position - down).distance <= kTouchSlop) _close();
   }
 
   @override
   void dispose() {
-    _syncScrollListeners(false);
     _expand.dispose();
     super.dispose();
   }
@@ -325,16 +307,41 @@ class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
   Widget build(BuildContext context) {
     final colors = context.colors;
     final open = _isOpen;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncScrollListeners(open);
-    });
     final shown = widget.valueText ?? _selectedTitle;
     final hasIcon = widget.icon != null;
     final indent =
+        widget.listIndent ??
         widget.horizontalPadding +
-        (hasIcon ? ValueSelectRow._iconSize + ValueSelectRow._gap : 0) +
-        widget.labelWidth +
-        ValueSelectRow._gap;
+            (hasIcon ? ValueSelectRow._iconSize + ValueSelectRow._gap : 0) +
+            widget.labelWidth +
+            ValueSelectRow._gap;
+
+    final valueText = Text(
+      shown ?? widget.placeholder,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: shown == null || !widget.enabled || widget.dimValue
+            ? colors.textTertiary
+            : colors.textPrimary,
+        fontSize: 15,
+      ),
+    );
+    final chevron = SizedBox(
+      width: 22,
+      child: widget.enabled
+          ? AnimatedRotation(
+              turns: open ? 0.5 : 0,
+              duration: ValueSelectRow._duration,
+              curve: Curves.easeOut,
+              child: Icon(
+                Icons.expand_more,
+                size: 22,
+                color: colors.textSecondary,
+              ),
+            )
+          : null,
+    );
 
     // One node for screen readers: label, value and whether it is open —
     // the texts below would otherwise be read as a merged label.
@@ -374,39 +381,20 @@ class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
                   ),
                 ),
                 const SizedBox(width: ValueSelectRow._gap),
-                Expanded(
-                  child: Text(
-                    shown ?? widget.placeholder,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: shown == null || !widget.enabled || widget.dimValue
-                          ? colors.textTertiary
-                          : colors.textPrimary,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
+                // With a trailing widget (the grinder next to the grind
+                // size) the chevron stays right at the value it opens, and
+                // the trailing widget takes the right end.
+                if (widget.trailing == null)
+                  Expanded(child: valueText)
+                else
+                  Flexible(child: valueText),
+                const SizedBox(width: 4),
+                chevron,
                 if (widget.trailing != null) ...[
+                  const Spacer(),
                   const SizedBox(width: 8),
                   widget.trailing!,
                 ],
-                const SizedBox(width: 4),
-                SizedBox(
-                  width: 22,
-                  child: widget.enabled
-                      ? AnimatedRotation(
-                          turns: open ? 0.5 : 0,
-                          duration: ValueSelectRow._duration,
-                          curve: Curves.easeOut,
-                          child: Icon(
-                            Icons.expand_more,
-                            size: 22,
-                            color: colors.textSecondary,
-                          ),
-                        )
-                      : null,
-                ),
               ],
             ),
           ),
@@ -447,7 +435,8 @@ class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
     if (panel != null) _lastPanel = panel;
 
     return TapRegion(
-      onTapOutside: open ? (_) => _close() : null,
+      onTapOutside: open ? _onOutsideDown : null,
+      onTapUpOutside: open ? _onOutsideUp : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,

@@ -207,6 +207,8 @@ class _PreBrewCardState extends State<PreBrewCard> {
                     const SizedBox(height: 2),
                     if (!manual)
                       ValueSelectRow<String>(
+                        // Nearly the full card width, like Compare.
+                        listIndent: 0,
                         icon: Icons.tune,
                         label: 'Profile',
                         valueText: recipe?.name,
@@ -232,6 +234,8 @@ class _PreBrewCardState extends State<PreBrewCard> {
                         emptyText: 'No profiles selected.',
                       ),
                     ValueSelectRow<int>(
+                      // Nearly the full card width, like Compare.
+                      listIndent: 0,
                       icon: Icons.coffee_outlined,
                       label: 'Bean',
                       valueText: bean?.name,
