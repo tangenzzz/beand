@@ -130,12 +130,11 @@ class _TasteCell extends StatelessWidget {
               },
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44),
+          // Centered in its column, so both rows sit centered in the card.
           child: Align(
-            alignment: Alignment.centerLeft,
             // Long names shrink rather than wrap, so the grid stays fixed.
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
