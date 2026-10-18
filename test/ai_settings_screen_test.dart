@@ -178,6 +178,20 @@ void main() {
     expect(find.text('Claude Haiku 4.5'), findsNothing);
   });
 
+  // Three blocks with one line between each (main switch | connection |
+  // features), no lines between the parts inside a block.
+  testWidgets('blocks: two dividers, headings for connection and features', (
+    tester,
+  ) async {
+    final settings = AiSettings(keyStore: InMemoryAiKeyStore(), enabled: true);
+    await settings.setProvider(AiProvider.claude);
+    await tester.pumpWidget(wrap(settings));
+    expect(find.byType(SettingsDivider), findsNWidgets(2));
+    expect(find.text('CONNECTION'), findsOneWidget);
+    await tester.ensureVisible(find.text('FEATURES'));
+    expect(find.text('FEATURES'), findsOneWidget);
+  });
+
   testWidgets('the AI is in the settings menu', (tester) async {
     await tester.pumpWidget(
       MultiProvider(

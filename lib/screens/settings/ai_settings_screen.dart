@@ -194,227 +194,248 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   ],
                 ),
               ),
+              // Three blocks, one line between them — the main switch, the
+              // connection (provider … test) and the features; inside a
+              // block only spacing separates the parts.
               if (settings.enabled) ...[
-                _Section(
-                  title: 'Provider',
-                  info: '${provider.vendor}. ${provider.note}',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      UnderlineSelect<AiProvider>(
-                        options: [
-                          for (final p in AiProvider.values)
-                            UnderlineOption(p, p.label),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _GroupLabel('Connection'),
+                    _Section(
+                      title: 'Provider',
+                      info: '${provider.vendor}. ${provider.note}',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          UnderlineSelect<AiProvider>(
+                            options: [
+                              for (final p in AiProvider.values)
+                                UnderlineOption(p, p.label),
+                            ],
+                            value: provider,
+                            onChanged: (value) => settings.setProvider(value!),
+                          ),
                         ],
-                        value: provider,
-                        onChanged: (value) => settings.setProvider(value!),
                       ),
-                    ],
-                  ),
-                ),
-                if (provider.requiresBaseUrl)
-                  _Section(
-                    title: 'Base URL',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: _baseUrlController,
-                          keyboardType: TextInputType.url,
-                          autocorrect: false,
-                          style: TextStyle(color: context.colors.textPrimary),
-                          decoration: _fieldDecoration(
-                            context,
-                            'https://openrouter.ai/api/v1',
-                          ),
-                          onSubmitted: settings.setBaseUrl,
-                        ),
-                        const SizedBox(height: 10),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: AppButton(
-                            label: 'Save',
-                            expand: false,
-                            onPressed: () =>
-                                settings.setBaseUrl(_baseUrlController.text),
-                          ),
-                        ),
-                      ],
                     ),
-                  ),
-                _Section(
-                  title: 'API key',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            settings.hasKey(provider)
-                                ? Icons.lock_outline
-                                : Icons.lock_open_outlined,
-                            size: 16,
-                            color: settings.hasKey(provider)
-                                ? context.colors.success
-                                : context.colors.textTertiary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              settings.hasKey(provider)
-                                  ? 'Stored in the device keystore'
-                                  : 'No key for ${provider.label} yet',
-                              style: TextStyle(
-                                color: context.colors.textSecondary,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () => launchUrl(
-                              Uri.parse(provider.keyUrl),
-                              mode: LaunchMode.externalApplication,
-                            ),
-                            child: Text(
-                              'Get a key',
-                              style: TextStyle(
-                                color: context.colors.accent,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _keyController,
-                        // The key is pasted in plain text but not displayed —
-                        // otherwise it would be readable by anyone on the
-                        // screen and in the keyboard's suggestion memory.
-                        obscureText: true,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        style: TextStyle(color: context.colors.textPrimary),
-                        decoration: _fieldDecoration(
-                          context,
-                          settings.hasKey(provider)
-                              ? 'Paste a new key to replace it'
-                              : provider.keyHint,
-                        ),
-                        onSubmitted: (_) => _saveKey(settings),
-                      ),
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: AppButton(
-                          label: 'Save key',
-                          expand: false,
-                          onPressed: () => _saveKey(settings),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                _modelSection(context, settings),
-                _Section(
-                  title: 'Test connection',
-                  info:
-                      'Sends one tiny request — it checks the key, the model '
-                      'name and that the answer comes back in the structured '
-                      'form the app needs.',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          AppButton(
-                            label: _testing ? 'Testing…' : 'Test',
-                            expand: false,
-                            onPressed: _testing ? null : () => _test(settings),
-                          ),
-                        ],
-                      ),
-                      if (_testResult != null) ...[
-                        const SizedBox(height: 10),
-                        Row(
+                    if (provider.requiresBaseUrl)
+                      _Section(
+                        title: 'Base URL',
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              !_testOk
-                                  ? Icons.error_outline
-                                  : _testWarning == null
-                                  ? Icons.check_circle_outline
-                                  : Icons.info_outline,
-                              size: 16,
-                              color: !_testOk
-                                  ? context.colors.danger
-                                  : _testWarning == null
-                                  ? context.colors.success
-                                  : context.colors.sensorMid,
+                            TextField(
+                              controller: _baseUrlController,
+                              keyboardType: TextInputType.url,
+                              autocorrect: false,
+                              style: TextStyle(
+                                color: context.colors.textPrimary,
+                              ),
+                              decoration: _fieldDecoration(
+                                context,
+                                'https://openrouter.ai/api/v1',
+                              ),
+                              onSubmitted: settings.setBaseUrl,
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _testResult!,
-                                    style: TextStyle(
-                                      color: context.colors.textSecondary,
-                                      fontSize: 12,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                  if (_testWarning != null) ...[
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _testWarning!,
-                                      style: TextStyle(
-                                        color: context.colors.sensorMid,
-                                        fontSize: 12,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: AppButton(
+                                label: 'Save',
+                                expand: false,
+                                onPressed: () => settings.setBaseUrl(
+                                  _baseUrlController.text,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ],
-                  ),
+                      ),
+                    _Section(
+                      title: 'API key',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                settings.hasKey(provider)
+                                    ? Icons.lock_outline
+                                    : Icons.lock_open_outlined,
+                                size: 16,
+                                color: settings.hasKey(provider)
+                                    ? context.colors.success
+                                    : context.colors.textTertiary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  settings.hasKey(provider)
+                                      ? 'Stored in the device keystore'
+                                      : 'No key for ${provider.label} yet',
+                                  style: TextStyle(
+                                    color: context.colors.textSecondary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => launchUrl(
+                                  Uri.parse(provider.keyUrl),
+                                  mode: LaunchMode.externalApplication,
+                                ),
+                                child: Text(
+                                  'Get a key',
+                                  style: TextStyle(
+                                    color: context.colors.accent,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _keyController,
+                            // The key is pasted in plain text but not displayed —
+                            // otherwise it would be readable by anyone on the
+                            // screen and in the keyboard's suggestion memory.
+                            obscureText: true,
+                            autocorrect: false,
+                            enableSuggestions: false,
+                            style: TextStyle(color: context.colors.textPrimary),
+                            decoration: _fieldDecoration(
+                              context,
+                              settings.hasKey(provider)
+                                  ? 'Paste a new key to replace it'
+                                  : provider.keyHint,
+                            ),
+                            onSubmitted: (_) => _saveKey(settings),
+                          ),
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: AppButton(
+                              label: 'Save key',
+                              expand: false,
+                              onPressed: () => _saveKey(settings),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _modelSection(context, settings),
+                    _Section(
+                      title: 'Test connection',
+                      info:
+                          'Sends one tiny request — it checks the key, the model '
+                          'name and that the answer comes back in the structured '
+                          'form the app needs.',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              AppButton(
+                                label: _testing ? 'Testing…' : 'Test',
+                                expand: false,
+                                onPressed: _testing
+                                    ? null
+                                    : () => _test(settings),
+                              ),
+                            ],
+                          ),
+                          if (_testResult != null) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  !_testOk
+                                      ? Icons.error_outline
+                                      : _testWarning == null
+                                      ? Icons.check_circle_outline
+                                      : Icons.info_outline,
+                                  size: 16,
+                                  color: !_testOk
+                                      ? context.colors.danger
+                                      : _testWarning == null
+                                      ? context.colors.success
+                                      : context.colors.sensorMid,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _testResult!,
+                                        style: TextStyle(
+                                          color: context.colors.textSecondary,
+                                          fontSize: 12,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                      if (_testWarning != null) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          _testWarning!,
+                                          style: TextStyle(
+                                            color: context.colors.sensorMid,
+                                            fontSize: 12,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                for (final feature in AiFeature.values)
-                  AppSwitchTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.dividerInset,
-                      vertical: 6,
-                    ),
-                    title: SettingsTitle(
-                      feature.label,
-                      info: feature.description,
-                    ),
-                    value: settings.isFeatureOn(feature),
-                    onChanged: (value) => settings.setFeatureOn(feature, value),
-                  ),
-                if (settings.hasKey(provider))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.dividerInset,
-                      vertical: 10,
-                    ),
-                    child: AppButton(
-                      label: 'Remove ${provider.label} key',
-                      variant: AppButtonVariant.destructive,
-                      expand: true,
-                      onPressed: () async {
-                        await settings.removeKey(provider);
-                        if (!mounted) return;
-                        setState(() => _testResult = null);
-                      },
-                    ),
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _GroupLabel('Features'),
+                    for (final feature in AiFeature.values)
+                      AppSwitchTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.dividerInset,
+                        ),
+                        title: SettingsTitle(
+                          feature.label,
+                          info: feature.description,
+                        ),
+                        value: settings.isFeatureOn(feature),
+                        onChanged: (value) =>
+                            settings.setFeatureOn(feature, value),
+                      ),
+                    if (settings.hasKey(provider))
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.dividerInset,
+                          vertical: 10,
+                        ),
+                        child: AppButton(
+                          label: 'Remove ${provider.label} key',
+                          variant: AppButtonVariant.destructive,
+                          expand: true,
+                          onPressed: () async {
+                            await settings.removeKey(provider);
+                            if (!mounted) return;
+                            setState(() => _testResult = null);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ],
           ),
@@ -555,9 +576,9 @@ class _Section extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.dividerInset,
-        14,
+        8,
         AppSpacing.dividerInset,
-        14,
+        10,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -569,4 +590,30 @@ class _Section extends StatelessWidget {
       ),
     );
   }
+}
+
+// Small uppercase heading of a block (as in My Setup).
+class _GroupLabel extends StatelessWidget {
+  const _GroupLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.dividerInset,
+      14,
+      AppSpacing.dividerInset,
+      2,
+    ),
+    child: Text(
+      text.toUpperCase(),
+      style: TextStyle(
+        color: context.colors.textSecondary,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.1,
+      ),
+    ),
+  );
 }
