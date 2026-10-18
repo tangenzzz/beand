@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
@@ -12,10 +13,9 @@ import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/taste_chips.dart';
-import '../beans/bean_filter.dart';
 import '../beans/bean_form_screen.dart';
 import '../beans/bean_widgets.dart';
-import '../live/inline_picker.dart';
+import '../../widgets/value_select_row.dart';
 import '../live/ruler_picker.dart';
 import 'history_logic.dart';
 import 'history_widgets.dart';
@@ -429,20 +429,30 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
         if (_open == _Open.bean)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: InlinePicker<Bean>(
-              items: [
-                for (final g in groupBeansByRoaster(_beanList)) ...g.beans,
+            child: ValueSelectList<int>(
+              options: [
+                for (final g in groupBeansByRoaster(_beanList))
+                  for (final b in g.beans)
+                    ValueOption(
+                      value: b.id,
+                      title: b.name,
+                      subtitle: b.roaster,
+                      leading: BeanThumbnail(
+                        path: b.photoPath,
+                        size: 36,
+                        circle: true,
+                      ),
+                    ),
               ],
-              leading: (b) =>
-                  BeanThumbnail(path: b.photoPath, size: 36, circle: true),
-              title: (b) => b.name,
-              detail: (b) => b.roaster,
-              searchText: (b) => beanSearchText(b),
-              isSelected: (b) => b.id == bean?.id,
-              onSelected: _selectBean,
-              onAdd: _addBean,
-              addTooltip: 'Add bean',
-              emptyText: 'No beans yet. Tap + to add one.',
+              selected: bean?.id,
+              onSelected: (id) {
+                final picked = _beanList.where((b) => b.id == id).firstOrNull;
+                if (picked == null) return;
+                HapticFeedback.selectionClick();
+                _selectBean(picked);
+              },
+              action: ValueSelectAction('New bean', _addBean),
+              emptyText: 'No beans yet.',
             ),
           ),
 
@@ -658,24 +668,43 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           onClear: _clearCompare,
         ),
         if (_open == _Open.compare)
-          InlinePicker<ShotEntry>(
-            items: _compareCandidates(entry),
-            leading: (e) => ShotAvatar(
-              shot: e.shot,
-              bean: e.bean,
-              size: 36,
-              badge: 14,
-              ringColor: context.colors.card,
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Builder(
+              builder: (context) {
+                final candidates = _compareCandidates(entry);
+                return ValueSelectList<int>(
+                  options: [
+                    for (final e in candidates)
+                      ValueOption(
+                        value: e.shot.id,
+                        title:
+                            e.bean?.name ??
+                            (e.shot.profileName ??
+                                (isPourOver ? 'Brew' : 'Shot')),
+                        subtitle: dateTimeLabel(e.shot.timestamp),
+                        leading: ShotAvatar(
+                          shot: e.shot,
+                          bean: e.bean,
+                          size: 36,
+                          badge: 14,
+                          ringColor: context.colors.card,
+                        ),
+                      ),
+                  ],
+                  selected: _other?.shot.id,
+                  onSelected: (id) {
+                    final picked = candidates
+                        .where((e) => e.shot.id == id)
+                        .firstOrNull;
+                    if (picked == null) return;
+                    HapticFeedback.selectionClick();
+                    _selectCompare(picked);
+                  },
+                  emptyText: 'No other ${noun}s yet.',
+                );
+              },
             ),
-            title: (e) =>
-                e.bean?.name ??
-                (e.shot.profileName ?? (isPourOver ? 'Brew' : 'Shot')),
-            detail: (e) => dateTimeLabel(e.shot.timestamp),
-            searchText: (e) =>
-                '${shotSearchText(e)} ${dateTimeLabel(e.shot.timestamp).toLowerCase()}',
-            isSelected: (e) => e.shot.id == _other?.shot.id,
-            onSelected: _selectCompare,
-            emptyText: 'No other ${noun}s yet.',
           ),
         Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 12),

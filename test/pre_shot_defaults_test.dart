@@ -259,9 +259,15 @@ void main() {
 
       // Priority 1: choose profile -> values from the last shot with it.
       await tester.tap(find.text('Select profile'));
+      // Let the list fold out before tapping into it.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
       await tester.pump();
       await tester.tap(find.textContaining('Classic'));
+      // Let the list fold away.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
@@ -271,8 +277,14 @@ void main() {
 
       // Priority 2: choose a bean already brewed with this profile.
       await tester.tap(find.text('Select bean'));
+      // Let the list fold out before tapping into it.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
       await tester.tap(find.textContaining('Guji'));
+      // Let the list fold away.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
@@ -286,6 +298,9 @@ void main() {
       });
       await tester.pump();
       await tester.tap(find.text('Guji'));
+      // Let the list fold away.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
       await tester.tap(find.textContaining('Neu'));
       await tester.runAsync(

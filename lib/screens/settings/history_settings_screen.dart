@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../theme/bean_icon.dart';
 import 'settings_widgets.dart';
 import '../../widgets/app_switch_tile.dart';
+import '../../widgets/value_select_row.dart';
 
 // History settings: which photo is shown in the circle on the shot
 // (thumbnail), and which evaluations appear in the shot detail.
@@ -84,82 +85,37 @@ class _Switch extends StatelessWidget {
   }
 }
 
-// Thumbnail: which photo is shown in the circle on the shot. Expandable list
-// in the card like the model picker under AI (dropdown, ⓘ only on the title,
-// not on the options). With two entries, no search/plus row.
-class _ThumbnailPicker extends StatefulWidget {
+// Thumbnail: which photo is shown in the circle on the shot — the app's
+// value row with its inline choice list.
+class _ThumbnailPicker extends StatelessWidget {
   const _ThumbnailPicker();
-
-  @override
-  State<_ThumbnailPicker> createState() => _ThumbnailPickerState();
-}
-
-class _ThumbnailPickerState extends State<_ThumbnailPicker> {
-  bool _open = false;
 
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<AppSettings>();
-    final colors = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          key: const ValueKey('thumbnail-picker'),
-          onTap: () => setState(() => _open = !_open),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.dividerInset,
-              vertical: 14,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SettingsTitle(
-                        'Thumbnail',
-                        info:
-                            'Which photo each shot shows in the History list.',
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        settings.historyAvatar.label,
-                        style: TextStyle(
-                          color: colors.textTertiary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+    return ValueSelectRow<HistoryAvatar>(
+      key: const ValueKey('thumbnail-picker'),
+      label: 'Thumbnail',
+      labelWidth: 96,
+      horizontalPadding: AppSpacing.dividerInset,
+      isLast: true,
+      value: settings.historyAvatar,
+      options: [
+        for (final choice in HistoryAvatar.values)
+          ValueOption(
+            value: choice,
+            title: choice.label,
+            // The same bean as in the tab bar.
+            leading: choice == HistoryAvatar.bean
+                ? const BeanIcon(size: 16)
+                : Icon(
+                    Icons.tune,
+                    size: 16,
+                    color: context.colors.textSecondary,
                   ),
-                ),
-                Icon(
-                  _open ? Icons.expand_less : Icons.expand_more,
-                  size: 20,
-                  color: colors.textTertiary,
-                ),
-              ],
-            ),
           ),
-        ),
-        if (_open)
-          for (final choice in HistoryAvatar.values)
-            SettingsChoiceRow(
-              icon: choice == HistoryAvatar.bean ? null : Icons.tune,
-              // The same bean as in the tab bar.
-              leading: choice == HistoryAvatar.bean
-                  ? const BeanIcon(size: 16)
-                  : null,
-              title: choice.label,
-              compact: true,
-              selected: settings.historyAvatar == choice,
-              onTap: () {
-                settings.setHistoryAvatar(choice);
-                setState(() => _open = false);
-              },
-            ),
       ],
+      onChanged: settings.setHistoryAvatar,
     );
   }
 }

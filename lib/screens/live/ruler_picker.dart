@@ -122,7 +122,7 @@ class _RulerPickerState extends State<RulerPicker> {
         top: RulerPicker._marginTop,
         bottom: RulerPicker._marginBottom,
       ),
-      // Material like InlinePicker: tap animations stay visible.
+      // Material, so tap animations stay visible on the card.
       child: Material(
         color: context.colors.card,
         borderRadius: BorderRadius.circular(12),

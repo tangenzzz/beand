@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/grinder.dart';
@@ -6,7 +7,7 @@ import '../../services/grinder_store.dart';
 import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
 import '../settings/my_setup_dialogs.dart';
-import 'inline_picker.dart';
+import '../../widgets/value_select_row.dart';
 
 // Screens built without a grinder store (tests, previews) simply show no
 // grinder — the same as having none.
@@ -73,42 +74,49 @@ class GrinderPill extends StatelessWidget {
   }
 }
 
-/// The open grinder list; [onChosen] closes it.
+/// The open grinder list below the grind row, aligned with the values;
+/// [onChosen] closes it.
 class GrinderPickerList extends StatelessWidget {
   const GrinderPickerList({super.key, required this.onChosen});
 
   final VoidCallback onChosen;
 
-  static double heightFor(BuildContext context) =>
-      InlinePicker.heightFor(context.read<GrinderStore>().grinders.length);
+  static List<ValueOption<String>> _options(List<Grinder> grinders) => [
+    for (final g in grinders)
+      ValueOption(value: g.id, title: g.name, subtitle: g.activeBurrs),
+  ];
+
+  static double heightFor(BuildContext context) => ValueSelectRow.listHeightFor(
+    _options(context.read<GrinderStore>().grinders),
+    action: true,
+  );
+
+  // Same indent as a ValueSelectRow with icon: icon, gap, label, gap.
+  static const _indent = 18.0 + 12 + ValueSelectRow.defaultLabelWidth + 12;
 
   @override
   Widget build(BuildContext context) {
     final grinders = context.watch<GrinderStore>().grinders;
     final chosen = context.select<ShotSetup, Grinder?>((s) => s.grinder);
-    final colors = context.colors;
-    return InlinePicker<Grinder>(
-      items: grinders,
-      leading: (_) =>
-          Icon(Icons.blender_outlined, size: 20, color: colors.textSecondary),
-      title: (g) => g.name,
-      detail: (g) => g.activeBurrs,
-      searchText: (g) => '${g.name} ${g.burrs.join(' ')}',
-      isSelected: (g) => g.id == chosen?.id,
-      onSelected: (g) {
-        context.read<ShotSetup>().setGrinder(g.id);
-        onChosen();
-      },
-      onAdd: () async {
-        final setup = context.read<ShotSetup>();
-        final added = await showGrinderDialog(context);
-        if (added != null) {
-          setup.setGrinder(added.id);
+    return Padding(
+      padding: const EdgeInsets.only(left: _indent, bottom: 8),
+      child: ValueSelectList<String>(
+        options: _options(grinders),
+        selected: chosen?.id,
+        onSelected: (id) {
+          HapticFeedback.selectionClick();
+          context.read<ShotSetup>().setGrinder(id);
           onChosen();
-        }
-      },
-      addTooltip: 'Add grinder',
-      emptyText: 'No grinders yet. Tap + to add one.',
+        },
+        action: ValueSelectAction('New grinder', () async {
+          // Dialog first: closing the list would unmount this context.
+          final setup = context.read<ShotSetup>();
+          final added = await showGrinderDialog(context);
+          if (added != null) setup.setGrinder(added.id);
+          onChosen();
+        }),
+        emptyText: 'No grinders yet.',
+      ),
     );
   }
 }

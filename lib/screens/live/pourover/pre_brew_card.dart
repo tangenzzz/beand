@@ -13,12 +13,10 @@ import '../../../services/pourover_brew_service.dart';
 import '../../../services/shot_setup.dart';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_button.dart';
-import '../../beans/bean_filter.dart';
+import '../../../widgets/value_select_row.dart';
 import '../../beans/bean_form_screen.dart';
 import '../../beans/bean_stock.dart';
 import '../../beans/bean_widgets.dart';
-import '../inline_picker.dart';
-import '../pre_shot_card.dart' show PreShotRow;
 import '../ruler_picker.dart';
 import '../tile_title.dart';
 import 'pourover_profile_row.dart';
@@ -81,10 +79,14 @@ class _PreBrewCardState extends State<PreBrewCard> {
   }
 
   double _extraHeight() => switch (_open) {
-    _OpenList.recipe => InlinePicker.heightFor(
-      context.read<BrewRecipeStore>().recipes.length,
+    _OpenList.recipe => ValueSelectRow.listHeightFor(
+      _recipeOptions(_pickerRecipes()),
+      action: true,
     ),
-    _OpenList.bean => InlinePicker.heightFor(_pickableBeans.length),
+    _OpenList.bean => ValueSelectRow.listHeightFor(
+      _beanOptions(context.read<AppSettings>().showBeanStock),
+      action: true,
+    ),
     _OpenList.dose ||
     _OpenList.grind ||
     _OpenList.water ||
@@ -114,8 +116,34 @@ class _PreBrewCardState extends State<PreBrewCard> {
     _reportExtraHeight();
   }
 
-  IconData _chevron(_OpenList list) =>
-      _open == list ? Icons.expand_less : Icons.expand_more;
+  List<ValueOption<String>> _recipeOptions(List<BrewRecipe> recipes) => [
+    for (final r in recipes)
+      ValueOption(
+        value: r.id,
+        title: r.name,
+        subtitle: recipeDetail(r),
+        leading: PourOverProfileAvatar(recipe: r),
+      ),
+  ];
+
+  List<ValueOption<int>> _beanOptions(bool showStock) => [
+    for (final g in groupBeansByRoaster(_pickableBeans))
+      for (final b in g.beans)
+        ValueOption(
+          value: b.id,
+          title: b.name,
+          subtitle: b.roaster,
+          leading: showStock
+              ? BeanStockAvatar(
+                  photoPath: b.photoPath,
+                  remaining: beanRemaining(b, _beanUsage),
+                  total: b.weightGrams,
+                  size: 40,
+                  labelOverhang: 2,
+                )
+              : BeanThumbnail(path: b.photoPath, size: 36, circle: true),
+        ),
+  ];
 
   Future<void> _addBean() async {
     final created = await Navigator.of(context)
@@ -178,137 +206,117 @@ class _PreBrewCardState extends State<PreBrewCard> {
                     TileTitle(short: 'PRE', active: isActiveCard),
                     const SizedBox(height: 2),
                     if (!manual)
-                      PreShotRow(
+                      ValueSelectRow<String>(
                         icon: Icons.tune,
                         label: 'Profile',
-                        value: recipe?.name ?? 'Select profile',
-                        dimValue: recipe == null || locked,
-                        trailingIcon: locked
-                            ? null
-                            : _chevron(_OpenList.recipe),
-                        onTap: tap(_OpenList.recipe),
-                      ),
-                    if (!manual && _open == _OpenList.recipe)
-                      InlinePicker<BrewRecipe>(
-                        items: recipes,
-                        leading: (r) => PourOverProfileAvatar(recipe: r),
-                        title: (r) => r.name,
-                        detail: recipeDetail,
-                        searchText: (r) =>
-                            '${r.name} ${r.brewer} ${r.sourceName} ${r.tags.join(' ')}',
-                        isSelected: (r) => r.id == recipe?.id,
-                        onSelected: (r) {
-                          brew.selectRecipe(r);
-                          _close();
+                        valueText: recipe?.name,
+                        placeholder: 'Select profile',
+                        dimValue: locked,
+                        enabled: !locked,
+                        open: _open == _OpenList.recipe,
+                        onToggle: () => _toggle(_OpenList.recipe),
+                        onClose: _close,
+                        value: recipe?.id,
+                        options: _recipeOptions(recipes),
+                        onChanged: (id) {
+                          final r = recipes
+                              .where((r) => r.id == id)
+                              .firstOrNull;
+                          if (r != null) brew.selectRecipe(r);
                         },
-                        // "+" fetches more profiles from the settings.
-                        onAdd: () => PourOverProfileRow.openSettings(context),
-                        addTooltip: 'Choose profiles',
-                        emptyText:
-                            'No profiles selected. Tap + to choose some.',
+                        // Fetches more profiles from the settings.
+                        action: ValueSelectAction(
+                          'Choose profiles',
+                          () => PourOverProfileRow.openSettings(context),
+                        ),
+                        emptyText: 'No profiles selected.',
                       ),
-                    PreShotRow(
+                    ValueSelectRow<int>(
                       icon: Icons.coffee_outlined,
                       label: 'Bean',
-                      value: bean?.name ?? 'Select bean',
-                      dimValue: bean == null || locked,
-                      trailingIcon: locked ? null : _chevron(_OpenList.bean),
-                      onTap: tap(_OpenList.bean),
+                      valueText: bean?.name,
+                      placeholder: 'Select bean',
+                      dimValue: locked,
+                      enabled: !locked,
+                      open: _open == _OpenList.bean,
+                      onToggle: () => _toggle(_OpenList.bean),
+                      onClose: _close,
+                      value: setup.beanId,
+                      options: _beanOptions(showStock),
+                      onChanged: setup.setBean,
+                      action: ValueSelectAction('New bean', _addBean),
+                      emptyText: 'No beans yet.',
                     ),
-                    if (_open == _OpenList.bean)
-                      InlinePicker<Bean>(
-                        items: [
-                          for (final g in groupBeansByRoaster(_pickableBeans))
-                            ...g.beans,
-                        ],
-                        leading: (b) => showStock
-                            ? BeanStockAvatar(
-                                photoPath: b.photoPath,
-                                remaining: beanRemaining(b, _beanUsage),
-                                total: b.weightGrams,
-                                size: 44,
-                                labelOverhang: 2,
-                              )
-                            : BeanThumbnail(
-                                path: b.photoPath,
-                                size: 36,
-                                circle: true,
-                              ),
-                        title: (b) => b.name,
-                        detail: (b) => b.roaster,
-                        searchText: (b) => beanSearchText(b),
-                        isSelected: (b) => b.id == setup.beanId,
-                        onSelected: (b) {
-                          setup.setBean(b.id);
-                          _close();
-                        },
-                        onAdd: _addBean,
-                        addTooltip: 'Add bean',
-                        emptyText: 'No beans yet. Tap + to add one.',
-                      ),
-                    PreShotRow(
+                    ValueSelectRow<void>.custom(
                       icon: Icons.balance,
                       label: 'Dose',
-                      value: dose == null ? '—' : '${formatGrams(dose)} g',
-                      dimValue: dose == null || locked,
-                      trailingIcon: locked ? null : _chevron(_OpenList.dose),
-                      onTap: tap(_OpenList.dose),
-                    ),
-                    if (_open == _OpenList.dose)
-                      RulerPicker(
+                      valueText: dose == null ? null : '${formatGrams(dose)} g',
+                      dimValue: locked,
+                      enabled: !locked,
+                      open: _open == _OpenList.dose,
+                      onToggle: () => _toggle(_OpenList.dose),
+                      onClose: _close,
+                      panel: RulerPicker(
                         value: dose ?? 15,
                         min: 5,
                         max: 60,
                         unit: 'g',
                         onChanged: setup.setDose,
                       ),
-                    PreShotRow(
+                    ),
+                    ValueSelectRow<void>.custom(
                       icon: Icons.blur_on,
                       label: 'Grind',
                       // Without an own setting the recipe's grind level is
                       // shown ("Coarse") — dimmed, because it is not a
                       // number on your own grinder.
-                      value: grind != null
+                      valueText: grind != null
                           ? grind.toStringAsFixed(1)
                           : (recipe == null
-                                ? '—'
+                                ? null
                                 : grindLabel(recipe.grindSize)),
                       dimValue: grind == null || locked,
-                      trailingIcon: locked ? null : _chevron(_OpenList.grind),
-                      onTap: tap(_OpenList.grind),
-                      extra: GrinderPill(
+                      enabled: !locked,
+                      open: _open == _OpenList.grind,
+                      onToggle: () => _toggle(_OpenList.grind),
+                      onClose: _close,
+                      trailing: GrinderPill(
                         open: _open == _OpenList.grinder,
                         onTap: tap(_OpenList.grinder),
                       ),
-                    ),
-                    if (_open == _OpenList.grinder)
-                      GrinderPickerList(
-                        onChosen: () => _toggle(_OpenList.grinder),
-                      ),
-                    if (_open == _OpenList.grind)
-                      RulerPicker(
+                      panel: RulerPicker(
                         value: grind ?? 20,
                         min: 0,
                         max: 60,
                         unit: '',
                         onChanged: setup.setGrind,
                       ),
-                    PreShotRow(
+                    ),
+                    if (_open == _OpenList.grinder)
+                      GrinderPickerList(
+                        onChosen: () => _toggle(_OpenList.grinder),
+                      ),
+                    // With a recipe the water follows from recipe and dose
+                    // (lock); manual, it is the freely chosen target.
+                    ValueSelectRow<void>.custom(
                       icon: Icons.water_drop_outlined,
                       label: 'Water',
-                      value: plan == null
-                          ? '—'
+                      valueText: plan == null
+                          ? null
                           : '${formatGrams(plan.totalWaterG)} g  ·  1:${formatRatio(plan.ratio)}',
-                      // With a recipe it follows from recipe and dose
-                      // (lock); manual, it is the freely chosen target.
                       dimValue: !manual || locked,
-                      trailingIcon: manual
-                          ? (locked ? null : _chevron(_OpenList.water))
-                          : Icons.lock_outline,
-                      onTap: manual ? tap(_OpenList.water) : null,
-                    ),
-                    if (manual && _open == _OpenList.water)
-                      RulerPicker(
+                      enabled: manual && !locked,
+                      trailing: manual
+                          ? null
+                          : Icon(
+                              Icons.lock_outline,
+                              size: 18,
+                              color: context.colors.textTertiary,
+                            ),
+                      open: manual && _open == _OpenList.water,
+                      onToggle: () => _toggle(_OpenList.water),
+                      onClose: _close,
+                      panel: RulerPicker(
                         value: brew.manualWaterG,
                         min: 50,
                         max: 1000,
@@ -316,27 +324,29 @@ class _PreBrewCardState extends State<PreBrewCard> {
                         step: 1,
                         onChanged: brew.setManualWater,
                       ),
-                    PreShotRow(
+                    ),
+                    ValueSelectRow<void>.custom(
                       icon: Icons.thermostat_outlined,
                       label: 'Temp',
-                      value: temp != null
+                      valueText: temp != null
                           ? '${formatGrams(temp)}°C'
                           : (recipe?.brewTemperature != null
                                 ? brewTemperatureLabel(recipe!.brewTemperature!)
-                                : '—'),
+                                : null),
                       dimValue: temp == null || locked,
-                      trailingIcon: locked ? null : _chevron(_OpenList.temp),
+                      enabled: !locked,
                       isLast: true,
-                      onTap: tap(_OpenList.temp),
-                    ),
-                    if (_open == _OpenList.temp)
-                      RulerPicker(
+                      open: _open == _OpenList.temp,
+                      onToggle: () => _toggle(_OpenList.temp),
+                      onClose: _close,
+                      panel: RulerPicker(
                         value: temp ?? 93,
                         min: 80,
                         max: 100,
                         unit: '°',
                         onChanged: brew.setTemperature,
                       ),
+                    ),
                     const SizedBox(height: 12),
                     const Spacer(),
                     const _StartButton(),

@@ -4,7 +4,7 @@ import 'package:beand/database/database.dart';
 import 'package:beand/models/history_import.dart';
 import 'package:beand/screens/history/history_tab.dart';
 import 'package:beand/screens/history/shot_detail_screen.dart';
-import 'package:beand/screens/live/inline_picker.dart';
+import 'package:beand/widgets/value_select_row.dart';
 import 'package:beand/screens/beans/beans_tab.dart';
 import 'package:beand/screens/history/history_widgets.dart';
 import 'package:beand/services/app_settings.dart';
@@ -398,7 +398,7 @@ void main() {
       await tester.tap(find.text('Select shot'));
       await settle(tester); // reads the shots from the DB
       await tester.pump();
-      final picker = find.byType(InlinePicker<ShotEntry>);
+      final picker = find.byType(ValueSelectList<int>);
       expect(picker, findsOneWidget);
       // Shots with the same bean first, then the rest; the current one is
       // missing.
@@ -428,7 +428,7 @@ void main() {
       );
       await settle(tester);
       await tester.pumpAndSettle();
-      expect(find.byType(InlinePicker<ShotEntry>), findsNothing);
+      expect(find.byType(ValueSelectList<int>), findsNothing);
 
       expect(find.textContaining('Sun 20 Sep · 07:50'), findsOneWidget);
       expect(find.textContaining('older'), findsWidgets);

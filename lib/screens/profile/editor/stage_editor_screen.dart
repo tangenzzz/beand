@@ -7,6 +7,7 @@ import '../../../widgets/app_button.dart';
 import 'editor_widgets.dart';
 import 'stage_curve_editor.dart';
 import 'variable_sheet.dart';
+import '../../../widgets/value_select_row.dart';
 
 // Edit a stage. A separate page instead of a section, so the chart, point
 // fine-tuning and exit conditions have room side by side — the Meticulous
@@ -571,20 +572,28 @@ class _StageEditorScreenState extends State<StageEditorScreen> {
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _TypeMenu(
-                value: trigger.type,
-                options: exitTriggerTypes,
-                color: tint,
-                onChanged: (v) {
-                  trigger.type = v;
-                  if (!trigger.needsValue) {
-                    trigger.value = const DraftValue.number(0);
-                  }
-                  _touch();
-                },
+              // The app's value row; the type list folds out inline.
+              Expanded(
+                child: ValueSelectRow<String>(
+                  label: 'Ends on',
+                  labelWidth: 56,
+                  isLast: true,
+                  value: trigger.type,
+                  options: [
+                    for (final option in exitTriggerTypes)
+                      ValueOption(value: option, title: labelForType(option)),
+                  ],
+                  onChanged: (v) {
+                    trigger.type = v;
+                    if (!trigger.needsValue) {
+                      trigger.value = const DraftValue.number(0);
+                    }
+                    _touch();
+                  },
+                ),
               ),
-              const Spacer(),
               IconButton(
                 tooltip: 'Remove condition',
                 visualDensity: VisualDensity.compact,
@@ -838,52 +847,6 @@ class _ComparisonToggle extends StatelessWidget {
     child: Text(
       value == '>=' ? '≥' : '≤',
       style: TextStyle(color: context.colors.textPrimary, fontSize: 17),
-    ),
-  );
-}
-
-// Selection list for the trigger type.
-class _TypeMenu extends StatelessWidget {
-  const _TypeMenu({
-    required this.value,
-    required this.options,
-    required this.color,
-    required this.onChanged,
-  });
-
-  final String value;
-  final List<String> options;
-  final Color color;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) => PopupMenuButton<String>(
-    initialValue: value,
-    color: context.colors.card,
-    onSelected: onChanged,
-    itemBuilder: (_) => [
-      for (final option in options)
-        PopupMenuItem(
-          value: option,
-          child: Text(
-            labelForType(option),
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 13.5),
-          ),
-        ),
-    ],
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          labelForType(value),
-          style: TextStyle(
-            color: color,
-            fontSize: 13.5,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        Icon(Icons.expand_more, size: 17, color: color),
-      ],
     ),
   );
 }

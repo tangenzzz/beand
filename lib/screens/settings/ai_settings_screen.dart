@@ -11,6 +11,7 @@ import '../../widgets/app_button.dart';
 import '../../widgets/dot_choice_group.dart';
 import 'settings_widgets.dart';
 import '../../widgets/app_switch_tile.dart';
+import '../../widgets/value_select_row.dart';
 
 // Settings → AI. One card, like on every settings page.
 //
@@ -431,119 +432,74 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     final models = _models ?? settings.provider.fallbackModels;
     final current = settings.model;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        InkWell(
-          onTap: () => setState(() => _modelsOpen = !_modelsOpen),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.dividerInset,
-              vertical: 14,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Model',
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        current.isEmpty ? 'none selected' : current,
-                        style: TextStyle(
-                          color: colors.textTertiary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (_loadingModels)
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colors.textTertiary,
-                    ),
-                  )
-                else
-                  Icon(
-                    _modelsOpen ? Icons.expand_less : Icons.expand_more,
-                    size: 20,
+    void choose(String id) {
+      settings.setModel(id);
+      setState(() {
+        _modelsOpen = false;
+        _testResult = null;
+      });
+    }
+
+    final note = _modelsError != null
+        ? Text(
+            _modelsError!,
+            style: TextStyle(color: colors.danger, fontSize: 12, height: 1.4),
+          )
+        : (_models == null
+              ? Text(
+                  'Not fetched yet — these are the names bean\'d knows. '
+                  'Reload to ask ${settings.provider.vendor} what your key '
+                  'can actually use.',
+                  style: TextStyle(
                     color: colors.textTertiary,
+                    fontSize: 12,
+                    height: 1.4,
                   ),
-              ],
-            ),
+                )
+              : null);
+
+    // The app's value row; below the models the hint, a field for a name
+    // that isn't in the list, and reload.
+    return ValueSelectRow<String>(
+      label: 'Model',
+      horizontalPadding: AppSpacing.dividerInset,
+      isLast: true,
+      open: _modelsOpen,
+      onToggle: () => setState(() => _modelsOpen = !_modelsOpen),
+      onClose: () => setState(() => _modelsOpen = false),
+      value: current,
+      valueText: current.isEmpty ? null : current,
+      placeholder: 'None selected',
+      trailing: _loadingModels
+          ? SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colors.textTertiary,
+              ),
+            )
+          : null,
+      options: [
+        for (final model in models)
+          ValueOption(
+            value: model.id,
+            title: model.label,
+            subtitle: model.note ?? (model.label == model.id ? null : model.id),
           ),
-        ),
-        if (_modelsOpen) ...[
-          if (_models == null && _modelsError == null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.dividerInset,
-                0,
-                AppSpacing.dividerInset,
-                10,
+      ],
+      onChanged: choose,
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 4, 4, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (note != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6, right: 6),
+                child: note,
               ),
-              child: Text(
-                'Not fetched yet — these are the names bean\'d knows. '
-                'Reload to ask ${settings.provider.vendor} what your key can '
-                'actually use.',
-                style: TextStyle(
-                  color: colors.textTertiary,
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          if (_modelsError != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.dividerInset,
-                0,
-                AppSpacing.dividerInset,
-                10,
-              ),
-              child: Text(
-                _modelsError!,
-                style: TextStyle(
-                  color: colors.danger,
-                  fontSize: 12,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          for (final model in models)
-            SettingsChoiceRow(
-              icon: Icons.auto_awesome_outlined,
-              title: model.label,
-              subtitle:
-                  model.note ?? (model.label == model.id ? null : model.id),
-              selected: model.id == current,
-              onTap: () {
-                settings.setModel(model.id);
-                setState(() {
-                  _modelsOpen = false;
-                  _testResult = null;
-                });
-              },
-            ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.dividerInset,
-              6,
-              AppSpacing.dividerInset,
-              14,
-            ),
-            child: Row(
+            Row(
               children: [
                 Expanded(
                   child: TextField(
@@ -553,12 +509,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     decoration: _fieldDecoration(context, 'Other model id'),
                     onSubmitted: (value) {
                       if (value.trim().isEmpty) return;
-                      settings.setModel(value.trim());
                       _modelController.clear();
-                      setState(() {
-                        _modelsOpen = false;
-                        _testResult = null;
-                      });
+                      choose(value.trim());
                     },
                   ),
                 ),
@@ -575,9 +527,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ],
+          ],
+        ),
+      ),
     );
   }
 

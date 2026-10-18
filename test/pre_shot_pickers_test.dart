@@ -6,7 +6,6 @@ import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/database/database.dart';
 import 'package:beand/models/machine_profile.dart';
 import 'package:beand/models/machine_status.dart';
-import 'package:beand/screens/live/inline_picker.dart';
 import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/screens/live/ruler_picker.dart';
 import 'package:beand/services/app_settings.dart';
@@ -14,6 +13,7 @@ import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/services/shot_setup.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:beand/widgets/value_select_row.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -23,7 +23,6 @@ import 'package:provider/provider.dart';
 import 'support/offline_gaggimate.dart';
 
 // The tests check the default appearance: dark with teal.
-final _theme = AppColors.forVariant(AppThemeVariant.dark, AppAccent.teal);
 
 class FakeService extends MeticulousSocketService {
   FakeService() : super(hostname: 'unreachable.local');
@@ -127,38 +126,35 @@ void main() {
     );
     await tester.pump();
 
-    // Expand bean: sorted by roaster, then name; "+" present.
+    // Two rich options (photo + roaster), the "New bean" action below.
+    List<ValueOption<int>> two() => [
+      for (var i = 0; i < 2; i++)
+        ValueOption(value: i, title: 'x', subtitle: 'y'),
+    ];
+
+    // Expand bean: sorted by roaster, then name; "New bean" at the end.
     await tester.tap(find.text('Select bean'));
+    // Let the list fold out before tapping into it.
     await tester.pump();
-    expect(extra.last, InlinePicker.heightFor(2));
-    // The search/plus row is at the very bottom, below the list.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(extra.last, ValueSelectRow.listHeightFor(two(), action: true));
     expect(
-      tester.getTopLeft(find.byTooltip('Search')).dy,
+      tester.getTopLeft(find.text('New bean')).dy,
       greaterThan(tester.getTopLeft(find.textContaining('Kiambu')).dy),
     );
-    // The triggering row is not highlighted.
     expect(
-      find.byWidgetPredicate(
-        (w) =>
-            w is DecoratedBox &&
-            w.decoration is BoxDecoration &&
-            (w.decoration as BoxDecoration).color ==
-                _theme.accent.withValues(alpha: 0.08),
-      ),
-      findsNothing,
+      tester.getTopLeft(find.textContaining('Guji')).dy,
+      lessThan(tester.getTopLeft(find.textContaining('Kiambu')).dy),
     );
     expect(find.textContaining('Guji'), findsOneWidget);
-    expect(find.textContaining('Kiambu'), findsOneWidget);
-    expect(find.byTooltip('Add bean'), findsOneWidget);
-    expect(find.byTooltip('Search'), findsOneWidget);
+    // Up to 8 entries there is no search field.
+    expect(find.byIcon(Icons.search), findsNothing);
 
-    // Search filters.
-    await tester.tap(find.byTooltip('Search'));
-    await tester.pump();
-    await tester.enterText(find.byType(TextField), 'guj');
-    await tester.pump();
-    expect(find.textContaining('Kiambu'), findsNothing);
     await tester.tap(find.textContaining('Guji'));
+    // Let the list fold away.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     expect(extra.last, 0, reason: 'selection collapses the list');
     expect(find.text('Guji'), findsOneWidget);
@@ -174,6 +170,9 @@ void main() {
 
     // Expand profile (without "+"), selection only calls hoverProfile.
     await tester.tap(find.text('Select profile'));
+    // Let the list fold out before tapping into it.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     await tester.pump();
     expect(find.textContaining('Soup'), findsWidgets);
@@ -191,9 +190,12 @@ void main() {
         ?_fileOf(image.image),
     ];
     expect(files, [photo.path], reason: 'only the profile with its own photo');
-    expect(find.byTooltip('Add bean'), findsNothing);
-    expect(extra.last, InlinePicker.heightFor(2));
+    expect(find.text('New bean'), findsNothing);
+    expect(extra.last, ValueSelectRow.listHeightFor(two()));
     await tester.tap(find.textContaining('Classic'));
+    // Let the list fold away.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     expect(service.hovered, ['p2']);
     expect(find.text('Classic'), findsOneWidget);
@@ -201,8 +203,14 @@ void main() {
 
     // Only one list is ever open.
     await tester.tap(find.text('Guji'));
+    // Let the list fold away.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     await tester.tap(find.text('Classic'));
+    // Let the list fold away.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     await tester.pump();
     expect(find.byTooltip('Add bean'), findsNothing);
@@ -212,6 +220,8 @@ void main() {
     // don't start at 5 g.
     expect(find.text('—'), findsNWidgets(2), reason: 'Dose and Grind empty');
     await tester.tap(find.text('—').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     expect(find.byType(RulerPicker), findsOneWidget);
     expect(extra.last, RulerPicker.height);
@@ -246,6 +256,8 @@ void main() {
     // Still empty here too: the row shows the dash.
     await tester.tap(find.text('—'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
     expect(find.byType(RulerPicker), findsOneWidget);
     // The ruler starts at the suggested value, the row stays empty until
     // something is actually set.
@@ -254,6 +266,8 @@ void main() {
     // Tapping the row again collapses the ruler.
     await tester.tap(find.text('—'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
     expect(extra.last, 0);
 
     await tester.pumpWidget(const SizedBox());
@@ -261,10 +275,21 @@ void main() {
     await db.close();
   });
 
-  test('dropdown list height: constant from 4 entries on (scrolls)', () {
-    expect(InlinePicker.heightFor(0), InlinePicker.heightFor(1));
-    expect(InlinePicker.heightFor(6), InlinePicker.heightFor(4));
-    expect(InlinePicker.heightFor(4) > InlinePicker.heightFor(3), true);
+  test('list height: grows up to 5.5 rows, then scrolls', () {
+    List<ValueOption<int>> n(int count) => [
+      for (var i = 0; i < count; i++) ValueOption(value: i, title: '$i'),
+    ];
+    expect(ValueSelectList.heightFor(n(0)), ValueSelectList.heightFor(n(1)));
+    expect(ValueSelectList.heightFor(n(6)), ValueSelectList.heightFor(n(8)));
+    expect(
+      ValueSelectList.heightFor(n(5)) < ValueSelectList.heightFor(n(6)),
+      true,
+    );
+    // From 9 entries on the search field sits on top.
+    expect(
+      ValueSelectList.heightFor(n(9)) > ValueSelectList.heightFor(n(8)),
+      true,
+    );
   });
 }
 

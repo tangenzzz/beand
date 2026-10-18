@@ -12,15 +12,14 @@ import '../../services/live_shot_service.dart';
 import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
 import '../beans/bean_form_screen.dart';
-import '../beans/bean_filter.dart';
 import '../beans/bean_stock.dart';
 import '../beans/bean_widgets.dart';
 import '../../widgets/app_button.dart';
 import 'brew_control_button.dart';
-import 'inline_picker.dart';
 import 'ruler_picker.dart';
 import 'tile_title.dart';
 import 'grinder_choice.dart';
+import '../../widgets/value_select_row.dart';
 
 // Pre-Shot card. "Bean" is real: picks from the beans created in the Beans
 // tab (purely local, not sent to the machine). "Profile" is real: picks from
@@ -131,8 +130,11 @@ class _PreShotCardState extends State<PreShotCard> {
   }
 
   double _extraHeight() => switch (_open) {
-    _OpenList.bean => InlinePicker.heightFor(_pickableBeans.length),
-    _OpenList.profile => InlinePicker.heightFor(_profiles?.length ?? 1),
+    _OpenList.bean => ValueSelectRow.listHeightFor(
+      _beanOptions(context.read<AppSettings>().showBeanStock),
+      action: true,
+    ),
+    _OpenList.profile => ValueSelectRow.listHeightFor(_profileOptions()),
     _OpenList.dose || _OpenList.grind => RulerPicker.height,
     _OpenList.grinder => GrinderPickerList.heightFor(context),
     null => 0,
@@ -219,9 +221,8 @@ class _PreShotCardState extends State<PreShotCard> {
   // Until something is picked, the profile currently loaded on the machine
   // applies (status event). `select` only rebuilds on a change, not on
   // every 100 ms status tick.
-  String _profileLabel(String loadedName) =>
-      _selectedProfileName ??
-      (loadedName.isEmpty ? 'Select profile' : loadedName);
+  String? _profileLabel(String loadedName) =>
+      _selectedProfileName ?? (loadedName.isEmpty ? null : loadedName);
 
   @override
   Widget build(BuildContext context) {
@@ -283,97 +284,60 @@ class _PreShotCardState extends State<PreShotCard> {
                   children: [
                     TileTitle(short: 'PRE', active: isActiveCard),
                     const SizedBox(height: 6),
-                    PreShotRow(
+                    ValueSelectRow<String>(
                       icon: Icons.tune,
                       label: 'Profile',
-                      value: _profileLabel(activeProfile.loadedName),
-                      dimValue:
-                          profileLocked ||
-                          (_selectedProfileName == null &&
-                              activeProfile.loadedName.isEmpty),
-                      trailingIcon: profileLocked
-                          ? null
-                          : (_open == _OpenList.profile
-                                ? Icons.expand_less
-                                : Icons.expand_more),
-                      onTap: profileLocked
-                          ? null
-                          : () => _toggle(_OpenList.profile),
+                      valueText: _profileLabel(activeProfile.loadedName),
+                      placeholder: 'Select profile',
+                      dimValue: profileLocked,
+                      enabled: !profileLocked,
+                      open: _open == _OpenList.profile && !profileLocked,
+                      onToggle: () => _toggle(_OpenList.profile),
+                      onClose: _close,
+                      value: _selectedProfileId ?? activeProfile.id,
+                      listPlaceholder: _profiles == null
+                          ? (_profilesError ?? 'Loading…')
+                          : null,
+                      emptyText: 'No profiles on the machine.',
+                      options: _profileOptions(),
+                      onChanged: (id) {
+                        final picked = _profiles
+                            ?.where((p) => p.id == id)
+                            .firstOrNull;
+                        if (picked != null) _selectProfile(picked);
+                      },
                     ),
-                    if (_open == _OpenList.profile && !profileLocked)
-                      InlinePicker<MachineProfile>(
-                        items: _profiles ?? const [],
-                        placeholder: _profiles == null
-                            ? (_profilesError ?? 'Loading…')
-                            : null,
-                        leading: (p) => _ProfileAvatar(
-                          profile: p,
-                          hostname: context.read<EspressoMachine>().host,
-                        ),
-                        title: (p) => p.name,
-                        detail: (p) =>
-                            '${p.temperature.toStringAsFixed(p.temperature % 1 == 0 ? 0 : 1)}°C · ${p.finalWeight.toStringAsFixed(0)} g',
-                        isSelected: (p) =>
-                            p.id == (_selectedProfileId ?? activeProfile.id),
-                        onSelected: _selectProfile,
-                        emptyText: 'No profiles on the machine.',
-                      ),
                     // Bean looked up by ID from the list so edits/deletes
                     // in the Beans tab show up here immediately.
-                    PreShotRow(
+                    ValueSelectRow<int>(
                       icon: Icons.coffee_outlined,
                       label: 'Bean',
-                      value: _selectedBean?.name ?? 'Select bean',
-                      dimValue: _selectedBean == null,
-                      trailingIcon: _open == _OpenList.bean
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      onTap: () => _toggle(_OpenList.bean),
+                      valueText: _selectedBean?.name,
+                      placeholder: 'Select bean',
+                      open: _open == _OpenList.bean,
+                      onToggle: () => _toggle(_OpenList.bean),
+                      onClose: _close,
+                      value: _selectedBeanId,
+                      options: _beanOptions(showStock),
+                      onChanged: (id) {
+                        final bean = _beanList
+                            .where((b) => b.id == id)
+                            .firstOrNull;
+                        if (bean != null) _selectBean(bean);
+                      },
+                      action: ValueSelectAction('New bean', _addBean),
+                      emptyText: 'No beans yet.',
                     ),
-                    if (_open == _OpenList.bean)
-                      InlinePicker<Bean>(
-                        items: [
-                          for (final g in groupBeansByRoaster(_pickableBeans))
-                            ...g.beans,
-                        ],
-                        // With remaining amount like in the bean list: the
-                        // photo stays 36 in size, the ring goes around it.
-                        leading: (b) => showStock
-                            ? BeanStockAvatar(
-                                photoPath: b.photoPath,
-                                remaining: beanRemaining(b, _beanUsage),
-                                total: b.weightGrams,
-                                size: 44,
-                                labelOverhang: 2,
-                              )
-                            : BeanThumbnail(
-                                path: b.photoPath,
-                                size: 36,
-                                circle: true,
-                              ),
-                        title: (b) => b.name,
-                        detail: (b) => b.roaster,
-                        searchText: (b) => beanSearchText(b),
-                        isSelected: (b) => b.id == _selectedBeanId,
-                        onSelected: _selectBean,
-                        onAdd: _addBean,
-                        addTooltip: 'Add bean',
-                        emptyText: 'No beans yet. Tap + to add one.',
-                      ),
-                    PreShotRow(
+                    ValueSelectRow<void>.custom(
                       icon: Icons.balance,
                       label: 'Dose',
-                      value: _doseGrams == null
-                          ? '—'
+                      valueText: _doseGrams == null
+                          ? null
                           : '${_doseGrams!.toStringAsFixed(_doseGrams! % 1 == 0 ? 0 : 1)} g',
-                      dimValue: _doseGrams == null,
-                      trailingIcon: _open == _OpenList.dose
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      onTap: () => _toggle(_OpenList.dose),
-                    ),
-                    if (_open == _OpenList.dose)
-                      RulerPicker(
+                      open: _open == _OpenList.dose,
+                      onToggle: () => _toggle(_OpenList.dose),
+                      onClose: _close,
+                      panel: RulerPicker(
                         value: _doseGrams ?? ShotSetup.defaultDose,
                         min: _doseMin,
                         max: _doseMax,
@@ -383,27 +347,20 @@ class _PreShotCardState extends State<PreShotCard> {
                           context.read<ShotSetup>().setDose(v);
                         },
                       ),
-                    PreShotRow(
+                    ),
+                    ValueSelectRow<void>.custom(
                       icon: Icons.blur_on,
                       label: 'Grind',
-                      value: _grindSize == null
-                          ? '—'
-                          : _grindSize!.toStringAsFixed(1),
-                      dimValue: _grindSize == null,
-                      trailingIcon: _open == _OpenList.grind
-                          ? Icons.expand_less
-                          : Icons.expand_more,
+                      valueText: _grindSize?.toStringAsFixed(1),
                       isLast: true,
-                      onTap: () => _toggle(_OpenList.grind),
-                      extra: GrinderPill(
+                      open: _open == _OpenList.grind,
+                      onToggle: () => _toggle(_OpenList.grind),
+                      onClose: _close,
+                      trailing: GrinderPill(
                         open: _open == _OpenList.grinder,
                         onTap: () => _toggle(_OpenList.grinder),
                       ),
-                    ),
-                    if (_open == _OpenList.grinder)
-                      GrinderPickerList(onChosen: _close),
-                    if (_open == _OpenList.grind)
-                      RulerPicker(
+                      panel: RulerPicker(
                         value: _grindSize ?? ShotSetup.defaultGrind,
                         min: _grindMin,
                         max: _grindMax,
@@ -413,6 +370,9 @@ class _PreShotCardState extends State<PreShotCard> {
                           context.read<ShotSetup>().setGrind(v);
                         },
                       ),
+                    ),
+                    if (_open == _OpenList.grinder)
+                      GrinderPickerList(onChosen: _close),
                     // Space before the footer: grows/shrinks with the card
                     // height but never gets smaller than this minimum gap.
                     const SizedBox(height: 14),
@@ -449,6 +409,41 @@ class _PreShotCardState extends State<PreShotCard> {
         if (!b.isFrozen && !beanUsedUp(b, _beanUsage, stock: stock)) b,
     ];
   }
+
+  List<ValueOption<String>> _profileOptions() => [
+    for (final p in _profiles ?? const <MachineProfile>[])
+      ValueOption(
+        value: p.id,
+        title: p.name,
+        subtitle:
+            '${p.temperature.toStringAsFixed(p.temperature % 1 == 0 ? 0 : 1)}°C · ${p.finalWeight.toStringAsFixed(0)} g',
+        leading: _ProfileAvatar(
+          profile: p,
+          hostname: context.read<EspressoMachine>().host,
+        ),
+      ),
+  ];
+
+  // With remaining amount like in the bean list: the photo stays 36 in
+  // size, the ring goes around it.
+  List<ValueOption<int>> _beanOptions(bool showStock) => [
+    for (final g in groupBeansByRoaster(_pickableBeans))
+      for (final b in g.beans)
+        ValueOption(
+          value: b.id,
+          title: b.name,
+          subtitle: b.roaster,
+          leading: showStock
+              ? BeanStockAvatar(
+                  photoPath: b.photoPath,
+                  remaining: beanRemaining(b, _beanUsage),
+                  total: b.weightGrams,
+                  size: 40,
+                  labelOverhang: 2,
+                )
+              : BeanThumbnail(path: b.photoPath, size: 36, circle: true),
+        ),
+  ];
 
   Future<void> _addBean() async {
     final created = await Navigator.of(context)
@@ -728,105 +723,6 @@ class _AutoStartCheck extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class PreShotRow extends StatelessWidget {
-  const PreShotRow({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.dimValue = false,
-    this.trailingIcon,
-    this.isLast = false,
-    this.onTap,
-    this.extra,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  // Show placeholder text (nothing picked yet) dimmed.
-  final bool dimValue;
-  // Always reserve the same width (even if null) so the values of all rows
-  // end at the same height/edge instead of looking offset.
-  final IconData? trailingIcon;
-  final bool isLast;
-  final VoidCallback? onTap;
-  // Right-aligned at the end of the row with its own tap (e.g. the grinder
-  // next to the grind size).
-  final Widget? extra;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Padding(
-            // 14 instead of 10: with the taller card there was otherwise
-            // just an empty strip left at the bottom instead of the four
-            // rows using the space.
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Row(
-              children: [
-                Icon(icon, color: context.colors.textTertiary, size: 17),
-                const SizedBox(width: 12),
-                // Fixed width instead of aligned to its own text — otherwise
-                // the value column starts at a different spot in each row
-                // ("Bean" vs. "Profile" have different widths). This way
-                // label and value columns line up across all rows, with
-                // little space in between.
-                SizedBox(
-                  width: 52,
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: context.colors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 22),
-                Flexible(
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.left,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: dimValue
-                          ? context.colors.textTertiary
-                          : context.colors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                SizedBox(
-                  width: 19,
-                  child: trailingIcon == null
-                      ? null
-                      : Icon(
-                          trailingIcon,
-                          color: context.colors.textTertiary,
-                          size: 19,
-                        ),
-                ),
-                if (extra != null) ...[
-                  const Spacer(),
-                  const SizedBox(width: 10),
-                  extra!,
-                ],
-              ],
-            ),
-          ),
-          if (!isLast) Divider(height: 1, color: context.colors.divider),
-        ],
       ),
     );
   }
