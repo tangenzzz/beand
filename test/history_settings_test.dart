@@ -4,7 +4,6 @@ import 'package:beand/services/ai/ai_provider.dart';
 import 'package:beand/services/ai/ai_settings.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/theme/app_theme.dart';
-import 'package:beand/widgets/app_switch_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -18,9 +17,12 @@ import 'package:beand/screens/settings/settings_widgets.dart';
 Finder findInfo(String part) =>
     find.byWidgetPredicate((w) => w is SettingsInfo && w.text.contains(part));
 
-// Only the switch toggles (AppSwitchTile), not the label.
+// Only the switch toggles (SettingsSwitchRow), not the label.
 Finder switchOf(String label) => find.descendant(
-  of: find.ancestor(of: find.text(label), matching: find.byType(ListTile)),
+  of: find.ancestor(
+    of: find.text(label),
+    matching: find.byType(SettingsSwitchRow),
+  ),
   matching: find.byType(Switch),
 );
 
@@ -71,10 +73,10 @@ void main() {
     expect(ai.isFeatureOn(AiFeature.shotAnalysis), isTrue);
     await ai.setEnabled(false);
     await tester.pump();
-    final aiSwitch = tester.widget<AppSwitchTile>(
+    final aiSwitch = tester.widget<SettingsSwitchRow>(
       find.ancestor(
         of: find.text('AI analysis'),
-        matching: find.byType(AppSwitchTile),
+        matching: find.byType(SettingsSwitchRow),
       ),
     );
     expect(aiSwitch.onChanged, isNull);

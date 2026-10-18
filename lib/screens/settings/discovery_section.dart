@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/machine_discovery.dart';
 import '../../theme/app_theme.dart';
+import 'settings_widgets.dart';
 
 // "Found on your network" — the upper part of a machine's connection card
 // (the search sits on the respective machine's page, not on a shared
@@ -123,8 +124,8 @@ class _DiscoverySectionState extends State<DiscoverySection> {
           children: [
             Expanded(
               child: Text(
-                'Machines on your network',
-                style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                'Machines on your network'.toUpperCase(),
+                style: settingsGroupLabelStyle(context),
               ),
             ),
             // Deliberately no spinning ring: it would run as a continuous
@@ -242,7 +243,7 @@ class _MachineRow extends StatelessWidget {
                     machine.displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.textPrimary, fontSize: 14),
+                    style: TextStyle(color: colors.textPrimary, fontSize: 15),
                   ),
                   const SizedBox(height: 2),
                   Text(

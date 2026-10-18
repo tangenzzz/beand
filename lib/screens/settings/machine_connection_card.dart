@@ -7,6 +7,7 @@ import '../../widgets/app_button.dart';
 import '../../widgets/machine_badge.dart';
 import '../history/history_logic.dart';
 import 'discovery_section.dart';
+import 'settings_widgets.dart';
 
 // The connection card for both machines (clearer, and the same for
 // Meticulous and GaggiMate).
@@ -136,11 +137,7 @@ class _MachineConnectionCardState extends State<MachineConnectionCard> {
                       _title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(color: colors.textPrimary, fontSize: 15),
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -195,22 +192,15 @@ class _MachineConnectionCardState extends State<MachineConnectionCard> {
             onTap: () => setState(() => _manualOpen = !_manualOpen),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Enter address manually',
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
+                  const Expanded(
+                    child: SettingsTitle('Enter address manually'),
                   ),
                   Icon(
                     _manualOpen ? Icons.expand_less : Icons.expand_more,
-                    size: 18,
-                    color: colors.textSecondary,
+                    color: colors.textTertiary,
                   ),
                 ],
               ),

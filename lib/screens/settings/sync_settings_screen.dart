@@ -56,146 +56,143 @@ class _SyncSettingsScreenState extends State<SyncSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
+          // Three blocks, one line between them: the switch, the status
+          // with the other devices, and Advanced.
           SettingsCard(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.dividerInset,
-                  14,
-                  8,
-                  14,
-                ),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: SettingsTitle(
-                        'Sync between your devices',
-                        info:
-                            'Beans, shots, profiles, photos and settings, '
-                            'end-to-end encrypted. Machine addresses and AI '
-                            'keys stay on each device.',
+              SettingsGroup(
+                children: [
+                  SettingsSwitchRow(
+                    title: 'Sync between your devices',
+                    info:
+                        'Beans, shots, profiles, photos and settings, '
+                        'end-to-end encrypted. Machine addresses and AI '
+                        'keys stay on each device.',
+                    value: sync.enabled,
+                    onChanged: (on) => on ? sync.enable() : sync.disable(),
+                  ),
+                  // New device: first take over the other's key, then turn on —
+                  // otherwise turning on would create a key of its own.
+                  if (!sync.enabled)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.dividerInset,
+                        0,
+                        8,
+                        14,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Already syncing on another device?',
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          AppButton(
+                            label: 'Scan QR code',
+                            icon: Icons.qr_code_scanner,
+                            variant: AppButtonVariant.secondary,
+                            expand: false,
+                            height: 40,
+                            onPressed: () => scanSyncKey(
+                              context,
+                              sync,
+                              enableAfter: true,
+                              scan: widget.scan,
+                              safetyCopy: widget.safetyCopy,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Switch(
-                      value: sync.enabled,
-                      onChanged: (on) => on ? sync.enable() : sync.disable(),
+                ],
+              ),
+              if (sync.enabled) ...[
+                SettingsGroup(
+                  children: [
+                    const _StatusSection(),
+                    SettingsSection(
+                      title: 'Other devices',
+                      info:
+                          'Show the code on a device that already syncs and scan '
+                          'it on the new one.',
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          AppButton(
+                            label: 'Show QR code',
+                            icon: Icons.qr_code,
+                            variant: AppButtonVariant.secondary,
+                            expand: false,
+                            height: 40,
+                            onPressed: () => showSyncKeyQr(
+                              context,
+                              sync,
+                              authenticate: widget.authenticate,
+                            ),
+                          ),
+                          AppButton(
+                            label: 'Scan QR code',
+                            icon: Icons.qr_code_scanner,
+                            variant: AppButtonVariant.secondary,
+                            expand: false,
+                            height: 40,
+                            onPressed: () => scanSyncKey(
+                              context,
+                              sync,
+                              scan: widget.scan,
+                              safetyCopy: widget.safetyCopy,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              // New device: first take over the other's key, then turn on —
-              // otherwise turning on would create a key of its own.
-              if (!sync.enabled)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.dividerInset,
-                    0,
-                    8,
-                    14,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Already syncing on another device?',
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 13,
-                          ),
+                SettingsGroup(
+                  children: [
+                    InkWell(
+                      key: const ValueKey('sync-advanced'),
+                      onTap: () => setState(() => _advanced = !_advanced),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.dividerInset,
+                          14,
+                          AppSpacing.dividerInset,
+                          14,
+                        ),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: SettingsTitle(
+                                'Advanced settings',
+                                info: nostrExplanation,
+                                infoHeading: nostrHeading,
+                              ),
+                            ),
+                            Icon(
+                              _advanced ? Icons.expand_less : Icons.expand_more,
+                              color: colors.textTertiary,
+                            ),
+                          ],
                         ),
                       ),
-                      AppButton(
-                        label: 'Scan QR code',
-                        icon: Icons.qr_code_scanner,
-                        variant: AppButtonVariant.secondary,
-                        expand: false,
-                        height: 40,
-                        onPressed: () => scanSyncKey(
-                          context,
-                          sync,
-                          enableAfter: true,
-                          scan: widget.scan,
-                          safetyCopy: widget.safetyCopy,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (sync.enabled) ...[
-                const _StatusSection(),
-                _Section(
-                  title: 'Other devices',
-                  info:
-                      'Show the code on a device that already syncs and scan '
-                      'it on the new one.',
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      AppButton(
-                        label: 'Show QR code',
-                        icon: Icons.qr_code,
-                        variant: AppButtonVariant.secondary,
-                        expand: false,
-                        height: 40,
-                        onPressed: () => showSyncKeyQr(
-                          context,
-                          sync,
-                          authenticate: widget.authenticate,
-                        ),
-                      ),
-                      AppButton(
-                        label: 'Scan QR code',
-                        icon: Icons.qr_code_scanner,
-                        variant: AppButtonVariant.secondary,
-                        expand: false,
-                        height: 40,
-                        onPressed: () => scanSyncKey(
-                          context,
-                          sync,
-                          scan: widget.scan,
-                          safetyCopy: widget.safetyCopy,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                InkWell(
-                  key: const ValueKey('sync-advanced'),
-                  onTap: () => setState(() => _advanced = !_advanced),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.dividerInset,
-                      14,
-                      AppSpacing.dividerInset,
-                      14,
                     ),
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: SettingsTitle(
-                            'Advanced settings',
-                            info: nostrExplanation,
-                            infoHeading: nostrHeading,
-                          ),
-                        ),
-                        Icon(
-                          _advanced ? Icons.expand_less : Icons.expand_more,
-                          color: colors.textTertiary,
-                        ),
-                      ],
-                    ),
-                  ),
+                    if (_advanced) ...[
+                      const _ServersSection(),
+                      const _PhotoServersSection(),
+                      _KeySection(authenticate: widget.authenticate),
+                      // At the very bottom because it's final (delete goes at the
+                      // bottom).
+                      const _DeleteDataSection(),
+                    ],
+                  ],
                 ),
-                if (_advanced) ...[
-                  const _ServersSection(),
-                  const _PhotoServersSection(),
-                  _KeySection(authenticate: widget.authenticate),
-                  // At the very bottom because it's final (delete goes at the
-                  // bottom).
-                  const _DeleteDataSection(),
-                ],
               ],
             ],
           ),
@@ -219,37 +216,6 @@ const nostrExplanation =
     'npub = the name on the locker. nsec = the only key. Lose the name and '
     'nothing happens; lose the key and someone else can open it.\n\n'
     'Add your own server for a locker at home.';
-
-class _Section extends StatelessWidget {
-  const _Section({this.title, required this.child, this.info});
-
-  /// Null where the child already says it (e.g. a labelled button).
-  final String? title;
-  final Widget child;
-  final String? info;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.dividerInset,
-        14,
-        AppSpacing.dividerInset,
-        14,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (title != null) ...[
-            SettingsTitle(title!, info: info),
-            const SizedBox(height: 8),
-          ],
-          child,
-        ],
-      ),
-    );
-  }
-}
 
 // Small text buttons (Copy, Hex, Show) without the 48 px minimum height.
 final _denseButton = TextButton.styleFrom(
@@ -303,7 +269,7 @@ class _StatusSection extends StatelessWidget {
             : 'Up to date · ${syncAgoLabel(sync.lastSuccessAt!, DateTime.now())}',
       ),
     };
-    return _Section(
+    return SettingsSection(
       title: 'Status',
       child: Row(
         children: [
@@ -358,7 +324,7 @@ class _ServersSectionState extends State<_ServersSection> {
     final sync = context.watch<SyncService>();
     final colors = context.colors;
     final usesDefaults = defaultSyncRelays.every(sync.relays.contains);
-    return _Section(
+    return SettingsSection(
       title: 'Servers',
       info:
           'Your data is stored encrypted on these servers (Nostr relays). '
@@ -455,7 +421,7 @@ class _PhotoServersSectionState extends State<_PhotoServersSection> {
   Widget build(BuildContext context) {
     final sync = context.watch<SyncService>();
     final colors = context.colors;
-    return _Section(
+    return SettingsSection(
       title: 'Photo storage',
       info:
           'Bean photos and your own profile pictures are encrypted on this '
@@ -654,7 +620,7 @@ class _KeySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Section(
+        SettingsSection(
           title: 'Your npub',
           info:
               'Your public name on the servers. Your own server needs it to let '
@@ -705,7 +671,7 @@ class _KeySection extends StatelessWidget {
             ],
           ),
         ),
-        _Section(
+        SettingsSection(
           title: 'Your nsec',
           info:
               'The key to all your synced data. Never share it — anyone '
@@ -836,7 +802,7 @@ class _DeleteDataSectionState extends State<_DeleteDataSection> {
   @override
   Widget build(BuildContext context) {
     // No title above it: the red button already says what it does.
-    return _Section(
+    return SettingsSection(
       child: AppButton(
         key: const ValueKey('sync-delete-data'),
         label: _busy ? 'Deleting…' : 'Delete synced data',

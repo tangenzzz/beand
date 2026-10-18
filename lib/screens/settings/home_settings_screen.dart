@@ -5,7 +5,7 @@ import '../../machines/gaggimate/gaggimate_service.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import 'pourover_settings_screen.dart';
-import '../../widgets/app_switch_tile.dart';
+import 'settings_widgets.dart';
 
 // Settings → Home: one switch per view that shows or hides the matching
 // pill at the top left of the Home tab. Pour Over instead leads to its own
@@ -37,76 +37,35 @@ class HomeSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
-          // Material instead of a colored Container, otherwise the
-          // background hides the ListTile's tap animation.
-          Material(
-            color: context.colors.card,
-            borderRadius: BorderRadius.circular(AppRadii.tile),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                for (final mode in HomeMode.values) ...[
-                  // Pour Over has its own page (switch + profiles) — here
-                  // only the way there.
-                  if (mode == HomeMode.pourOver)
-                    ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.dividerInset,
-                        vertical: 4,
-                      ),
-                      leading: Icon(
-                        _icons[mode],
-                        color: context.colors.textSecondary,
-                        size: 20,
-                      ),
-                      title: Text(
-                        mode.label,
-                        style: TextStyle(
-                          color: context.colors.textPrimary,
-                          fontSize: 15,
+          // One block: the views are siblings, no lines between them.
+          SettingsCard(
+            children: [
+              SettingsGroup(
+                label: 'Show on Home',
+                children: [
+                  for (final mode in HomeMode.values)
+                    // Pour Over has its own page (switch + profiles) — here
+                    // only the way there.
+                    if (mode == HomeMode.pourOver)
+                      SettingsRow(
+                        icon: _icons[mode],
+                        title: mode.label,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const PourOverSettingsScreen(),
+                          ),
                         ),
+                      )
+                    else
+                      SettingsSwitchRow(
+                        icon: _icons[mode],
+                        title: mode.label,
+                        value: settings.isHomeModeEnabled(mode),
+                        onChanged: (value) => _setEnabled(context, mode, value),
                       ),
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        color: context.colors.textSecondary,
-                      ),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const PourOverSettingsScreen(),
-                        ),
-                      ),
-                    )
-                  else
-                    AppSwitchTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.dividerInset,
-                        vertical: 4,
-                      ),
-                      secondary: Icon(
-                        _icons[mode],
-                        color: context.colors.textSecondary,
-                        size: 20,
-                      ),
-                      title: Text(
-                        mode.label,
-                        style: TextStyle(
-                          color: context.colors.textPrimary,
-                          fontSize: 15,
-                        ),
-                      ),
-                      value: settings.isHomeModeEnabled(mode),
-                      onChanged: (value) => _setEnabled(context, mode, value),
-                    ),
-                  if (mode != HomeMode.values.last)
-                    Divider(
-                      height: 1,
-                      indent: AppSpacing.dividerInset,
-                      endIndent: AppSpacing.dividerInset,
-                      color: context.colors.divider,
-                    ),
                 ],
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),

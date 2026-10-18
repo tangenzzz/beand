@@ -120,32 +120,37 @@ class AboutSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
+          // One block: the note leads into the links below it.
           SettingsCard(
             children: [
-              const SettingsNote(
-                "bean'd is free and open source (GPL-3.0). It is not "
-                'affiliated with any of the manufacturers mentioned; all '
-                'trademarks belong to their owners.',
-              ),
-              SettingsRow(
-                icon: Icons.code,
-                title: 'Source code',
-                subtitle: 'GitHub',
-                onTap: () => _open(sourceCodeUrl),
-              ),
-              SettingsRow(
-                icon: Icons.favorite_outline,
-                title: 'Credits',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const CreditsScreen(),
+              SettingsGroup(
+                children: [
+                  const SettingsNote(
+                    "bean'd is free and open source (GPL-3.0). It is not "
+                    'affiliated with any of the manufacturers mentioned; all '
+                    'trademarks belong to their owners.',
                   ),
-                ),
-              ),
-              SettingsRow(
-                icon: Icons.description_outlined,
-                title: 'Open-source licenses',
-                onTap: () => _showLicenses(context),
+                  SettingsRow(
+                    icon: Icons.code,
+                    title: 'Source code',
+                    subtitle: 'GitHub',
+                    onTap: () => _open(sourceCodeUrl),
+                  ),
+                  SettingsRow(
+                    icon: Icons.favorite_outline,
+                    title: 'Credits',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CreditsScreen(),
+                      ),
+                    ),
+                  ),
+                  SettingsRow(
+                    icon: Icons.description_outlined,
+                    title: 'Open-source licenses',
+                    onTap: () => _showLicenses(context),
+                  ),
+                ],
               ),
             ],
           ),
@@ -178,15 +183,19 @@ class CreditsScreen extends StatelessWidget {
         children: [
           SettingsCard(
             children: [
-              for (final c in credits)
-                SettingsRow(
-                  icon: Icons.open_in_new,
-                  title: c.name,
-                  subtitle: c.license == null
-                      ? c.usage
-                      : '${c.usage} · ${c.license}',
-                  onTap: () => _open(c.url),
-                ),
+              SettingsGroup(
+                children: [
+                  for (final c in credits)
+                    SettingsRow(
+                      icon: Icons.open_in_new,
+                      title: c.name,
+                      subtitle: c.license == null
+                          ? c.usage
+                          : '${c.usage} · ${c.license}',
+                      onTap: () => _open(c.url),
+                    ),
+                ],
+              ),
             ],
           ),
         ],

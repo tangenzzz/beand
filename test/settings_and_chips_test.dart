@@ -104,7 +104,7 @@ void main() {
     await tester.pumpAndSettle();
     // The page leads with state and search; the field for typing sits
     // collapsed below.
-    expect(find.text('Machines on your network'), findsOneWidget);
+    expect(find.text('MACHINES ON YOUR NETWORK'), findsOneWidget);
     expect(find.byType(TextField), findsNothing, reason: 'collapsed');
 
     await tester.tap(find.text('Enter address manually'));

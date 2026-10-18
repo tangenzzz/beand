@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../scale/brew_scale.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
+import 'settings_widgets.dart';
 
 // Connection page of the Bluetooth scale (Settings → Connections), built
 // like the machines' one (MachineConnectionCard): at the top what the app
@@ -161,11 +162,7 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
                       scale.deviceName ?? 'Bluetooth Scale',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: TextStyle(color: colors.textPrimary, fontSize: 15),
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -293,8 +290,8 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
             children: [
               Expanded(
                 child: Text(
-                  'Scales nearby',
-                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                  'Scales nearby'.toUpperCase(),
+                  style: settingsGroupLabelStyle(context),
                 ),
               ),
               InkWell(
@@ -343,7 +340,7 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
           Text(
             'Supported: Acaia Lunar, Pearl, Pyxis and other Acaia scales. '
             'Close other apps that use the scale first.',
-            style: TextStyle(color: colors.textTertiary, fontSize: 11.5),
+            style: TextStyle(color: colors.textTertiary, fontSize: 12),
           ),
         ],
       ),
@@ -403,7 +400,7 @@ class _ScaleRow extends StatelessWidget {
                     candidate.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.textPrimary, fontSize: 14),
+                    style: TextStyle(color: colors.textPrimary, fontSize: 15),
                   ),
                   const SizedBox(height: 2),
                   Text(

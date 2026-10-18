@@ -6,7 +6,6 @@ import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/bean_icon.dart';
 import 'settings_widgets.dart';
-import '../../widgets/app_switch_tile.dart';
 import '../../widgets/value_select_row.dart';
 
 // History settings: which photo is shown in the circle on the shot
@@ -24,63 +23,45 @@ class HistorySettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
-          // One card per settings page.
+          // One card per settings page: the list on top, the shot detail
+          // below — one line between them.
           SettingsCard(
             children: [
-              const _ThumbnailPicker(),
-              _Switch(
-                title: 'Local analysis',
-                info:
-                    'Findings under the chart, worked out on the phone. '
-                    'Espresso only.',
-                value: settings.showShotFacts,
-                onChanged: settings.setShowShotFacts,
+              const SettingsGroup(
+                label: 'List',
+                children: [_ThumbnailPicker()],
               ),
-              // The same switch as in Settings → AI, repeated here because
-              // it determines what the shot detail shows. Grayed out and off
-              // when no AI is set up.
-              _Switch(
-                title: 'AI analysis',
-                info:
-                    'Comments on a shot and suggests what to change. '
-                    'Espresso only. Needs an AI API key in Settings → AI.',
-                value: aiReady && ai.isFeatureOn(AiFeature.shotAnalysis),
-                onChanged: aiReady
-                    ? (value) => ai.setFeatureOn(AiFeature.shotAnalysis, value)
-                    : null,
+              SettingsGroup(
+                label: 'Shot detail',
+                children: [
+                  SettingsSwitchRow(
+                    title: 'Local analysis',
+                    info:
+                        'Findings under the chart, worked out on the phone. '
+                        'Espresso only.',
+                    value: settings.showShotFacts,
+                    onChanged: settings.setShowShotFacts,
+                  ),
+                  // The same switch as in Settings → AI, repeated here because
+                  // it determines what the shot detail shows. Grayed out and off
+                  // when no AI is set up.
+                  SettingsSwitchRow(
+                    title: 'AI analysis',
+                    info:
+                        'Comments on a shot and suggests what to change. '
+                        'Espresso only. Needs an AI API key in Settings → AI.',
+                    value: aiReady && ai.isFeatureOn(AiFeature.shotAnalysis),
+                    onChanged: aiReady
+                        ? (value) =>
+                              ai.setFeatureOn(AiFeature.shotAnalysis, value)
+                        : null,
+                  ),
+                ],
               ),
             ],
           ),
         ],
       ),
-    );
-  }
-}
-
-// Explanations only behind ⓘ, no subtitle.
-class _Switch extends StatelessWidget {
-  const _Switch({
-    required this.title,
-    required this.info,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String title;
-  final String info;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppSwitchTile(
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.dividerInset,
-        vertical: 6,
-      ),
-      title: SettingsTitle(title, info: info),
-      value: value,
-      onChanged: onChanged,
     );
   }
 }
@@ -97,6 +78,8 @@ class _ThumbnailPicker extends StatelessWidget {
       key: const ValueKey('thumbnail-picker'),
       label: 'Thumbnail',
       labelWidth: 96,
+      labelSize: settingsValueLabelSize,
+      labelColor: context.colors.textPrimary,
       horizontalPadding: AppSpacing.dividerInset,
       isLast: true,
       value: settings.historyAvatar,

@@ -20,59 +20,33 @@ class AppearanceSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
+          // One block: theme and accent belong together, no line between.
           SettingsCard(
             children: [
-              _Section(
-                title: 'Theme',
-                child: UnderlineSelect<AppThemeMode>(
-                  options: [
-                    for (final mode in AppThemeMode.values)
-                      UnderlineOption(mode, mode.label),
-                  ],
-                  value: settings.themeMode,
-                  onChanged: (mode) => settings.setThemeMode(mode!),
-                ),
-              ),
-              _Section(
-                title: 'Accent color',
-                child: _AccentSwatches(
-                  value: settings.accent,
-                  onChanged: settings.setAccent,
-                ),
+              SettingsGroup(
+                children: [
+                  SettingsSection(
+                    title: 'Theme',
+                    child: UnderlineSelect<AppThemeMode>(
+                      options: [
+                        for (final mode in AppThemeMode.values)
+                          UnderlineOption(mode, mode.label),
+                      ],
+                      value: settings.themeMode,
+                      onChanged: (mode) => settings.setThemeMode(mode!),
+                    ),
+                  ),
+                  SettingsSection(
+                    title: 'Accent color',
+                    child: _AccentSwatches(
+                      value: settings.accent,
+                      onChanged: settings.setAccent,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// Heading of a group inside the card.
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.dividerInset,
-        14,
-        AppSpacing.dividerInset,
-        14,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(color: context.colors.textPrimary, fontSize: 15),
-          ),
-          const SizedBox(height: 6),
-          child,
         ],
       ),
     );

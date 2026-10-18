@@ -9,7 +9,6 @@ import '../../services/ai/ai_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import 'settings_widgets.dart';
-import '../../widgets/app_switch_tile.dart';
 import '../../widgets/value_select_row.dart';
 
 // Settings → AI. One card, like on every settings page.
@@ -161,56 +160,40 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               // nothing AI-related shows up anywhere in the app. The key
               // stays stored: you should be able to disable AI without
               // having to re-enter the key next time.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.dividerInset,
-                  14,
-                  8,
-                  14,
-                ),
-                child: Row(
-                  children: [
-                    // The explanation sits behind the ⓘ; the title names
-                    // what the switch does.
-                    const Expanded(
-                      child: SettingsTitle(
-                        'Use your own AI key',
-                        info:
-                            "bean'd has no AI server of its own. You bring "
-                            'your own API key, the app talks to the provider '
-                            'directly, and nothing is sent anywhere else.',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Switch(
-                      value: settings.enabled,
-                      onChanged: (value) {
-                        settings.setEnabled(value);
-                        // A test result from earlier says nothing about a
-                        // state that no longer exists.
-                        setState(() {
-                          _testResult = null;
-                          _testWarning = null;
-                        });
-                      },
-                    ),
-                  ],
-                ),
+              SettingsSwitchRow(
+                // The explanation sits behind the ⓘ; the title names what
+                // the switch does.
+                title: 'Use your own AI key',
+                info:
+                    "bean'd has no AI server of its own. You bring your own "
+                    'API key, the app talks to the provider directly, and '
+                    'nothing is sent anywhere else.',
+                value: settings.enabled,
+                onChanged: (value) {
+                  settings.setEnabled(value);
+                  // A test result from earlier says nothing about a state
+                  // that no longer exists.
+                  setState(() {
+                    _testResult = null;
+                    _testWarning = null;
+                  });
+                },
               ),
               // Three blocks, one line between them — the main switch, the
               // connection (provider … test) and the features; inside a
               // block only spacing separates the parts.
               if (settings.enabled) ...[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                SettingsGroup(
+                  label: 'Connection',
                   children: [
-                    const _GroupLabel('Connection'),
                     // Provider and model as the app's dropdown rows, one
                     // below the other: the model belongs to the provider (each
                     // has its own), not to the key.
                     ValueSelectRow<AiProvider>(
                       label: 'Provider',
                       labelWidth: _rowLabelWidth,
+                      labelSize: settingsValueLabelSize,
+                      labelColor: context.colors.textPrimary,
                       labelSuffix: SettingsInfo(
                         '${provider.vendor}. ${provider.note}',
                       ),
@@ -238,7 +221,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     ),
                     _modelSection(context, settings),
                     if (provider.requiresBaseUrl)
-                      _Section(
+                      SettingsSection(
                         title: 'Base URL',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,7 +253,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                           ],
                         ),
                       ),
-                    _Section(
+                    SettingsSection(
                       title: 'API key',
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,19 +427,13 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                       ),
                   ],
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                SettingsGroup(
+                  label: 'Features',
                   children: [
-                    const _GroupLabel('Features'),
                     for (final feature in AiFeature.values)
-                      AppSwitchTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.dividerInset,
-                        ),
-                        title: SettingsTitle(
-                          feature.label,
-                          info: feature.description,
-                        ),
+                      SettingsSwitchRow(
+                        title: feature.label,
+                        info: feature.description,
                         value: settings.isFeatureOn(feature),
                         onChanged: (value) =>
                             settings.setFeatureOn(feature, value),
@@ -531,6 +508,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       isLast: true,
       open: _modelsOpen,
       labelWidth: _rowLabelWidth,
+      labelSize: settingsValueLabelSize,
+      labelColor: colors.textPrimary,
       onToggle: () => setState(() {
         _modelsOpen = !_modelsOpen;
         _providerOpen = false;
@@ -609,54 +588,4 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         hintText: hint,
         hintStyle: TextStyle(color: context.colors.textTertiary),
       );
-}
-
-// Section inside the card — same shape as in Appearance.
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.dividerInset,
-        8,
-        AppSpacing.dividerInset,
-        10,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [SettingsTitle(title), const SizedBox(height: 8), child],
-      ),
-    );
-  }
-}
-
-// Small uppercase heading of a block (as in My Setup).
-class _GroupLabel extends StatelessWidget {
-  const _GroupLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(
-      AppSpacing.dividerInset,
-      14,
-      AppSpacing.dividerInset,
-      2,
-    ),
-    child: Text(
-      text.toUpperCase(),
-      style: TextStyle(
-        color: context.colors.textSecondary,
-        fontSize: 11.5,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.1,
-      ),
-    ),
-  );
 }

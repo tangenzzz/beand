@@ -18,9 +18,18 @@ class SettingsEntry {
   final WidgetBuilder builder;
 }
 
-// A settings page is ONE card: everything that belongs on the page is
-// stacked in this container, separated by indented dividers. Multiple
-// cards per page only when explicitly wanted.
+// The same three text levels on every settings page:
+//   1. [SettingsGroupLabel] — small uppercase heading of a block, the same
+//      style as the "PRE" of the shot cards.
+//   2. [SettingsTitle] — 15 px, the name of a row or section ("Provider",
+//      "API key", a switch). Dropdown rows use [settingsValueLabelSize] and
+//      [SettingsTitle]'s color so they read the same.
+//   3. [SettingsText] — 13 px secondary: explanations and status lines.
+//
+// A settings page is ONE card. Its children are blocks, and only between
+// blocks sits a divider ([SettingsCard] puts it there); inside a block
+// ([SettingsGroup]) only spacing separates the rows. Multiple cards per page
+// only when explicitly wanted.
 class SettingsCard extends StatelessWidget {
   const SettingsCard({super.key, required this.children});
 
@@ -57,6 +66,192 @@ class SettingsDivider extends StatelessWidget {
     endIndent: AppSpacing.dividerInset,
     color: context.colors.divider,
   );
+}
+
+// One block of a settings card: optional heading, then the rows without
+// lines between them.
+class SettingsGroup extends StatelessWidget {
+  const SettingsGroup({
+    super.key,
+    this.label,
+    this.icon,
+    this.trailing,
+    required this.children,
+  });
+
+  final String? label;
+  final IconData? icon;
+
+  /// At the far right of the heading, e.g. a "+" or "Scan".
+  final Widget? trailing;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (label != null)
+        SettingsGroupLabel(label!, icon: icon, trailing: trailing),
+      ...children,
+    ],
+  );
+}
+
+// Level 1: small uppercase heading of a block.
+class SettingsGroupLabel extends StatelessWidget {
+  const SettingsGroupLabel(this.text, {super.key, this.icon, this.trailing});
+
+  final String text;
+  final IconData? icon;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final label = Text(
+      text.toUpperCase(),
+      style: settingsGroupLabelStyle(context),
+    );
+    // With an action at the right the row is as tall as its tap target;
+    // the padding shrinks so the label sits at the same height either way.
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.dividerInset,
+        trailing == null ? 16 : 4,
+        trailing == null ? AppSpacing.dividerInset : 4,
+        trailing == null ? 4 : 0,
+      ),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 17, color: colors.textSecondary),
+            const SizedBox(width: 8),
+          ],
+          Expanded(child: label),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// Level 1 for places that lay out their own padding (the connection
+/// cards).
+TextStyle settingsGroupLabelStyle(BuildContext context) => TextStyle(
+  color: context.colors.textSecondary,
+  fontSize: 11.5,
+  fontWeight: FontWeight.w600,
+  letterSpacing: 1.1,
+);
+
+// Level 2 with content below it: "API key" + field, "Theme" + choice.
+class SettingsSection extends StatelessWidget {
+  const SettingsSection({
+    super.key,
+    this.title,
+    this.info,
+    required this.child,
+  });
+
+  /// Null where the child already says it (e.g. a labelled button).
+  final String? title;
+  final String? info;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.dividerInset,
+      12,
+      AppSpacing.dividerInset,
+      12,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title != null) ...[
+          SettingsTitle(title!, info: info),
+          const SizedBox(height: 8),
+        ],
+        child,
+      ],
+    ),
+  );
+}
+
+// Level 3: explanations and status lines.
+class SettingsText extends StatelessWidget {
+  const SettingsText(this.text, {super.key, this.color, this.maxLines});
+
+  final String text;
+  final Color? color;
+  final int? maxLines;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    maxLines: maxLines,
+    overflow: maxLines == null ? null : TextOverflow.ellipsis,
+    style: TextStyle(
+      color: color ?? context.colors.textSecondary,
+      fontSize: 13,
+      height: 1.4,
+    ),
+  );
+}
+
+/// Label size of a [ValueSelectRow] on a settings page — level 2, like
+/// every other row title there.
+const settingsValueLabelSize = 15.0;
+
+// A switch row: optional icon, title with ⓘ, switch on the right. Only the
+// switch toggles (as with AppSwitchTile), and the title starts at the same
+// x as in [SettingsRow], so both can share a block.
+class SettingsSwitchRow extends StatelessWidget {
+  const SettingsSwitchRow({
+    super.key,
+    this.icon,
+    required this.title,
+    this.info,
+    this.infoExtra,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData? icon;
+  final String title;
+  final String? info;
+  final Widget? infoExtra;
+  final bool value;
+
+  /// Null grays the row out.
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onChanged != null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.dividerInset, 4, 8, 4),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 20, color: context.colors.textSecondary),
+            const SizedBox(width: 14),
+          ],
+          Expanded(
+            child: SettingsTitle(
+              title,
+              info: info,
+              infoExtra: infoExtra,
+              color: enabled ? null : context.colors.textTertiary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
 }
 
 // A tappable row in a card: icon, title, optional second line.
@@ -239,7 +434,8 @@ class SettingsChoiceRow extends StatelessWidget {
   }
 }
 
-// Card with entries that each open a subpage.
+// Card with entries that each open a subpage — one block: icon and arrow
+// already set the rows apart, lines would only add noise.
 class SettingsList extends StatelessWidget {
   const SettingsList({super.key, required this.entries});
 
@@ -249,15 +445,19 @@ class SettingsList extends StatelessWidget {
   Widget build(BuildContext context) {
     return SettingsCard(
       children: [
-        for (final entry in entries)
-          SettingsRow(
-            icon: entry.icon,
-            iconWidget: entry.iconWidget,
-            title: entry.title,
-            onTap: () =>
-                Navigator.of(context)
-                    .push(MaterialPageRoute(builder: entry.builder)),
-          ),
+        SettingsGroup(
+          children: [
+            for (final entry in entries)
+              SettingsRow(
+                icon: entry.icon,
+                iconWidget: entry.iconWidget,
+                title: entry.title,
+                onTap: () =>
+                    Navigator.of(context)
+                        .push(MaterialPageRoute(builder: entry.builder)),
+              ),
+          ],
+        ),
       ],
     );
   }

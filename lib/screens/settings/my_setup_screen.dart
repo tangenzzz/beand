@@ -31,27 +31,27 @@ class MySetupScreen extends StatelessWidget {
           // entries.
           SettingsCard(
             children: [
-              _Section(
+              SettingsGroup(
+                label: 'Grinders',
+                icon: Icons.blender_outlined,
+                trailing: _AddButton(
+                  tooltip: 'Add grinder',
+                  onPressed: () => showGrinderDialog(context),
+                ),
                 children: [
-                  _SectionHeader(
-                    icon: Icons.blender_outlined,
-                    title: 'Grinders',
-                    addTooltip: 'Add grinder',
-                    onAdd: () => showGrinderDialog(context),
-                  ),
                   if (grinders.isEmpty)
                     const _Empty('Add your grinder to see it on every shot.'),
                   for (final g in grinders) _GrinderEntry(grinder: g),
                 ],
               ),
-              _Section(
+              SettingsGroup(
+                label: 'Water',
+                icon: Icons.water_drop_outlined,
+                trailing: _AddButton(
+                  tooltip: 'Add water',
+                  onPressed: () => showWaterDialog(context),
+                ),
                 children: [
-                  _SectionHeader(
-                    icon: Icons.water_drop_outlined,
-                    title: 'Water',
-                    addTooltip: 'Add water',
-                    onAdd: () => showWaterDialog(context),
-                  ),
                   if (waters.isEmpty)
                     const _Empty('Add a water recipe to keep its minerals.'),
                   for (final w in waters) _WaterEntry(water: w),
@@ -65,61 +65,18 @@ class MySetupScreen extends StatelessWidget {
   }
 }
 
-class _Section extends StatelessWidget {
-  const _Section({required this.children});
+class _AddButton extends StatelessWidget {
+  const _AddButton({required this.tooltip, required this.onPressed});
 
-  final List<Widget> children;
+  final String tooltip;
+  final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: children,
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    icon: Icon(Icons.add, color: context.colors.textSecondary),
+    onPressed: onPressed,
   );
-}
-
-// Small uppercase title with the section's icon; "+" at the far right.
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({
-    required this.icon,
-    required this.title,
-    required this.addTooltip,
-    required this.onAdd,
-  });
-
-  final IconData icon;
-  final String title;
-  final String addTooltip;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.dividerInset, 4, 4, 0),
-      child: Row(
-        children: [
-          Icon(icon, size: 17, color: colors.textSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              title.toUpperCase(),
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.1,
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: addTooltip,
-            icon: Icon(Icons.add, color: colors.textSecondary),
-            onPressed: onAdd,
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // An empty section is just one short line — no box, the "+" is right above.
@@ -173,10 +130,7 @@ class _GrinderEntry extends StatelessWidget {
                     ),
                   TextSpan(
                     text: grinder.name,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(color: colors.textPrimary),
                   ),
                 ],
               ),
@@ -245,11 +199,7 @@ class _WaterEntry extends StatelessWidget {
                 Expanded(
                   child: Text(
                     water.recipe,
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(color: colors.textPrimary, fontSize: 15),
                   ),
                 ),
                 if (use != null)

@@ -6,7 +6,6 @@ import '../../theme/app_theme.dart';
 import '../beans/freshness.dart';
 import 'beans_form_settings_screen.dart';
 import 'settings_widgets.dart';
-import '../../widgets/app_switch_tile.dart';
 
 class BeansSettingsScreen extends StatelessWidget {
   const BeansSettingsScreen({super.key});
@@ -19,37 +18,30 @@ class BeansSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
-          // One card per settings page: switches and subpages are stacked
-          // in the same container.
+          // One card per settings page: what the bean list shows, then the
+          // way to the form.
           SettingsCard(
             children: [
-              AppSwitchTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.dividerInset,
-                  vertical: 6,
-                ),
-                // The color legend is part of the ⓘ bubble.
-                title: const SettingsTitle(
-                  'Freshness ring',
-                  info: 'Days since roast, or since thawing.',
-                  infoExtra: FreshnessLegend(),
-                ),
-                value: settings.showFreshnessRing,
-                onChanged: settings.setShowFreshnessRing,
-              ),
-              AppSwitchTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.dividerInset,
-                  vertical: 6,
-                ),
-                title: const SettingsTitle(
-                  'Bag level',
-                  info:
-                      'Bag weight minus the dose of every shot. '
-                      'Needs a bag weight.',
-                ),
-                value: settings.showBeanStock,
-                onChanged: settings.setShowBeanStock,
+              SettingsGroup(
+                label: 'Bean list',
+                children: [
+                  SettingsSwitchRow(
+                    title: 'Freshness ring',
+                    // The color legend is part of the ⓘ bubble.
+                    info: 'Days since roast, or since thawing.',
+                    infoExtra: const FreshnessLegend(),
+                    value: settings.showFreshnessRing,
+                    onChanged: settings.setShowFreshnessRing,
+                  ),
+                  SettingsSwitchRow(
+                    title: 'Bag level',
+                    info:
+                        'Bag weight minus the dose of every shot. '
+                        'Needs a bag weight.',
+                    value: settings.showBeanStock,
+                    onChanged: settings.setShowBeanStock,
+                  ),
+                ],
               ),
               SettingsRow(
                 icon: Icons.dynamic_form_outlined,

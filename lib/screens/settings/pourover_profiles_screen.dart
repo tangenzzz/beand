@@ -6,6 +6,7 @@ import '../../services/brew_recipe_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../live/pourover/recipe_format.dart';
+import 'settings_widgets.dart';
 
 // Settings → Home → Pour Over → Profiles: all profiles to check. Only the
 // checked ones appear below the brew cards and in the Pre-Brew picker; the
@@ -152,7 +153,7 @@ class _PourOverProfilesScreenState extends State<PourOverProfilesScreen> {
                     ),
                   ),
                 ),
-                Divider(height: 1, color: colors.divider),
+                const SettingsDivider(),
                 if (recipes.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(AppSpacing.dividerInset),
@@ -165,11 +166,11 @@ class _PourOverProfilesScreenState extends State<PourOverProfilesScreen> {
                     ),
                   ),
                 if (fresh.isNotEmpty) ...[
-                  _GroupHeader('New'),
+                  SettingsGroupLabel('New'),
                   for (final r in fresh) _ProfileCheck(recipe: r),
                 ],
                 for (final entry in groups.entries) ...[
-                  _GroupHeader(entry.key),
+                  SettingsGroupLabel(entry.key),
                   for (final r in entry.value) _ProfileCheck(recipe: r),
                 ],
                 const SizedBox(height: 8),
@@ -182,33 +183,6 @@ class _PourOverProfilesScreenState extends State<PourOverProfilesScreen> {
   }
 
   static String _date(DateTime d) => '${d.day}.${d.month}.${d.year}';
-}
-
-class _GroupHeader extends StatelessWidget {
-  const _GroupHeader(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.dividerInset,
-        14,
-        AppSpacing.dividerInset,
-        2,
-      ),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          color: context.colors.textTertiary,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1,
-        ),
-      ),
-    );
-  }
 }
 
 class _ProfileCheck extends StatelessWidget {

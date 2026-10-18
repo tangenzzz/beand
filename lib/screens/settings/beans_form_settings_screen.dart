@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
+import 'settings_widgets.dart';
 
 // Settings → Beans → Form: show/hide fields of the bean form and reorder
 // them by dragging. Photo, name and roastery stay fixed at the top. Hidden
@@ -23,63 +24,67 @@ class BeansFormSettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
-          _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const _SectionLabel('Always shown'),
-                for (final name in _fixedFields)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.dividerInset,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.lock_outline,
-                          color: context.colors.textTertiary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 14),
-                        Text(
-                          name,
-                          style: TextStyle(
-                            color: context.colors.textSecondary,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 4),
-                const _RowDivider(),
-                const _SectionLabel('Fields · drag to reorder'),
-                ReorderableListView(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  buildDefaultDragHandles: false,
-                  onReorderItem: settings.reorderBeanFormFields,
-                  proxyDecorator: (child, _, _) => Material(
-                    color: context.colors.card,
-                    elevation: 6,
-                    child: child,
-                  ),
-                  children: [
-                    for (var i = 0; i < fields.length; i++)
-                      _FieldRow(
-                        key: ValueKey(fields[i]),
-                        index: i,
-                        field: fields[i],
-                        visible: settings.isBeanFormFieldVisible(fields[i]),
-                        onChanged: (v) =>
-                            settings.setBeanFormFieldVisible(fields[i], v),
+          SettingsCard(
+            children: [
+              SettingsGroup(
+                label: 'Always shown',
+                children: [
+                  for (final name in _fixedFields)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.dividerInset,
+                        vertical: 12,
                       ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-              ],
-            ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lock_outline,
+                            color: context.colors.textTertiary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 14),
+                          Text(
+                            name,
+                            style: TextStyle(
+                              color: context.colors.textSecondary,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                ],
+              ),
+              SettingsGroup(
+                label: 'Fields · drag to reorder',
+                children: [
+                  ReorderableListView(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    buildDefaultDragHandles: false,
+                    onReorderItem: settings.reorderBeanFormFields,
+                    proxyDecorator: (child, _, _) => Material(
+                      color: context.colors.card,
+                      elevation: 6,
+                      child: child,
+                    ),
+                    children: [
+                      for (var i = 0; i < fields.length; i++)
+                        _FieldRow(
+                          key: ValueKey(fields[i]),
+                          index: i,
+                          field: fields[i],
+                          visible: settings.isBeanFormFieldVisible(fields[i]),
+                          onChanged: (v) =>
+                              settings.setBeanFormFieldVisible(fields[i], v),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -143,63 +148,6 @@ class _FieldRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.colors.card,
-        borderRadius: BorderRadius.circular(AppRadii.tile),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: child,
-    );
-  }
-}
-
-class _RowDivider extends StatelessWidget {
-  const _RowDivider();
-
-  @override
-  Widget build(BuildContext context) => Divider(
-    height: 1,
-    indent: AppSpacing.dividerInset,
-    endIndent: AppSpacing.dividerInset,
-    color: context.colors.divider,
-  );
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.dividerInset,
-        16,
-        AppSpacing.dividerInset,
-        6,
-      ),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(
-          color: context.colors.textTertiary,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1,
-        ),
       ),
     );
   }

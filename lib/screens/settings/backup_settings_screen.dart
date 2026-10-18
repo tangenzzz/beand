@@ -409,39 +409,44 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
+          // One block: three actions, no lines between them.
           SettingsCard(
             children: [
-              SettingsRow(
-                icon: Icons.save_alt,
-                title: 'Create backup',
-                info:
-                    'A backup holds everything: all shots and their curves, '
-                    'beans, profiles, every photo and all settings — in one '
-                    'file. With sync on, your sync key goes in too, locked '
-                    'with a password. Save it to a folder on the phone or in '
-                    'your cloud.',
-                enabled: !_busy,
-                onTap: _create,
+              SettingsGroup(
+                children: [
+                  SettingsRow(
+                    icon: Icons.save_alt,
+                    title: 'Create backup',
+                    info:
+                        'A backup holds everything: all shots and their curves, '
+                        'beans, profiles, every photo and all settings — in one '
+                        'file. With sync on, your sync key goes in too, locked '
+                        'with a password. Save it to a folder on the phone or in '
+                        'your cloud.',
+                    enabled: !_busy,
+                    onTap: _create,
+                  ),
+                  SettingsRow(
+                    icon: Icons.restore,
+                    title: 'Restore from backup',
+                    info: 'Replaces everything in the app with the backup.',
+                    enabled: !_busy,
+                    danger: true,
+                    onTap: _restore,
+                  ),
+                  if (_safetyCopy case final copy?)
+                    SettingsRow(
+                      icon: Icons.history,
+                      title: 'Restore data from before linking',
+                      info:
+                          'Made automatically when you chose Replace while '
+                          'linking a device (${_dateLabel(copy.lastModifiedSync())}).',
+                      enabled: !_busy,
+                      danger: true,
+                      onTap: () => _restore(preset: copy),
+                    ),
+                ],
               ),
-              SettingsRow(
-                icon: Icons.restore,
-                title: 'Restore from backup',
-                info: 'Replaces everything in the app with the backup.',
-                enabled: !_busy,
-                danger: true,
-                onTap: _restore,
-              ),
-              if (_safetyCopy case final copy?)
-                SettingsRow(
-                  icon: Icons.history,
-                  title: 'Restore data from before linking',
-                  info:
-                      'Made automatically when you chose Replace while '
-                      'linking a device (${_dateLabel(copy.lastModifiedSync())}).',
-                  enabled: !_busy,
-                  danger: true,
-                  onTap: () => _restore(preset: copy),
-                ),
             ],
           ),
           if (_busy || _status != null)
