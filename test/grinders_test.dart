@@ -346,4 +346,58 @@ void main() {
     expect(find.text('Baking soda'), findsOneWidget);
     expect(find.text('Pour Over'), findsOneWidget);
   });
+
+  // Bug 2026-10-18: adding a grinder only worked with burrs that already
+  // existed, and the app hung afterwards. Typing new burrs whose start
+  // matches an earlier entry must work too.
+  testWidgets('My Setup: new burrs next to suggestions, then save', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final store = GrinderStore.inMemory();
+    store.add('Zero', ['SSP', 'Stock'], brand: 'Niche');
+    await tester.pumpWidget(mySetup(store, WaterStore.inMemory()));
+
+    await tester.tap(find.byTooltip('Add grinder'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('grinder-brand')), 'Ni');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    // The suggestion chip fills the field.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Niche'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const ValueKey('grinder-brand')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .controller!
+          .text,
+      'Niche',
+    );
+    await tester.enterText(find.byKey(const ValueKey('grinder-name')), 'Duo');
+    await tester.enterText(find.byKey(const ValueKey('grinder-burrs-0')), 'S');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.enterText(
+      find.byKey(const ValueKey('grinder-burrs-0')),
+      'Shura',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(store.grinders.map((g) => g.name), ['Zero', 'Duo']);
+    expect(store.grinders.last.burrs, ['Shura']);
+  });
 }

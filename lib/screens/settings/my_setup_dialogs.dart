@@ -617,32 +617,42 @@ class _FieldState extends State<_Field> {
               ? const SizedBox(width: double.infinity)
               // Without TextFieldTapRegion, a tap on a chip counts as
               // "outside" and takes focus from the field.
+              // Wrapping chips instead of the bean form's horizontal list:
+              // a dialog measures its content's intrinsic width, which a
+              // scrolling list can't report — the layout failed and the app
+              // hung as soon as a suggestion appeared (bug 2026-10-18).
+              // Without TextFieldTapRegion, a tap on a chip counts as
+              // "outside" and takes focus from the field.
               : TextFieldTapRegion(
-                  child: SizedBox(
-                    height: 40,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.only(top: 6, bottom: 2),
-                      itemCount: matches.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, i) => GestureDetector(
-                        onTap: () => _apply(matches[i]),
-                        child: Container(
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: colors.divider),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            matches[i],
-                            style: TextStyle(
-                              color: colors.accent,
-                              fontSize: 13,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 2),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final m in matches)
+                          GestureDetector(
+                            onTap: () => _apply(m),
+                            child: Container(
+                              height: 32,
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: colors.divider),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                m,
+                                style: TextStyle(
+                                  color: colors.accent,
+                                  fontSize: 13,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
