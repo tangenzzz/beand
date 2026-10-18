@@ -10,6 +10,7 @@ import 'package:beand/database/database.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:beand/widgets/app_button.dart';
 import 'package:drift/native.dart';
+import 'package:beand/widgets/underline_select.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -204,7 +205,9 @@ void main() {
       expect(draft.stages.first.type, 'pressure');
       expect(draft.stages.first.hasLimit('flow'), isTrue);
 
-      await tester.tap(find.widgetWithText(InkWell, 'Flow').first);
+      await tester.tap(
+        find.byWidgetPredicate((w) => w is UnderlineItem && w.label == 'Flow'),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Keep changes'));
       await tester.pumpAndSettle();

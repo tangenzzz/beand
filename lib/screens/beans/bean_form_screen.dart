@@ -17,7 +17,8 @@ import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import 'bean_suggestions.dart';
 import 'bean_widgets.dart';
-import '../../widgets/dot_choice_group.dart';
+import '../../widgets/underline_select.dart';
+import '../../widgets/value_select_row.dart';
 import '../../widgets/app_button.dart';
 
 // Form for creating/editing a bean (one card, photo at the top,
@@ -757,95 +758,98 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
-        children: [
-          Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: context.colors.card,
-                  borderRadius: BorderRadius.circular(AppRadii.tile),
-                ),
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Column(
-                  children: [
-                    // Photo next to name and roastery.
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          _PhotoTile(path: _photoPath, onTap: _photoActions),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 44),
-                                  child: _SuggestionRow(
-                                    label: 'Name',
+      // One open dropdown at a time (Type, Roasted for).
+      body: ValueSelectGroup(
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
+          children: [
+            Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: context.colors.card,
+                    borderRadius: BorderRadius.circular(AppRadii.tile),
+                  ),
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Column(
+                    children: [
+                      // Photo next to name and roastery.
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            _PhotoTile(path: _photoPath, onTap: _photoActions),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 44),
+                                    child: _SuggestionRow(
+                                      label: 'Name',
+                                      stacked: true,
+                                      marked: _aiFilled.contains('name'),
+                                      controller: _name,
+                                      suggestions: _suggestions.names,
+                                      capitalization: TextCapitalization.words,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _SuggestionRow(
+                                    label: 'Roastery',
                                     stacked: true,
-                                    marked: _aiFilled.contains('name'),
-                                    controller: _name,
-                                    suggestions: _suggestions.names,
+                                    marked: _aiFilled.contains('roaster'),
+                                    controller: _roaster,
+                                    suggestions: _suggestions.roasters,
                                     capitalization: TextCapitalization.words,
                                   ),
-                                ),
-                                const SizedBox(height: 10),
-                                _SuggestionRow(
-                                  label: 'Roastery',
-                                  stacked: true,
-                                  marked: _aiFilled.contains('roaster'),
-                                  controller: _roaster,
-                                  suggestions: _suggestions.roasters,
-                                  capitalization: TextCapitalization.words,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    // Fill from packaging/link — only if AI is set up AND the
-                    // feature is turned on. Otherwise the row isn't there; a
-                    // button that first explains it doesn't work is no
-                    // button.
-                    if (context.watch<AiSettings>().isEnabled(
-                      AiFeature.beanForm,
-                    ))
-                      _fillRow(context),
-                    // Order and visibility come from Settings → Beans → Form.
-                    for (final field in visibleFields) ...[
-                      _dividerOf(context),
-                      _fieldRow(field),
+                      // Fill from packaging/link — only if AI is set up AND the
+                      // feature is turned on. Otherwise the row isn't there; a
+                      // button that first explains it doesn't work is no
+                      // button.
+                      if (context.watch<AiSettings>().isEnabled(
+                        AiFeature.beanForm,
+                      ))
+                        _fillRow(context),
+                      // Order and visibility come from Settings → Beans → Form.
+                      for (final field in visibleFields) ...[
+                        _dividerOf(context),
+                        _fieldRow(field),
+                      ],
                     ],
-                  ],
+                  ),
+                ),
+                // Snowflake in the top-right card corner (opposite the photo):
+                // beans frozen yes/no, pauses the freshness ring.
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: _FreezeButton(frozen: _isFrozen, onTap: _toggleFrozen),
+                ),
+              ],
+            ),
+            if (editing)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: AppButton(
+                  label: 'Delete bean',
+                  icon: Icons.delete_outline,
+                  variant: AppButtonVariant.destructive,
+                  onPressed: _delete,
                 ),
               ),
-              // Snowflake in the top-right card corner (opposite the photo):
-              // beans frozen yes/no, pauses the freshness ring.
-              Positioned(
-                top: 16,
-                right: 16,
-                child: _FreezeButton(frozen: _isFrozen, onTap: _toggleFrozen),
-              ),
-            ],
-          ),
-          if (editing)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: AppButton(
-                label: 'Delete bean',
-                icon: Icons.delete_outline,
-                variant: AppButtonVariant.destructive,
-                onPressed: _delete,
-              ),
-            ),
-          const SizedBox(height: 24),
-        ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
@@ -955,45 +959,48 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           suggestions: _suggestions.processings,
           capitalization: TextCapitalization.words,
         );
+      // Both as the app's dropdown (inline list, tick in the accent).
       case BeanFormField.type:
-        return _FormRow(
+        return ValueSelectRow<bool>(
           label: 'Type',
-          marked: _aiFilled.contains(field.name),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: DotChoiceGroup<bool>(
-              options: const [
-                DotChoice(false, 'Single Origin'),
-                DotChoice(true, 'Blend'),
-              ],
-              value: _isBlend,
-              allowDeselect: true,
-              onChanged: (value) {
-                _clearMark(field.name);
-                setState(() => _isBlend = value);
-              },
-            ),
-          ),
+          labelWidth: _labelWidth,
+          labelSize: 12,
+          labelColor: _aiFilled.contains(field.name)
+              ? context.colors.accent
+              : null,
+          horizontalPadding: AppSpacing.dividerInset,
+          isLast: true,
+          placeholder: '—',
+          value: _isBlend,
+          options: const [
+            ValueOption(value: false, title: 'Single Origin'),
+            ValueOption(value: true, title: 'Blend'),
+          ],
+          onChanged: (value) {
+            _clearMark(field.name);
+            setState(() => _isBlend = value);
+          },
         );
       case BeanFormField.roastedFor:
-        return _FormRow(
+        return ValueSelectRow<String>(
           label: 'Roasted for',
-          marked: _aiFilled.contains(field.name),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: DotChoiceGroup<String>(
-              options: [
-                for (final option in roastedForOptions)
-                  DotChoice(option.value, option.label),
-              ],
-              value: _roastedFor,
-              allowDeselect: true,
-              onChanged: (value) {
-                _clearMark(field.name);
-                setState(() => _roastedFor = value);
-              },
-            ),
-          ),
+          labelWidth: _labelWidth,
+          labelSize: 12,
+          labelColor: _aiFilled.contains(field.name)
+              ? context.colors.accent
+              : null,
+          horizontalPadding: AppSpacing.dividerInset,
+          isLast: true,
+          placeholder: '—',
+          value: _roastedFor,
+          options: [
+            for (final option in roastedForOptions)
+              ValueOption(value: option.value, title: option.label),
+          ],
+          onChanged: (value) {
+            _clearMark(field.name);
+            setState(() => _roastedFor = value);
+          },
         );
       case BeanFormField.roastDate:
         return _FormRow(
@@ -1303,7 +1310,8 @@ class _SuggestionRow extends StatefulWidget {
 }
 
 class _SuggestionRowState extends State<_SuggestionRow> {
-  static const _maxChips = 12;
+  // At most this many suggestions at once.
+  static const _maxChips = 6;
 
   final _focus = FocusNode();
 
@@ -1392,9 +1400,30 @@ class _SuggestionRowState extends State<_SuggestionRow> {
     );
   }
 
+  // Words already in a comma list, shown while typing in it.
+  List<String> _taken() {
+    if (!widget.tokenMode || !_focus.hasFocus) return const [];
+    return _split().done;
+  }
+
+  void _removeToken(String token) {
+    final (:done, :current) = _split();
+    final rest = [
+      for (final d in done)
+        if (d != token) d,
+    ];
+    final text = [...rest, if (current.isNotEmpty) current].join(', ');
+    final withComma = rest.isNotEmpty && current.isEmpty ? '$text, ' : text;
+    widget.controller.value = TextEditingValue(
+      text: withComma,
+      selection: TextSelection.collapsed(offset: withComma.length),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final matches = _matches();
+    final taken = _taken();
     return Column(
       children: [
         if (widget.stacked)
@@ -1415,46 +1444,45 @@ class _SuggestionRowState extends State<_SuggestionRow> {
           )
         else
           _FormRow(label: widget.label, marked: widget.marked, child: _field()),
+        // Suggestions as underline options in a wrap (no chips): not yet
+        // taken in textSecondary with a thin divider line, the typed letters
+        // in textPrimary. A comma list (taste) also shows the words already
+        // taken as chosen items — tapping one removes it again.
         AnimatedSize(
           duration: const Duration(milliseconds: 150),
           alignment: Alignment.topCenter,
-          child: matches.isEmpty
+          child: matches.isEmpty && taken.isEmpty
               ? const SizedBox(width: double.infinity)
-              // Without TextFieldTapRegion, a tap on a chip counts as
+              // Without TextFieldTapRegion, a tap on an item counts as
               // "outside" and takes focus from the field.
               : TextFieldTapRegion(
-                  child: SizedBox(
-                    height: widget.stacked ? 40 : 44,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: widget.stacked
-                          ? const EdgeInsets.only(top: 4, bottom: 4)
-                          : const EdgeInsets.fromLTRB(
-                              AppSpacing.dividerInset,
-                              0,
-                              AppSpacing.dividerInset,
-                              10,
-                            ),
-                      itemCount: matches.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (context, i) => GestureDetector(
-                        onTap: () => _apply(matches[i]),
-                        child: Container(
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: context.colors.divider),
-                            borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: widget.stacked
+                        ? const EdgeInsets.only(bottom: 2)
+                        : const EdgeInsets.fromLTRB(
+                            AppSpacing.dividerInset,
+                            0,
+                            AppSpacing.dividerInset,
+                            4,
                           ),
-                          child: Text(
-                            matches[i],
-                            style: TextStyle(
-                              color: context.colors.accent,
-                              fontSize: 13,
-                            ),
+                    child: Wrap(
+                      spacing: UnderlineSelect.spacing,
+                      children: [
+                        for (final t in taken)
+                          UnderlineItem(
+                            label: t,
+                            selected: true,
+                            onTap: () => _removeToken(t),
                           ),
-                        ),
-                      ),
+                        for (final m in matches)
+                          UnderlineItem(
+                            label: m,
+                            selected: false,
+                            idleUnderline: true,
+                            highlight: _split().current,
+                            onTap: () => _apply(m),
+                          ),
+                      ],
                     ),
                   ),
                 ),

@@ -8,7 +8,7 @@ import '../../services/ai/ai_service.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
-import '../../widgets/dot_choice_group.dart';
+import '../../widgets/underline_select.dart';
 import 'settings_widgets.dart';
 import '../../widgets/app_switch_tile.dart';
 import '../../widgets/value_select_row.dart';
@@ -201,10 +201,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      DotChoiceGroup<AiProvider>(
+                      UnderlineSelect<AiProvider>(
                         options: [
                           for (final p in AiProvider.values)
-                            DotChoice(p, p.label),
+                            UnderlineOption(p, p.label),
                         ],
                         value: provider,
                         onChanged: (value) => settings.setProvider(value!),

@@ -21,7 +21,7 @@ import 'package:sqlite3/sqlite3.dart' as sql;
 
 import 'support/legacy_shot_tables.dart';
 
-import 'package:beand/widgets/dot_choice_group.dart';
+import 'package:beand/widgets/value_select_row.dart';
 
 Widget app(AppDatabase db, Widget home) => MultiProvider(
   providers: [
@@ -45,11 +45,25 @@ Widget app(AppDatabase db, Widget home) => MultiProvider(
   child: MaterialApp(theme: buildAppTheme(), home: home),
 );
 
-bool pillSelected(WidgetTester tester, String label) => tester
-    .widget<DotChoiceItem>(
-      find.ancestor(of: find.text(label), matching: find.byType(DotChoiceItem)),
+// Type and Roasted for are the app's dropdown (ValueSelectRow): the row
+// shows the chosen title; opening lists the options, the chosen one ticked.
+Future<void> settle(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 300));
+}
+
+String rowValue(WidgetTester tester, String label) => tester
+    .widget<ValueSelectRow<dynamic>>(
+      find.ancestor(
+        of: find.text(label),
+        matching: find.byWidgetPredicate((w) => w is ValueSelectRow),
+      ),
     )
-    .selected;
+    .let((row) => '${row.value}');
+
+extension<T> on T {
+  R let<R>(R Function(T) f) => f(this);
+}
 
 void main() {
   testWidgets('bean form: Type and Roasted for start without a selection', (
@@ -68,33 +82,29 @@ void main() {
     await tester.pump();
 
     expect(find.text('Roasted for'), findsOneWidget);
-    for (final label in [
-      'Single Origin',
-      'Blend',
-      'Filter',
-      'Espresso',
-      'Omni',
-    ]) {
-      expect(
-        pillSelected(tester, label),
-        false,
-        reason: '$label must not be preselected',
-      );
-    }
+    // Nothing preselected: both rows show the placeholder.
+    expect(rowValue(tester, 'Type'), 'null');
+    expect(rowValue(tester, 'Roasted for'), 'null');
 
-    // Tapping selects, tapping again deselects.
+    // Opening lists the options, none ticked yet.
+    await tester.tap(find.text('Roasted for'));
+    await settle(tester);
+    expect(find.text('Espresso'), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNothing);
     await tester.tap(find.text('Espresso'));
-    await tester.pump();
-    expect(pillSelected(tester, 'Espresso'), true);
-    expect(pillSelected(tester, 'Filter'), false);
-    await tester.tap(find.text('Espresso'));
-    await tester.pump();
-    expect(pillSelected(tester, 'Espresso'), false);
+    await settle(tester);
+    expect(rowValue(tester, 'Roasted for'), 'espresso');
+    expect(find.text('Filter'), findsNothing, reason: 'list closed');
 
+    // Only one list open: opening Type closes Roasted for.
+    await tester.tap(find.text('Roasted for'));
+    await settle(tester);
+    await tester.tap(find.text('Type'));
+    await settle(tester);
+    expect(find.text('Filter'), findsNothing);
     await tester.tap(find.text('Blend'));
-    await tester.pump();
-    expect(pillSelected(tester, 'Blend'), true);
-    expect(pillSelected(tester, 'Single Origin'), false);
+    await settle(tester);
+    expect(rowValue(tester, 'Type'), 'true');
   });
 
   testWidgets('bean form: selection is saved and shown again', (tester) async {
@@ -111,7 +121,10 @@ void main() {
     await tester.pump();
 
     await tester.enterText(find.byType(TextField).first, 'Guji');
+    await tester.tap(find.text('Roasted for'));
+    await settle(tester);
     await tester.tap(find.text('Omni'));
+    await settle(tester);
     await tester.pump();
     await tester.tap(find.text('Save'));
     await tester.runAsync(
@@ -130,8 +143,8 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 200)),
     );
     await tester.pump();
-    expect(pillSelected(tester, 'Omni'), true);
-    expect(pillSelected(tester, 'Single Origin'), false);
+    expect(find.text('Omni'), findsOneWidget);
+    expect(rowValue(tester, 'Type'), 'null');
   });
 
   test('filter and list: Roasted for', () {
@@ -216,7 +229,7 @@ void main() {
 
     await tester.pumpWidget(app(db, BeanFormScreen(bean: bean)));
     await settle();
-    expect(pillSelected(tester, 'Filter'), true);
+    expect(rowValue(tester, 'Roasted for'), 'filter');
 
     final taste = find.ancestor(
       of: find.text('e.g. blackcurrant, grapefruit'),
@@ -231,7 +244,7 @@ void main() {
     await tester.tap(find.text('blackberry'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    expect(pillSelected(tester, 'Filter'), true);
+    expect(rowValue(tester, 'Roasted for'), 'filter');
 
     await tester.tap(find.text('Save'));
     await settle();
@@ -247,7 +260,7 @@ void main() {
 
     await tester.pumpWidget(app(db, BeanFormScreen(bean: saved)));
     await settle();
-    expect(pillSelected(tester, 'Filter'), true);
+    expect(rowValue(tester, 'Roasted for'), 'filter');
   });
 
   test('migration v7 -> v8: type is kept, Roasted for is empty', () async {

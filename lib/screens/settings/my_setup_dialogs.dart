@@ -7,7 +7,7 @@ import '../../models/water.dart';
 import '../../services/grinder_store.dart';
 import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/dot_choice_group.dart';
+import '../../widgets/underline_select.dart';
 
 // Add/edit dialogs of Settings → My Setup. Everything is free text; the
 // chips offer what the user entered elsewhere before (no bundled lists).
@@ -344,9 +344,9 @@ class _WaterDialogState extends State<_WaterDialog> {
               ),
             ),
             const SizedBox(width: 8),
-            DotChoiceGroup<MineralUnit>(
+            UnderlineSelect<MineralUnit>(
               options: [
-                for (final u in MineralUnit.values) DotChoice(u, u.label),
+                for (final u in MineralUnit.values) UnderlineOption(u, u.label),
               ],
               value: _unit,
               onChanged: _setUnit,
@@ -389,8 +389,10 @@ class _WaterDialogState extends State<_WaterDialog> {
           numeric: true,
         ),
         const SizedBox(height: 14),
-        DotChoiceGroup<WaterUse>(
-          options: [for (final u in WaterUse.values) DotChoice(u, u.label)],
+        UnderlineSelect<WaterUse>(
+          options: [
+            for (final u in WaterUse.values) UnderlineOption(u, u.label),
+          ],
           value: _use,
           allowDeselect: true,
           onChanged: (v) => setState(() => _use = v),
@@ -422,7 +424,7 @@ class _MineralChoice extends StatelessWidget {
         runSpacing: 2,
         children: [
           for (final m in minerals)
-            DotChoiceItem(
+            UnderlineItem(
               label: m.label,
               selected: selected.contains(m),
               onTap: () => onToggle(m),
@@ -617,43 +619,24 @@ class _FieldState extends State<_Field> {
               ? const SizedBox(width: double.infinity)
               // Without TextFieldTapRegion, a tap on a chip counts as
               // "outside" and takes focus from the field.
-              // Wrapping chips instead of the bean form's horizontal list:
-              // a dialog measures its content's intrinsic width, which a
-              // scrolling list can't report — the layout failed and the app
-              // hung as soon as a suggestion appeared (bug 2026-10-18).
-              // Without TextFieldTapRegion, a tap on a chip counts as
-              // "outside" and takes focus from the field.
+              // Underline options in a wrap, like the bean form: typed
+              // letters in textPrimary, a thin line marks them tappable. (A
+              // horizontal list here once hung the dialog — it measures its
+              // content's intrinsic width.) Without TextFieldTapRegion, a tap
+              // counts as "outside" and takes focus from the field.
               : TextFieldTapRegion(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 2),
-                    child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final m in matches)
-                          GestureDetector(
-                            onTap: () => _apply(m),
-                            child: Container(
-                              height: 32,
-                              alignment: Alignment.center,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: colors.divider),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Text(
-                                m,
-                                style: TextStyle(
-                                  color: colors.accent,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                  child: Wrap(
+                    spacing: UnderlineSelect.spacing,
+                    children: [
+                      for (final m in matches.take(6))
+                        UnderlineItem(
+                          label: m,
+                          selected: false,
+                          idleUnderline: true,
+                          highlight: widget.controller.text.trim(),
+                          onTap: () => _apply(m),
+                        ),
+                    ],
                   ),
                 ),
         ),

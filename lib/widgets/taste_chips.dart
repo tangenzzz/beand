@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../models/taste_profile.dart';
 import '../theme/app_theme.dart';
+import 'underline_select.dart';
 
 /// The rating chips — they replace the rating flower in the card and shot
 /// detail, because the flower's small rings were too hard to hit with a
 /// finger.
 ///
-/// The eight fixed axes ([TasteAxis]) as chips: one tap means "was there",
+/// The eight fixed axes ([TasteAxis]) as underline choices: one tap means "was there",
 /// each further tap increases up to three, the fourth clears again.
 /// Turquoise for the good half, orange for the off-putting one — as in the
 /// flower.
@@ -49,6 +50,26 @@ class TasteChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // In the app: the underline choice (UnderlineSelect style) — the word,
+    // its level as dots behind it, the underline in the half's color. The
+    // shareable image keeps its small pills (dense).
+    if (!dense) {
+      return Wrap(
+        spacing: UnderlineSelect.spacing,
+        children: [
+          for (final axis in TasteAxis.values)
+            if (!onlyRated || (values[axis] ?? 0) > 0)
+              _UnderlineTaste(
+                label: shortLabels ? axis.shortLabel : axis.label,
+                points: values[axis] ?? 0,
+                color: axis.color(context),
+                onTap: onAxisChanged == null
+                    ? null
+                    : () => _cycle(axis, values[axis] ?? 0),
+              ),
+        ],
+      );
+    }
     return Wrap(
       spacing: _chipGap,
       runSpacing: _chipGap,
@@ -69,7 +90,52 @@ class TasteChips extends StatelessWidget {
   }
 }
 
-/// A chip: label followed by one dot per level. Without dots it stays empty
+class _UnderlineTaste extends StatelessWidget {
+  const _UnderlineTaste({
+    required this.label,
+    required this.points,
+    required this.color,
+    this.onTap,
+  });
+
+  final String label;
+  final int points;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return UnderlineItem(
+      label: label,
+      selected: points > 0,
+      underlineColor: color,
+      onTap: onTap,
+      trailing: points == 0
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(left: 5),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < points; i++) ...[
+                    if (i > 0) const SizedBox(width: 3),
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+/// The shareable image's chip: label followed by one dot per level. Without dots it stays empty
 /// (outline only), with dots it fills in its color. Sizes enlarged compared
 /// to the original design (28 px): 34 px tall, radius 17, 5 px dots,
 /// font 13.

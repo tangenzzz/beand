@@ -5,7 +5,7 @@ import '../../database/database.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import 'history_logic.dart';
-import '../../widgets/dot_choice_group.dart';
+import '../../widgets/underline_select.dart';
 import '../../widgets/app_button.dart';
 
 // History filter sheet, built like the bean list's: updates the count in the
@@ -163,7 +163,7 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
               if (_options.machines.length > 1)
                 _Section('Machine', [
                   for (final m in _options.machines)
-                    DotChoiceItem(
+                    UnderlineItem(
                       label: m.label,
                       selected: _machines.contains(m.key),
                       onTap: () => setState(() {
@@ -174,7 +174,7 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
               if (_options.beans.isNotEmpty)
                 _Section('Bean', [
                   for (final b in _options.beans)
-                    DotChoiceItem(
+                    UnderlineItem(
                       label: b.name,
                       selected: _beanIds.contains(b.id),
                       onTap: () => setState(() {
@@ -185,13 +185,13 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
               _multi('Roastery', _options.roasters, _roasters),
               _multi('Profile', _options.profiles, _profiles),
               _Section('Rating', [
-                DotChoiceItem(
+                UnderlineItem(
                   label: 'Any',
                   selected: _minRating == null,
                   onTap: () => setState(() => _minRating = null),
                 ),
                 for (final n in [3, 4, 5])
-                  DotChoiceItem(
+                  UnderlineItem(
                     label: n == 5 ? '5 ★' : '$n ★ +',
                     selected: _minRating == n,
                     onTap: () =>
@@ -199,22 +199,22 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
                   ),
               ]),
               _Section('Date', [
-                DotChoiceItem(
+                UnderlineItem(
                   label: 'Today',
                   selected: _dateRange == HistoryDateRange.today,
                   onTap: () => _setRange(HistoryDateRange.today),
                 ),
-                DotChoiceItem(
+                UnderlineItem(
                   label: 'Last 7 days',
                   selected: _dateRange == HistoryDateRange.week,
                   onTap: () => _setRange(HistoryDateRange.week),
                 ),
-                DotChoiceItem(
+                UnderlineItem(
                   label: 'Last 30 days',
                   selected: _dateRange == HistoryDateRange.month,
                   onTap: () => _setRange(HistoryDateRange.month),
                 ),
-                DotChoiceItem(
+                UnderlineItem(
                   label: _customLabel,
                   selected: _dateRange == HistoryDateRange.custom,
                   onTap: _pickRange,
@@ -241,7 +241,7 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
     if (values.isEmpty) return const SizedBox.shrink();
     return _Section(title, [
       for (final v in values)
-        DotChoiceItem(
+        UnderlineItem(
           label: v,
           selected: selected.any((s) => s.toLowerCase() == v.toLowerCase()),
           onTap: () => setState(() {

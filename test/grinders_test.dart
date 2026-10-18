@@ -15,7 +15,7 @@ import 'package:beand/services/shot_setup.dart';
 import 'package:beand/services/water_store.dart';
 import 'package:beand/sync/records/setting_codec.dart';
 import 'package:beand/theme/app_theme.dart';
-import 'package:beand/widgets/dot_choice_group.dart';
+import 'package:beand/widgets/underline_select.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -192,10 +192,10 @@ void main() {
     expect(find.text('Stock'), findsOneWidget);
     expect(find.text('SSP'), findsOneWidget);
     bool fitted(String burr) => tester
-        .widget<DotChoiceItem>(
+        .widget<UnderlineItem>(
           find.ancestor(
             of: find.text(burr),
-            matching: find.byType(DotChoiceItem),
+            matching: find.byType(UnderlineItem),
           ),
         )
         .selected;

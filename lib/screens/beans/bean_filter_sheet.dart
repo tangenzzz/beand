@@ -4,7 +4,7 @@ import '../../database/database.dart';
 import '../../theme/app_theme.dart';
 import 'bean_filter.dart';
 import 'bean_widgets.dart';
-import '../../widgets/dot_choice_group.dart';
+import '../../widgets/underline_select.dart';
 import '../../widgets/app_button.dart';
 
 // Filter sheet for the bean list. Updates the count in the button live; the
@@ -141,14 +141,14 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
               _Section('Type', [
-                DotChoiceItem(
+                UnderlineItem(
                   label: 'Single Origin',
                   selected: _isBlend == false,
                   onTap: () => setState(
                     () => _isBlend = _isBlend == false ? null : false,
                   ),
                 ),
-                DotChoiceItem(
+                UnderlineItem(
                   label: 'Blend',
                   selected: _isBlend == true,
                   onTap: () =>
@@ -159,7 +159,7 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
               // exactly these three.
               _Section('Roasted for', [
                 for (final option in roastedForOptions)
-                  DotChoiceItem(
+                  UnderlineItem(
                     label: option.label,
                     selected: _roastedFor.contains(option.value),
                     onTap: () => setState(() {
@@ -177,7 +177,7 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
               _multi('Taste', _options.tastes, _tastes),
               _Section('Roasted within', [
                 for (final days in _ageOptions)
-                  DotChoiceItem(
+                  UnderlineItem(
                     label: '$days days',
                     selected: _maxAgeDays == days,
                     onTap: () => setState(
@@ -222,7 +222,7 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
     if (values.isEmpty) return const SizedBox.shrink();
     return _Section(title, [
       for (final v in values)
-        DotChoiceItem(
+        UnderlineItem(
           label: v,
           selected: selected.any((s) => s.toLowerCase() == v.toLowerCase()),
           onTap: () => setState(() {

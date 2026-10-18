@@ -12,6 +12,7 @@ import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
+import 'package:beand/widgets/underline_select.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -201,7 +202,14 @@ void main() {
     await tester.enterText(taste, 'blackcurrant, gr');
     await tester.pump();
     expect(find.text('grapefruit'), findsOneWidget);
-    expect(find.text('blackcurrant'), findsNothing);
+    // The word already taken shows as a chosen underline item (tap removes
+    // it), not as a suggestion.
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is UnderlineItem && w.label == 'blackcurrant' && w.selected,
+      ),
+      findsOneWidget,
+    );
     await db.close();
   });
 

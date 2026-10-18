@@ -116,6 +116,8 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.labelWidth = defaultLabelWidth,
     this.horizontalPadding = 0,
     this.listIndent,
+    this.labelColor,
+    this.labelSize = 13,
   }) : panel = null;
 
   /// The same closed row with an own [panel] (e.g. the ruler for numbers).
@@ -136,6 +138,8 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.labelWidth = defaultLabelWidth,
     this.horizontalPadding = 0,
     this.listIndent,
+    this.labelColor,
+    this.labelSize = 13,
   }) : options = null,
        value = null,
        onChanged = null,
@@ -188,6 +192,11 @@ class ValueSelectRow<T> extends StatefulWidget {
   /// Left inset of the open list; by default aligned with the value
   /// column. The shot cards use 0: the list spans nearly the whole card.
   final double? listIndent;
+
+  /// E.g. the accent for a value read from a bean's packaging but not yet
+  /// confirmed (bean form).
+  final Color? labelColor;
+  final double labelSize;
 
   static const defaultLabelWidth = 64.0;
   static const minHeight = 50.0;
@@ -377,7 +386,10 @@ class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
                     widget.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                    style: TextStyle(
+                      color: widget.labelColor ?? colors.textSecondary,
+                      fontSize: widget.labelSize,
+                    ),
                   ),
                 ),
                 const SizedBox(width: ValueSelectRow._gap),

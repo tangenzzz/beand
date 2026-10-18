@@ -6,7 +6,7 @@ import '../../models/water.dart';
 import '../../services/grinder_store.dart';
 import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/dot_choice_group.dart';
+import '../../widgets/underline_select.dart';
 import 'my_setup_dialogs.dart';
 import 'settings_widgets.dart';
 
@@ -185,8 +185,8 @@ class _GrinderEntry extends StatelessWidget {
             if (grinder.burrs.isNotEmpty) ...[
               const SizedBox(height: 4),
               // The fitted burr set has the dot; tap another to switch.
-              DotChoiceGroup<String>(
-                options: [for (final b in grinder.burrs) DotChoice(b, b)],
+              UnderlineSelect<String>(
+                options: [for (final b in grinder.burrs) UnderlineOption(b, b)],
                 value: grinder.activeBurrs,
                 onChanged: (b) {
                   if (b != null) {

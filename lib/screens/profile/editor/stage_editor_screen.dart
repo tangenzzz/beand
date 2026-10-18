@@ -7,6 +7,7 @@ import '../../../widgets/app_button.dart';
 import 'editor_widgets.dart';
 import 'stage_curve_editor.dart';
 import 'variable_sheet.dart';
+import '../../../widgets/underline_select.dart';
 import '../../../widgets/value_select_row.dart';
 
 // Edit a stage. A separate page instead of a section, so the chart, point
@@ -192,17 +193,16 @@ class _StageEditorScreenState extends State<StageEditorScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
+        // Underline choice; the line in the stage type's color.
+        Wrap(
+          spacing: UnderlineSelect.spacing,
           children: [
             for (final type in stageTypes)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _TypeChip(
-                  label: labelForType(type),
-                  color: colorForStageType(context, type),
-                  selected: _stage.type == type,
-                  onTap: () => _changeType(type),
-                ),
+              UnderlineItem(
+                label: labelForType(type),
+                underlineColor: colorForStageType(context, type),
+                selected: _stage.type == type,
+                onTap: () => _changeType(type),
               ),
           ],
         ),
@@ -727,47 +727,6 @@ class _StageEditorScreenState extends State<StageEditorScreen> {
 }
 
 // ------------------------------------------------------------ Building blocks
-
-class _TypeChip extends StatelessWidget {
-  const _TypeChip({
-    required this.label,
-    required this.color,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Material(
-      color: selected ? color.withValues(alpha: 0.14) : Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: selected ? color : colors.divider),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? color : colors.textSecondary,
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // Two or three buttons, one of which is on.
 class _Segmented<T> extends StatelessWidget {

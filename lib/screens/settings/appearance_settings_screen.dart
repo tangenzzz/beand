@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/dot_choice_group.dart';
+import '../../widgets/underline_select.dart';
 import 'settings_widgets.dart';
 
 // Settings → Appearance: appearance and accent color. Both apply
@@ -24,10 +24,10 @@ class AppearanceSettingsScreen extends StatelessWidget {
             children: [
               _Section(
                 title: 'Theme',
-                child: DotChoiceGroup<AppThemeMode>(
+                child: UnderlineSelect<AppThemeMode>(
                   options: [
                     for (final mode in AppThemeMode.values)
-                      DotChoice(mode, mode.label),
+                      UnderlineOption(mode, mode.label),
                   ],
                   value: settings.themeMode,
                   onChanged: (mode) => settings.setThemeMode(mode!),
