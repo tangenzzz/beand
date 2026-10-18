@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/taste_profile.dart';
 import '../theme/app_theme.dart';
-import 'underline_select.dart';
 
 /// The rating chips — they replace the rating flower in the card and shot
 /// detail, because the flower's small rings were too hard to hit with a
 /// finger.
 ///
-/// The eight fixed axes ([TasteAxis]) as underline choices: one tap means "was there",
+/// The eight fixed axes ([TasteAxis]) as a 2×4 grid of notes: one tap means "was there",
 /// each further tap increases up to three, the fourth clears again.
 /// Turquoise for the good half, orange for the off-putting one — as in the
 /// flower.
@@ -50,24 +50,31 @@ class TasteChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // In the app: the underline choice (UnderlineSelect style) — the word,
-    // its level as dots behind it, the underline in the half's color. The
-    // shareable image keeps its small pills (dense).
+    // In the app: a fixed grid of two rows à four — the pleasant notes on
+    // top, the off-putting ones below. Each note is plain text with its level
+    // as dots behind it: no underline, no pill. The shareable image keeps its
+    // small pills (dense).
     if (!dense) {
-      return Wrap(
-        spacing: UnderlineSelect.spacing,
+      Widget row(bool positive) => Row(
         children: [
           for (final axis in TasteAxis.values)
-            if (!onlyRated || (values[axis] ?? 0) > 0)
-              _UnderlineTaste(
-                label: shortLabels ? axis.shortLabel : axis.label,
-                points: values[axis] ?? 0,
-                color: axis.color(context),
-                onTap: onAxisChanged == null
-                    ? null
-                    : () => _cycle(axis, values[axis] ?? 0),
+            if (axis.isPositive == positive)
+              Expanded(
+                child: _TasteCell(
+                  label: shortLabels ? axis.shortLabel : axis.label,
+                  points: values[axis] ?? 0,
+                  color: axis.color(context),
+                  onTap: onAxisChanged == null
+                      ? null
+                      : () => _cycle(axis, values[axis] ?? 0),
+                ),
               ),
         ],
+      );
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [row(true), row(false)],
       );
     }
     return Wrap(
@@ -90,8 +97,8 @@ class TasteChips extends StatelessWidget {
   }
 }
 
-class _UnderlineTaste extends StatelessWidget {
-  const _UnderlineTaste({
+class _TasteCell extends StatelessWidget {
+  const _TasteCell({
     required this.label,
     required this.points,
     required this.color,
@@ -105,23 +112,46 @@ class _UnderlineTaste extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return UnderlineItem(
+    final colors = context.colors;
+    final rated = points > 0;
+    return Semantics(
+      button: onTap != null,
       label: label,
-      selected: points > 0,
-      underlineColor: color,
+      value: rated ? '$points of ${TasteAxis.maxValue}' : 'not rated',
+      excludeSemantics: true,
       onTap: onTap,
-      trailing: points == 0
-          ? null
-          : Padding(
-              padding: const EdgeInsets.only(left: 5),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onTap!();
+              },
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            // Long names shrink rather than wrap, so the grid stays fixed.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: rated ? colors.textPrimary : colors.textSecondary,
+                      fontSize: 14,
+                      fontWeight: rated ? FontWeight.w500 : FontWeight.w400,
+                    ),
+                  ),
                   for (var i = 0; i < points; i++) ...[
-                    if (i > 0) const SizedBox(width: 3),
+                    SizedBox(width: i == 0 ? 5 : 3),
                     Container(
-                      width: 4,
-                      height: 4,
+                      width: 5,
+                      height: 5,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: color,
@@ -131,6 +161,9 @@ class _UnderlineTaste extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 }
