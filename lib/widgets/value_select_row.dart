@@ -118,6 +118,7 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.listIndent,
     this.labelColor,
     this.labelSize = 13,
+    this.labelSuffix,
   }) : panel = null;
 
   /// The same closed row with an own [panel] (e.g. the ruler for numbers).
@@ -140,6 +141,7 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.listIndent,
     this.labelColor,
     this.labelSize = 13,
+    this.labelSuffix,
   }) : options = null,
        value = null,
        onChanged = null,
@@ -197,6 +199,9 @@ class ValueSelectRow<T> extends StatefulWidget {
   /// confirmed (bean form).
   final Color? labelColor;
   final double labelSize;
+
+  /// Right after the label inside its column, e.g. an ⓘ bubble.
+  final Widget? labelSuffix;
 
   static const defaultLabelWidth = 64.0;
   static const minHeight = 50.0;
@@ -382,14 +387,21 @@ class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
                 ],
                 SizedBox(
                   width: widget.labelWidth,
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: widget.labelColor ?? colors.textSecondary,
-                      fontSize: widget.labelSize,
-                    ),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: widget.labelColor ?? colors.textSecondary,
+                            fontSize: widget.labelSize,
+                          ),
+                        ),
+                      ),
+                      ?widget.labelSuffix,
+                    ],
                   ),
                 ),
                 const SizedBox(width: ValueSelectRow._gap),

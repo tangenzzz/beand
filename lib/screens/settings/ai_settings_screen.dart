@@ -8,7 +8,6 @@ import '../../services/ai/ai_service.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
-import '../../widgets/underline_select.dart';
 import 'settings_widgets.dart';
 import '../../widgets/app_switch_tile.dart';
 import '../../widgets/value_select_row.dart';
@@ -33,6 +32,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
   AiProvider? _loadedFor;
   bool _modelsOpen = false;
+  bool _providerOpen = false;
+
+  // Label column of the Provider/Model rows.
+  static const _rowLabelWidth = 96.0;
   bool _loadingModels = false;
   List<AiModel>? _models;
   String? _modelsError;
@@ -202,23 +205,38 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const _GroupLabel('Connection'),
-                    _Section(
-                      title: 'Provider',
-                      info: '${provider.vendor}. ${provider.note}',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          UnderlineSelect<AiProvider>(
-                            options: [
-                              for (final p in AiProvider.values)
-                                UnderlineOption(p, p.label),
-                            ],
-                            value: provider,
-                            onChanged: (value) => settings.setProvider(value!),
-                          ),
-                        ],
+                    // Provider and model as the app's dropdown rows, one
+                    // below the other: the model belongs to the provider (each
+                    // has its own), not to the key.
+                    ValueSelectRow<AiProvider>(
+                      label: 'Provider',
+                      labelWidth: _rowLabelWidth,
+                      labelSuffix: SettingsInfo(
+                        '${provider.vendor}. ${provider.note}',
                       ),
+                      horizontalPadding: AppSpacing.dividerInset,
+                      isLast: true,
+                      open: _providerOpen,
+                      onToggle: () => setState(() {
+                        _providerOpen = !_providerOpen;
+                        _modelsOpen = false;
+                      }),
+                      onClose: () => setState(() => _providerOpen = false),
+                      value: provider,
+                      options: [
+                        for (final p in AiProvider.values)
+                          ValueOption(
+                            value: p,
+                            title: p.label,
+                            subtitle: p.vendor,
+                          ),
+                      ],
+                      onChanged: (value) {
+                        settings.setProvider(value);
+                        setState(() => _testResult = null);
+                      },
                     ),
+                    _modelSection(context, settings),
                     if (provider.requiresBaseUrl)
                       _Section(
                         title: 'Base URL',
@@ -325,79 +343,105 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         ],
                       ),
                     ),
-                    _modelSection(context, settings),
-                    _Section(
-                      title: 'Test connection',
-                      info:
-                          'Sends one tiny request — it checks the key, the model '
-                          'name and that the answer comes back in the structured '
-                          'form the app needs.',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              AppButton(
-                                label: _testing ? 'Testing…' : 'Test',
-                                expand: false,
-                                onPressed: _testing
-                                    ? null
-                                    : () => _test(settings),
-                              ),
-                            ],
-                          ),
-                          if (_testResult != null) ...[
-                            const SizedBox(height: 10),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  !_testOk
-                                      ? Icons.error_outline
-                                      : _testWarning == null
-                                      ? Icons.check_circle_outline
-                                      : Icons.info_outline,
-                                  size: 16,
-                                  color: !_testOk
-                                      ? context.colors.danger
-                                      : _testWarning == null
-                                      ? context.colors.success
-                                      : context.colors.sensorMid,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _testResult!,
-                                        style: TextStyle(
-                                          color: context.colors.textSecondary,
-                                          fontSize: 12,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                      if (_testWarning != null) ...[
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          _testWarning!,
-                                          style: TextStyle(
-                                            color: context.colors.sensorMid,
-                                            fontSize: 12,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ],
+                    // The row itself is the button (no extra "Test"): accent
+                    // text like the app's other actions, a spinner while it
+                    // runs, the result right below.
+                    InkWell(
+                      key: const ValueKey('test-connection'),
+                      onTap: _testing ? null : () => _test(settings),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.dividerInset,
+                          12,
+                          AppSpacing.dividerInset,
+                          12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.network_check,
+                              size: 18,
+                              color: context.colors.accent,
                             ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: SettingsTitle(
+                                _testing ? 'Testing…' : 'Test connection',
+                                color: context.colors.accent,
+                                info:
+                                    'Sends one tiny request — it checks the '
+                                    'key, the model name and that the answer '
+                                    'comes back in the structured form the '
+                                    'app needs.',
+                              ),
+                            ),
+                            if (_testing)
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: context.colors.textTertiary,
+                                ),
+                              ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
+                    if (_testResult != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.dividerInset,
+                          0,
+                          AppSpacing.dividerInset,
+                          12,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              !_testOk
+                                  ? Icons.error_outline
+                                  : _testWarning == null
+                                  ? Icons.check_circle_outline
+                                  : Icons.info_outline,
+                              size: 16,
+                              color: !_testOk
+                                  ? context.colors.danger
+                                  : _testWarning == null
+                                  ? context.colors.success
+                                  : context.colors.sensorMid,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _testResult!,
+                                    style: TextStyle(
+                                      color: context.colors.textSecondary,
+                                      fontSize: 12,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  if (_testWarning != null) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _testWarning!,
+                                      style: TextStyle(
+                                        color: context.colors.sensorMid,
+                                        fontSize: 12,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
                 Column(
@@ -486,7 +530,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       horizontalPadding: AppSpacing.dividerInset,
       isLast: true,
       open: _modelsOpen,
-      onToggle: () => setState(() => _modelsOpen = !_modelsOpen),
+      labelWidth: _rowLabelWidth,
+      onToggle: () => setState(() {
+        _modelsOpen = !_modelsOpen;
+        _providerOpen = false;
+      }),
       onClose: () => setState(() => _modelsOpen = false),
       value: current,
       valueText: current.isEmpty ? null : current,
@@ -565,11 +613,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
 
 // Section inside the card — same shape as in Appearance.
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child, this.info});
+  const _Section({required this.title, required this.child});
 
   final String title;
   final Widget child;
-  final String? info;
 
   @override
   Widget build(BuildContext context) {
@@ -582,11 +629,7 @@ class _Section extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SettingsTitle(title, info: info),
-          const SizedBox(height: 8),
-          child,
-        ],
+        children: [SettingsTitle(title), const SizedBox(height: 8), child],
       ),
     );
   }

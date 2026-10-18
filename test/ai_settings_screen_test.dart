@@ -100,9 +100,14 @@ void main() {
     );
 
     expect(find.byType(SettingsCard), findsOneWidget);
+    // The providers sit in the Provider dropdown.
+    await tester.tap(find.text('Provider'));
+    await tester.pumpAndSettle();
     for (final provider in AiProvider.values) {
-      expect(find.text(provider.label), findsOneWidget);
+      expect(find.text(provider.label), findsWidgets);
     }
+    await tester.tap(find.text('Provider'));
+    await tester.pumpAndSettle();
     for (final feature in AiFeature.values) {
       expect(find.text(feature.label), findsOneWidget);
     }
@@ -142,6 +147,9 @@ void main() {
     expect(findInfo('free tier'), findsOneWidget);
     expect(find.text(AiProvider.gemini.defaultModel), findsOneWidget);
 
+    // Provider is the app's dropdown row: open, pick.
+    await tester.tap(find.text('Provider'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Claude'));
     await tester.pumpAndSettle();
 
