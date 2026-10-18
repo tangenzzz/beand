@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
@@ -115,9 +115,57 @@ class MeticulousSocketService extends ChangeNotifier
 
   String get hostname => _hostname;
 
+  // Stale-connection watchdog (bug 2026-10-18: after leaving the app and
+  // purging on the machine, the Purge button kept pulsing on return).
+  // Android often cuts a background app's network silently: the socket
+  // still counts as connected, but nothing arrives, so the last status
+  // ("click to purge") stays on screen until Socket.IO's own ping timeout
+  // notices — up to about a minute. The machine sends `status` every
+  // ~0.1 s in every phase, idle included (all captures), so three seconds
+  // without one while connected and in the foreground means the link is
+  // dead: build it anew.
+  static const staleAfter = Duration(seconds: 3);
+  DateTime? _lastStatusAt;
+  Timer? _staleWatch;
+
+  /// True if the connection should be rebuilt at [now].
+  @visibleForTesting
+  bool isStale(DateTime now) {
+    final last = _lastStatusAt;
+    return connectionState == MachineConnectionState.connected &&
+        last != null &&
+        now.difference(last) > staleAfter;
+  }
+
+  @visibleForTesting
+  void markStatusReceived(DateTime at) => _lastStatusAt = at;
+
+  // Outside the foreground there is nothing to show — and reconnecting in
+  // the background only burns battery. Without a binding (unit tests) the
+  // app counts as in the foreground.
+  static bool _inForeground() {
+    try {
+      final state = WidgetsBinding.instance.lifecycleState;
+      return state == null || state == AppLifecycleState.resumed;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  void _checkStale() {
+    if (!_inForeground() || !isStale(DateTime.now())) return;
+    lastError = 'No data from the machine — reconnecting';
+    connect();
+  }
+
   @override
   void connect() {
     _socket?.dispose();
+    _lastStatusAt = null;
+    _staleWatch ??= Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _checkStale(),
+    );
     connectionState = MachineConnectionState.connecting;
     lastError = null;
     notifyListeners();
@@ -159,6 +207,7 @@ class MeticulousSocketService extends ChangeNotifier
         notifyListeners();
       })
       ..on('status', (data) {
+        _lastStatusAt = DateTime.now();
         latestStatus = MachineStatus.fromJson(
           Map<String, dynamic>.from(data as Map),
         );
@@ -558,6 +607,7 @@ class MeticulousSocketService extends ChangeNotifier
 
   @override
   void dispose() {
+    _staleWatch?.cancel();
     _socket?.dispose();
     super.dispose();
   }
