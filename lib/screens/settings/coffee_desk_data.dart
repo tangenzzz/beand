@@ -28,6 +28,10 @@ const specFields = <GearType, List<SpecField>>{
   GearType.tamper: [SpecField('size', 'Size')],
   GearType.brewer: [SpecField('material', 'Material')],
   GearType.filter: [SpecField('flow', 'Flow'), SpecField('size', 'Size')],
+  GearType.puckScreen: [
+    SpecField('size', 'Size'),
+    SpecField('thickness', 'Thickness', unit: 'mm', numeric: true),
+  ],
   GearType.kettle: [SpecField('capacity', 'Capacity')],
   GearType.scale: [SpecField('connection', 'Connection')],
 };
@@ -44,6 +48,7 @@ bool hasStock(GearType type) => type == GearType.filter;
 Set<BrewMode> defaultBrewModes(GearType type) => switch (type) {
   GearType.machine ||
   GearType.basket ||
+  GearType.puckScreen ||
   GearType.tamper => const {BrewMode.espresso},
   GearType.brewer || GearType.kettle => const {BrewMode.pourOver},
   _ => const {BrewMode.espresso, BrewMode.pourOver},

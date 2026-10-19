@@ -63,6 +63,17 @@ bool matchesDeskQuery(Gear g, String query) {
   return words.every(text.contains);
 }
 
+/// The search on the Brew chains tab: the chain's name or its pieces.
+bool matchesChainQuery(String name, Iterable<Gear> pieces, String query) {
+  final words = query.toLowerCase().split(RegExp(r'\s+'))
+    ..removeWhere((w) => w.isEmpty);
+  final text = [
+    name,
+    for (final g in pieces) ...[?g.brand, g.model],
+  ].join(' ').toLowerCase();
+  return words.every(text.contains);
+}
+
 /// The gear search + filter leave over, as the sheet's count.
 List<Gear> filterDesk(
   Iterable<Gear> gear, {

@@ -95,8 +95,9 @@ class _GearDialogState extends State<_GearDialog> {
       double.tryParse(s.trim().replaceAll(',', '.'));
 
   void _save() {
+    // Brand and model are optional (user 2026-10-19): a piece without them
+    // shows as its kind, e.g. "Machine".
     final model = _model.text.trim();
-    if (model.isEmpty) return;
     final existing = widget.gear;
     final brand = _brand.text.trim();
     final fields = specFields[widget.type] ?? const <SpecField>[];
@@ -129,7 +130,8 @@ class _GearDialogState extends State<_GearDialog> {
 
   Future<void> _delete() async {
     final gear = widget.gear!;
-    if (!await confirmSetupDelete(context, gear.model, null) || !mounted) {
+    if (!await confirmSetupDelete(context, gear.displayName, null) ||
+        !mounted) {
       return;
     }
     context.read<GearStore>().remove(gear.id);
@@ -145,7 +147,7 @@ class _GearDialogState extends State<_GearDialog> {
     final shapes = gearShapes[type];
     return SetupDialog(
       title: editing ? 'Edit $single' : 'Add $single',
-      canSave: _model.text.trim().isNotEmpty,
+      canSave: true,
       onSave: _save,
       onDelete: editing ? _delete : null,
       deleteLabel: 'Delete $single',
@@ -212,6 +214,21 @@ class _ChainDialogState extends State<_ChainDialog> {
   late final _name = TextEditingController(text: widget.chain?.name)
     ..addListener(() => setState(() {}));
   late final _gearIds = <String>{...?widget.chain?.gearIds};
+
+  @override
+  void initState() {
+    super.initState();
+    // A chain from before 2026-10-19 may hold two pieces of one kind: keep
+    // the first of each, as the choice shows it.
+    final store = context.read<GearStore>();
+    for (final type in GearType.values) {
+      final ids = [
+        for (final g in store.ofType(type))
+          if (_gearIds.contains(g.id)) g.id,
+      ];
+      _gearIds.removeAll(ids.skip(1));
+    }
+  }
 
   @override
   void dispose() {
@@ -288,22 +305,23 @@ class _ChainDialogState extends State<_ChainDialog> {
                 ),
               ),
             ),
-            for (final g in items)
-              CheckboxListTile(
-                key: ValueKey('chain-gear-${g.id}'),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                activeColor: colors.accent,
-                value: _gearIds.contains(g.id),
-                onChanged: (on) => setState(
-                  () => on == true ? _gearIds.add(g.id) : _gearIds.remove(g.id),
-                ),
-                title: Text(
-                  [g.brand, g.model].whereType<String>().join(' '),
-                  style: TextStyle(color: colors.textPrimary, fontSize: 14),
-                ),
-              ),
+            // One piece per category: picking another one replaces it,
+            // tapping the chosen one again leaves the category out.
+            UnderlineSelect<String>(
+              key: ValueKey('chain-${type.name}'),
+              options: [
+                for (final g in items) UnderlineOption(g.id, g.displayName),
+              ],
+              value: items
+                  .where((g) => _gearIds.contains(g.id))
+                  .firstOrNull
+                  ?.id,
+              allowDeselect: true,
+              onChanged: (id) => setState(() {
+                _gearIds.removeAll([for (final g in items) g.id]);
+                if (id != null) _gearIds.add(id);
+              }),
+            ),
           ],
       ],
     );

@@ -18,16 +18,19 @@ enum BrewMode {
   final String label;
 }
 
+// The order is the desk's (shelves, chain dialog, "Brewed with"), set by
+// the user 2026-10-19; tamper and kettle matter least and come last.
 enum GearType {
-  grinder('Grinders', 'Grinder', 'grinder_electric'),
   machine('Machines', 'Machine', 'espresso_machine'),
-  basket('Baskets', 'Basket', 'basket'),
-  tamper('Tampers', 'Tamper', 'tamper'),
   brewer('Brewers', 'Brewer', 'dripper_cone'),
+  grinder('Grinders', 'Grinder', 'grinder_electric'),
+  basket('Baskets', 'Basket', 'basket'),
   filter('Filters', 'Filter', 'filter_paper'),
-  kettle('Kettles', 'Kettle', 'kettle'),
+  puckScreen('Puck screens', 'Puck screen', 'puck_screen'),
+  water('Water', 'Water', 'water'),
   scale('Scales', 'Scale', 'scale'),
-  water('Water', 'Water', 'water');
+  tamper('Tampers', 'Tamper', 'tamper'),
+  kettle('Kettles', 'Kettle', 'kettle');
 
   const GearType(this.label, this.single, this._icon);
 
@@ -86,10 +89,16 @@ class Gear {
 
   bool usedFor(BrewMode mode) => brewModes.contains(mode);
 
+  /// The model, or the kind of gear when none was given — a piece may be
+  /// saved without brand and model (user 2026-10-19).
+  String get displayName => model.trim().isEmpty ? type.single : model;
+
   /// One line for "Brewed with": brand and model, a grinder's fitted burrs
   /// in brackets.
   String get label {
-    final name = [?brand, model].join(' ');
+    final name = brand == null && model.trim().isEmpty
+        ? type.single
+        : [?brand, if (model.trim().isNotEmpty) model].join(' ');
     final burrs = type == GearType.grinder ? specs['activeBurr'] : null;
     return burrs is String && burrs.isNotEmpty ? '$name ($burrs)' : name;
   }

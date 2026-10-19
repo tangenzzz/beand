@@ -26,7 +26,7 @@ List<ValueOption<String>> _options(GearStore store) => [
     ValueOption(
       value: c.id,
       title: c.name,
-      subtitle: [for (final g in store.gearOf(c)) g.model].join(', '),
+      subtitle: [for (final g in store.gearOf(c)) g.displayName].join(', '),
     ),
 ];
 

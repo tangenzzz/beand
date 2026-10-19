@@ -24,11 +24,10 @@ import 'settings_widgets.dart';
 // Settings → My Coffee Desk: all the user's gear as shelves, one per
 // category — a row of round avatars standing on a 3 dp "shelf board" (a
 // dashed "New" at the end adds one), no hairlines between the shelves,
-// only one below the tabs. On top one tab per brew chain next to
-// "All" (+ adds a chain; tapping the open chain's tab again, or a long
-// press, edits it); search and filter (espresso, pour over, stored …) sit
+// only one below the tabs. Two tabs: "Shelf" and "Brew chains" (one row per
+// chain, swiped left: Copy and Delete; + adds one). Search and filter sit
 // in the app bar like in the bean list and the history. Tapping an avatar
-// folds its details out below that shelf; one piece at a time.
+// folds its details out below that shelf, a long press edits it.
 //
 // Grinders and waters open their own dialogs (burr sets, minerals),
 // everything else the generic gear form (gear_dialogs.dart).
@@ -40,9 +39,11 @@ class MyCoffeeDeskScreen extends StatefulWidget {
   State<MyCoffeeDeskScreen> createState() => _MyCoffeeDeskScreenState();
 }
 
+// The two tabs on top: all gear on its shelves, or the brew chains.
+enum _DeskTab { shelf, chains }
+
 class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
-  // The open chain tab; null = All.
-  String? _chainId;
+  _DeskTab _tab = _DeskTab.shelf;
   DeskFilter _filter = DeskFilter.empty;
   final _search = TextEditingController();
   bool _searching = false;
@@ -67,19 +68,38 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     super.dispose();
   }
 
-  BrewChain? _chain(GearStore store) =>
-      store.chains.where((c) => c.id == _chainId).firstOrNull;
-
-  void _selectChain(String? id) => setState(() {
-    _chainId = id;
+  void _selectTab(_DeskTab tab) => setState(() {
+    _tab = tab;
     _openId = null;
   });
+
+  // Copy a chain to change one category in the copy — a chain holds one
+  // piece per category; another basket means another chain.
+  Future<void> _copyChain(BrewChain chain) async {
+    final store = context.read<GearStore>();
+    final copy = store.saveChain(
+      BrewChain(id: '', name: '${chain.name} copy', gearIds: chain.gearIds),
+    );
+    await showChainDialog(context, chain: copy);
+  }
+
+  Future<void> _deleteChain(BrewChain chain) async {
+    final store = context.read<GearStore>();
+    if (await confirmSetupDelete(
+          context,
+          chain.name,
+          'The gear stays on the desk.',
+        ) &&
+        mounted) {
+      store.removeChain(chain.id);
+    }
+  }
 
   Future<void> _openFilter() async {
     final store = context.read<GearStore>();
     final result = await showDeskFilterSheet(
       context,
-      gear: _base(store),
+      gear: store.gear,
       inUse: store.activeIds,
       query: _search.text,
       initial: _filter,
@@ -92,30 +112,7 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     }
   }
 
-  // What the open tab holds: everything, or the chain's gear.
-  List<Gear> _base(GearStore store) {
-    final chain = _chain(store);
-    if (chain == null) return store.gear;
-    return [
-      for (final g in store.gear)
-        if (chain.gearIds.contains(g.id)) g,
-    ];
-  }
-
-  // Adding on a chain's tab puts the new piece into that chain too.
-  Future<void> _add(GearType type) async {
-    final store = context.read<GearStore>();
-    final before = {for (final g in store.gear) g.id};
-    await _openAddDialog(type);
-    final chain = _chain(store);
-    final added = [
-      for (final g in store.gear)
-        if (!before.contains(g.id)) g.id,
-    ];
-    if (chain != null && added.isNotEmpty) {
-      store.saveChain(chain.copyWith(gearIds: [...chain.gearIds, ...added]));
-    }
-  }
+  Future<void> _add(GearType type) => _openAddDialog(type);
 
   Future<void> _openAddDialog(GearType type) async {
     switch (type) {
@@ -299,7 +296,7 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
               icon: Icon(Icons.close, color: colors.textSecondary),
               onPressed: _search.clear,
             ),
-          _filterButton(),
+          if (_tab == _DeskTab.shelf) _filterButton(),
         ],
       );
     }
@@ -311,7 +308,8 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
           icon: Icon(Icons.search, color: colors.textSecondary),
           onPressed: () => setState(() => _searching = true),
         ),
-        _filterButton(),
+        // The filter is about gear; the chains have the search alone.
+        if (_tab == _DeskTab.shelf) _filterButton(),
       ],
     );
   }
@@ -320,17 +318,16 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
   Widget build(BuildContext context) {
     final store = context.watch<GearStore>();
     final active = store.activeIds;
-    final chain = _chain(store);
+    final query = _search.text.trim();
     final visible = filterDesk(
-      _base(store),
+      store.gear,
       inUse: active,
-      query: _search.text,
+      query: query,
       filter: _filter,
     );
-    // "All" without search or filter shows every category, empty ones with
-    // just "New"; anything narrower drops what it leaves empty.
-    final showEmpty =
-        chain == null && !_filter.isActive && _search.text.trim().isEmpty;
+    // The shelf without search or filter shows every category, empty ones
+    // with just "New"; anything narrower drops what it leaves empty.
+    final showEmpty = !_filter.isActive && query.isEmpty;
     final shelves = [
       for (final type in GearType.values)
         (
@@ -341,6 +338,12 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
           ],
         ),
     ].where((s) => showEmpty || s.$2.isNotEmpty).toList();
+    // The search goes over a chain's name and its pieces too.
+    final chains = [
+      for (final c in store.chains)
+        if (query.isEmpty || matchesChainQuery(c.name, store.gearOf(c), query))
+          c,
+    ];
 
     return Scaffold(
       appBar: _appBar(),
@@ -349,50 +352,64 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
         builder: (context, counts) => ListView(
           padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
           children: [
-            // One card: the chain tabs, then one block per category —
-            // without hairlines, the shelf boards divide enough.
+            // One card: the tabs, then one block per category (or one row
+            // per chain) — without hairlines, the shelf boards divide
+            // enough.
             SettingsCard(
               dividers: false,
               children: [
-                _ChainTabs(
-                  chains: store.chains,
-                  selected: chain?.id,
-                  onSelect: _selectChain,
-                  onEdit: (c) => showChainDialog(context, chain: c),
-                  onAdd: () async {
-                    final saved = await showChainDialog(context);
-                    if (saved != null) _selectChain(saved.id);
-                  },
+                _DeskTabs(
+                  tab: _tab,
+                  onSelect: _selectTab,
+                  onAddChain: _tab == _DeskTab.chains
+                      ? () => showChainDialog(context)
+                      : null,
                 ),
-                // The one hairline left: tabs above, shelves below.
+                // The one hairline left: tabs above, content below.
                 const SettingsDivider(),
-                if (shelves.isEmpty)
-                  SettingsSection(
-                    child: SettingsText(
-                      chain != null && chain.gearIds.isEmpty
-                          ? 'No gear in this chain yet — tap its tab again to pick some.'
-                          : 'Nothing here.',
+                if (_tab == _DeskTab.chains) ...[
+                  if (chains.isEmpty)
+                    SettingsSection(
+                      child: SettingsText(
+                        store.chains.isEmpty
+                            ? 'Group the gear you brew with — one piece per category. Tap + to add a chain.'
+                            : 'Nothing here.',
+                      ),
                     ),
-                  ),
-                for (final (type, items) in shelves)
-                  _Shelf(
-                    type: type,
-                    items: items,
-                    active: active,
-                    openId: _openId,
-                    photoOf: store.photoFile,
-                    shotsOf: (g) => g.type == GearType.grinder
-                        ? (counts.data?[g.model] ?? 0)
-                        : null,
-                    chainsOf: (g) => [
-                      for (final c in store.chainsOf(g.id)) c.name,
-                    ],
-                    onTap: (g) =>
-                        setState(() => _openId = _openId == g.id ? null : g.id),
-                    onAdd: () => _add(type),
-                    onEdit: _edit,
-                    onPhoto: _choosePhoto,
-                  ),
+                  for (final c in chains)
+                    _ChainRow(
+                      key: ValueKey('chain-${c.id}'),
+                      chain: c,
+                      pieces: store.gearOf(c),
+                      onTap: () => showChainDialog(context, chain: c),
+                      onCopy: () => _copyChain(c),
+                      onDelete: () => _deleteChain(c),
+                    ),
+                  const SizedBox(height: 8),
+                ] else ...[
+                  if (shelves.isEmpty)
+                    const SettingsSection(child: SettingsText('Nothing here.')),
+                  for (final (type, items) in shelves)
+                    _Shelf(
+                      type: type,
+                      items: items,
+                      active: active,
+                      openId: _openId,
+                      photoOf: store.photoFile,
+                      shotsOf: (g) => g.type == GearType.grinder
+                          ? (counts.data?[g.model] ?? 0)
+                          : null,
+                      chainsOf: (g) => [
+                        for (final c in store.chainsOf(g.id)) c.name,
+                      ],
+                      onTap: (g) => setState(
+                        () => _openId = _openId == g.id ? null : g.id,
+                      ),
+                      onAdd: () => _add(type),
+                      onEdit: _edit,
+                      onPhoto: _choosePhoto,
+                    ),
+                ],
               ],
             ),
           ],
@@ -402,62 +419,207 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
   }
 }
 
-// "All" plus one tab per brew chain, "+" at the right. Tapping the open
-// chain's tab again (or a long press on any) edits that chain.
-class _ChainTabs extends StatelessWidget {
-  const _ChainTabs({
-    required this.chains,
-    required this.selected,
+// "Shelf" and "Brew chains" on top; on the chains tab "+" at the right adds
+// one.
+class _DeskTabs extends StatelessWidget {
+  const _DeskTabs({
+    required this.tab,
     required this.onSelect,
-    required this.onEdit,
-    required this.onAdd,
+    required this.onAddChain,
   });
 
-  final List<BrewChain> chains;
-  final String? selected;
-  final ValueChanged<String?> onSelect;
-  final ValueChanged<BrewChain> onEdit;
-  final VoidCallback onAdd;
+  final _DeskTab tab;
+  final ValueChanged<_DeskTab> onSelect;
+  final VoidCallback? onAddChain;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.dividerInset, 4, 4, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Wrap(
-                spacing: UnderlineSelect.spacing,
+      child: SizedBox(
+        height: 48,
+        child: Row(
+          children: [
+            Expanded(
+              child: UnderlineSelect<_DeskTab>(
+                options: const [
+                  UnderlineOption(_DeskTab.shelf, 'Shelf'),
+                  UnderlineOption(_DeskTab.chains, 'Brew chains'),
+                ],
+                value: tab,
+                onChanged: (t) => onSelect(t!),
+              ),
+            ),
+            if (onAddChain != null)
+              IconButton(
+                tooltip: 'Add brew chain',
+                icon: Icon(Icons.add, color: context.colors.textSecondary),
+                onPressed: onAddChain,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// One brew chain: name, its pieces in desk order. Tap edits it; swiped to
+// the left it shows Copy and Delete.
+class _ChainRow extends StatefulWidget {
+  const _ChainRow({
+    super.key,
+    required this.chain,
+    required this.pieces,
+    required this.onTap,
+    required this.onCopy,
+    required this.onDelete,
+  });
+
+  final BrewChain chain;
+  final List<Gear> pieces;
+  final VoidCallback onTap;
+  final VoidCallback onCopy;
+  final VoidCallback onDelete;
+
+  @override
+  State<_ChainRow> createState() => _ChainRowState();
+}
+
+class _ChainRowState extends State<_ChainRow>
+    with SingleTickerProviderStateMixin {
+  static const _actionWidth = 72.0;
+  static const _open = 2 * _actionWidth;
+
+  late final AnimationController _slide = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+    upperBound: _open,
+  );
+
+  @override
+  void dispose() {
+    _slide.dispose();
+    super.dispose();
+  }
+
+  void _settle() => _slide.animateTo(_slide.value > _open / 2 ? _open : 0);
+
+  void _act(VoidCallback action) {
+    _slide.animateTo(0);
+    action();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    Widget action(String label, IconData icon, Color color, VoidCallback f) =>
+        SizedBox(
+          width: _actionWidth,
+          child: InkWell(
+            onTap: () => _act(f),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: color),
+                const SizedBox(height: 4),
+                Text(label, style: TextStyle(color: color, fontSize: 12)),
+              ],
+            ),
+          ),
+        );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragUpdate: (d) =>
+          _slide.value = (_slide.value - d.delta.dx).clamp(0.0, _open),
+      onHorizontalDragEnd: (_) => _settle(),
+      child: ClipRect(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  UnderlineItem(
-                    label: 'All',
-                    selected: selected == null,
-                    onTap: () => onSelect(null),
+                  action(
+                    'Copy',
+                    Icons.copy_outlined,
+                    colors.textSecondary,
+                    widget.onCopy,
                   ),
-                  for (final c in chains)
-                    GestureDetector(
-                      key: ValueKey('chain-tab-${c.id}'),
-                      onLongPress: () => onEdit(c),
-                      child: UnderlineItem(
-                        label: c.name,
-                        selected: c.id == selected,
-                        onTap: () =>
-                            c.id == selected ? onEdit(c) : onSelect(c.id),
-                      ),
-                    ),
+                  action(
+                    'Delete',
+                    Icons.delete_outline,
+                    colors.danger,
+                    widget.onDelete,
+                  ),
                 ],
               ),
             ),
-          ),
-          IconButton(
-            tooltip: 'Add brew chain',
-            icon: Icon(Icons.add, color: context.colors.textSecondary),
-            onPressed: onAdd,
-          ),
-        ],
+            AnimatedBuilder(
+              animation: _slide,
+              builder: (context, child) => Transform.translate(
+                offset: Offset(-_slide.value, 0),
+                child: child,
+              ),
+              child: Material(
+                color: colors.card,
+                child: InkWell(
+                  onTap: () =>
+                      _slide.value > 0 ? _slide.animateTo(0) : widget.onTap(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.dividerInset,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.chain.name,
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                widget.pieces.isEmpty
+                                    ? 'No gear yet'
+                                    : [
+                                        for (final g in widget.pieces)
+                                          g.displayName,
+                                      ].join(' · '),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // A row of the pieces' line icons, quiet.
+                        for (final g in widget.pieces.take(6))
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: GearIcon(
+                              asset: g.type.iconAsset(g.specs),
+                              size: 16,
+                              color: colors.textTertiary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -538,6 +700,7 @@ class _Shelf extends StatelessWidget {
                         active: active.contains(items[i].id),
                         selected: items[i].id == openId,
                         onTap: () => onTap(items[i]),
+                        onLongPress: () => onEdit(items[i]),
                       ),
               ),
             ],
@@ -600,11 +763,13 @@ class GearAvatar extends StatelessWidget {
     required this.active,
     required this.selected,
     required this.onTap,
+    this.onLongPress,
     this.photo,
   });
 
   final Gear gear;
   final File? photo;
+  final VoidCallback? onLongPress;
   final bool active;
   final bool selected;
   final VoidCallback onTap;
@@ -630,10 +795,12 @@ class GearAvatar extends StatelessWidget {
     return Semantics(
       button: true,
       selected: selected,
-      label: [gear.brand, gear.model].whereType<String>().join(' '),
+      label: gear.label,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
+        // Long press: straight to the edit dialog.
+        onLongPress: onLongPress,
         child: SizedBox(
           width: _slot,
           child: Column(
@@ -722,7 +889,7 @@ class GearAvatar extends StatelessWidget {
                     ),
                   Flexible(
                     child: Text(
-                      gear.model,
+                      gear.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
@@ -901,7 +1068,8 @@ class _GearDetail extends StatelessWidget {
           PrefixedTitle(
             key: const ValueKey('gear-title'),
             prefix: gear.brand,
-            title: gear.model,
+            title: gear.displayName,
+            active: true,
             maxLines: 2,
           ),
           const SizedBox(height: 10),
