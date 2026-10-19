@@ -21,9 +21,9 @@ import '../ruler_picker.dart';
 import '../tile_title.dart';
 import 'pourover_profile_row.dart';
 import 'recipe_format.dart';
-import '../grinder_choice.dart';
+import '../chain_choice.dart';
 
-enum _OpenList { recipe, bean, dose, grind, grinder, water, temp }
+enum _OpenList { recipe, bean, dose, grind, chain, water, temp }
 
 // Pre-brew card: recipe, bean, dose, grind size, water + ratio (derived
 // from recipe and dose, hence with a lock) and temperature. Same rows,
@@ -91,7 +91,7 @@ class _PreBrewCardState extends State<PreBrewCard> {
     _OpenList.grind ||
     _OpenList.water ||
     _OpenList.temp => RulerPicker.height,
-    _OpenList.grinder => GrinderPickerList.heightFor(context),
+    _OpenList.chain => chainListHeight(context),
     null => 0,
   };
 
@@ -174,7 +174,6 @@ class _PreBrewCardState extends State<PreBrewCard> {
     final temp = brew.temperature;
 
     // Nothing can be changed during the brew.
-    VoidCallback? tap(_OpenList l) => locked ? null : () => _toggle(l);
     if ((locked && _open != null) ||
         (manual && _open == _OpenList.recipe) ||
         (!manual && _open == _OpenList.water)) {
@@ -284,10 +283,6 @@ class _PreBrewCardState extends State<PreBrewCard> {
                       open: _open == _OpenList.grind,
                       onToggle: () => _toggle(_OpenList.grind),
                       onClose: _close,
-                      trailing: GrinderPill(
-                        open: _open == _OpenList.grinder,
-                        onTap: tap(_OpenList.grinder),
-                      ),
                       panel: RulerPicker(
                         value: grind ?? 20,
                         min: 0,
@@ -296,10 +291,12 @@ class _PreBrewCardState extends State<PreBrewCard> {
                         onChanged: setup.setGrind,
                       ),
                     ),
-                    if (_open == _OpenList.grinder)
-                      GrinderPickerList(
-                        onChosen: () => _toggle(_OpenList.grinder),
-                      ),
+                    ChainSelectRow(
+                      enabled: !locked,
+                      open: _open == _OpenList.chain,
+                      onToggle: () => _toggle(_OpenList.chain),
+                      onClose: _close,
+                    ),
                     // With a recipe the water follows from recipe and dose
                     // (lock); manual, it is the freely chosen target.
                     ValueSelectRow<void>.custom(

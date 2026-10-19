@@ -5,6 +5,7 @@ import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/models/gear.dart';
 import 'package:beand/models/grinder.dart';
+import 'package:beand/screens/history/shot_detail_screen.dart';
 import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/screens/live/shot_cards_carousel.dart';
 import 'package:beand/models/water.dart';
@@ -127,28 +128,53 @@ void main() {
   });
 
   group('ShotSetup', () {
-    test('snapshot carries grinder name and fitted burrs', () {
-      final store = GrinderStore.inMemory();
-      final setup = ShotSetup.inMemory()..grinders = store;
+    test('snapshot: grinder, burrs and gear of the chain in desk order', () {
+      final grinders = GrinderStore.inMemory();
+      final gear = grinders.gear;
+      final setup = ShotSetup.inMemory()..gear = gear;
       expect(setup.snapshot().grinder, isNull);
+      expect(setup.snapshot().brewedWith, isNull);
 
-      // Exactly one grinder counts as chosen.
-      final niche = store.add('Niche Zero', ['Stock', 'SSP']);
-      expect(setup.snapshot().grinder, 'Niche Zero');
+      final niche = grinders.add('Zero', ['Stock', 'SSP'], brand: 'Niche');
+      gear.save(
+        const Gear(
+          id: 'm',
+          type: GearType.machine,
+          brand: 'Meticulous',
+          model: 'Meticulous',
+        ),
+      );
+      gear.save(
+        const Gear(id: 'b', type: GearType.basket, brand: 'IMS', model: '18'),
+      );
+      // Chain lists the basket before the grinder — the shot gets desk
+      // order: grinder, machine, basket.
+      final bar = gear.saveChain(
+        BrewChain(id: '', name: 'Bar', gearIds: ['b', niche.id, 'm']),
+      );
+      // Exactly one chain counts as chosen.
+      expect(setup.chain?.id, bar.id);
+      expect(setup.snapshot().grinder, 'Zero');
       expect(setup.snapshot().burrs, 'Stock');
+      expect(
+        setup.snapshot().brewedWith,
+        'Niche Zero (Stock)\nMeticulous Meticulous\nIMS 18',
+      );
 
-      final k = store.add('K-Ultra', const []);
-      expect(setup.grinder, isNull, reason: 'two grinders, none chosen');
-      setup.setGrinder(niche.id);
-      store.setActiveBurr(niche.id, 'SSP');
-      expect(setup.snapshot().grinder, 'Niche Zero');
+      final travel = gear.saveChain(
+        const BrewChain(id: '', name: 'Travel', gearIds: ['b']),
+      );
+      expect(setup.chain, isNull, reason: 'two chains, none chosen');
+      setup.setChain(bar.id);
+      grinders.setActiveBurr(niche.id, 'SSP');
       expect(setup.snapshot().burrs, 'SSP');
 
-      setup.setGrinder(k.id);
-      expect(setup.snapshot().burrs, isNull);
-      // Deleted grinder: nothing on the shot instead of a stale name.
-      store.remove(k.id);
-      expect(setup.snapshot().grinder, 'Niche Zero');
+      setup.setChain(travel.id);
+      expect(setup.snapshot().grinder, isNull, reason: 'no grinder in it');
+      expect(setup.snapshot().brewedWith, 'IMS 18');
+      // Deleted chain: the one left counts again.
+      gear.removeChain(travel.id);
+      expect(setup.chain?.id, bar.id);
     });
   });
 
@@ -244,25 +270,36 @@ void main() {
     expect(store.grinders, isEmpty);
   });
 
-  testWidgets('Pre Shot: grinder pill next to the grind size picks one', (
+  testWidgets('Pre Shot: brew chain row below the grind picks one', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(() => tester.runAsync(db.close));
     final socket = MeticulousSocketService(hostname: 'unreachable.local');
     final live = MeticulousLiveShotService(socket)..start();
     addTearDown(live.dispose);
-    final store = GrinderStore.inMemory();
-    store.add('Niche Zero', ['SSP']);
-    final k = store.add('K-Ultra', const []);
-    final setup = ShotSetup.inMemory()..grinders = store;
+    final gear = GearStore.inMemory(
+      gear: const [
+        Gear(id: 'g', type: GearType.grinder, model: 'Zero'),
+        Gear(id: 'v', type: GearType.brewer, model: 'V60'),
+      ],
+      chains: const [
+        BrewChain(id: 'bar', name: 'Espresso bar', gearIds: ['g']),
+        BrewChain(id: 'po', name: 'Pour over', gearIds: ['g', 'v']),
+      ],
+    );
+    final setup = ShotSetup.inMemory()..gear = gear;
+    var extra = 0.0;
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           Provider<AppDatabase>.value(value: db),
           ChangeNotifierProvider<AppSettings>.value(value: AppSettings()),
-          ChangeNotifierProvider<GrinderStore>.value(value: store),
+          ChangeNotifierProvider<GearStore>.value(value: gear),
           ChangeNotifierProvider<ShotSetup>.value(value: setup),
           ChangeNotifierProvider<MeticulousSocketService>.value(value: socket),
           ChangeNotifierProvider<EspressoMachine>.value(value: socket),
@@ -273,12 +310,17 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildAppTheme(),
+          // Grows by the open list's height like the carousel does.
           home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                height: ShotCardsCarousel.cardHeight + 300,
-                width: 340,
-                child: const PreShotCard(),
+            body: SingleChildScrollView(
+              child: StatefulBuilder(
+                builder: (context, setState) => SizedBox(
+                  height: ShotCardsCarousel.cardHeight + extra,
+                  width: 340,
+                  child: PreShotCard(
+                    onExtraHeight: (h) => setState(() => extra = h),
+                  ),
+                ),
               ),
             ),
           ),
@@ -287,22 +329,50 @@ void main() {
     );
     await tester.pump();
 
-    // Two grinders, none chosen yet.
-    expect(find.text('Grinder'), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('grinder-pill')));
+    // No grinder choice at the grind row any more; the chain row below it.
+    expect(find.byKey(const ValueKey('grinder-pill')), findsNothing);
+    expect(find.text('Chain'), findsOneWidget);
+    expect(find.text('Select brew chain'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Chain')).dy,
+      greaterThan(tester.getTopLeft(find.text('Grind')).dy),
+    );
+    await tester.tap(find.text('Select brew chain'));
     await tester.pump();
-    expect(find.text('K-Ultra'), findsOneWidget);
-    // Fitted burrs as detail in the list.
-    expect(find.textContaining('SSP', findRichText: true), findsOneWidget);
-    await tester.tap(find.text('K-Ultra'));
-    await tester.pump();
-    expect(setup.grinder?.id, k.id);
-    // List closed, the pill names the grinder.
-    expect(find.text('K-Ultra'), findsOneWidget);
-    expect(find.text('Niche Zero'), findsNothing);
+    // The list folds open in 200 ms.
+    await tester.pump(const Duration(milliseconds: 300));
+    // Each chain with its pieces as detail.
+    expect(find.text('Zero, V60'), findsOneWidget);
+    await tester.tap(find.text('Pour over'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(setup.chain?.id, 'po');
+    expect(setup.snapshot().brewedWith, 'Zero\nV60');
+    expect(extra, 0, reason: 'list closed, the card shrinks back');
+    expect(tester.takeException(), isNull, reason: 'no overflow');
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(Duration.zero);
+  });
+
+  testWidgets('Shot detail: brewed with, small, pieces in one line', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: const Scaffold(
+          body: BrewedWith(gear: 'Niche Zero (SSP)\nMeticulous\nIMS 18'),
+        ),
+      ),
+    );
+    final text = tester.widget<Text>(
+      find.byKey(const ValueKey('shot-brewed-with')),
+    );
+    expect(
+      text.textSpan!.toPlainText(),
+      'BREWED WITH  Niche Zero (SSP)  ·  Meticulous  ·  IMS 18',
+    );
+    expect(text.maxLines, 2);
   });
 
   testWidgets('My Setup: add a water recipe', (tester) async {

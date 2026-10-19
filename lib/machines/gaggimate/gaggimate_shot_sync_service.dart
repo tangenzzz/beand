@@ -224,6 +224,7 @@ class GaggiMateShotSyncService {
         grindSize: Value(attachSetup?.grindSize?.toStringAsFixed(1)),
         grinder: Value(attachSetup?.grinder),
         burrs: Value(attachSetup?.burrs),
+        brewedWith: Value(attachSetup?.brewedWith),
         finalWeight: Value(entry.finalWeight ?? log.finalWeight),
         durationMs: Value(
           entry.durationMs > 0 ? entry.durationMs : log.durationMs,

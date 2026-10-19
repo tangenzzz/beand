@@ -19,7 +19,7 @@ import 'add_profile_dialog.dart';
 import 'brew_control_button.dart';
 import 'ruler_picker.dart';
 import 'tile_title.dart';
-import 'grinder_choice.dart';
+import 'chain_choice.dart';
 import '../../widgets/value_select_row.dart';
 
 // Pre-Shot card. "Bean" is real: picks from the beans created in the Beans
@@ -44,7 +44,7 @@ class PreShotCard extends StatefulWidget {
   State<PreShotCard> createState() => _PreShotCardState();
 }
 
-enum _OpenList { bean, profile, dose, grind, grinder }
+enum _OpenList { bean, profile, dose, grind, chain }
 
 // Value ranges of the two rulers (also the bounds for values carried over
 // from an earlier shot).
@@ -140,7 +140,7 @@ class _PreShotCardState extends State<PreShotCard> {
       action: true,
     ),
     _OpenList.dose || _OpenList.grind => RulerPicker.height,
-    _OpenList.grinder => GrinderPickerList.heightFor(context),
+    _OpenList.chain => chainListHeight(context),
     null => 0,
   };
 
@@ -364,14 +364,9 @@ class _PreShotCardState extends State<PreShotCard> {
                       icon: Icons.blur_on,
                       label: 'Grind',
                       valueText: _grindSize?.toStringAsFixed(1),
-                      isLast: true,
                       open: _open == _OpenList.grind,
                       onToggle: () => _toggle(_OpenList.grind),
                       onClose: _close,
-                      trailing: GrinderPill(
-                        open: _open == _OpenList.grinder,
-                        onTap: () => _toggle(_OpenList.grinder),
-                      ),
                       panel: RulerPicker(
                         value: _grindSize ?? ShotSetup.defaultGrind,
                         min: _grindMin,
@@ -383,8 +378,12 @@ class _PreShotCardState extends State<PreShotCard> {
                         },
                       ),
                     ),
-                    if (_open == _OpenList.grinder)
-                      GrinderPickerList(onChosen: _close),
+                    ChainSelectRow(
+                      isLast: true,
+                      open: _open == _OpenList.chain,
+                      onToggle: () => _toggle(_OpenList.chain),
+                      onClose: _close,
+                    ),
                     // Space before the footer: grows/shrinks with the card
                     // height but never gets smaller than this minimum gap.
                     const SizedBox(height: 14),

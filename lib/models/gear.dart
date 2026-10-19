@@ -86,6 +86,14 @@ class Gear {
 
   bool usedFor(BrewMode mode) => brewModes.contains(mode);
 
+  /// One line for "Brewed with": brand and model, a grinder's fitted burrs
+  /// in brackets.
+  String get label {
+    final name = [?brand, model].join(' ');
+    final burrs = type == GearType.grinder ? specs['activeBurr'] : null;
+    return burrs is String && burrs.isNotEmpty ? '$name ($burrs)' : name;
+  }
+
   Gear withId(String id) => Gear(
     id: id,
     type: type,

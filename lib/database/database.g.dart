@@ -1449,6 +1449,17 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _brewedWithMeta = const VerificationMeta(
+    'brewedWith',
+  );
+  @override
+  late final GeneratedColumn<String> brewedWith = GeneratedColumn<String>(
+    'brewed_with',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
   @override
   late final GeneratedColumn<int> rating = GeneratedColumn<int>(
@@ -1749,6 +1760,7 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
     grindSize,
     grinder,
     burrs,
+    brewedWith,
     rating,
     tasteFinish,
     tasteBody,
@@ -1875,6 +1887,12 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
       context.handle(
         _burrsMeta,
         burrs.isAcceptableOrUnknown(data['burrs']!, _burrsMeta),
+      );
+    }
+    if (data.containsKey('brewed_with')) {
+      context.handle(
+        _brewedWithMeta,
+        brewedWith.isAcceptableOrUnknown(data['brewed_with']!, _brewedWithMeta),
       );
     }
     if (data.containsKey('rating')) {
@@ -2143,6 +2161,10 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
         DriftSqlType.string,
         data['${effectivePrefix}burrs'],
       ),
+      brewedWith: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}brewed_with'],
+      ),
       rating: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}rating'],
@@ -2271,6 +2293,7 @@ class Shot extends DataClass implements Insertable<Shot> {
   final String? grindSize;
   final String? grinder;
   final String? burrs;
+  final String? brewedWith;
   final int? rating;
   final int? tasteFinish;
   final int? tasteBody;
@@ -2312,6 +2335,7 @@ class Shot extends DataClass implements Insertable<Shot> {
     this.grindSize,
     this.grinder,
     this.burrs,
+    this.brewedWith,
     this.rating,
     this.tasteFinish,
     this.tasteBody,
@@ -2373,6 +2397,9 @@ class Shot extends DataClass implements Insertable<Shot> {
     }
     if (!nullToAbsent || burrs != null) {
       map['burrs'] = Variable<String>(burrs);
+    }
+    if (!nullToAbsent || brewedWith != null) {
+      map['brewed_with'] = Variable<String>(brewedWith);
     }
     if (!nullToAbsent || rating != null) {
       map['rating'] = Variable<int>(rating);
@@ -2485,6 +2512,9 @@ class Shot extends DataClass implements Insertable<Shot> {
       burrs: burrs == null && nullToAbsent
           ? const Value.absent()
           : Value(burrs),
+      brewedWith: brewedWith == null && nullToAbsent
+          ? const Value.absent()
+          : Value(brewedWith),
       rating: rating == null && nullToAbsent
           ? const Value.absent()
           : Value(rating),
@@ -2582,6 +2612,7 @@ class Shot extends DataClass implements Insertable<Shot> {
       grindSize: serializer.fromJson<String?>(json['grindSize']),
       grinder: serializer.fromJson<String?>(json['grinder']),
       burrs: serializer.fromJson<String?>(json['burrs']),
+      brewedWith: serializer.fromJson<String?>(json['brewedWith']),
       rating: serializer.fromJson<int?>(json['rating']),
       tasteFinish: serializer.fromJson<int?>(json['tasteFinish']),
       tasteBody: serializer.fromJson<int?>(json['tasteBody']),
@@ -2628,6 +2659,7 @@ class Shot extends DataClass implements Insertable<Shot> {
       'grindSize': serializer.toJson<String?>(grindSize),
       'grinder': serializer.toJson<String?>(grinder),
       'burrs': serializer.toJson<String?>(burrs),
+      'brewedWith': serializer.toJson<String?>(brewedWith),
       'rating': serializer.toJson<int?>(rating),
       'tasteFinish': serializer.toJson<int?>(tasteFinish),
       'tasteBody': serializer.toJson<int?>(tasteBody),
@@ -2672,6 +2704,7 @@ class Shot extends DataClass implements Insertable<Shot> {
     Value<String?> grindSize = const Value.absent(),
     Value<String?> grinder = const Value.absent(),
     Value<String?> burrs = const Value.absent(),
+    Value<String?> brewedWith = const Value.absent(),
     Value<int?> rating = const Value.absent(),
     Value<int?> tasteFinish = const Value.absent(),
     Value<int?> tasteBody = const Value.absent(),
@@ -2713,6 +2746,7 @@ class Shot extends DataClass implements Insertable<Shot> {
     grindSize: grindSize.present ? grindSize.value : this.grindSize,
     grinder: grinder.present ? grinder.value : this.grinder,
     burrs: burrs.present ? burrs.value : this.burrs,
+    brewedWith: brewedWith.present ? brewedWith.value : this.brewedWith,
     rating: rating.present ? rating.value : this.rating,
     tasteFinish: tasteFinish.present ? tasteFinish.value : this.tasteFinish,
     tasteBody: tasteBody.present ? tasteBody.value : this.tasteBody,
@@ -2772,6 +2806,9 @@ class Shot extends DataClass implements Insertable<Shot> {
       grindSize: data.grindSize.present ? data.grindSize.value : this.grindSize,
       grinder: data.grinder.present ? data.grinder.value : this.grinder,
       burrs: data.burrs.present ? data.burrs.value : this.burrs,
+      brewedWith: data.brewedWith.present
+          ? data.brewedWith.value
+          : this.brewedWith,
       rating: data.rating.present ? data.rating.value : this.rating,
       tasteFinish: data.tasteFinish.present
           ? data.tasteFinish.value
@@ -2856,6 +2893,7 @@ class Shot extends DataClass implements Insertable<Shot> {
           ..write('grindSize: $grindSize, ')
           ..write('grinder: $grinder, ')
           ..write('burrs: $burrs, ')
+          ..write('brewedWith: $brewedWith, ')
           ..write('rating: $rating, ')
           ..write('tasteFinish: $tasteFinish, ')
           ..write('tasteBody: $tasteBody, ')
@@ -2902,6 +2940,7 @@ class Shot extends DataClass implements Insertable<Shot> {
     grindSize,
     grinder,
     burrs,
+    brewedWith,
     rating,
     tasteFinish,
     tasteBody,
@@ -2947,6 +2986,7 @@ class Shot extends DataClass implements Insertable<Shot> {
           other.grindSize == this.grindSize &&
           other.grinder == this.grinder &&
           other.burrs == this.burrs &&
+          other.brewedWith == this.brewedWith &&
           other.rating == this.rating &&
           other.tasteFinish == this.tasteFinish &&
           other.tasteBody == this.tasteBody &&
@@ -2990,6 +3030,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
   final Value<String?> grindSize;
   final Value<String?> grinder;
   final Value<String?> burrs;
+  final Value<String?> brewedWith;
   final Value<int?> rating;
   final Value<int?> tasteFinish;
   final Value<int?> tasteBody;
@@ -3031,6 +3072,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     this.grindSize = const Value.absent(),
     this.grinder = const Value.absent(),
     this.burrs = const Value.absent(),
+    this.brewedWith = const Value.absent(),
     this.rating = const Value.absent(),
     this.tasteFinish = const Value.absent(),
     this.tasteBody = const Value.absent(),
@@ -3073,6 +3115,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     this.grindSize = const Value.absent(),
     this.grinder = const Value.absent(),
     this.burrs = const Value.absent(),
+    this.brewedWith = const Value.absent(),
     this.rating = const Value.absent(),
     this.tasteFinish = const Value.absent(),
     this.tasteBody = const Value.absent(),
@@ -3115,6 +3158,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     Expression<String>? grindSize,
     Expression<String>? grinder,
     Expression<String>? burrs,
+    Expression<String>? brewedWith,
     Expression<int>? rating,
     Expression<int>? tasteFinish,
     Expression<int>? tasteBody,
@@ -3157,6 +3201,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
       if (grindSize != null) 'grind_size': grindSize,
       if (grinder != null) 'grinder': grinder,
       if (burrs != null) 'burrs': burrs,
+      if (brewedWith != null) 'brewed_with': brewedWith,
       if (rating != null) 'rating': rating,
       if (tasteFinish != null) 'taste_finish': tasteFinish,
       if (tasteBody != null) 'taste_body': tasteBody,
@@ -3201,6 +3246,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     Value<String?>? grindSize,
     Value<String?>? grinder,
     Value<String?>? burrs,
+    Value<String?>? brewedWith,
     Value<int?>? rating,
     Value<int?>? tasteFinish,
     Value<int?>? tasteBody,
@@ -3243,6 +3289,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
       grindSize: grindSize ?? this.grindSize,
       grinder: grinder ?? this.grinder,
       burrs: burrs ?? this.burrs,
+      brewedWith: brewedWith ?? this.brewedWith,
       rating: rating ?? this.rating,
       tasteFinish: tasteFinish ?? this.tasteFinish,
       tasteBody: tasteBody ?? this.tasteBody,
@@ -3316,6 +3363,9 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     }
     if (burrs.present) {
       map['burrs'] = Variable<String>(burrs.value);
+    }
+    if (brewedWith.present) {
+      map['brewed_with'] = Variable<String>(brewedWith.value);
     }
     if (rating.present) {
       map['rating'] = Variable<int>(rating.value);
@@ -3415,6 +3465,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
           ..write('grindSize: $grindSize, ')
           ..write('grinder: $grinder, ')
           ..write('burrs: $burrs, ')
+          ..write('brewedWith: $brewedWith, ')
           ..write('rating: $rating, ')
           ..write('tasteFinish: $tasteFinish, ')
           ..write('tasteBody: $tasteBody, ')
@@ -6928,6 +6979,7 @@ typedef $$ShotsTableCreateCompanionBuilder = ShotsCompanion Function({
   Value<String?> grindSize,
   Value<String?> grinder,
   Value<String?> burrs,
+  Value<String?> brewedWith,
   Value<int?> rating,
   Value<int?> tasteFinish,
   Value<int?> tasteBody,
@@ -6970,6 +7022,7 @@ typedef $$ShotsTableUpdateCompanionBuilder = ShotsCompanion Function({
   Value<String?> grindSize,
   Value<String?> grinder,
   Value<String?> burrs,
+  Value<String?> brewedWith,
   Value<int?> rating,
   Value<int?> tasteFinish,
   Value<int?> tasteBody,
@@ -7108,6 +7161,11 @@ class $$ShotsTableFilterComposer extends Composer<_$AppDatabase, $ShotsTable> {
 
   ColumnFilters<String> get burrs => $composableBuilder(
     column: $table.burrs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get brewedWith => $composableBuilder(
+    column: $table.brewedWith,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7364,6 +7422,11 @@ class $$ShotsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get brewedWith => $composableBuilder(
+    column: $table.brewedWith,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get rating => $composableBuilder(
     column: $table.rating,
     builder: (column) => ColumnOrderings(column),
@@ -7572,6 +7635,11 @@ class $$ShotsTableAnnotationComposer
   GeneratedColumn<String> get burrs =>
       $composableBuilder(column: $table.burrs, builder: (column) => column);
 
+  GeneratedColumn<String> get brewedWith => $composableBuilder(
+    column: $table.brewedWith,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get rating =>
       $composableBuilder(column: $table.rating, builder: (column) => column);
 
@@ -7779,6 +7847,7 @@ class $$ShotsTableTableManager
                 Value<String?> grindSize = const Value.absent(),
                 Value<String?> grinder = const Value.absent(),
                 Value<String?> burrs = const Value.absent(),
+                Value<String?> brewedWith = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<int?> tasteFinish = const Value.absent(),
                 Value<int?> tasteBody = const Value.absent(),
@@ -7820,6 +7889,7 @@ class $$ShotsTableTableManager
                 grindSize: grindSize,
                 grinder: grinder,
                 burrs: burrs,
+                brewedWith: brewedWith,
                 rating: rating,
                 tasteFinish: tasteFinish,
                 tasteBody: tasteBody,
@@ -7863,6 +7933,7 @@ class $$ShotsTableTableManager
                 Value<String?> grindSize = const Value.absent(),
                 Value<String?> grinder = const Value.absent(),
                 Value<String?> burrs = const Value.absent(),
+                Value<String?> brewedWith = const Value.absent(),
                 Value<int?> rating = const Value.absent(),
                 Value<int?> tasteFinish = const Value.absent(),
                 Value<int?> tasteBody = const Value.absent(),
@@ -7904,6 +7975,7 @@ class $$ShotsTableTableManager
                 grindSize: grindSize,
                 grinder: grinder,
                 burrs: burrs,
+                brewedWith: brewedWith,
                 rating: rating,
                 tasteFinish: tasteFinish,
                 tasteBody: tasteBody,

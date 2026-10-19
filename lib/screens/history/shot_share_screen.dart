@@ -15,6 +15,7 @@ import '../../models/taste_profile.dart';
 import '../../services/brew_recipe_store.dart';
 import '../../services/profile_images.dart';
 import '../../theme/app_theme.dart';
+import 'shot_detail_screen.dart' show BrewedWith;
 import '../../widgets/app_button.dart';
 import '../../widgets/taste_chips.dart';
 import 'history_logic.dart';
@@ -708,6 +709,11 @@ class _Profile extends StatelessWidget {
                 ),
               ],
             ),
+            // The brew chain, small, at most two lines.
+            if (s.brewedWith case final String gear when gear.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              BrewedWith(gear: gear, align: TextAlign.start),
+            ],
           ],
         ),
       ),

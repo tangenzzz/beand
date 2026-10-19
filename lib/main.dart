@@ -98,9 +98,9 @@ Future<void> main() async {
   // Each machine has its own setup store — otherwise the GaggiMate home
   // would show the Meticulous profile.
   final shotSetup = await ShotSetup.load();
-  shotSetup.grinders = grinders;
+  shotSetup.gear = gear;
   final gaggimateSetup = await ShotSetup.load(machineKey: 'gaggimate');
-  gaggimateSetup.grinders = grinders;
+  gaggimateSetup.gear = gear;
   final shotSetups = ShotSetups(
     meticulous: shotSetup,
     gaggimate: gaggimateSetup,
@@ -171,7 +171,7 @@ Future<void> main() async {
   );
   await recipeStore.load();
   final pourOverSetup = await ShotSetup.load(machineKey: 'pourover');
-  pourOverSetup.grinders = grinders;
+  pourOverSetup.gear = gear;
   if (pourOverSetup.profileId == null ||
       recipeStore.byId(pourOverSetup.profileId!) == null) {
     final first =

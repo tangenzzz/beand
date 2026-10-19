@@ -94,6 +94,10 @@ class Shots extends Table with SyncColumns {
   // doesn't rewrite old shots.
   TextColumn get grinder => text().nullable()();
   TextColumn get burrs => text().nullable()();
+  // The brew chain's gear at brew time (My Coffee Desk), one piece per
+  // line in desk order — text like the grinder, so later edits on the desk
+  // don't rewrite old shots.
+  TextColumn get brewedWith => text().nullable()();
   IntColumn get rating => integer().nullable()();
   // The eight axes of the rating flower, 0-5 each (null = not rated).
   // Separate columns instead of an encoded string so they can be filtered
@@ -265,7 +269,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -385,6 +389,11 @@ class AppDatabase extends _$AppDatabase {
         // the columns to exist.
         await m.addColumn(shots, shots.grinder);
         await m.addColumn(shots, shots.burrs);
+      }
+      if (from < 20) {
+        // Brew chain's gear per shot — before the rebuild of schema 15 for
+        // the same reason as grinder and burrs.
+        await m.addColumn(shots, shots.brewedWith);
       }
       if (from < 15) {
         // Sync foundation: syncId, updatedAt, deviceId, syncState; beans and

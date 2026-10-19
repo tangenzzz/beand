@@ -120,6 +120,14 @@ class GearStore extends ChangeNotifier {
   /// IDs of the gear some chain uses (in use) — everything else is stored.
   Set<String> get activeIds => activeGearIds(_chains);
 
+  /// The gear of [chain] in desk order (by category, then as on the
+  /// shelf); pieces deleted since are left out.
+  List<Gear> gearOf(BrewChain chain) => [
+    for (final type in GearType.values)
+      for (final g in ofType(type))
+        if (chain.gearIds.contains(g.id)) g,
+  ];
+
   /// Chains [gearId] belongs to.
   List<BrewChain> chainsOf(String gearId) => [
     for (final c in _chains)

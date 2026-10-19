@@ -20,6 +20,7 @@ import 'package:beand/services/pourover_brew_service.dart';
 import 'package:beand/services/shot_setup.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:drift/native.dart';
+import 'package:beand/services/gear_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -80,6 +81,8 @@ void main() {
   Widget wrap() => MultiProvider(
     providers: [
       Provider<AppDatabase>.value(value: db),
+      // With a gear store the brew chain row shows below the grind row.
+      ChangeNotifierProvider<GearStore>.value(value: GearStore.inMemory()),
       ChangeNotifierProvider<AppSettings>.value(value: AppSettings()),
       ChangeNotifierProvider<AiSettings>.value(
         value: AiSettings(keyStore: InMemoryAiKeyStore()),

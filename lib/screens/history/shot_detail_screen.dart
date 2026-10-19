@@ -514,8 +514,14 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             ),
           ],
         ),
-        // Grinder and burrs as they were at brew time (My Setup).
-        if (shot.grinder != null)
+        // The brew chain's gear as it was at brew time: small, two lines at
+        // most. Older shots without a chain show the grinder and burrs.
+        if (shot.brewedWith case final String gear when gear.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: BrewedWith(gear: gear),
+          )
+        else if (shot.grinder != null)
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: Row(
@@ -968,6 +974,55 @@ class _CompareRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "Brewed with" and the pieces of the shot's brew chain, small and
+/// centered — the shot detail and the share image.
+class BrewedWith extends StatelessWidget {
+  const BrewedWith({
+    super.key,
+    required this.gear,
+    this.color,
+    this.scale = 1,
+    this.align = TextAlign.center,
+  });
+
+  /// One piece per line, as stored on the shot (Shots.brewedWith).
+  final String gear;
+  final Color? color;
+  final double scale;
+  final TextAlign align;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final pieces = gear.split('\n').where((l) => l.trim().isNotEmpty);
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: 'BREWED WITH  ',
+            style: TextStyle(
+              color: color ?? colors.textTertiary,
+              fontSize: 9.5 * scale,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.9 * scale,
+            ),
+          ),
+          TextSpan(text: pieces.join('  ·  ')),
+        ],
+      ),
+      key: const ValueKey('shot-brewed-with'),
+      textAlign: align,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: color ?? colors.textSecondary,
+        fontSize: 11.5 * scale,
+        height: 1.35,
       ),
     );
   }
