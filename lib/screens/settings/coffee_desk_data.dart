@@ -94,6 +94,16 @@ List<(String, String)> _grinderRows(Gear g) {
           if (scale.unit.steps.length > 1) 'steps of ${_n(scale.step)}',
         ].join(' · '),
       ),
+    if (scale != null && scale.hasMarkers)
+      (
+        'Markers',
+        [
+          for (final m in scale.markers)
+            m.offset == 0
+                ? m.name
+                : '${m.name} ${m.offset > 0 ? '+' : ''}${_n(m.offset)}',
+        ].join(' · '),
+      ),
     if (zero != null) ('Zero point', '${_n(zero.value)} · ${_date(zero.at)}'),
   ];
 }

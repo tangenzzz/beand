@@ -407,6 +407,7 @@ class PourOverBrewService extends LiveShotService {
         doseGrams: Value(p.doseG),
         grindSize: Value(snap.grindText),
         grindZero: Value(snap.grindZero),
+        grindMarker: Value(snap.grindMarker),
         grinder: Value(snap.grinder),
         burrs: Value(snap.burrs),
         brewedWith: Value(snap.brewedWith),

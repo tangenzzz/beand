@@ -20,6 +20,7 @@ import '../../widgets/taste_chips.dart';
 import '../beans/bean_form_screen.dart';
 import '../beans/bean_widgets.dart';
 import '../../widgets/value_select_row.dart';
+import '../live/grind_panel.dart';
 import '../live/ruler_picker.dart';
 import '../settings/gear_dialogs.dart';
 import 'history_logic.dart';
@@ -72,6 +73,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
   int? _cursorMs;
   double? _doseDraft;
   double? _grindDraft;
+  String? _markerDraft;
   Timer? _writeDebounce;
 
   @override
@@ -247,11 +249,14 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
     });
   }
 
-  void _setGrind(double v, GrindScale scale) {
-    setState(() => _grindDraft = v);
+  void _setGrind(double v, String? marker) {
+    setState(() {
+      _grindDraft = v;
+      _markerDraft = marker;
+    });
     _writeDebounce?.cancel();
     _writeDebounce = Timer(const Duration(milliseconds: 400), () {
-      _db.setShotGrind(widget.shotId, grindSizeText(v));
+      _db.setShotGrind(widget.shotId, grindSizeText(v), marker: marker);
     });
   }
 
@@ -651,6 +656,9 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               'Grind',
               grindScale.format(grind, withUnit: false),
               grindScale.unit.suffix,
+              marker: grindScale.hasMarkers
+                  ? grindScale.markerNamed(_markerDraft ?? shot.grindMarker)
+                  : null,
               otherOf(grindOf(other?.grindSize)),
               onTap: () => _toggle(_Open.grind),
               active: _open == _Open.grind,
@@ -677,15 +685,12 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
         if (_open == _Open.grind)
           Padding(
             padding: const EdgeInsets.only(top: 10),
-            child: RulerPicker(
+            child: GrindPanel(
               key: const ValueKey('grind'),
+              scale: grindScale,
               value: grindScale.clamp(grind),
-              min: grindScale.min,
-              max: grindScale.max,
-              step: grindScale.step,
-              format: (v) => grindScale.format(v, withUnit: false),
-              unit: grindScale.unit.suffix,
-              onChanged: (v) => _setGrind(v, grindScale),
+              marker: _markerDraft ?? shot.grindMarker,
+              onChanged: _setGrind,
             ),
           ),
 
@@ -895,7 +900,12 @@ class _Stat extends StatelessWidget {
     this.color,
     this.onTap,
     this.active = false,
+    this.marker,
   });
+
+  /// The grinder's index mark the grind was set against: its dot after
+  /// the value.
+  final GrindMarker? marker;
 
   final String label;
   final String? value;
@@ -941,41 +951,53 @@ class _Stat extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 3),
-        Text.rich(
-          TextSpan(
-            children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text.rich(
               TextSpan(
-                text: value ?? '–',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: color ?? context.colors.textPrimary,
-                ),
-              ),
-              if (value != null && unit.isNotEmpty)
-                TextSpan(
-                  text: ' $unit',
-                  style: TextStyle(
-                    color: context.colors.textSecondary,
-                    fontSize: 11,
-                  ),
-                ),
-              if (other != null)
-                TextSpan(
-                  text: '  $other',
-                  style: TextStyle(
-                    color: (color ?? context.colors.textPrimary).withValues(
-                      alpha: 0.45,
+                children: [
+                  TextSpan(
+                    text: value ?? '–',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: color ?? context.colors.textPrimary,
                     ),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
                   ),
-                ),
+                  if (value != null && unit.isNotEmpty)
+                    TextSpan(
+                      text: ' $unit',
+                      style: TextStyle(
+                        color: context.colors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  if (other != null)
+                    TextSpan(
+                      text: '  $other',
+                      style: TextStyle(
+                        color: (color ?? context.colors.textPrimary).withValues(
+                          alpha: 0.45,
+                        ),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                ],
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (marker case final m?) ...[
+              const SizedBox(width: 5),
+              GrindMarkerDot(
+                key: const ValueKey('stat-marker-dot'),
+                color: m.color,
+              ),
             ],
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          ],
         ),
       ],
     );

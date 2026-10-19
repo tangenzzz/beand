@@ -66,6 +66,7 @@ void main() {
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
     raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
     raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_marker');
     raw.execute('PRAGMA user_version = 17');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -97,6 +98,7 @@ void main() {
       raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
       raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
       raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
+      raw.execute('ALTER TABLE shots DROP COLUMN grind_marker');
       raw.execute('PRAGMA user_version = 18');
 
       final db = AppDatabase(NativeDatabase.opened(raw));
@@ -131,6 +133,7 @@ void main() {
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
     raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
     raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_marker');
     raw.execute('PRAGMA user_version = 19');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -164,6 +167,7 @@ void main() {
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
     raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
     raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_marker');
     raw.execute('PRAGMA user_version = 20');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -192,6 +196,7 @@ void main() {
     await fresh.close();
     raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
     raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_marker');
     raw.execute('PRAGMA user_version = 21');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -221,6 +226,7 @@ void main() {
         );
     await fresh.close();
     raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_marker');
     raw.execute('PRAGMA user_version = 22');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -231,6 +237,33 @@ void main() {
       const ShotsCompanion(grindZero: Value(-0.3)),
     );
     expect((await db.select(db.shots).get()).single.grindZero, -0.3);
+    await db.close();
+  });
+
+  test('migration v23 -> v24: grindMarker is added, shots stay', () async {
+    final raw = sql.sqlite3.openInMemory();
+    final fresh = AppDatabase(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    await fresh
+        .into(fresh.shots)
+        .insert(
+          ShotsCompanion.insert(
+            timestamp: DateTime(2026, 10, 1),
+            grindSize: const Value('3.2'),
+          ),
+        );
+    await fresh.close();
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_marker');
+    raw.execute('PRAGMA user_version = 23');
+
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    final shot = (await db.select(db.shots).get()).single;
+    expect(shot.grindMarker, isNull);
+    await db.setShotGrind(shot.id, '2.2', marker: 'Soup');
+    final after = (await db.select(db.shots).get()).single;
+    expect(after.grindSize, '2.2');
+    expect(after.grindMarker, 'Soup');
     await db.close();
   });
 }

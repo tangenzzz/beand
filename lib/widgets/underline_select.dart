@@ -93,6 +93,7 @@ class UnderlineItem extends StatefulWidget {
     this.idleUnderline = false,
     this.highlight,
     this.trailing,
+    this.leading,
     this.fontSize = 14,
   });
 
@@ -113,6 +114,9 @@ class UnderlineItem extends StatefulWidget {
 
   /// E.g. the level dots of a taste note, after the text.
   final Widget? trailing;
+
+  /// Before the text, e.g. the colour dot of a grinder's index mark.
+  final Widget? leading;
   final double fontSize;
 
   static const minTapHeight = 44.0;
@@ -169,7 +173,14 @@ class _UnderlineItemState extends State<UnderlineItem> {
             padding: const EdgeInsets.only(top: 4, bottom: 5),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [text, ?widget.trailing],
+              children: [
+                if (widget.leading case final l?) ...[
+                  l,
+                  const SizedBox(width: 5),
+                ],
+                text,
+                ?widget.trailing,
+              ],
             ),
           ),
           // The underline's room is always there; selected it grows from

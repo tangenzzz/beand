@@ -28,6 +28,7 @@ class ShotSetupSnapshot {
     this.brewedWith,
     this.brewChainId,
     this.grindZero,
+    this.grindMarker,
   });
 
   // Dose and grind size are empty as long as nothing has been brewed with
@@ -45,6 +46,9 @@ class ShotSetupSnapshot {
 
   /// The zero point of the chain's grinder that day (null = none set).
   final double? grindZero;
+
+  /// The index mark the grind is set against (grinders with several).
+  final String? grindMarker;
 
   /// The grind as stored on the shot: up to two decimals (0.25 steps),
   /// no trailing zeros beyond one ("3.2", "3.25", "12.0").
@@ -89,6 +93,7 @@ class ShotSetup extends ChangeNotifier {
   // Until 2026-10-19 a grinder was chosen here ('shot_setup_grinder_id');
   // now the brew chain, whose grinder goes on the shot.
   static const _chainKey = 'shot_setup_chain_id';
+  static const _markerKey = 'shot_setup_grind_marker';
 
   final SharedPreferences? _prefs;
   int? _beanId;
@@ -97,6 +102,7 @@ class ShotSetup extends ChangeNotifier {
   String? _profileId;
   String? _profileName;
   String? _chainId;
+  String? _grindMarker;
   Timer? _saveTimer;
 
   /// The user's gear and brew chains, to turn the chosen chain into what
@@ -130,6 +136,7 @@ class ShotSetup extends ChangeNotifier {
     setup._profileId = prefs.getString(setup._key(_profileIdKey));
     setup._profileName = prefs.getString(setup._key(_profileNameKey));
     setup._chainId = prefs.getString(setup._key(_chainKey));
+    setup._grindMarker = prefs.getString(setup._key(_markerKey));
     return setup;
   }
 
@@ -160,6 +167,16 @@ class ShotSetup extends ChangeNotifier {
         .where((g) => g.type == GearType.grinder)
         .firstOrNull;
     return g == null ? null : grinderFromGear(g);
+  }
+
+  /// The index mark of the chain grinder the grind is set against; null =
+  /// its first one (or none, without marks).
+  String? get grindMarker => grinder?.scale?.markerNamed(_grindMarker)?.name;
+
+  void setGrindMarker(String? name) {
+    if (name == _grindMarker) return;
+    _grindMarker = name;
+    _changed();
   }
 
   void setChain(String? id) {
@@ -220,7 +237,12 @@ class ShotSetup extends ChangeNotifier {
               shot;
     if (source.doseGrams != null) _doseGrams = source.doseGrams;
     final grind = double.tryParse(source.grindSize ?? '');
-    if (grind != null) _grindSize = grind;
+    if (grind != null) {
+      _grindSize = grind;
+      // The mark goes with the number: "3.2" means something else at
+      // another one.
+      _grindMarker = source.grindMarker;
+    }
     await restoreChainFromLastShot(database, notify: false);
     _changed();
   }
@@ -261,6 +283,7 @@ class ShotSetup extends ChangeNotifier {
     brewedWith: _brewedWith(),
     brewChainId: chain?.id,
     grindZero: grinder?.zeroPoint?.value,
+    grindMarker: grindMarker,
   );
 
   String? _brewedWith() {
@@ -288,6 +311,10 @@ class ShotSetup extends ChangeNotifier {
       writeInt(_beanKey, _beanId);
       writeDouble(_doseKey, _doseGrams);
       writeDouble(_grindKey, _grindSize);
+      final marker = _grindMarker;
+      marker == null
+          ? prefs.remove(_key(_markerKey))
+          : prefs.setString(_key(_markerKey), marker);
       final chainId = _chainId;
       chainId == null
           ? prefs.remove(_key(_chainKey))

@@ -24,6 +24,7 @@ import 'recipe_format.dart';
 import '../../../models/grind_scale.dart';
 import '../chain_choice.dart';
 import '../grind_from_zero.dart';
+import '../grind_panel.dart';
 
 enum _OpenList { recipe, bean, dose, grind, chain, water, temp }
 
@@ -89,10 +90,10 @@ class _PreBrewCardState extends State<PreBrewCard> {
       _beanOptions(context.read<AppSettings>().showBeanStock),
       action: true,
     ),
-    _OpenList.dose ||
-    _OpenList.grind ||
-    _OpenList.water ||
-    _OpenList.temp => RulerPicker.height,
+    _OpenList.dose || _OpenList.water || _OpenList.temp => RulerPicker.height,
+    _OpenList.grind => GrindPanel.heightFor(
+      context.read<ShotSetup>().grinder?.scale ?? const GrindScale(max: 60),
+    ),
     _OpenList.chain => chainListHeight(context),
     null => 0,
   };
@@ -287,17 +288,21 @@ class _PreBrewCardState extends State<PreBrewCard> {
                       open: _open == _OpenList.grind,
                       onToggle: () => _toggle(_OpenList.grind),
                       onClose: _close,
-                      trailing: GrindFromZero(grinder: grinder, dial: grind),
+                      trailing: GrindTrailing(
+                        grinder: grinder,
+                        dial: grind,
+                        marker: setup.grindMarker,
+                      ),
                       // The chain's grinder's scale; without one as before
                       // (0–60, pour over grinds coarser).
-                      panel: RulerPicker(
+                      panel: GrindPanel(
+                        scale: grindScale,
                         value: grindScale.clamp(grind ?? 20),
-                        min: grindScale.min,
-                        max: grindScale.max,
-                        step: grindScale.step,
-                        format: (v) => grindScale.format(v, withUnit: false),
-                        unit: grindScale.unit.suffix,
-                        onChanged: setup.setGrind,
+                        marker: setup.grindMarker,
+                        onChanged: (v, marker) {
+                          setup.setGrind(v);
+                          setup.setGrindMarker(marker);
+                        },
                       ),
                     ),
                     ChainSelectRow(

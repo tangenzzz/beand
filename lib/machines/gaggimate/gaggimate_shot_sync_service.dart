@@ -223,6 +223,7 @@ class GaggiMateShotSyncService {
         doseGrams: Value(attachSetup?.doseGrams),
         grindSize: Value(attachSetup?.grindText),
         grindZero: Value(attachSetup?.grindZero),
+        grindMarker: Value(attachSetup?.grindMarker),
         grinder: Value(attachSetup?.grinder),
         burrs: Value(attachSetup?.burrs),
         brewedWith: Value(attachSetup?.brewedWith),

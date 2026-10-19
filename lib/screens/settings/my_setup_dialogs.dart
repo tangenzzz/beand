@@ -67,6 +67,31 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     text: _num(widget.grinder?.zeroPoint?.value),
   );
 
+  // Index marks (optional): colour, name, offset from the first one.
+  late final List<_MarkerDraft> _markers = [
+    for (final m in widget.grinder?.scale?.markers ?? const <GrindMarker>[])
+      _MarkerDraft(m.color, m.name, m.offset),
+  ];
+
+  void _addMarker() => setState(() {
+    final used = {for (final m in _markers) m.color};
+    _markers.add(
+      _MarkerDraft(
+        _markerColors.firstWhere(
+          (c) => !used.contains(c),
+          orElse: () => _markerColors.first,
+        ),
+        '',
+        0,
+      ),
+    );
+  });
+
+  void _cycleColor(_MarkerDraft m) => setState(() {
+    final i = _markerColors.indexOf(m.color);
+    m.color = _markerColors[(i + 1) % _markerColors.length];
+  });
+
   static String _num(double? v) =>
       v == null ? '' : (v % 1 == 0 ? v.toStringAsFixed(0) : v.toString());
 
@@ -99,6 +124,16 @@ class _GrinderDialogState extends State<_GrinderDialog> {
       min: min,
       max: max,
       clicksPerRotation: int.tryParse(_perRotation.text.trim()) ?? 30,
+      markers: [
+        for (final (i, m) in _markers.indexed)
+          if (m.name.text.trim().isNotEmpty)
+            GrindMarker(
+              name: m.name.text.trim(),
+              color: m.color,
+              // The first one is the reference.
+              offset: i == 0 ? 0 : (_parse(m.offset) ?? 0),
+            ),
+      ],
     );
   }
 
@@ -119,6 +154,9 @@ class _GrinderDialogState extends State<_GrinderDialog> {
   void dispose() {
     for (final c in [_min, _max, _perRotation, _zero]) {
       c.dispose();
+    }
+    for (final m in _markers) {
+      m.dispose();
     }
     _brand.dispose();
     _name.dispose();
@@ -326,6 +364,87 @@ class _GrinderDialogState extends State<_GrinderDialog> {
               label: 'Clicks per rotation',
               numeric: true,
             ),
+          _label(
+            'Markers (optional)',
+            info:
+                'For grinders read against several marks on the body (e.g. '
+                'green, red, white). Offset: where 0 of a mark sits on the '
+                'first one — red 2.2 at green 9.0 makes red +6.8. The grind '
+                'ruler then runs across all marks.',
+          ),
+          for (final (i, m) in _markers.indexed)
+            Row(
+              key: ValueKey('marker-row-$i'),
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  tooltip: 'Marker colour',
+                  onPressed: () => _cycleColor(m),
+                  icon: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Color(m.color),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: context.colors.textTertiary,
+                        width: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SetupField(
+                    key: ValueKey('marker-name-$i'),
+                    controller: m.name,
+                    label: 'Name',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 92,
+                  child: i == 0
+                      ? Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Text(
+                            'reference',
+                            style: TextStyle(
+                              color: context.colors.textTertiary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        )
+                      : SetupField(
+                          key: ValueKey('marker-offset-$i'),
+                          controller: m.offset,
+                          label: 'Offset',
+                          numeric: true,
+                          signed: true,
+                        ),
+                ),
+                IconButton(
+                  tooltip: 'Remove marker',
+                  icon: Icon(Icons.close, color: context.colors.textTertiary),
+                  onPressed: () =>
+                      setState(() => _markers.removeAt(i).dispose()),
+                ),
+              ],
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _addMarker,
+              icon: Icon(
+                Icons.add,
+                color: context.colors.textSecondary,
+                size: 18,
+              ),
+              label: Text(
+                'Add marker',
+                style: TextStyle(color: context.colors.textSecondary),
+              ),
+            ),
+          ),
         ],
         _label(
           'Zero point (optional)',
@@ -357,6 +476,35 @@ class _GrinderDialogState extends State<_GrinderDialog> {
           ),
       ],
     );
+  }
+}
+
+// Colours of index marks to pick from (tap cycles): what grinders print.
+const _markerColors = [
+  0xFF4CAF50, // green
+  0xFFE53935, // red
+  0xFFF2F2F2, // white
+  0xFF1E88E5, // blue
+  0xFFFDD835, // yellow
+  0xFFFB8C00, // orange
+  0xFF8E24AA, // purple
+  0xFF212121, // black
+];
+
+class _MarkerDraft {
+  _MarkerDraft(this.color, String name, double offset)
+    : name = TextEditingController(text: name),
+      offset = TextEditingController(
+        text: offset == 0 ? '' : offset.toString(),
+      );
+
+  int color;
+  final TextEditingController name;
+  final TextEditingController offset;
+
+  void dispose() {
+    name.dispose();
+    offset.dispose();
   }
 }
 

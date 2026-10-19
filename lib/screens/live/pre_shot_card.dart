@@ -23,6 +23,7 @@ import 'ruler_picker.dart';
 import 'tile_title.dart';
 import 'chain_choice.dart';
 import 'grind_from_zero.dart';
+import 'grind_panel.dart';
 import '../../widgets/value_select_row.dart';
 
 // Pre-Shot card. "Bean" is real: picks from the beans created in the Beans
@@ -140,7 +141,10 @@ class _PreShotCardState extends State<PreShotCard> {
       _profileOptions(),
       action: true,
     ),
-    _OpenList.dose || _OpenList.grind => RulerPicker.height,
+    _OpenList.dose => RulerPicker.height,
+    _OpenList.grind => GrindPanel.heightFor(
+      context.read<ShotSetup>().grinder?.scaleOrStandard ?? GrindScale.standard,
+    ),
     _OpenList.chain => chainListHeight(context),
     null => 0,
   };
@@ -236,6 +240,9 @@ class _PreShotCardState extends State<PreShotCard> {
     // The grind ruler follows the scale of the chain's grinder.
     final grinder = context.select<ShotSetup, Grinder?>((s) => s.grinder);
     final grindScale = grinder?.scaleOrStandard ?? GrindScale.standard;
+    final grindMarker = context.select<ShotSetup, String?>(
+      (s) => s.grindMarker,
+    );
     final activeProfile = context
         .select<EspressoMachine, ({String id, String loadedName})>(
           (m) => (
@@ -372,25 +379,25 @@ class _PreShotCardState extends State<PreShotCard> {
                           : grindScale.format(_grindSize!),
                       // Away from a set zero point: how far above the
                       // burrs' touch point that is.
-                      trailing: GrindFromZero(
+                      trailing: GrindTrailing(
                         grinder: grinder,
                         dial: _grindSize,
+                        marker: grindMarker,
                       ),
                       open: _open == _OpenList.grind,
                       onToggle: () => _toggle(_OpenList.grind),
                       onClose: _close,
-                      panel: RulerPicker(
+                      panel: GrindPanel(
+                        scale: grindScale,
                         value: grindScale.clamp(
                           _grindSize ?? ShotSetup.defaultGrind,
                         ),
-                        min: grindScale.min,
-                        max: grindScale.max,
-                        step: grindScale.step,
-                        format: (v) => grindScale.format(v, withUnit: false),
-                        unit: grindScale.unit.suffix,
-                        onChanged: (v) {
+                        marker: grindMarker,
+                        onChanged: (v, marker) {
                           setState(() => _grindSize = v);
-                          context.read<ShotSetup>().setGrind(v);
+                          final setup = context.read<ShotSetup>();
+                          setup.setGrind(v);
+                          setup.setGrindMarker(marker);
                         },
                       ),
                     ),

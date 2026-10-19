@@ -106,6 +106,9 @@ class Shots extends Table with SyncColumns {
   // The grinder's zero point that day (dial reading at burr touch) — so a
   // shot stays comparable after re-zeroing: effective = grind − zero.
   RealColumn get grindZero => real().nullable()();
+  // The grinder's index mark the grind was set against (its name), for
+  // grinders with several marks (Kafatek Monolith); null = only one scale.
+  TextColumn get grindMarker => text().nullable()();
   IntColumn get rating => integer().nullable()();
   // The eight axes of the rating flower, 0-5 each (null = not rated).
   // Separate columns instead of an encoded string so they can be filtered
@@ -277,7 +280,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 23;
+  int get schemaVersion => 24;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -410,6 +413,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 23) {
         // Zero point per shot — before the rebuild of schema 15 as well.
         await m.addColumn(shots, shots.grindZero);
+      }
+      if (from < 24) {
+        // Index mark per shot — before the rebuild of schema 15 as well.
+        await m.addColumn(shots, shots.grindMarker);
       }
       if (from < 15) {
         // Sync foundation: syncId, updatedAt, deviceId, syncState; beans and
@@ -986,8 +993,16 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setShotDose(int id, double? dose) =>
       _writeShot(id, ShotsCompanion(doseGrams: Value(dose)));
 
-  Future<void> setShotGrind(int id, String? grind) =>
-      _writeShot(id, ShotsCompanion(grindSize: Value(grind)));
+  Future<void> setShotGrind(int id, String? grind, {String? marker}) =>
+      _writeShot(
+        id,
+        ShotsCompanion(
+          grindSize: Value(grind),
+          grindMarker: marker == null
+              ? const Value.absent()
+              : Value(marker),
+        ),
+      );
 
   /// The brew chain chosen afterwards in the shot detail, with what it
   /// holds now (grinder, burrs, pieces).

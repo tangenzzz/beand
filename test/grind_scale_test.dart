@@ -2,6 +2,7 @@ import 'package:beand/database/database.dart';
 import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/models/grind_scale.dart';
+import 'package:beand/screens/live/grind_panel.dart';
 import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/live_shot_service.dart';
@@ -54,6 +55,36 @@ void main() {
         isNull,
       );
       expect(GrindScale.fromJson({'unit': 'parsecs'}), isNull);
+    });
+  });
+
+  group('markers (Kafatek Monolith)', () {
+    // Red 2.2 = green 9.0, red 9.0 = white 2.0 (read off the grinder).
+    const green = GrindMarker(name: 'Espresso', color: 0xFF4CAF50);
+    const red = GrindMarker(name: 'Soup', color: 0xFFE53935, offset: 6.8);
+    const white = GrindMarker(
+      name: 'Pour over',
+      color: 0xFFF2F2F2,
+      offset: 13.8,
+    );
+    const scale = GrindScale(step: 0.1, max: 9, markers: [green, red, white]);
+
+    test('one ruler across all marks, switching at the end only', () {
+      expect(scale.absoluteMin, 0);
+      expect(scale.absoluteMax, closeTo(22.8, 1e-9));
+      // Green up to 9.0, then on at red 2.2.
+      expect(scale.read(9.0, green), (value: 9.0, marker: green));
+      final r = scale.read(9.1, green);
+      expect(r.marker, red);
+      expect(r.value, closeTo(2.3, 1e-9));
+      // Red 1.0 lies inside green's range too: stays where it is.
+      expect(scale.read(7.8, red).marker, red);
+      expect(scale.read(7.8, red).value, closeTo(1.0, 1e-9));
+      expect(scale.read(7.8, green).marker, green);
+      // Red past 9.0 → white 2.x; white below 0 → red.
+      expect(scale.read(15.9, red).marker, white);
+      expect(scale.read(13.7, white).marker, red);
+      expect(GrindScale.fromJson(scale.toJson()), scale);
     });
   });
 
@@ -219,5 +250,98 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(Duration.zero);
+  });
+
+  testWidgets('grind panel: tap a mark converts, sliding on switches', (
+    tester,
+  ) async {
+    const scale = GrindScale(
+      step: 0.1,
+      max: 9,
+      markers: [
+        GrindMarker(name: 'Espresso', color: 0xFF4CAF50),
+        GrindMarker(name: 'Soup', color: 0xFFE53935, offset: 6.8),
+      ],
+    );
+    (double, String?)? last;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: GrindPanel(
+            scale: scale,
+            value: 8.0,
+            marker: 'Espresso',
+            onChanged: (v, m) => last = (v, m),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('8.0'), findsOneWidget);
+    // Green 8.0 = red 1.2.
+    await tester.tap(find.byKey(const ValueKey('marker-Soup')));
+    await tester.pump();
+    expect(last?.$2, 'Soup');
+    expect(last!.$1, closeTo(1.2, 1e-9));
+  });
+
+  testWidgets('grinder dialog: markers with colour, name and offset', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final gear = GearStore.inMemory();
+    final grinders = GrinderStore(gear);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<GearStore>.value(value: gear),
+          ChangeNotifierProvider<GrinderStore>.value(value: grinders),
+          ChangeNotifierProvider<WaterStore>(create: (_) => WaterStore(gear)),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const MyCoffeeDeskScreen(),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('new-grinder')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('grinder-name')),
+      'Monolith',
+    );
+    await tester.tap(find.text('Dial'));
+    await tester.pump();
+    await tester.tap(find.text('Steps of 0.1'));
+    await tester.enterText(find.byKey(const ValueKey('grinder-max')), '9');
+    await tester.ensureVisible(find.text('Add marker'));
+    await tester.tap(find.text('Add marker'));
+    await tester.pump();
+    await tester.tap(find.text('Add marker'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('marker-name-0')),
+      'Espresso',
+    );
+    await tester.enterText(find.byKey(const ValueKey('marker-name-1')), 'Soup');
+    await tester.enterText(
+      find.byKey(const ValueKey('marker-offset-1')),
+      '6.8',
+    );
+    await tester.pump();
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final scale = grinders.grinders.single.scale!;
+    expect(scale.max, 9);
+    expect(scale.step, 0.1);
+    expect(
+      [for (final m in scale.markers) (m.name, m.offset)],
+      [('Espresso', 0.0), ('Soup', 6.8)],
+    );
+    expect(scale.markers[0].color, isNot(scale.markers[1].color));
   });
 }
