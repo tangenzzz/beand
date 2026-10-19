@@ -14,27 +14,21 @@ import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
 import 'coffee_desk_data.dart';
+import 'desk_filter.dart';
 import 'gear_dialogs.dart';
 import 'my_setup_dialogs.dart';
 import 'settings_widgets.dart';
 
 // Settings → My Coffee Desk: all the user's gear as shelves, one per
-// category — a row of round avatars standing on a 3 dp "shelf board". A
-// filter on top narrows to espresso, pour over or what is stored (in no
-// active brew chain). Tapping an avatar folds its details out below that
-// shelf; one piece at a time.
+// category — a row of round avatars standing on a 3 dp "shelf board", no
+// hairlines between the shelves. On top one tab per brew chain next to
+// "All" (+ adds a chain; tapping the open chain's tab again, or a long
+// press, edits it); search and filter (espresso, pour over, stored …) sit
+// in the app bar like in the bean list and the history. Tapping an avatar
+// folds its details out below that shelf; one piece at a time.
 //
 // Grinders and waters open their own dialogs (burr sets, minerals),
 // everything else the generic gear form (gear_dialogs.dart).
-enum DeskFilter {
-  all('All'),
-  espresso('Espresso'),
-  pourOver('Pour over'),
-  stored('Stored');
-
-  const DeskFilter(this.label);
-  final String label;
-}
 
 class MyCoffeeDeskScreen extends StatefulWidget {
   const MyCoffeeDeskScreen({super.key});
@@ -44,7 +38,11 @@ class MyCoffeeDeskScreen extends StatefulWidget {
 }
 
 class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
-  DeskFilter _filter = DeskFilter.all;
+  // The open chain tab; null = All.
+  String? _chainId;
+  DeskFilter _filter = DeskFilter.empty;
+  final _search = TextEditingController();
+  bool _searching = false;
   String? _openId;
   // Shots per grinder name; empty without a database (tests, previews).
   Stream<Map<String, int>>? _shotCounts;
@@ -57,16 +55,66 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     } on ProviderNotFoundException {
       _shotCounts = null;
     }
+    _search.addListener(() => setState(() {}));
   }
 
-  bool _matches(Gear g, Set<String> active) => switch (_filter) {
-    DeskFilter.all => true,
-    DeskFilter.espresso => g.usedFor(BrewMode.espresso),
-    DeskFilter.pourOver => g.usedFor(BrewMode.pourOver),
-    DeskFilter.stored => !active.contains(g.id),
-  };
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
+  BrewChain? _chain(GearStore store) =>
+      store.chains.where((c) => c.id == _chainId).firstOrNull;
+
+  void _selectChain(String? id) => setState(() {
+    _chainId = id;
+    _openId = null;
+  });
+
+  Future<void> _openFilter() async {
+    final store = context.read<GearStore>();
+    final result = await showDeskFilterSheet(
+      context,
+      gear: _base(store),
+      inUse: store.activeIds,
+      query: _search.text,
+      initial: _filter,
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _filter = result;
+        _openId = null;
+      });
+    }
+  }
+
+  // What the open tab holds: everything, or the chain's gear.
+  List<Gear> _base(GearStore store) {
+    final chain = _chain(store);
+    if (chain == null) return store.gear;
+    return [
+      for (final g in store.gear)
+        if (chain.gearIds.contains(g.id)) g,
+    ];
+  }
+
+  // Adding on a chain's tab puts the new piece into that chain too.
   Future<void> _add(GearType type) async {
+    final store = context.read<GearStore>();
+    final before = {for (final g in store.gear) g.id};
+    await _openAddDialog(type);
+    final chain = _chain(store);
+    final added = [
+      for (final g in store.gear)
+        if (!before.contains(g.id)) g.id,
+    ];
+    if (chain != null && added.isNotEmpty) {
+      store.saveChain(chain.copyWith(gearIds: [...chain.gearIds, ...added]));
+    }
+  }
+
+  Future<void> _openAddDialog(GearType type) async {
     switch (type) {
       case GearType.grinder:
         await showGrinderDialog(context);
@@ -159,58 +207,132 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     }
   }
 
+  void _closeSearch() => setState(() {
+    _searching = false;
+    _search.clear();
+  });
+
+  Widget _filterButton() {
+    final colors = context.colors;
+    final count = _filter.activeCount;
+    return IconButton(
+      tooltip: 'Filter',
+      onPressed: _openFilter,
+      icon: Badge(
+        isLabelVisible: count > 0,
+        label: Text('$count'),
+        backgroundColor: colors.textPrimary,
+        textColor: colors.bg,
+        child: Icon(
+          Icons.tune,
+          color: count > 0 ? colors.accent : colors.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _appBar() {
+    final colors = context.colors;
+    if (_searching) {
+      return AppBar(
+        leading: IconButton(
+          tooltip: 'Close search',
+          icon: Icon(Icons.arrow_back, color: colors.textSecondary),
+          onPressed: _closeSearch,
+        ),
+        title: TextField(
+          controller: _search,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          cursorColor: colors.accent,
+          style: TextStyle(color: colors.textPrimary, fontSize: 16),
+          decoration: InputDecoration(
+            isDense: true,
+            border: InputBorder.none,
+            hintText: 'Search gear',
+            hintStyle: TextStyle(color: colors.textTertiary),
+          ),
+        ),
+        actions: [
+          if (_search.text.isNotEmpty)
+            IconButton(
+              tooltip: 'Clear',
+              icon: Icon(Icons.close, color: colors.textSecondary),
+              onPressed: _search.clear,
+            ),
+          _filterButton(),
+        ],
+      );
+    }
+    return AppBar(
+      title: const Text('My Coffee Desk'),
+      actions: [
+        IconButton(
+          tooltip: 'Search',
+          icon: Icon(Icons.search, color: colors.textSecondary),
+          onPressed: () => setState(() => _searching = true),
+        ),
+        _filterButton(),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = context.watch<GearStore>();
     final active = store.activeIds;
-    final shelves =
-        [
-              for (final type in GearType.values)
-                (
-                  type,
-                  [
-                    for (final g in store.ofType(type))
-                      if (_matches(g, active)) g,
-                  ],
-                ),
-            ]
-            // "All" shows every category, empty ones with just "New"; a filter
-            // drops what it leaves empty.
-            .where((s) => _filter == DeskFilter.all || s.$2.isNotEmpty)
-            .toList();
+    final chain = _chain(store);
+    final visible = filterDesk(
+      _base(store),
+      inUse: active,
+      query: _search.text,
+      filter: _filter,
+    );
+    // "All" without search or filter shows every category, empty ones with
+    // just "New"; anything narrower drops what it leaves empty.
+    final showEmpty =
+        chain == null && !_filter.isActive && _search.text.trim().isEmpty;
+    final shelves = [
+      for (final type in GearType.values)
+        (
+          type,
+          [
+            for (final g in visible)
+              if (g.type == type) g,
+          ],
+        ),
+    ].where((s) => showEmpty || s.$2.isNotEmpty).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Coffee Desk')),
+      appBar: _appBar(),
       body: StreamBuilder<Map<String, int>>(
         stream: _shotCounts,
         builder: (context, counts) => ListView(
           padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
           children: [
-            // One card: the filter, then one block per category, the brew
-            // chains last — the hairlines between blocks are the card's own.
+            // One card: the chain tabs, then one block per category —
+            // without hairlines, the shelf boards divide enough.
             SettingsCard(
+              dividers: false,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.dividerInset,
-                    8,
-                    AppSpacing.dividerInset,
-                    4,
-                  ),
-                  child: UnderlineSelect<DeskFilter>(
-                    options: [
-                      for (final f in DeskFilter.values)
-                        UnderlineOption(f, f.label),
-                    ],
-                    value: _filter,
-                    onChanged: (f) => setState(() {
-                      _filter = f!;
-                      _openId = null;
-                    }),
-                  ),
+                _ChainTabs(
+                  chains: store.chains,
+                  selected: chain?.id,
+                  onSelect: _selectChain,
+                  onEdit: (c) => showChainDialog(context, chain: c),
+                  onAdd: () async {
+                    final saved = await showChainDialog(context);
+                    if (saved != null) _selectChain(saved.id);
+                  },
                 ),
                 if (shelves.isEmpty)
-                  const SettingsSection(child: SettingsText('Nothing here.')),
+                  SettingsSection(
+                    child: SettingsText(
+                      chain != null && chain.gearIds.isEmpty
+                          ? 'No gear in this chain yet — tap its tab again to pick some.'
+                          : 'Nothing here.',
+                    ),
+                  ),
                 for (final (type, items) in shelves)
                   _Shelf(
                     type: type,
@@ -230,7 +352,6 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
                     onEdit: _edit,
                     onPhoto: _choosePhoto,
                   ),
-                _Chains(chains: store.chains),
               ],
             ),
           ],
@@ -240,46 +361,63 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
   }
 }
 
-// The brew chains: which gear is used together. Gear in a chain that is in
-// use gets the ring on its shelf; everything else counts as stored.
-class _Chains extends StatelessWidget {
-  const _Chains({required this.chains});
+// "All" plus one tab per brew chain, "+" at the right. Tapping the open
+// chain's tab again (or a long press on any) edits that chain.
+class _ChainTabs extends StatelessWidget {
+  const _ChainTabs({
+    required this.chains,
+    required this.selected,
+    required this.onSelect,
+    required this.onEdit,
+    required this.onAdd,
+  });
 
   final List<BrewChain> chains;
+  final String? selected;
+  final ValueChanged<String?> onSelect;
+  final ValueChanged<BrewChain> onEdit;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    return SettingsGroup(
-      children: [
-        SettingsGroupLabel(
-          'Brew chains',
-          icon: Icons.link,
-          count: chains.length,
-          trailing: IconButton(
-            tooltip: 'Add brew chain',
-            icon: Icon(Icons.add, color: colors.textSecondary),
-            onPressed: () => showChainDialog(context),
-          ),
-        ),
-        if (chains.isEmpty)
-          const SettingsSection(
-            child: SettingsText(
-              'Group the gear you brew with — it then counts as in use.',
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.dividerInset, 4, 4, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Wrap(
+                spacing: UnderlineSelect.spacing,
+                children: [
+                  UnderlineItem(
+                    label: 'All',
+                    selected: selected == null,
+                    onTap: () => onSelect(null),
+                  ),
+                  for (final c in chains)
+                    GestureDetector(
+                      key: ValueKey('chain-tab-${c.id}'),
+                      onLongPress: () => onEdit(c),
+                      child: UnderlineItem(
+                        label: c.name,
+                        selected: c.id == selected,
+                        onTap: () =>
+                            c.id == selected ? onEdit(c) : onSelect(c.id),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-        for (final c in chains)
-          SettingsRow(
-            key: ValueKey('chain-${c.id}'),
-            icon: c.active ? Icons.link : Icons.link_off,
-            title: c.name,
-            subtitle: [
-              '${c.gearIds.length} ${c.gearIds.length == 1 ? 'piece' : 'pieces'}',
-              if (!c.active) 'put away',
-            ].join(' · '),
-            onTap: () => showChainDialog(context, chain: c),
+          IconButton(
+            tooltip: 'Add brew chain',
+            icon: Icon(Icons.add, color: context.colors.textSecondary),
+            onPressed: onAdd,
           ),
-      ],
+        ],
+      ),
     );
   }
 }

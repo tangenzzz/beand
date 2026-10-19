@@ -6,7 +6,9 @@ import 'package:beand/models/grinder.dart';
 import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/screens/live/shot_cards_carousel.dart';
 import 'package:beand/models/water.dart';
+import 'package:beand/screens/settings/desk_filter.dart';
 import 'package:beand/screens/settings/my_coffee_desk_screen.dart';
+import 'package:beand/screens/settings/settings_widgets.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/gear_store.dart';
 import 'package:beand/services/grinder_store.dart';
@@ -364,9 +366,7 @@ void main() {
     );
   });
 
-  testWidgets('My Coffee Desk: chains decide in use, filter narrows', (
-    tester,
-  ) async {
+  testWidgets('My Coffee Desk: chain tabs, search and filter', (tester) async {
     tester.view.physicalSize = const Size(412, 2600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -389,17 +389,12 @@ void main() {
       ],
     );
     await tester.pumpWidget(mySetup(gear));
-    // "All" shows every category, empty ones too (just "New").
+    // "All" shows every category, empty ones too (just "New"), and no
+    // hairlines between the shelves.
     expect(find.textContaining('KETTLES', findRichText: true), findsOneWidget);
-    expect(find.text('V60 02'), findsOneWidget);
+    expect(find.byType(SettingsDivider), findsNothing);
 
-    // No chain yet: everything counts as stored.
-    await tester.tap(find.text('Stored'));
-    await tester.pumpAndSettle();
-    expect(find.text('V60 02'), findsOneWidget);
-    expect(find.textContaining('KETTLES', findRichText: true), findsNothing);
-
-    // A chain with the machine puts it in use.
+    // "+" next to the tabs adds a chain, which opens as its own tab.
     await tester.tap(find.byTooltip('Add brew chain'));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -412,22 +407,69 @@ void main() {
     await tester.pumpAndSettle();
     expect(gear.chains.single.gearIds, ['m']);
     expect(gear.activeIds, {'m'});
-    expect(find.text('Meticulous'), findsNothing, reason: 'in use now');
-    expect(find.text('V60 02'), findsOneWidget);
-
-    // Espresso: no brewers.
-    await tester.tap(find.text('Espresso').first);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('BREWERS', findRichText: true), findsNothing);
     expect(find.text('Meticulous'), findsOneWidget);
-    // The detail names the chain.
-    await tester.tap(find.text('Meticulous').first);
+    expect(find.text('V60 02'), findsNothing, reason: 'not in the chain');
+    expect(find.textContaining('KETTLES', findRichText: true), findsNothing);
+
+    // Adding on the chain's tab puts the new piece into the chain.
+    await tester.tap(find.byTooltip('Add machine'));
     await tester.pumpAndSettle();
-    expect(find.text('Espresso bar'), findsWidgets);
+    await tester.enterText(find.byKey(const ValueKey('gear-model')), 'Gaggia');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(gear.chains.single.gearIds, hasLength(2));
+
+    // Tapping the open tab again edits the chain.
+    await tester.tap(find.text('Espresso bar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit brew chain'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    // Back on All: the filter sheet narrows to what is stored.
+    await tester.tap(find.text('All'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Filter'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Stored'));
+    await tester.pump();
+    expect(find.text('Show 1 piece'), findsOneWidget);
+    await tester.tap(find.text('Show 1 piece'));
+    await tester.pumpAndSettle();
+    expect(find.text('V60 02'), findsOneWidget);
+    expect(find.text('Meticulous'), findsNothing);
+
+    // Search goes over brand and model.
+    await tester.tap(find.byTooltip('Search'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'meti');
+    await tester.pumpAndSettle();
+    expect(find.text('V60 02'), findsNothing, reason: 'stored, but no match');
+    expect(find.text('Nothing here.'), findsOneWidget);
 
     // Deleting gear takes it out of its chains.
     gear.remove('m');
-    expect(gear.chains.single.gearIds, isEmpty);
+    expect(gear.chains.single.gearIds, hasLength(1));
+  });
+
+  test('desk search matches brand, model and type fields', () {
+    const g = Gear(
+      id: 'b',
+      type: GearType.basket,
+      brand: 'IMS',
+      model: 'Precision 18',
+      specs: {'size': '58 mm'},
+    );
+    expect(matchesDeskQuery(g, 'ims 58'), isTrue);
+    expect(matchesDeskQuery(g, 'basket'), isTrue);
+    expect(matchesDeskQuery(g, 'vst'), isFalse);
+    const f = DeskFilter(modes: {BrewMode.pourOver});
+    expect(f.matches(g, inUse: false), isTrue, reason: 'both modes');
+    expect(
+      const DeskFilter(status: {DeskStatus.inUse}).matches(g, inUse: false),
+      isFalse,
+    );
   });
 
   testWidgets('My Coffee Desk: add a basket with the gear form', (

@@ -25,9 +25,10 @@ Future<void> showGearDialog(
   ),
 );
 
-/// Add ([chain] null) or edit a brew chain.
-Future<void> showChainDialog(BuildContext context, {BrewChain? chain}) =>
-    showDialog<void>(
+/// Add ([chain] null) or edit a brew chain. Returns the saved chain, null on
+/// cancel or delete.
+Future<BrewChain?> showChainDialog(BuildContext context, {BrewChain? chain}) =>
+    showDialog<BrewChain>(
       context: context,
       builder: (_) => ChangeNotifierProvider<GearStore>.value(
         value: context.read<GearStore>(),
@@ -227,7 +228,7 @@ class _ChainDialogState extends State<_ChainDialog> {
       for (final g in store.gear)
         if (_gearIds.contains(g.id)) g.id,
     ];
-    store.saveChain(
+    final saved = store.saveChain(
       BrewChain(
         id: widget.chain?.id ?? '',
         name: name,
@@ -235,7 +236,7 @@ class _ChainDialogState extends State<_ChainDialog> {
         active: _active,
       ),
     );
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(saved);
   }
 
   Future<void> _delete() async {

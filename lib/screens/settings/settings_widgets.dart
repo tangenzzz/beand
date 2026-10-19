@@ -31,9 +31,13 @@ class SettingsEntry {
 // ([SettingsGroup]) only spacing separates the rows. Multiple cards per page
 // only when explicitly wanted.
 class SettingsCard extends StatelessWidget {
-  const SettingsCard({super.key, required this.children});
+  const SettingsCard({super.key, required this.children, this.dividers = true});
 
   final List<Widget> children;
+
+  /// False for a page whose blocks carry their own separation (the shelf
+  /// boards of My Coffee Desk).
+  final bool dividers;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +52,7 @@ class SettingsCard extends StatelessWidget {
         children: [
           for (var i = 0; i < children.length; i++) ...[
             children[i],
-            if (i < children.length - 1) const SettingsDivider(),
+            if (dividers && i < children.length - 1) const SettingsDivider(),
           ],
         ],
       ),
