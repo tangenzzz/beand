@@ -17,7 +17,12 @@ class RulerPicker extends StatefulWidget {
     required this.unit,
     required this.onChanged,
     this.step = 0.1,
+    this.format,
   });
+
+  /// Shows the value as read on the device instead of plain digits (e.g. a
+  /// grinder's "2.14" in rotations); the unit is added separately.
+  final String Function(double value)? format;
 
   final double value;
   // Value of one tick. 0.1 for dose/grind size; pour-over water (up to
@@ -59,7 +64,15 @@ class _RulerPickerState extends State<RulerPicker> {
   int get _minTenths => (widget.min / widget.step).round();
   int get _tickCount => (widget.max / widget.step).round() - _minTenths;
   double _valueOf(int ticks) => ticks * widget.step;
-  int get _digits => widget.step < 1 ? 1 : 0;
+  // As many decimals as the step needs (0.25 → 2).
+  int get _digits {
+    if (widget.step >= 1) return 0;
+    final text = widget.step.toString();
+    return text.contains('.') ? text.split('.').last.length : 0;
+  }
+
+  String _text(double v) =>
+      widget.format?.call(v) ?? v.toStringAsFixed(_digits);
 
   double _offsetFor(int tenths) =>
       (tenths - _minTenths).clamp(0, _tickCount) * RulerPicker._tickGap;
@@ -142,6 +155,8 @@ class _RulerPickerState extends State<RulerPicker> {
                           initial: _valueOf(_tenths),
                           digits: _digits,
                           unit: widget.unit,
+                          // Below zero needs a sign the number pad may lack.
+                          signed: widget.min < 0,
                           onSet: _setTyped,
                         ),
                       ),
@@ -195,7 +210,7 @@ class _RulerPickerState extends State<RulerPicker> {
   Widget _bigValue() {
     return Text.rich(
       TextSpan(
-        text: _valueOf(_tenths).toStringAsFixed(_digits),
+        text: _text(_valueOf(_tenths)),
         style: TextStyle(
           color: context.colors.textPrimary,
           fontSize: 28,
@@ -339,7 +354,7 @@ class _RulerPainter extends CustomPainter {
       if (tenths % 10 == 0) {
         final label = TextPainter(
           text: TextSpan(
-            text: (tenths * step).round().toString(),
+            text: _label(tenths * step),
             style: TextStyle(color: labelColor, fontSize: 11),
           ),
           textDirection: TextDirection.ltr,
@@ -347,6 +362,14 @@ class _RulerPainter extends CustomPainter {
         label.paint(canvas, Offset(x - label.width / 2, 36));
       }
     }
+  }
+
+  // Whole numbers without decimals, others as short as they get (2.5).
+  static String _label(double v) {
+    final rounded = (v * 100).round() / 100;
+    return rounded == rounded.roundToDouble()
+        ? rounded.round().toString()
+        : rounded.toString();
   }
 
   @override
@@ -402,10 +425,14 @@ class _ValueEditor extends StatefulWidget {
     required this.unit,
     required this.onSet,
     this.digits = 1,
+    this.signed = false,
   });
 
   final double initial;
   final int digits;
+
+  /// Allows a minus, with a ± button next to the field.
+  final bool signed;
   final String unit;
   final ValueChanged<double> onSet;
 
@@ -430,6 +457,15 @@ class _ValueEditorState extends State<_ValueEditor> {
     super.dispose();
   }
 
+  void _flipSign() {
+    final t = _controller.text.trim();
+    final next = t.startsWith('-') ? t.substring(1) : '-$t';
+    _controller.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+  }
+
   void _submit() {
     final value = double.tryParse(_controller.text.trim().replaceAll(',', '.'));
     if (value != null) widget.onSet(value);
@@ -451,7 +487,9 @@ class _ValueEditorState extends State<_ValueEditor> {
                 decimal: true,
               ),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                FilteringTextInputFormatter.allow(
+                  widget.signed ? RegExp(r'^-?[0-9.,]*') : RegExp(r'[0-9.,]'),
+                ),
               ],
               style: TextStyle(
                 color: context.colors.textPrimary,
@@ -470,6 +508,18 @@ class _ValueEditorState extends State<_ValueEditor> {
               onSubmitted: (_) => _submit(),
             ),
           ),
+          if (widget.signed)
+            TextButton(
+              key: const ValueKey('ruler-sign'),
+              onPressed: _flipSign,
+              child: Text(
+                '±',
+                style: TextStyle(
+                  color: context.colors.textSecondary,
+                  fontSize: 20,
+                ),
+              ),
+            ),
           if (widget.unit.isNotEmpty) ...[
             const SizedBox(width: 8),
             Text(

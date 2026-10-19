@@ -84,6 +84,9 @@ class GrinderStore extends ChangeNotifier {
           brand: _blankToNull(grinder.brand),
           burrs: _clean(grinder.burrs),
           activeBurr: grinder.activeBurr,
+          hand: grinder.hand,
+          scale: grinder.scale,
+          zeros: grinder.zeros,
         ),
         existing: gear.byId(grinder.id),
       ),
@@ -91,6 +94,14 @@ class GrinderStore extends ChangeNotifier {
   }
 
   void remove(String id) => gear.remove(id);
+
+  /// Re-zero the fitted burrs (kept with the date; unchanged: nothing).
+  void setZero(String id, double value, {DateTime? at}) {
+    final g = byId(id);
+    if (g == null) return;
+    final next = g.withZero(value, at ?? DateTime.now());
+    if (!identical(next, g)) update(next);
+  }
 
   void setActiveBurr(String id, String burr) {
     final g = byId(id);

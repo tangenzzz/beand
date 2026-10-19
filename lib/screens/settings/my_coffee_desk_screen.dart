@@ -1059,7 +1059,24 @@ class _GearDetail extends StatelessWidget {
       ],
       value: gear.specs['activeBurr'] as String?,
       onChanged: (b) {
-        if (b != null) context.read<GrinderStore>().setActiveBurr(gear.id, b);
+        if (b == null) return;
+        final store = context.read<GrinderStore>();
+        store.setActiveBurr(gear.id, b);
+        // Other burrs touch at another point: offer to set theirs, unless
+        // they have one already or none was ever set.
+        final g = store.byId(gear.id);
+        if (g == null || g.zeros.isEmpty || g.zeros.containsKey(b)) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('$b fitted — set its zero point?'),
+              action: SnackBarAction(
+                label: 'Set',
+                onPressed: () => showGrinderDialog(context, grinder: g),
+              ),
+            ),
+          );
       },
     );
   }

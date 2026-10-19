@@ -1,4 +1,6 @@
 import '../../models/gear.dart';
+import '../../models/grind_scale.dart';
+import '../../services/gear_store.dart' show grinderFromGear;
 import '../../models/water.dart';
 
 // What My Coffee Desk asks and shows per kind of gear. Grinders and waters
@@ -63,6 +65,7 @@ List<(String, String)> gearDetailRows(
 }) => [
   if (g.type == GearType.grinder)
     if (g.specs['activeBurr'] case final String burrs) ('Burrs', burrs),
+  if (g.type == GearType.grinder) ..._grinderRows(g),
   if (g.type == GearType.water) ..._waterRows(g),
   for (final f in specFields[g.type] ?? const <SpecField>[])
     if (g.specs[f.key] case final Object v)
@@ -73,6 +76,44 @@ List<(String, String)> gearDetailRows(
   ('Used for', g.brewModes.map((m) => m.label).join(' · ')),
   if (chains.isNotEmpty) ('Chains', chains.join(', ')),
 ];
+
+// Scale ("Dial 0–50 · steps of 0.5") and zero point ("−0.3 · 19 Oct 2026").
+List<(String, String)> _grinderRows(Gear g) {
+  final grinder = grinderFromGear(g);
+  final scale = grinder.scale;
+  final zero = grinder.zeroPoint;
+  String n(double v, GrindScale s) => s.format(v, withUnit: false);
+  return [
+    if (scale != null)
+      (
+        'Scale',
+        [
+          scale.unit.label,
+          '${n(scale.min, scale)}–${n(scale.max, scale)}'
+              '${scale.unit.suffix.isEmpty ? '' : ' ${scale.unit.suffix}'}',
+          if (scale.unit.steps.length > 1) 'steps of ${_n(scale.step)}',
+        ].join(' · '),
+      ),
+    if (zero != null) ('Zero point', '${_n(zero.value)} · ${_date(zero.at)}'),
+  ];
+}
+
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+String _date(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
 List<(String, String)> _waterRows(Gear g) {
   final gh = g.specs['gh'];

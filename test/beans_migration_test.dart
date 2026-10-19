@@ -64,6 +64,7 @@ void main() {
     raw.execute('ALTER TABLE shots DROP COLUMN burrs');
     raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
     raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
     raw.execute('PRAGMA user_version = 17');
 
@@ -94,6 +95,7 @@ void main() {
       raw.execute('ALTER TABLE shots DROP COLUMN burrs');
       raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
       raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+      raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
       raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
       raw.execute('PRAGMA user_version = 18');
 
@@ -127,6 +129,7 @@ void main() {
     await fresh.close();
     raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
     raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
     raw.execute('PRAGMA user_version = 19');
 
@@ -159,6 +162,7 @@ void main() {
         );
     await fresh.close();
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
     raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
     raw.execute('PRAGMA user_version = 20');
 
@@ -187,6 +191,7 @@ void main() {
     );
     await fresh.close();
     raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
     raw.execute('PRAGMA user_version = 21');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -198,6 +203,34 @@ void main() {
       const BeansCompanion(roastLevel: Value('ultra-light')),
     );
     expect((await db.allBeans()).single.roastLevel, 'ultra-light');
+    await db.close();
+  });
+
+  test('migration v22 -> v23: grindZero is added, shots stay', () async {
+    final raw = sql.sqlite3.openInMemory();
+    final fresh = AppDatabase(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    await fresh
+        .into(fresh.shots)
+        .insert(
+          ShotsCompanion.insert(
+            timestamp: DateTime(2026, 10, 1),
+            grindSize: const Value('12.5'),
+          ),
+        );
+    await fresh.close();
+    raw.execute('ALTER TABLE shots DROP COLUMN grind_zero');
+    raw.execute('PRAGMA user_version = 22');
+
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    final shot = (await db.select(db.shots).get()).single;
+    expect(shot.grindSize, '12.5');
+    expect(shot.grindZero, isNull);
+    await (db.update(db.shots)..where((s) => s.id.equals(shot.id))).write(
+      const ShotsCompanion(grindZero: Value(-0.3)),
+    );
+    expect((await db.select(db.shots).get()).single.grindZero, -0.3);
     await db.close();
   });
 }

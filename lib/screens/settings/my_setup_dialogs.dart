@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/grind_scale.dart';
 import '../../models/grinder.dart';
 import '../../models/water.dart';
 import '../../services/grinder_store.dart';
 import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
+import 'settings_widgets.dart';
 
 // Add/edit dialogs of Settings → My Setup. Everything is free text; the
 // chips offer what the user entered elsewhere before (no bundled lists).
@@ -48,6 +50,58 @@ class _GrinderDialogState extends State<_GrinderDialog> {
   late final TextEditingController _name;
   final List<TextEditingController> _burrs = [];
 
+  // Form, scale and zero point (see Grinder).
+  late bool _hand = widget.grinder?.hand ?? false;
+  late GrindUnit? _unit = widget.grinder?.scale?.unit;
+  late double _step = widget.grinder?.scale?.step ?? 0.5;
+  late final _min = TextEditingController(
+    text: _num(widget.grinder?.scale?.min),
+  );
+  late final _max = TextEditingController(
+    text: _num(widget.grinder?.scale?.max),
+  );
+  late final _perRotation = TextEditingController(
+    text: widget.grinder?.scale?.clicksPerRotation.toString() ?? '30',
+  );
+  late final _zero = TextEditingController(
+    text: _num(widget.grinder?.zeroPoint?.value),
+  );
+
+  static String _num(double? v) =>
+      v == null ? '' : (v % 1 == 0 ? v.toStringAsFixed(0) : v.toString());
+
+  static double? _parse(TextEditingController c) =>
+      double.tryParse(c.text.trim().replaceAll(',', '.'));
+
+  // A unit picked without a range yet gets a usual one.
+  void _setUnit(GrindUnit? unit) => setState(() {
+    _unit = unit;
+    if (unit == null) return;
+    if (!unit.steps.contains(_step)) _step = unit.steps.first;
+    if (_min.text.trim().isEmpty) _min.text = '0';
+    if (_max.text.trim().isEmpty) {
+      _max.text = switch (unit) {
+        GrindUnit.dial => '50',
+        GrindUnit.clicks => '40',
+        GrindUnit.rotations => '120',
+        GrindUnit.microns => '1500',
+      };
+    }
+  });
+
+  GrindScale? get _scale {
+    final unit = _unit;
+    final min = _parse(_min), max = _parse(_max);
+    if (unit == null || min == null || max == null || max <= min) return null;
+    return GrindScale(
+      unit: unit,
+      step: unit.steps.contains(_step) ? _step : unit.steps.first,
+      min: min,
+      max: max,
+      clicksPerRotation: int.tryParse(_perRotation.text.trim()) ?? 30,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +117,9 @@ class _GrinderDialogState extends State<_GrinderDialog> {
 
   @override
   void dispose() {
+    for (final c in [_min, _max, _perRotation, _zero]) {
+      c.dispose();
+    }
     _brand.dispose();
     _name.dispose();
     for (final c in _burrs) {
@@ -87,21 +144,43 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     if (name.isEmpty) return;
     final store = context.read<GrinderStore>();
     final existing = widget.grinder;
-    final Grinder saved;
-    if (existing == null) {
-      saved = store.add(name, _entered, brand: _brand.text);
-    } else {
-      saved = Grinder(
-        id: existing.id,
+    final id = existing?.id ?? store.add(name, _entered, brand: _brand.text).id;
+    store.update(
+      Grinder(
+        id: id,
         name: name,
         brand: _brand.text,
         burrs: _entered,
-        activeBurr: existing.activeBurr,
-      );
-      store.update(saved);
-    }
-    Navigator.of(context).pop(saved);
+        activeBurr: existing?.activeBurr,
+        hand: _hand,
+        scale: _scale,
+        zeros: existing?.zeros ?? const {},
+      ),
+    );
+    // A zero point entered or changed: a new entry with today's date, for
+    // the fitted burrs (or the grinder, while none are named).
+    final zero = _parse(_zero);
+    if (zero != null) store.setZero(id, zero);
+    Navigator.of(context).pop(store.byId(id));
   }
+
+  // Small heading of a part of the dialog, the explanation behind ⓘ.
+  Widget _label(String text, {String? info}) => Padding(
+    padding: const EdgeInsets.only(top: 18, bottom: 4),
+    child: Row(
+      children: [
+        Text(
+          text.toUpperCase(),
+          style: TextStyle(
+            color: context.colors.textSecondary,
+            fontSize: 11,
+            letterSpacing: 0.8,
+          ),
+        ),
+        if (info != null) ...[const SizedBox(width: 4), SettingsInfo(info)],
+      ],
+    ),
+  );
 
   Future<void> _delete() async {
     final grinder = widget.grinder!;
@@ -179,10 +258,129 @@ class _GrinderDialogState extends State<_GrinderDialog> {
             ),
           ),
         ),
+        const SizedBox(height: 10),
+        UnderlineSelect<bool>(
+          key: const ValueKey('grinder-form'),
+          options: const [
+            UnderlineOption(false, 'Electric'),
+            UnderlineOption(true, 'Hand'),
+          ],
+          value: _hand,
+          onChanged: (v) => setState(() => _hand = v!),
+        ),
+        _label(
+          'Scale',
+          info:
+              'How the dial is read. The grind ruler in Pre-Shot, Pre-Brew '
+              'and the shot detail follows it.',
+        ),
+        UnderlineSelect<GrindUnit>(
+          key: const ValueKey('grinder-unit'),
+          options: [
+            for (final u in GrindUnit.values) UnderlineOption(u, u.label),
+          ],
+          value: _unit,
+          allowDeselect: true,
+          onChanged: _setUnit,
+        ),
+        if (_unit case final unit?) ...[
+          if (unit.steps.length > 1) ...[
+            const SizedBox(height: 8),
+            UnderlineSelect<double>(
+              key: const ValueKey('grinder-step'),
+              options: [
+                for (final st in unit.steps)
+                  UnderlineOption(st, _stepLabel(st, unit)),
+              ],
+              value: _step,
+              onChanged: (v) => setState(() => _step = v!),
+            ),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: SetupField(
+                  key: const ValueKey('grinder-min'),
+                  controller: _min,
+                  label: 'From',
+                  numeric: true,
+                  signed: true,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SetupField(
+                  key: const ValueKey('grinder-max'),
+                  controller: _max,
+                  label: 'To',
+                  numeric: true,
+                  signed: true,
+                ),
+              ),
+            ],
+          ),
+          if (unit == GrindUnit.rotations)
+            SetupField(
+              key: const ValueKey('grinder-per-rotation'),
+              controller: _perRotation,
+              label: 'Clicks per rotation',
+              numeric: true,
+            ),
+        ],
+        _label(
+          'Zero point (optional)',
+          info:
+              'The dial reading where the burrs just touch. If you re-index '
+              'the dial after a burr change, leave it at 0. Negative values '
+              'such as -0.3 are fine; shots keep the zero point of their day.',
+        ),
+        SetupField(
+          key: const ValueKey('grinder-zero'),
+          controller: _zero,
+          label: _entered.isEmpty
+              ? 'Zero point'
+              : 'Zero point · ${widget.grinder?.activeBurrs ?? _entered.first}',
+          numeric: true,
+          signed: true,
+          suffix: _unit?.suffix,
+        ),
+        if (widget.grinder?.zeroPoint case final z?)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Set ${_date(z.at)}',
+              style: TextStyle(
+                color: context.colors.textTertiary,
+                fontSize: 12,
+              ),
+            ),
+          ),
       ],
     );
   }
 }
+
+String _stepLabel(double step, GrindUnit unit) {
+  final text = step % 1 == 0 ? step.toStringAsFixed(0) : step.toString();
+  return unit.suffix.isEmpty ? 'Steps of $text' : '$text ${unit.suffix}';
+}
+
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+String _date(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
 class _WaterDialog extends StatefulWidget {
   const _WaterDialog({this.water});
@@ -514,6 +712,7 @@ class SetupField extends StatefulWidget {
     required this.label,
     this.autofocus = false,
     this.numeric = false,
+    this.signed = false,
     this.suffix,
     this.suggestions = const [],
   });
@@ -522,6 +721,10 @@ class SetupField extends StatefulWidget {
   final String label;
   final bool autofocus;
   final bool numeric;
+
+  /// A number that may be negative (grind range, zero point): allows a
+  /// minus and shows a ± button — the number pad often has no minus key.
+  final bool signed;
   final String? suffix;
   final List<String> suggestions;
 
@@ -570,6 +773,11 @@ class _SetupFieldState extends State<SetupField> {
     ];
   }
 
+  void _flipSign() {
+    final t = widget.controller.text.trim();
+    _apply(t.startsWith('-') ? t.substring(1) : '-$t');
+  }
+
   void _apply(String value) {
     widget.controller.value = TextEditingValue(
       text: value,
@@ -596,7 +804,11 @@ class _SetupFieldState extends State<SetupField> {
               ? const TextInputType.numberWithOptions(decimal: true)
               : null,
           inputFormatters: widget.numeric
-              ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))]
+              ? [
+                  FilteringTextInputFormatter.allow(
+                    widget.signed ? RegExp(r'^-?[0-9.,]*') : RegExp(r'[0-9.,]'),
+                  ),
+                ]
               : null,
           // The blinking cursor keeps the accent; label and line don't.
           cursorColor: colors.accent,
@@ -607,6 +819,19 @@ class _SetupFieldState extends State<SetupField> {
             floatingLabelStyle: neutral,
             suffixText: widget.suffix,
             suffixStyle: neutral,
+            suffixIcon: widget.signed
+                ? IconButton(
+                    tooltip: 'Plus/minus',
+                    onPressed: _flipSign,
+                    icon: Text(
+                      '±',
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 18,
+                      ),
+                    ),
+                  )
+                : null,
             enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: colors.divider),
             ),

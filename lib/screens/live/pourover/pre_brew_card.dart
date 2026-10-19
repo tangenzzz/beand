@@ -21,7 +21,9 @@ import '../ruler_picker.dart';
 import '../tile_title.dart';
 import 'pourover_profile_row.dart';
 import 'recipe_format.dart';
+import '../../../models/grind_scale.dart';
 import '../chain_choice.dart';
+import '../grind_from_zero.dart';
 
 enum _OpenList { recipe, bean, dose, grind, chain, water, temp }
 
@@ -171,6 +173,8 @@ class _PreBrewCardState extends State<PreBrewCard> {
     final bean = _beanList.where((b) => b.id == setup.beanId).firstOrNull;
     final dose = setup.doseGrams ?? recipe?.doseG;
     final grind = setup.grindSize;
+    final grinder = setup.grinder;
+    final grindScale = grinder?.scale ?? const GrindScale(max: 60);
     final temp = brew.temperature;
 
     // Nothing can be changed during the brew.
@@ -274,7 +278,7 @@ class _PreBrewCardState extends State<PreBrewCard> {
                       // shown ("Coarse") — dimmed, because it is not a
                       // number on your own grinder.
                       valueText: grind != null
-                          ? grind.toStringAsFixed(1)
+                          ? grindScale.format(grind)
                           : (recipe == null
                                 ? null
                                 : grindLabel(recipe.grindSize)),
@@ -283,11 +287,16 @@ class _PreBrewCardState extends State<PreBrewCard> {
                       open: _open == _OpenList.grind,
                       onToggle: () => _toggle(_OpenList.grind),
                       onClose: _close,
+                      trailing: GrindFromZero(grinder: grinder, dial: grind),
+                      // The chain's grinder's scale; without one as before
+                      // (0–60, pour over grinds coarser).
                       panel: RulerPicker(
-                        value: grind ?? 20,
-                        min: 0,
-                        max: 60,
-                        unit: '',
+                        value: grindScale.clamp(grind ?? 20),
+                        min: grindScale.min,
+                        max: grindScale.max,
+                        step: grindScale.step,
+                        format: (v) => grindScale.format(v, withUnit: false),
+                        unit: grindScale.unit.suffix,
                         onChanged: setup.setGrind,
                       ),
                     ),

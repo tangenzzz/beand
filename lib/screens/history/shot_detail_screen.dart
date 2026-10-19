@@ -9,6 +9,8 @@ import '../../database/database.dart';
 import '../../models/shot_phases.dart';
 import '../../models/taste_profile.dart';
 import '../../models/gear.dart';
+import '../../models/grind_scale.dart';
+import '../../models/grinder.dart';
 import '../../services/app_settings.dart';
 import '../../services/gear_store.dart';
 import '../../services/shot_setup.dart';
@@ -219,6 +221,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
       brewedWith: pieces.isEmpty
           ? null
           : [for (final g in pieces) g.label].join('\n'),
+      grindZero: grinder?.zeroPoint?.value,
     );
     final newest = await _db.lastShot(machine: shot.machine);
     if (!mounted || newest?.id != shot.id) return;
@@ -244,12 +247,25 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
     });
   }
 
-  void _setGrind(double v) {
+  void _setGrind(double v, GrindScale scale) {
     setState(() => _grindDraft = v);
     _writeDebounce?.cancel();
     _writeDebounce = Timer(const Duration(milliseconds: 400), () {
-      _db.setShotGrind(widget.shotId, v.toStringAsFixed(1));
+      _db.setShotGrind(widget.shotId, grindSizeText(v));
     });
+  }
+
+  // The shot's grinder, found by the name it was brewed with — its scale
+  // shapes the grind ruler; without one the ruler is as before.
+  Grinder? _grinderOf(Shot shot) {
+    final name = shot.grinder;
+    final store = _gear;
+    if (name == null || store == null) return null;
+    final g = store
+        .ofType(GearType.grinder)
+        .where((g) => g.model == name)
+        .firstOrNull;
+    return g == null ? null : grinderFromGear(g);
   }
 
   @override
@@ -467,6 +483,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
       (s) => s.showStageDetails,
     );
     final dose = _doseDraft ?? shot.doseGrams ?? ShotSetup.defaultDose;
+    final grindScale = _grinderOf(shot)?.scaleOrStandard ?? GrindScale.standard;
     final grind =
         _grindDraft ??
         double.tryParse(shot.grindSize ?? '') ??
@@ -632,8 +649,8 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             ),
             _Stat(
               'Grind',
-              grind.toStringAsFixed(1),
-              '',
+              grindScale.format(grind, withUnit: false),
+              grindScale.unit.suffix,
               otherOf(grindOf(other?.grindSize)),
               onTap: () => _toggle(_Open.grind),
               active: _open == _Open.grind,
@@ -662,11 +679,13 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             padding: const EdgeInsets.only(top: 10),
             child: RulerPicker(
               key: const ValueKey('grind'),
-              value: grind,
-              min: 0,
-              max: 20,
-              unit: '',
-              onChanged: _setGrind,
+              value: grindScale.clamp(grind),
+              min: grindScale.min,
+              max: grindScale.max,
+              step: grindScale.step,
+              format: (v) => grindScale.format(v, withUnit: false),
+              unit: grindScale.unit.suffix,
+              onChanged: (v) => _setGrind(v, grindScale),
             ),
           ),
 

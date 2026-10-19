@@ -27,6 +27,7 @@ class ShotSetupSnapshot {
     this.burrs,
     this.brewedWith,
     this.brewChainId,
+    this.grindZero,
   });
 
   // Dose and grind size are empty as long as nothing has been brewed with
@@ -41,6 +42,19 @@ class ShotSetupSnapshot {
   // The chain's gear, one piece per line in desk order (Shots.brewedWith).
   final String? brewedWith;
   final String? brewChainId;
+
+  /// The zero point of the chain's grinder that day (null = none set).
+  final double? grindZero;
+
+  /// The grind as stored on the shot: up to two decimals (0.25 steps),
+  /// no trailing zeros beyond one ("3.2", "3.25", "12.0").
+  String? get grindText => grindSizeText(grindSize);
+}
+
+String? grindSizeText(double? v) {
+  if (v == null) return null;
+  final two = v.toStringAsFixed(2);
+  return two.endsWith('0') ? v.toStringAsFixed(1) : two;
 }
 
 class ShotSetup extends ChangeNotifier {
@@ -246,6 +260,7 @@ class ShotSetup extends ChangeNotifier {
     burrs: grinder?.activeBurrs,
     brewedWith: _brewedWith(),
     brewChainId: chain?.id,
+    grindZero: grinder?.zeroPoint?.value,
   );
 
   String? _brewedWith() {

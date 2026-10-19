@@ -103,6 +103,9 @@ class Shots extends Table with SyncColumns {
   // Which brew chain it was (its ID on My Coffee Desk) — so the next brew on
   // this machine starts with it, and the shot detail can change it.
   TextColumn get brewChainId => text().nullable()();
+  // The grinder's zero point that day (dial reading at burr touch) — so a
+  // shot stays comparable after re-zeroing: effective = grind − zero.
+  RealColumn get grindZero => real().nullable()();
   IntColumn get rating => integer().nullable()();
   // The eight axes of the rating flower, 0-5 each (null = not rated).
   // Separate columns instead of an encoded string so they can be filtered
@@ -274,7 +277,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -403,6 +406,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 21) {
         // Brew chain ID per shot — before the rebuild of schema 15 as well.
         await m.addColumn(shots, shots.brewChainId);
+      }
+      if (from < 23) {
+        // Zero point per shot — before the rebuild of schema 15 as well.
+        await m.addColumn(shots, shots.grindZero);
       }
       if (from < 15) {
         // Sync foundation: syncId, updatedAt, deviceId, syncState; beans and
@@ -990,10 +997,12 @@ class AppDatabase extends _$AppDatabase {
     required String? grinder,
     required String? burrs,
     required String? brewedWith,
+    double? grindZero,
   }) => _writeShot(
     id,
     ShotsCompanion(
       brewChainId: Value(chainId),
+      grindZero: Value(grindZero),
       grinder: Value(grinder),
       burrs: Value(burrs),
       brewedWith: Value(brewedWith),

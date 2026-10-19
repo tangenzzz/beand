@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/sync_ids.dart';
 import '../models/gear.dart';
+import '../models/grind_scale.dart';
 import '../models/grinder.dart';
 import '../models/water.dart';
 import '../sync/blobs/blob_ref.dart';
@@ -468,9 +469,17 @@ Gear gearFromGrinder(Grinder g, {Gear? existing}) => Gear(
   photoOriginalPath: existing?.photoOriginalPath,
   photoBlob: existing?.photoBlob,
   photoOriginalBlob: existing?.photoOriginalBlob,
-  specs: {...?existing?.specs, 'burrs': g.burrs, 'activeBurr': g.activeBurrs}
-    ..removeWhere((_, v) => v == null || (v is List && v.isEmpty)),
+  specs: {
+    for (final e in (existing?.specs ?? const {}).entries)
+      if (!_grinderKeys.contains(e.key)) e.key: e.value,
+    'burrs': g.burrs,
+    'activeBurr': g.activeBurrs,
+    ...g.extrasToJson(),
+  }..removeWhere((_, v) => v == null || (v is List && v.isEmpty)),
 );
+
+// What a Grinder writes into the specs — replaced as a whole on every save.
+const _grinderKeys = {'burrs', 'activeBurr', 'shape', 'scale', 'zeros'};
 
 Grinder grinderFromGear(Gear g) {
   final burrs = g.specs['burrs'];
@@ -481,6 +490,9 @@ Grinder grinderFromGear(Gear g) {
     brand: g.brand,
     burrs: burrs is List ? burrs.whereType<String>().toList() : const [],
     activeBurr: active is String ? active : null,
+    hand: Grinder.handOf(g.specs['shape']),
+    scale: GrindScale.fromJson(g.specs['scale']),
+    zeros: Grinder.zerosOf(g.specs['zeros']),
   );
 }
 

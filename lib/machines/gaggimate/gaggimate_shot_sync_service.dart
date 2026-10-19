@@ -221,7 +221,8 @@ class GaggiMateShotSyncService {
         ),
         // The GaggiMate has neither profile color nor image.
         doseGrams: Value(attachSetup?.doseGrams),
-        grindSize: Value(attachSetup?.grindSize?.toStringAsFixed(1)),
+        grindSize: Value(attachSetup?.grindText),
+        grindZero: Value(attachSetup?.grindZero),
         grinder: Value(attachSetup?.grinder),
         burrs: Value(attachSetup?.burrs),
         brewedWith: Value(attachSetup?.brewedWith),

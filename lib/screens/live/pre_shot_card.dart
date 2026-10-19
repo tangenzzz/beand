@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
+import '../../models/grind_scale.dart';
+import '../../models/grinder.dart';
 import '../../machines/espresso_machine.dart';
 import '../../models/machine_profile.dart';
 import '../../services/app_settings.dart';
@@ -20,6 +22,7 @@ import 'brew_control_button.dart';
 import 'ruler_picker.dart';
 import 'tile_title.dart';
 import 'chain_choice.dart';
+import 'grind_from_zero.dart';
 import '../../widgets/value_select_row.dart';
 
 // Pre-Shot card. "Bean" is real: picks from the beans created in the Beans
@@ -50,8 +53,6 @@ enum _OpenList { bean, profile, dose, grind, chain }
 // from an earlier shot).
 const _doseMin = 5.0;
 const _doseMax = 30.0;
-const _grindMin = 0.0;
-const _grindMax = 20.0;
 
 class _PreShotCardState extends State<PreShotCard> {
   // Profile only as ID + name: that way it can be restored from ShotSetup at
@@ -232,6 +233,9 @@ class _PreShotCardState extends State<PreShotCard> {
   Widget build(BuildContext context) {
     // The remaining-amount switch changes which beans are available.
     final showStock = context.select<AppSettings, bool>((s) => s.showBeanStock);
+    // The grind ruler follows the scale of the chain's grinder.
+    final grinder = context.select<ShotSetup, Grinder?>((s) => s.grinder);
+    final grindScale = grinder?.scaleOrStandard ?? GrindScale.standard;
     final activeProfile = context
         .select<EspressoMachine, ({String id, String loadedName})>(
           (m) => (
@@ -363,15 +367,27 @@ class _PreShotCardState extends State<PreShotCard> {
                     ValueSelectRow<void>.custom(
                       icon: Icons.blur_on,
                       label: 'Grind',
-                      valueText: _grindSize?.toStringAsFixed(1),
+                      valueText: _grindSize == null
+                          ? null
+                          : grindScale.format(_grindSize!),
+                      // Away from a set zero point: how far above the
+                      // burrs' touch point that is.
+                      trailing: GrindFromZero(
+                        grinder: grinder,
+                        dial: _grindSize,
+                      ),
                       open: _open == _OpenList.grind,
                       onToggle: () => _toggle(_OpenList.grind),
                       onClose: _close,
                       panel: RulerPicker(
-                        value: _grindSize ?? ShotSetup.defaultGrind,
-                        min: _grindMin,
-                        max: _grindMax,
-                        unit: '',
+                        value: grindScale.clamp(
+                          _grindSize ?? ShotSetup.defaultGrind,
+                        ),
+                        min: grindScale.min,
+                        max: grindScale.max,
+                        step: grindScale.step,
+                        format: (v) => grindScale.format(v, withUnit: false),
+                        unit: grindScale.unit.suffix,
                         onChanged: (v) {
                           setState(() => _grindSize = v);
                           context.read<ShotSetup>().setGrind(v);
@@ -560,7 +576,10 @@ class _PreShotCardState extends State<PreShotCard> {
     final grind = double.tryParse(shot.grindSize ?? '');
     setState(() {
       if (dose != null) _doseGrams = dose.clamp(_doseMin, _doseMax);
-      if (grind != null) _grindSize = grind.clamp(_grindMin, _grindMax);
+      if (grind != null) {
+        _grindSize = (setup.grinder?.scaleOrStandard ?? GrindScale.standard)
+            .clamp(grind);
+      }
     });
     if (dose != null) setup.setDose(_doseGrams);
     if (grind != null) setup.setGrind(_grindSize);
