@@ -121,6 +121,8 @@ class _GearDialogState extends State<_GearDialog> {
         brewModes: _use.modes,
         photoPath: existing?.photoPath,
         photoOriginalPath: existing?.photoOriginalPath,
+        photoBlob: existing?.photoBlob,
+        photoOriginalBlob: existing?.photoOriginalBlob,
         specs: specs,
         stock: hasStock(widget.type) ? stock : null,
       ),

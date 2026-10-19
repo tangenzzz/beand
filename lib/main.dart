@@ -209,6 +209,8 @@ Future<void> main() async {
     settings: SettingsBridge(
       prefs: () async =>
           SharedPreferencesSettingsStore(await SharedPreferences.getInstance()),
+      // Gear photos live in a setting; they travel via the photo servers.
+      photos: gear,
       reload: () async {
         await appSettings.reload();
         await aiSettings.reload();

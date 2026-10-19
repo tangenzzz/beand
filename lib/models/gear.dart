@@ -64,6 +64,8 @@ class Gear {
     this.brewModes = const {BrewMode.espresso, BrewMode.pourOver},
     this.photoPath,
     this.photoOriginalPath,
+    this.photoBlob,
+    this.photoOriginalBlob,
     this.specs = const {},
     this.stock,
   });
@@ -80,6 +82,12 @@ class Gear {
   final String? photoOriginalPath;
 
   bool get isCutout => photoPath != null && photoOriginalPath != null;
+
+  /// Where [photoPath] / [photoOriginalPath] lie on the photo servers
+  /// (encoded BlobRef), so other devices can fetch them. Null = not
+  /// uploaded (yet); a new photo always starts without one.
+  final String? photoBlob;
+  final String? photoOriginalBlob;
 
   /// Type-specific values, JSON-safe (strings, numbers, lists).
   final Map<String, Object?> specs;
@@ -111,6 +119,28 @@ class Gear {
     brewModes: brewModes,
     photoPath: photoPath,
     photoOriginalPath: photoOriginalPath,
+    photoBlob: photoBlob,
+    photoOriginalBlob: photoOriginalBlob,
+    specs: specs,
+    stock: stock,
+  );
+
+  /// Exactly these photos and references (null = none).
+  Gear withPhotos({
+    String? path,
+    String? original,
+    String? blob,
+    String? originalBlob,
+  }) => Gear(
+    id: id,
+    type: type,
+    model: model,
+    brand: brand,
+    brewModes: brewModes,
+    photoPath: path,
+    photoOriginalPath: original,
+    photoBlob: path == null ? null : blob,
+    photoOriginalBlob: original == null ? null : originalBlob,
     specs: specs,
     stock: stock,
   );
@@ -132,6 +162,11 @@ class Gear {
     photoOriginalPath: clearPhoto
         ? null
         : (photoPath != null ? photoOriginalPath : this.photoOriginalPath),
+    // A new photo has not been uploaded yet.
+    photoBlob: clearPhoto || photoPath != null ? null : photoBlob,
+    photoOriginalBlob: clearPhoto || photoPath != null
+        ? null
+        : photoOriginalBlob,
     specs: specs ?? this.specs,
     stock: stock,
   );
@@ -144,6 +179,8 @@ class Gear {
     'modes': [for (final m in brewModes) m.name],
     if (photoPath != null) 'photo': photoPath,
     if (photoOriginalPath != null) 'photoOriginal': photoOriginalPath,
+    if (photoBlob != null) 'photoBlob': photoBlob,
+    if (photoOriginalBlob != null) 'photoOriginalBlob': photoOriginalBlob,
     if (specs.isNotEmpty) 'specs': specs,
     if (stock != null) 'stock': stock,
   };
@@ -161,6 +198,8 @@ class Gear {
     final brand = json['brand'];
     final photo = json['photo'];
     final original = json['photoOriginal'];
+    final blob = json['photoBlob'];
+    final originalBlob = json['photoOriginalBlob'];
     final stock = json['stock'];
     return Gear(
       id: id,
@@ -172,6 +211,8 @@ class Gear {
           : const {BrewMode.espresso, BrewMode.pourOver},
       photoPath: photo is String ? photo : null,
       photoOriginalPath: original is String ? original : null,
+      photoBlob: blob is String ? blob : null,
+      photoOriginalBlob: originalBlob is String ? originalBlob : null,
       specs: specs is Map ? Map<String, Object?>.from(specs) : const {},
       stock: stock is num ? stock.toInt() : null,
     );

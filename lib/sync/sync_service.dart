@@ -327,6 +327,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
     // The photos on the servers are gone — forget the references so they
     // are uploaded again with the next key.
     await db.syncDao.reuploadLocalPhotos();
+    await settings?.photos?.forget();
     notifyListeners();
     return report;
   }
@@ -550,6 +551,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
     _blobs?.servers.add(url);
     // All photos are uploaded again so the new server has them too.
     await db.syncDao.reuploadLocalPhotos();
+    await settings?.photos?.forget();
     notifyListeners();
     // Check right away — otherwise the dot would stay gray until the whole
     // sync including photo uploads is done.

@@ -43,13 +43,35 @@ import 'sync_state_store.dart';
 /// Link to the app's settings: where they live and who must re-read them
 /// after a takeover (AppSettings, AiSettings).
 class SettingsBridge {
-  const SettingsBridge({required this.prefs, required this.reload, this.keys});
+  const SettingsBridge({
+    required this.prefs,
+    required this.reload,
+    this.keys,
+    this.photos,
+  });
 
   final Future<SettingsStore> Function() prefs;
   final Future<void> Function() reload;
 
   /// If not given: syncedSettingKeys().
   final List<String>? keys;
+
+  /// Photos referenced from inside a setting (the gear on My Coffee Desk).
+  final SettingsPhotos? photos;
+}
+
+/// Photos that live in a setting rather than in a table row: before the
+/// settings are captured they are uploaded (and their reference written
+/// into the setting), after fetching the missing ones are downloaded.
+abstract class SettingsPhotos {
+  /// Upload what has no reference yet.
+  Future<void> upload(BlobSync blobs);
+
+  /// Download what this device lacks; returns how many arrived.
+  Future<int> fetch(BlobSync blobs);
+
+  /// Drop all references, so everything goes up again (new key or server).
+  Future<void> forget();
 }
 
 class SyncReport {
@@ -157,6 +179,14 @@ class SyncEngine {
     void Function(int received)? onProgress,
   }) async {
     final report = SyncReport();
+    final blobStore = blobs;
+    if (blobStore != null && blobStore.hasServers) {
+      try {
+        await settings?.photos?.upload(blobStore);
+      } catch (e) {
+        debugPrint('Sync: setting photos not uploaded: $e');
+      }
+    }
     await captureSettings();
     await pull(report, force: force, onProgress: onProgress);
     await push(report, force: force);
@@ -692,7 +722,10 @@ class SyncEngine {
       await _dao.markAllPending();
       // Whoever lost data may have lost the photos too ("Delete synced
       // data" from another device deletes both).
-      if (lost.isNotEmpty) await _dao.reuploadLocalPhotos();
+      if (lost.isNotEmpty) {
+        await _dao.reuploadLocalPhotos();
+        await settings?.photos?.forget();
+      }
       p.lastResendAt = now;
       await _savePresence(p);
       await push(report, force: force);
@@ -743,6 +776,11 @@ class SyncEngine {
   Future<void> fetchMissingPhotos(SyncReport report) async {
     final store = blobs;
     if (store == null) return;
+    try {
+      report.photosFetched += await settings?.photos?.fetch(store) ?? 0;
+    } catch (e) {
+      debugPrint('Sync: setting photos not fetched: $e');
+    }
     for (final b in await _dao.beansMissingPhoto()) {
       final ref = BlobRef.tryDecode(b.photoBlob);
       if (ref == null) continue;

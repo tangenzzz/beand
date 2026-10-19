@@ -10,6 +10,9 @@ import '../database/sync_ids.dart';
 import '../models/gear.dart';
 import '../models/grinder.dart';
 import '../models/water.dart';
+import '../sync/blobs/blob_ref.dart';
+import '../sync/blobs/blob_sync.dart';
+import '../sync/engine/sync_engine.dart' show SettingsPhotos;
 
 // All of the user's gear and brew chains (Settings → My Coffee Desk), kept
 // as two JSON settings so they travel with sync (whitelist in
@@ -23,7 +26,7 @@ import '../models/water.dart';
 // Photos are files in the app folder under gear_photos/; the setting holds
 // only the path relative to the app folder, so a restored backup on another
 // phone still finds them.
-class GearStore extends ChangeNotifier {
+class GearStore extends ChangeNotifier implements SettingsPhotos {
   GearStore._(this._prefs, this.docsPath, this._gear, this._chains);
 
   static const gearPrefKey = 'desk_gear';
@@ -241,9 +244,9 @@ class GearStore extends ChangeNotifier {
     _deletePhotoFile(gear.photoPath);
     _deletePhotoFile(gear.photoOriginalPath);
     save(
-      gear.copyWith(
-        photoPath: cut ?? original,
-        photoOriginalPath: cut == null ? null : original,
+      gear.withPhotos(
+        path: cut ?? original,
+        original: cut == null ? null : original,
       ),
     );
   }
@@ -256,13 +259,21 @@ class GearStore extends ChangeNotifier {
     if (gear.isCutout) {
       _deletePhotoFile(gear.photoPath);
       save(
-        gear.copyWith(
-          photoPath: cut,
-          photoOriginalPath: gear.photoOriginalPath,
+        gear.withPhotos(
+          path: cut,
+          original: gear.photoOriginalPath,
+          originalBlob: gear.photoOriginalBlob,
         ),
       );
     } else {
-      save(gear.copyWith(photoPath: cut, photoOriginalPath: gear.photoPath));
+      // The plain photo becomes the original — already uploaded as it is.
+      save(
+        gear.withPhotos(
+          path: cut,
+          original: gear.photoPath,
+          originalBlob: gear.photoBlob,
+        ),
+      );
     }
   }
 
@@ -271,7 +282,12 @@ class GearStore extends ChangeNotifier {
     final gear = byId(gearId);
     if (gear == null || !gear.isCutout) return;
     _deletePhotoFile(gear.photoPath);
-    save(gear.copyWith(photoPath: gear.photoOriginalPath));
+    save(
+      gear.withPhotos(
+        path: gear.photoOriginalPath,
+        blob: gear.photoOriginalBlob,
+      ),
+    );
   }
 
   void removePhoto(String gearId) {
@@ -279,7 +295,102 @@ class GearStore extends ChangeNotifier {
     if (gear == null || gear.photoPath == null) return;
     _deletePhotoFile(gear.photoPath);
     _deletePhotoFile(gear.photoOriginalPath);
-    save(gear.copyWith(clearPhoto: true));
+    save(gear.withPhotos());
+  }
+
+  // ---- Photo sync (SettingsPhotos) ----
+  //
+  // The gear setting travels via sync, its photos via the photo servers
+  // like the bean photos: before the settings are captured each photo
+  // without a reference is uploaded (encrypted) and the reference written
+  // into the gear; after fetching, a photo this phone lacks is downloaded
+  // to the same place in the app folder.
+
+  @override
+  Future<void> upload(BlobSync blobs) async {
+    for (final g in List.of(_gear)) {
+      var current = byId(g.id);
+      if (current == null) continue;
+      if (current.photoPath != null && current.photoBlob == null) {
+        final file = photoFile(current);
+        final ref = file == null ? null : await blobs.uploadFile(file.path);
+        current = byId(g.id);
+        if (ref != null &&
+            current != null &&
+            file != null &&
+            photoFile(current)?.path == file.path) {
+          save(
+            current.withPhotos(
+              path: current.photoPath,
+              original: current.photoOriginalPath,
+              blob: ref.encode(),
+              originalBlob: current.photoOriginalBlob,
+            ),
+          );
+        }
+      }
+      current = byId(g.id);
+      if (current == null) continue;
+      if (current.photoOriginalPath != null &&
+          current.photoOriginalBlob == null) {
+        final file = originalPhotoFile(current);
+        final ref = file == null ? null : await blobs.uploadFile(file.path);
+        current = byId(g.id);
+        if (ref != null &&
+            current != null &&
+            file != null &&
+            originalPhotoFile(current)?.path == file.path) {
+          save(
+            current.withPhotos(
+              path: current.photoPath,
+              original: current.photoOriginalPath,
+              blob: current.photoBlob,
+              originalBlob: ref.encode(),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  Future<int> fetch(BlobSync blobs) async {
+    final docs = docsPath;
+    if (docs == null) return 0;
+    var fetched = 0;
+    for (final g in List.of(_gear)) {
+      for (final (path, blob) in [
+        (g.photoPath, g.photoBlob),
+        (g.photoOriginalPath, g.photoOriginalBlob),
+      ]) {
+        if (path == null || p.isAbsolute(path) || _file(path) != null) {
+          continue;
+        }
+        final ref = BlobRef.tryDecode(blob);
+        if (ref == null) continue;
+        final bytes = await blobs.downloadBytes(ref);
+        if (bytes == null) continue;
+        final target = File(p.join(docs, path));
+        target.parent.createSync(recursive: true);
+        await target.writeAsBytes(bytes, flush: true);
+        fetched++;
+      }
+    }
+    // The shelves show the photo instead of the icon now.
+    if (fetched > 0) notifyListeners();
+    return fetched;
+  }
+
+  @override
+  Future<void> forget() async {
+    if (!_gear.any((g) => g.photoBlob != null || g.photoOriginalBlob != null)) {
+      return;
+    }
+    _gear = [
+      for (final g in _gear)
+        g.withPhotos(path: g.photoPath, original: g.photoOriginalPath),
+    ];
+    _save();
   }
 
   Directory? _photoDir() {
@@ -355,6 +466,8 @@ Gear gearFromGrinder(Grinder g, {Gear? existing}) => Gear(
       existing?.brewModes ?? const {BrewMode.espresso, BrewMode.pourOver},
   photoPath: existing?.photoPath,
   photoOriginalPath: existing?.photoOriginalPath,
+  photoBlob: existing?.photoBlob,
+  photoOriginalBlob: existing?.photoOriginalBlob,
   specs: {...?existing?.specs, 'burrs': g.burrs, 'activeBurr': g.activeBurrs}
     ..removeWhere((_, v) => v == null || (v is List && v.isEmpty)),
 );
@@ -383,6 +496,8 @@ Gear gearFromWater(Water w, {Gear? existing}) => Gear(
   },
   photoPath: existing?.photoPath,
   photoOriginalPath: existing?.photoOriginalPath,
+  photoBlob: existing?.photoBlob,
+  photoOriginalBlob: existing?.photoOriginalBlob,
   specs:
       {
           for (final e in (existing?.specs ?? const {}).entries)
