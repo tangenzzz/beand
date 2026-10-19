@@ -12,5 +12,9 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    // Gear photo cutout (lib/services/gear_cutout.dart).
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BeandCutout") {
+      Cutout.register(messenger: registrar.messenger())
+    }
   }
 }

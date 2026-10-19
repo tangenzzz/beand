@@ -160,6 +160,7 @@ class GearStore extends ChangeNotifier {
     final gone = byId(id);
     if (gone == null) return;
     _deletePhotoFile(gone.photoPath);
+    _deletePhotoFile(gone.photoOriginalPath);
     _gear = [
       for (final g in _gear)
         if (g.id != id) g,
@@ -201,8 +202,12 @@ class GearStore extends ChangeNotifier {
 
   /// The photo file of [gear], null without one (or when it is missing on
   /// this phone, e.g. synced from another device).
-  File? photoFile(Gear gear) {
-    final path = gear.photoPath;
+  File? photoFile(Gear gear) => _file(gear.photoPath);
+
+  /// The photo a cut-out was made from.
+  File? originalPhotoFile(Gear gear) => _file(gear.photoOriginalPath);
+
+  File? _file(String? path) {
     final docs = docsPath;
     if (path == null) return null;
     final file = File(
@@ -212,25 +217,79 @@ class GearStore extends ChangeNotifier {
   }
 
   /// Copies a picked image into the app folder and sets it as the photo of
-  /// [gearId]. The picker's cache file may be deleted by Android any time.
-  Future<void> setPhoto(String gearId, String pickedPath) async {
-    final docs = docsPath;
+  /// [gearId] (the picker's cache file may be deleted by Android any time).
+  /// With [cutout] (PNG) that one is shown and the photo kept as original.
+  Future<void> setPhoto(
+    String gearId,
+    String pickedPath, {
+    Uint8List? cutout,
+  }) async {
     final gear = byId(gearId);
-    if (docs == null || gear == null) return;
-    final dir = Directory(p.join(docs, photoFolder))
-      ..createSync(recursive: true);
-    final name =
-        'gear_${DateTime.now().microsecondsSinceEpoch}${p.extension(pickedPath)}';
-    await File(pickedPath).copy(p.join(dir.path, name));
+    final dir = _photoDir();
+    if (gear == null || dir == null) return;
+    final original = _newName(p.extension(pickedPath));
+    await File(pickedPath).copy(p.join(docsPath!, original));
+    final cut = cutout == null ? null : await _writeCutout(cutout);
     _deletePhotoFile(gear.photoPath);
-    save(gear.copyWith(photoPath: p.join(photoFolder, name)));
+    _deletePhotoFile(gear.photoOriginalPath);
+    save(
+      gear.copyWith(
+        photoPath: cut ?? original,
+        photoOriginalPath: cut == null ? null : original,
+      ),
+    );
+  }
+
+  /// Turns a plain photo into a cut-out, keeping the photo as original.
+  Future<void> applyCutout(String gearId, Uint8List cutout) async {
+    final gear = byId(gearId);
+    if (gear == null || gear.photoPath == null || _photoDir() == null) return;
+    final cut = await _writeCutout(cutout);
+    if (gear.isCutout) {
+      _deletePhotoFile(gear.photoPath);
+      save(
+        gear.copyWith(
+          photoPath: cut,
+          photoOriginalPath: gear.photoOriginalPath,
+        ),
+      );
+    } else {
+      save(gear.copyWith(photoPath: cut, photoOriginalPath: gear.photoPath));
+    }
+  }
+
+  /// Back from the cut-out to the photo it was cut from.
+  void useOriginalPhoto(String gearId) {
+    final gear = byId(gearId);
+    if (gear == null || !gear.isCutout) return;
+    _deletePhotoFile(gear.photoPath);
+    save(gear.copyWith(photoPath: gear.photoOriginalPath));
   }
 
   void removePhoto(String gearId) {
     final gear = byId(gearId);
     if (gear == null || gear.photoPath == null) return;
     _deletePhotoFile(gear.photoPath);
+    _deletePhotoFile(gear.photoOriginalPath);
     save(gear.copyWith(clearPhoto: true));
+  }
+
+  Directory? _photoDir() {
+    final docs = docsPath;
+    if (docs == null) return null;
+    return Directory(p.join(docs, photoFolder))..createSync(recursive: true);
+  }
+
+  // Relative to the app folder.
+  static String _newName(String extension) => p.join(
+    photoFolder,
+    'gear_${DateTime.now().microsecondsSinceEpoch}$extension',
+  );
+
+  Future<String> _writeCutout(Uint8List png) async {
+    final name = _newName('_cut.png');
+    await File(p.join(docsPath!, name)).writeAsBytes(png);
+    return name;
   }
 
   void _deletePhotoFile(String? path) {
@@ -287,6 +346,7 @@ Gear gearFromGrinder(Grinder g, {Gear? existing}) => Gear(
   brewModes:
       existing?.brewModes ?? const {BrewMode.espresso, BrewMode.pourOver},
   photoPath: existing?.photoPath,
+  photoOriginalPath: existing?.photoOriginalPath,
   specs: {...?existing?.specs, 'burrs': g.burrs, 'activeBurr': g.activeBurrs}
     ..removeWhere((_, v) => v == null || (v is List && v.isEmpty)),
 );
@@ -314,6 +374,7 @@ Gear gearFromWater(Water w, {Gear? existing}) => Gear(
     _ => const {BrewMode.espresso, BrewMode.pourOver},
   },
   photoPath: existing?.photoPath,
+  photoOriginalPath: existing?.photoOriginalPath,
   specs:
       {
           for (final e in (existing?.specs ?? const {}).entries)

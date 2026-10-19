@@ -72,3 +72,10 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Cuts gear photos out on the device (Cutout.kt): the standalone LiteRT
+    // runtime — no Google Play services needed, 16 KB page aligned, ~4.5 MB
+    // on arm64 (ONNX Runtime was ~33 MB).
+    implementation("com.google.ai.edge.litert:litert:1.4.2")
+}

@@ -16,6 +16,7 @@ import '../../widgets/underline_select.dart';
 import 'coffee_desk_data.dart';
 import 'desk_filter.dart';
 import 'gear_dialogs.dart';
+import 'gear_photo_preview.dart';
 import 'my_setup_dialogs.dart';
 import 'settings_widgets.dart';
 
@@ -142,42 +143,41 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
   Future<void> _choosePhoto(Gear g) async {
     final colors = context.colors;
     final store = context.read<GearStore>();
+    Widget item(
+      IconData icon,
+      String label,
+      String value, {
+      bool danger = false,
+    }) => ListTile(
+      leading: Icon(icon, color: danger ? colors.danger : colors.textSecondary),
+      title: Text(
+        label,
+        style: TextStyle(color: danger ? colors.danger : colors.textPrimary),
+      ),
+      onTap: () => Navigator.pop(context, value),
+    );
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: Icon(
-                Icons.photo_camera_outlined,
-                color: colors.textSecondary,
-              ),
-              title: Text(
-                'Take photo',
-                style: TextStyle(color: colors.textPrimary),
-              ),
-              onTap: () => Navigator.pop(context, 'camera'),
+            item(Icons.photo_camera_outlined, 'Take photo', 'camera'),
+            item(
+              Icons.photo_library_outlined,
+              'Choose from gallery',
+              'gallery',
             ),
-            ListTile(
-              leading: Icon(
-                Icons.photo_library_outlined,
-                color: colors.textSecondary,
-              ),
-              title: Text(
-                'Choose from gallery',
-                style: TextStyle(color: colors.textPrimary),
-              ),
-              onTap: () => Navigator.pop(context, 'gallery'),
-            ),
+            if (g.isCutout)
+              item(Icons.crop_original, 'Use original photo', 'original')
+            else if (store.photoFile(g) != null)
+              item(Icons.auto_fix_high_outlined, 'Cut out', 'cutout'),
             if (g.photoPath != null)
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: colors.danger),
-                title: Text(
-                  'Remove photo',
-                  style: TextStyle(color: colors.danger),
-                ),
-                onTap: () => Navigator.pop(context, 'remove'),
+              item(
+                Icons.delete_outline,
+                'Remove photo',
+                'remove',
+                danger: true,
               ),
             const SizedBox(height: 8),
           ],
@@ -185,18 +185,55 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
       ),
     );
     if (action == null || !mounted) return;
-    if (action == 'remove') {
-      store.removePhoto(g.id);
-      return;
+    switch (action) {
+      case 'remove':
+        store.removePhoto(g.id);
+      case 'original':
+        store.useOriginalPhoto(g.id);
+      case 'cutout':
+        final photo = store.photoFile(g);
+        if (photo == null) return;
+        final choice = await showCutoutPreview(
+          context,
+          photo.path,
+          allowRetake: false,
+        );
+        if (choice?.$1 == PhotoChoice.cutout && choice!.$2 != null) {
+          await store.applyCutout(g.id, choice.$2!);
+        }
+      default:
+        await _takePhoto(
+          g,
+          action == 'camera' ? ImageSource.camera : ImageSource.gallery,
+        );
     }
+  }
+
+  // Pick or take a photo, cut it out right away, then the user picks: the
+  // cut-out, the photo as it is, or another go.
+  Future<void> _takePhoto(Gear g, ImageSource source) async {
+    final store = context.read<GearStore>();
     try {
-      final picked = await ImagePicker().pickImage(
-        source: action == 'camera' ? ImageSource.camera : ImageSource.gallery,
-        maxWidth: 800,
-        imageQuality: 85,
-      );
-      if (picked == null) return;
-      await store.setPhoto(g.id, picked.path);
+      while (mounted) {
+        final picked = await ImagePicker().pickImage(
+          source: source,
+          // Large enough for a clean edge; the cut-out ends up smaller.
+          maxWidth: 1600,
+          imageQuality: 90,
+        );
+        if (picked == null || !mounted) return;
+        final choice = await showCutoutPreview(context, picked.path);
+        if (choice == null) return;
+        switch (choice.$1) {
+          case PhotoChoice.retake:
+            continue;
+          case PhotoChoice.cutout:
+            await store.setPhoto(g.id, picked.path, cutout: choice.$2);
+          case PhotoChoice.original:
+            await store.setPhoto(g.id, picked.path);
+        }
+        return;
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -467,35 +504,42 @@ class _Shelf extends StatelessWidget {
           ),
           count: items.length,
         ),
+        // The shelf board runs right under the avatars (cut-outs stand on
+        // it), the names sit below it; the pieces scroll over a fixed board.
         SizedBox(
           height: GearAvatar.slotHeight,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.dividerInset - GearAvatar.ringGap,
-            ),
-            itemCount: items.length + 1,
-            separatorBuilder: (_, _) => const SizedBox(width: 6),
-            itemBuilder: (context, i) => i == items.length
-                ? _NewAvatar(type: type, onTap: onAdd)
-                : GearAvatar(
-                    gear: items[i],
-                    photo: photoOf(items[i]),
-                    active: active.contains(items[i].id),
-                    selected: items[i].id == openId,
-                    onTap: () => onTap(items[i]),
+          child: Stack(
+            children: [
+              Positioned(
+                top: GearAvatar.boardTop,
+                left: AppSpacing.dividerInset,
+                right: AppSpacing.dividerInset,
+                child: Container(
+                  height: GearAvatar.boardHeight,
+                  decoration: BoxDecoration(
+                    color: colors.textTertiary,
+                    borderRadius: BorderRadius.circular(1.5),
                   ),
-          ),
-        ),
-        // The shelf board.
-        Container(
-          height: 3,
-          margin: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.dividerInset,
-          ),
-          decoration: BoxDecoration(
-            color: colors.textTertiary,
-            borderRadius: BorderRadius.circular(1.5),
+                ),
+              ),
+              ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.dividerInset - GearAvatar.ringGap,
+                ),
+                itemCount: items.length + 1,
+                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                itemBuilder: (context, i) => i == items.length
+                    ? _NewAvatar(type: type, onTap: onAdd)
+                    : GearAvatar(
+                        gear: items[i],
+                        photo: photoOf(items[i]),
+                        active: active.contains(items[i].id),
+                        selected: items[i].id == openId,
+                        onTap: () => onTap(items[i]),
+                      ),
+              ),
+            ],
           ),
         ),
         AnimatedSize(
@@ -542,10 +586,12 @@ class GearIcon extends StatelessWidget {
 
 /// Round 56 dp avatar of one piece of gear: its photo, else the type's line
 /// icon. Kept quiet (user feedback 2026-10-18 on the first draft: the rings
-/// were far too loud): a thin, muted accent hairline when an active chain
-/// uses it, a faint hairline when stored; the selected one only gets a
-/// faint outer hairline and a brighter name. Badge: "E" or a dripper when
-/// it serves only one brew mode.
+/// were far too loud): a thin, muted accent hairline when a chain uses it,
+/// a faint hairline when stored; the selected one only gets a faint outer
+/// hairline and a brighter name. A cut-out photo has no circle: the piece
+/// stands freely on the board with a soft shadow, in use marked by a small
+/// accent dot before its name. Badge: "E" or a dripper when it serves only
+/// one brew mode.
 class GearAvatar extends StatelessWidget {
   const GearAvatar({
     super.key,
@@ -565,7 +611,12 @@ class GearAvatar extends StatelessWidget {
   static const size = 56.0;
   static const ringGap = 4.0;
   static const _slot = size + 2 * ringGap;
-  static const slotHeight = _slot + 4 + 16;
+
+  /// Where the shelf board runs: right under the avatar.
+  static const boardTop = _slot;
+  static const boardHeight = 3.0;
+  static const _nameGap = boardHeight + 5;
+  static const slotHeight = _slot + _nameGap + 16;
 
   @override
   Widget build(BuildContext context) {
@@ -591,41 +642,59 @@ class GearAvatar extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    if (selected)
+                    if (gear.isCutout && photo != null)
+                      Positioned.fill(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: StandingImage(
+                            image: Image.file(
+                              photo,
+                              width: _slot,
+                              height: _slot,
+                              fit: BoxFit.contain,
+                              alignment: Alignment.bottomCenter,
+                              cacheWidth: 200,
+                            ),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      if (selected)
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: colors.textTertiary.withValues(alpha: 0.6),
+                              width: 0.5,
+                            ),
+                          ),
+                        ),
                       Container(
+                        width: size,
+                        height: size,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: colors.textTertiary.withValues(alpha: 0.6),
-                            width: 0.5,
+                            color: active
+                                ? colors.accent.withValues(alpha: 0.55)
+                                : colors.textTertiary.withValues(alpha: 0.5),
+                            width: active ? 1 : 0.5,
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(1),
+                        child: CircleAvatar(
+                          backgroundColor: colors.bg,
+                          foregroundImage: photo == null
+                              ? null
+                              : ResizeImage(FileImage(photo), width: 160),
+                          child: GearIcon(
+                            asset: gear.type.iconAsset(gear.specs),
+                            size: 28,
+                            color: iconColor,
                           ),
                         ),
                       ),
-                    Container(
-                      width: size,
-                      height: size,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: active
-                              ? colors.accent.withValues(alpha: 0.55)
-                              : colors.textTertiary.withValues(alpha: 0.5),
-                          width: active ? 1 : 0.5,
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(1),
-                      child: CircleAvatar(
-                        backgroundColor: colors.bg,
-                        foregroundImage: photo == null
-                            ? null
-                            : ResizeImage(FileImage(photo), width: 160),
-                        child: GearIcon(
-                          asset: gear.type.iconAsset(gear.specs),
-                          size: 28,
-                          color: iconColor,
-                        ),
-                      ),
-                    ),
+                    ],
                     if (mode != null)
                       Positioned(
                         right: ringGap,
@@ -635,16 +704,36 @@ class GearAvatar extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                gear.model,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: selected ? colors.textPrimary : colors.textSecondary,
-                  fontSize: 11,
-                ),
+              const SizedBox(height: _nameGap),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (gear.isCutout && photo != null && active)
+                    Container(
+                      key: const ValueKey('in-use-dot'),
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colors.accent.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  Flexible(
+                    child: Text(
+                      gear.model,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: selected
+                            ? colors.textPrimary
+                            : colors.textSecondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -724,7 +813,7 @@ class _NewAvatar extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: GearAvatar._nameGap),
               Text(
                 'New',
                 style: TextStyle(color: colors.textSecondary, fontSize: 11),

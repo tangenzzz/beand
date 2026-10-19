@@ -120,6 +120,10 @@ bean'd builds on the work and documentation of others:
   icons (brew, steam, water), as used on the machine's display.
   These assets are not covered by the GPL; see
   [assets/gaggimate/README.md](assets/gaggimate/README.md).
+- [U²-Net](https://github.com/xuebinqin/U-2-Net) (Apache-2.0), ONNX export
+  via [rembg](https://github.com/danielgatis/rembg) (MIT): cutting gear
+  photos out on Android, see [assets/models/README.md](assets/models/README.md);
+  [LiteRT](https://github.com/google-ai-edge/LiteRT) (Apache-2.0) runs it.
 - [Nostr NIPs](https://github.com/nostr-protocol/nips),
   [paulmillr/nip44](https://github.com/paulmillr/nip44) test vectors and
   [Blossom](https://github.com/hzrd149/blossom).

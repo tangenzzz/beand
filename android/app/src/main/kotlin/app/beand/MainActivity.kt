@@ -30,6 +30,8 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // Gear photo cutout (lib/services/gear_cutout.dart).
+        Cutout.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         // After a restore: really end the process and start fresh
         // (lib/services/app_restart.dart). SystemNavigator.pop() only closes
         // the window; Dart services with the old DB connection would live on.

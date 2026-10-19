@@ -20,6 +20,7 @@ import 'screens/settings/meticulous_settings_screen.dart';
 import 'services/ai/ai_service.dart';
 import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
+import 'services/bundled_licenses.dart';
 import 'services/gear_store.dart';
 import 'services/grinder_store.dart';
 import 'services/water_store.dart';
@@ -53,6 +54,7 @@ const _defaultRecipeId = 'tetsu-kasuya-4-6-method';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerBundledLicenses();
 
   final prefs = await SharedPreferences.getInstance();
   final hostname = prefs.getString(hostnamePrefKey) ?? _defaultHostname;

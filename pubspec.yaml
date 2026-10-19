@@ -77,7 +77,7 @@ dependencies:
   mobile_scanner: ^7.4.2
   local_auth: ^3.0.2
   flutter_svg: ^2.3.0
-
+  image: ^4.3.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -116,6 +116,9 @@ flutter:
     - assets/gaggimate/water.svg
     # Line icons of the gear types (My Coffee Desk), currentColor strokes
     - assets/icons/gear/
+    # U²-Net (small) for cutting gear photos out on Android, Apache-2.0
+    # (see assets/models/README.md)
+    - assets/models/u2netp_fp16.tflite
 
   # To add assets to your application, add an assets section, like this:
   # assets:

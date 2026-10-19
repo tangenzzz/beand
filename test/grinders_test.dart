@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:beand/database/database.dart';
 import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
@@ -7,6 +9,7 @@ import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/screens/live/shot_cards_carousel.dart';
 import 'package:beand/models/water.dart';
 import 'package:beand/screens/settings/desk_filter.dart';
+import 'package:beand/screens/settings/gear_photo_preview.dart';
 import 'package:beand/screens/settings/my_coffee_desk_screen.dart';
 import 'package:beand/screens/settings/settings_widgets.dart';
 import 'package:beand/services/app_settings.dart';
@@ -19,7 +22,9 @@ import 'package:beand/services/water_store.dart';
 import 'package:beand/sync/records/setting_codec.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:beand/widgets/underline_select.dart';
+
 import 'package:drift/native.dart';
+import 'package:image/image.dart' as img;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -451,6 +456,40 @@ void main() {
     // Deleting gear takes it out of its chains.
     gear.remove('m');
     expect(gear.chains.single.gearIds, hasLength(1));
+  });
+
+  testWidgets('My Coffee Desk: a cut-out stands on the shelf, no circle', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final docs = Directory.systemTemp.createTempSync('desk_cutout');
+    addTearDown(() => docs.deleteSync(recursive: true));
+    Directory('${docs.path}/gear_photos').createSync();
+    File('${docs.path}/gear_photos/a_cut.png').writeAsBytesSync(
+      img.encodePng(img.Image(width: 8, height: 8, numChannels: 4)),
+    );
+    final gear = GearStore.inMemory(
+      docsPath: docs.path,
+      gear: const [
+        Gear(
+          id: 'm',
+          type: GearType.machine,
+          model: 'Meticulous',
+          photoPath: 'gear_photos/a_cut.png',
+          photoOriginalPath: 'gear_photos/a.jpg',
+        ),
+      ],
+      chains: const [
+        BrewChain(id: 'c', name: 'Bar', gearIds: ['m']),
+      ],
+    );
+    await tester.pumpWidget(mySetup(gear));
+    expect(find.byType(StandingImage), findsOneWidget);
+    expect(find.byType(CircleAvatar), findsNothing);
+    // In use: a small dot before the name instead of the ring.
+    expect(find.byKey(const ValueKey('in-use-dot')), findsOneWidget);
   });
 
   test('desk search matches brand, model and type fields', () {

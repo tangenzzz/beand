@@ -60,6 +60,7 @@ class Gear {
     this.brand,
     this.brewModes = const {BrewMode.espresso, BrewMode.pourOver},
     this.photoPath,
+    this.photoOriginalPath,
     this.specs = const {},
     this.stock,
   });
@@ -70,6 +71,12 @@ class Gear {
   final String model;
   final Set<BrewMode> brewModes;
   final String? photoPath;
+
+  /// Set when [photoPath] is a cut-out (transparent PNG that stands freely
+  /// on the shelf): the photo it was cut from, to go back to.
+  final String? photoOriginalPath;
+
+  bool get isCutout => photoPath != null && photoOriginalPath != null;
 
   /// Type-specific values, JSON-safe (strings, numbers, lists).
   final Map<String, Object?> specs;
@@ -86,12 +93,16 @@ class Gear {
     brand: brand,
     brewModes: brewModes,
     photoPath: photoPath,
+    photoOriginalPath: photoOriginalPath,
     specs: specs,
     stock: stock,
   );
 
+  /// [clearPhoto] removes both photos; a new [photoPath] without
+  /// [photoOriginalPath] is a plain photo.
   Gear copyWith({
     String? photoPath,
+    String? photoOriginalPath,
     bool clearPhoto = false,
     Map<String, Object?>? specs,
   }) => Gear(
@@ -101,6 +112,9 @@ class Gear {
     brand: brand,
     brewModes: brewModes,
     photoPath: clearPhoto ? null : (photoPath ?? this.photoPath),
+    photoOriginalPath: clearPhoto
+        ? null
+        : (photoPath != null ? photoOriginalPath : this.photoOriginalPath),
     specs: specs ?? this.specs,
     stock: stock,
   );
@@ -112,6 +126,7 @@ class Gear {
     if (brand != null) 'brand': brand,
     'modes': [for (final m in brewModes) m.name],
     if (photoPath != null) 'photo': photoPath,
+    if (photoOriginalPath != null) 'photoOriginal': photoOriginalPath,
     if (specs.isNotEmpty) 'specs': specs,
     if (stock != null) 'stock': stock,
   };
@@ -128,6 +143,7 @@ class Gear {
     final specs = json['specs'];
     final brand = json['brand'];
     final photo = json['photo'];
+    final original = json['photoOriginal'];
     final stock = json['stock'];
     return Gear(
       id: id,
@@ -138,6 +154,7 @@ class Gear {
           ? {for (final m in modes) ?BrewMode.values.asNameMap()[m]}
           : const {BrewMode.espresso, BrewMode.pourOver},
       photoPath: photo is String ? photo : null,
+      photoOriginalPath: original is String ? original : null,
       specs: specs is Map ? Map<String, Object?>.from(specs) : const {},
       stock: stock is num ? stock.toInt() : null,
     );
