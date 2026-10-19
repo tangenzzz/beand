@@ -172,6 +172,9 @@ Future<void> main() async {
   await recipeStore.load();
   final pourOverSetup = await ShotSetup.load(machineKey: 'pourover');
   pourOverSetup.gear = gear;
+  // The brew chain last used for pour over (as for both machines above).
+  await pourOverSetup.restoreChainFromLastShot(database);
+  shotSetups.pourOver = pourOverSetup;
   if (pourOverSetup.profileId == null ||
       recipeStore.byId(pourOverSetup.profileId!) == null) {
     final first =

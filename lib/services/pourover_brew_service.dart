@@ -409,6 +409,7 @@ class PourOverBrewService extends LiveShotService {
         grinder: Value(snap.grinder),
         burrs: Value(snap.burrs),
         brewedWith: Value(snap.brewedWith),
+        brewChainId: Value(snap.brewChainId),
         finalWeight: Value(_grams),
         durationMs: Value(readings.isEmpty ? elapsedMs : readings.last.timeMs),
         profileTemp: Value(temperature),

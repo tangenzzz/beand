@@ -63,6 +63,7 @@ void main() {
     raw.execute('ALTER TABLE shots DROP COLUMN grinder');
     raw.execute('ALTER TABLE shots DROP COLUMN burrs');
     raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
+    raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
     raw.execute('PRAGMA user_version = 17');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -91,6 +92,7 @@ void main() {
       raw.execute('ALTER TABLE shots DROP COLUMN grinder');
       raw.execute('ALTER TABLE shots DROP COLUMN burrs');
       raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
+      raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
       raw.execute('PRAGMA user_version = 18');
 
       final db = AppDatabase(NativeDatabase.opened(raw));
@@ -122,6 +124,7 @@ void main() {
         );
     await fresh.close();
     raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
+    raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
     raw.execute('PRAGMA user_version = 19');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -135,6 +138,38 @@ void main() {
       (await db.select(db.shots).get()).single.brewedWith,
       'Niche Zero (SSP)\nIMS 18',
     );
+    await db.close();
+  });
+
+  test('migration v20 -> v21: brewChainId is added, shots stay', () async {
+    final raw = sql.sqlite3.openInMemory();
+    final fresh = AppDatabase(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    await fresh
+        .into(fresh.shots)
+        .insert(
+          ShotsCompanion.insert(
+            timestamp: DateTime(2026, 10, 1),
+            brewedWith: const Value('IMS 18'),
+          ),
+        );
+    await fresh.close();
+    raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+    raw.execute('PRAGMA user_version = 20');
+
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    final shot = (await db.select(db.shots).get()).single;
+    expect(shot.brewedWith, 'IMS 18');
+    expect(shot.brewChainId, isNull);
+    await db.setShotChain(
+      shot.id,
+      chainId: 'bar',
+      grinder: 'Zero',
+      burrs: null,
+      brewedWith: 'Zero',
+    );
+    expect((await db.select(db.shots).get()).single.brewChainId, 'bar');
     await db.close();
   });
 }

@@ -24,6 +24,7 @@ import 'package:beand/sync/records/setting_codec.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:beand/widgets/underline_select.dart';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/material.dart';
@@ -176,6 +177,45 @@ void main() {
       gear.removeChain(travel.id);
       expect(setup.chain?.id, bar.id);
     });
+  });
+
+  test('each machine starts with the chain of its last shot', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final gear = GearStore.inMemory(
+      chains: const [
+        BrewChain(id: 'bar', name: 'Bar', gearIds: []),
+        BrewChain(id: 'gag', name: 'Gaggia', gearIds: []),
+        BrewChain(id: 'po', name: 'V60', gearIds: []),
+      ],
+    );
+    Future<void> shot(String machine, String? chain, int day) => db
+        .into(db.shots)
+        .insert(
+          ShotsCompanion.insert(
+            timestamp: DateTime(2026, 10, day),
+            machine: Value(machine),
+            brewChainId: Value(chain),
+          ),
+        );
+    await shot('meticulous', 'gag', 1);
+    await shot('meticulous', 'bar', 2);
+    // The newest one names none: the one before counts.
+    await shot('meticulous', null, 3);
+    await shot('gaggimate', 'gag', 2);
+    await shot('pourover', 'po', 2);
+    // A chain deleted since is left alone.
+    await shot('pourover', 'gone', 3);
+
+    final meticulous = ShotSetup.inMemory()..gear = gear;
+    final gaggimate = ShotSetup.inMemory(machineKey: 'gaggimate')..gear = gear;
+    final pourOver = ShotSetup.inMemory(machineKey: 'pourover')..gear = gear;
+    await meticulous.restoreFromLastShot(db);
+    await gaggimate.restoreFromLastShot(db);
+    await pourOver.restoreChainFromLastShot(db);
+    expect(meticulous.chain?.id, 'bar');
+    expect(gaggimate.chain?.id, 'gag');
+    expect(pourOver.chain?.id, 'po');
   });
 
   Widget mySetup(GearStore gear) => MultiProvider(

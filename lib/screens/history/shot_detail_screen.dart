@@ -8,7 +8,9 @@ import 'package:provider/provider.dart';
 import '../../database/database.dart';
 import '../../models/shot_phases.dart';
 import '../../models/taste_profile.dart';
+import '../../models/gear.dart';
 import '../../services/app_settings.dart';
+import '../../services/gear_store.dart';
 import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
@@ -17,6 +19,7 @@ import '../beans/bean_form_screen.dart';
 import '../beans/bean_widgets.dart';
 import '../../widgets/value_select_row.dart';
 import '../live/ruler_picker.dart';
+import '../settings/gear_dialogs.dart';
 import 'history_logic.dart';
 import 'history_widgets.dart';
 import 'shot_analysis_section.dart';
@@ -26,7 +29,7 @@ import 'shot_share_screen.dart';
 
 // Expandable list below the card: Compare, Bean, Dose or Grind — never more
 // than one at a time (as in the pre-shot card).
-enum _Open { compare, bean, dose, grind }
+enum _Open { compare, bean, dose, grind, chain }
 
 // All stored data of a shot in one card: header with rating (tappable) and
 // bean (tappable, editable afterwards), metrics (dose/grind editable by tap,
@@ -187,6 +190,50 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
     _db.setShotBean(widget.shotId, bean.id);
   }
 
+  GearStore? get _gear {
+    try {
+      return context.read<GearStore>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  // Brew chain chosen afterwards: the shot takes what the chain holds now
+  // (grinder, burrs, pieces). On the newest shot of its machine the
+  // pre-shot card follows, so the next brew starts with it too.
+  Future<void> _selectChain(Shot shot, String chainId) async {
+    _close();
+    final store = _gear;
+    final chain = store?.chains.where((c) => c.id == chainId).firstOrNull;
+    if (store == null || chain == null) return;
+    final pieces = store.gearOf(chain);
+    final grinderGear = pieces
+        .where((g) => g.type == GearType.grinder)
+        .firstOrNull;
+    final grinder = grinderGear == null ? null : grinderFromGear(grinderGear);
+    await _db.setShotChain(
+      shot.id,
+      chainId: chain.id,
+      grinder: grinder?.name,
+      burrs: grinder?.activeBurrs,
+      brewedWith: pieces.isEmpty
+          ? null
+          : [for (final g in pieces) g.label].join('\n'),
+    );
+    final newest = await _db.lastShot(machine: shot.machine);
+    if (!mounted || newest?.id != shot.id) return;
+    try {
+      context.read<ShotSetups>().forMachine(shot.machine).setChain(chain.id);
+    } on ProviderNotFoundException {
+      // Screens built without the setups (tests).
+    }
+  }
+
+  Future<void> _addChain(Shot shot) async {
+    final added = await showChainDialog(context);
+    if (added != null && mounted) await _selectChain(shot, added.id);
+  }
+
   // Rulers report every change while dragging: debounce writes (as in
   // ShotSetup._changed / PreShotCard).
   void _setDose(double v) {
@@ -285,6 +332,84 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           ? r.copyWith(flow: Value(r.gravimetricFlow))
           : r,
   ];
+
+  // Brewed with (or, for older shots, the grinder) — tappable when there are
+  // chains to pick from.
+  Widget _chainLine(Shot shot) {
+    final colors = context.colors;
+    final store = _gear;
+    final choosable = store != null;
+    final gear = shot.brewedWith;
+    final Widget line;
+    if (gear != null && gear.isNotEmpty) {
+      line = BrewedWith(gear: gear);
+    } else if (shot.grinder != null) {
+      line = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.blender_outlined, size: 14, color: colors.textTertiary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              [shot.grinder!, ?shot.burrs].join('  ·  '),
+              key: const ValueKey('shot-grinder'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: colors.textSecondary, fontSize: 12),
+            ),
+          ),
+        ],
+      );
+    } else if (choosable) {
+      line = const BrewedWith(gear: '—');
+    } else {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: InkWell(
+        key: const ValueKey('shot-chain'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: choosable ? () => _toggle(_Open.chain) : null,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(child: line),
+            if (choosable)
+              Icon(
+                _open == _Open.chain ? Icons.expand_less : Icons.expand_more,
+                size: 16,
+                color: colors.textTertiary,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chainList(Shot shot) {
+    final store = context.watch<GearStore>();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: ValueSelectList<String>(
+        options: [
+          for (final c in store.chains)
+            ValueOption(
+              value: c.id,
+              title: c.name,
+              subtitle: [for (final g in store.gearOf(c)) g.model].join(', '),
+            ),
+        ],
+        selected: shot.brewChainId,
+        onSelected: (id) {
+          HapticFeedback.selectionClick();
+          _selectChain(shot, id);
+        },
+        action: ValueSelectAction('New brew chain', () => _addChain(shot)),
+        emptyText: 'No brew chains yet.',
+      ),
+    );
+  }
 
   Widget _content(ShotEntry entry) {
     final shot = entry.shot;
@@ -515,39 +640,10 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           ],
         ),
         // The brew chain's gear as it was at brew time: small, two lines at
-        // most. Older shots without a chain show the grinder and burrs.
-        if (shot.brewedWith case final String gear when gear.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: BrewedWith(gear: gear),
-          )
-        else if (shot.grinder != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.blender_outlined,
-                  size: 14,
-                  color: context.colors.textTertiary,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    [shot.grinder!, ?shot.burrs].join('  ·  '),
-                    key: const ValueKey('shot-grinder'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: context.colors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+        // most; tapping it picks another chain, like dose and grind. Older
+        // shots without a chain show the grinder and burrs.
+        _chainLine(shot),
+        if (_open == _Open.chain) _chainList(shot),
         if (_open == _Open.dose)
           Padding(
             padding: const EdgeInsets.only(top: 10),

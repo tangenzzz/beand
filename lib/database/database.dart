@@ -98,6 +98,9 @@ class Shots extends Table with SyncColumns {
   // line in desk order — text like the grinder, so later edits on the desk
   // don't rewrite old shots.
   TextColumn get brewedWith => text().nullable()();
+  // Which brew chain it was (its ID on My Coffee Desk) — so the next brew on
+  // this machine starts with it, and the shot detail can change it.
+  TextColumn get brewChainId => text().nullable()();
   IntColumn get rating => integer().nullable()();
   // The eight axes of the rating flower, 0-5 each (null = not rated).
   // Separate columns instead of an encoded string so they can be filtered
@@ -269,7 +272,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -394,6 +397,10 @@ class AppDatabase extends _$AppDatabase {
         // Brew chain's gear per shot — before the rebuild of schema 15 for
         // the same reason as grinder and burrs.
         await m.addColumn(shots, shots.brewedWith);
+      }
+      if (from < 21) {
+        // Brew chain ID per shot — before the rebuild of schema 15 as well.
+        await m.addColumn(shots, shots.brewChainId);
       }
       if (from < 15) {
         // Sync foundation: syncId, updatedAt, deviceId, syncState; beans and
@@ -865,6 +872,24 @@ class AppDatabase extends _$AppDatabase {
     return query.getSingleOrNull();
   }
 
+  // Brew chain IDs of the latest shots of [machine] that name one, newest
+  // first.
+  Future<List<String>> recentChainIds({
+    required String machine,
+    int limit = 20,
+  }) async {
+    final query = selectOnly(shots)
+      ..addColumns([shots.brewChainId])
+      ..where(
+        shots.deletedAt.isNull() &
+            shots.brewChainId.isNotNull() &
+            shots.machine.equals(machine),
+      )
+      ..orderBy([OrderingTerm.desc(shots.timestamp)])
+      ..limit(limit);
+    return [for (final row in await query.get()) row.read(shots.brewChainId)!];
+  }
+
   // Most recent shot with this profile (and optionally this bean) that
   // carries any setup values at all — a shot without dose AND without grind
   // size doesn't help prefilling, so it is skipped.
@@ -948,6 +973,24 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> setShotGrind(int id, String? grind) =>
       _writeShot(id, ShotsCompanion(grindSize: Value(grind)));
+
+  /// The brew chain chosen afterwards in the shot detail, with what it
+  /// holds now (grinder, burrs, pieces).
+  Future<void> setShotChain(
+    int id, {
+    required String? chainId,
+    required String? grinder,
+    required String? burrs,
+    required String? brewedWith,
+  }) => _writeShot(
+    id,
+    ShotsCompanion(
+      brewChainId: Value(chainId),
+      grinder: Value(grinder),
+      burrs: Value(burrs),
+      brewedWith: Value(brewedWith),
+    ),
+  );
 
   Future<void> setShotBean(int id, int? beanId) =>
       _writeShot(id, ShotsCompanion(beanId: Value(beanId)));

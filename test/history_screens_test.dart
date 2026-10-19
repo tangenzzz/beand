@@ -7,7 +7,10 @@ import 'package:beand/screens/history/shot_detail_screen.dart';
 import 'package:beand/widgets/value_select_row.dart';
 import 'package:beand/screens/beans/beans_tab.dart';
 import 'package:beand/screens/history/history_widgets.dart';
+import 'package:beand/models/gear.dart';
 import 'package:beand/services/app_settings.dart';
+import 'package:beand/services/gear_store.dart';
+import 'package:beand/services/shot_setup.dart';
 import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/widgets/app_button.dart';
 import 'package:beand/widgets/header_icon_button.dart';
@@ -325,6 +328,72 @@ void main() {
       (await inDb(tester, () => db.watchShotEntry(id).first))!.shot.notes,
       'Sweet, try 0.1 finer',
     );
+
+    await teardownApp(tester);
+  });
+
+  testWidgets('shot detail: brew chain changed afterwards', (tester) async {
+    bigScreen(tester);
+    final id = await inDb(
+      tester,
+      () => _insertShot(db, at: DateTime(2026, 10, 19), externalId: 'a'),
+    );
+    final gear = GearStore.inMemory(
+      gear: const [
+        Gear(
+          id: 'g',
+          type: GearType.grinder,
+          brand: 'Niche',
+          model: 'Zero',
+          specs: {
+            'burrs': ['SSP'],
+            'activeBurr': 'SSP',
+          },
+        ),
+        Gear(id: 'b', type: GearType.basket, brand: 'IMS', model: '18'),
+      ],
+      chains: const [
+        BrewChain(id: 'bar', name: 'Espresso bar', gearIds: ['b', 'g']),
+        BrewChain(id: 'travel', name: 'Travel', gearIds: ['b']),
+      ],
+    );
+    final setups = ShotSetups(
+      meticulous: ShotSetup.inMemory()..gear = gear,
+      gaggimate: ShotSetup.inMemory(machineKey: 'gaggimate')..gear = gear,
+    );
+    await tester.pumpWidget(
+      _app(
+        db,
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<GearStore>.value(value: gear),
+            Provider<ShotSetups>.value(value: setups),
+          ],
+          child: ShotDetailScreen(shotId: id),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    // No chain on the shot yet: a dash, tappable.
+    await tester.tap(find.byKey(const ValueKey('shot-chain')));
+    await tester.pump();
+    expect(find.text('Travel'), findsOneWidget);
+    await tester.tap(find.text('Espresso bar'));
+    await settle(tester);
+
+    final shot = (await inDb(tester, () => db.watchShotEntry(id).first))!.shot;
+    expect(shot.brewChainId, 'bar');
+    expect(shot.grinder, 'Zero');
+    expect(shot.burrs, 'SSP');
+    // Desk order: grinder before basket.
+    expect(shot.brewedWith, 'Niche Zero (SSP)\nIMS 18');
+    expect(
+      find.textContaining('Niche Zero (SSP)  ·  IMS 18', findRichText: true),
+      findsOneWidget,
+    );
+    // The newest shot of its machine: the next brew starts with it.
+    expect(setups.meticulous.chain?.id, 'bar');
 
     await teardownApp(tester);
   });

@@ -26,6 +26,7 @@ class ShotSetupSnapshot {
     this.grinder,
     this.burrs,
     this.brewedWith,
+    this.brewChainId,
   });
 
   // Dose and grind size are empty as long as nothing has been brewed with
@@ -39,6 +40,7 @@ class ShotSetupSnapshot {
   final String? burrs;
   // The chain's gear, one piece per line in desk order (Shots.brewedWith).
   final String? brewedWith;
+  final String? brewChainId;
 }
 
 class ShotSetup extends ChangeNotifier {
@@ -205,7 +207,23 @@ class ShotSetup extends ChangeNotifier {
     if (source.doseGrams != null) _doseGrams = source.doseGrams;
     final grind = double.tryParse(source.grindSize ?? '');
     if (grind != null) _grindSize = grind;
+    await restoreChainFromLastShot(database, notify: false);
     _changed();
+  }
+
+  /// The brew chain of the last shot on this machine that names one still
+  /// on the desk — the one last used here (pour over has no other restore,
+  /// so it calls this alone).
+  Future<void> restoreChainFromLastShot(
+    AppDatabase database, {
+    bool notify = true,
+  }) async {
+    final known = {for (final c in gear?.chains ?? const <BrewChain>[]) c.id};
+    final ids = await database.recentChainIds(machine: machineKey);
+    final id = ids.where(known.contains).firstOrNull;
+    if (id == null) return;
+    _chainId = id;
+    if (notify) _changed();
   }
 
   void setDose(double? grams) {
@@ -227,6 +245,7 @@ class ShotSetup extends ChangeNotifier {
     grinder: grinder?.name,
     burrs: grinder?.activeBurrs,
     brewedWith: _brewedWith(),
+    brewChainId: chain?.id,
   );
 
   String? _brewedWith() {
@@ -281,13 +300,19 @@ class ShotSetup extends ChangeNotifier {
 // home screens can pick the matching one — `Provider<ShotSetup>` alone
 // couldn't tell the two instances apart.
 class ShotSetups {
-  const ShotSetups({required this.meticulous, required this.gaggimate});
+  ShotSetups({required this.meticulous, required this.gaggimate});
 
   final ShotSetup meticulous;
   final ShotSetup gaggimate;
 
-  ShotSetup forMachine(String machineKey) =>
-      machineKey == 'gaggimate' ? gaggimate : meticulous;
+  /// Pour over's setup, created later in main() (it needs the recipes).
+  ShotSetup? pourOver;
+
+  ShotSetup forMachine(String machineKey) => switch (machineKey) {
+    'gaggimate' => gaggimate,
+    'pourover' => pourOver ?? meticulous,
+    _ => meticulous,
+  };
 
   void dispose() {
     meticulous.dispose();
