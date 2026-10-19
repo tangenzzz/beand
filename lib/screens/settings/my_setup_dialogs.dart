@@ -105,7 +105,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
 
   Future<void> _delete() async {
     final grinder = widget.grinder!;
-    if (!await _confirmDelete(
+    if (!await confirmSetupDelete(
           context,
           grinder.name,
           'Shots brewed with it keep its name.',
@@ -122,20 +122,20 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     final store = context.watch<GrinderStore>();
     final burrTaken = {for (final b in _entered) b.toLowerCase()};
     final editing = widget.grinder != null;
-    return _SetupDialog(
+    return SetupDialog(
       title: editing ? 'Edit grinder' : 'Add grinder',
       canSave: _name.text.trim().isNotEmpty,
       onSave: _save,
       onDelete: editing ? _delete : null,
       deleteLabel: 'Delete grinder',
       children: [
-        _Field(
+        SetupField(
           key: const ValueKey('grinder-brand'),
           controller: _brand,
           label: 'Brand',
           suggestions: store.brandSuggestions,
         ),
-        _Field(
+        SetupField(
           key: const ValueKey('grinder-name'),
           controller: _name,
           label: 'Name',
@@ -146,7 +146,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
           Row(
             children: [
               Expanded(
-                child: _Field(
+                child: SetupField(
                   key: ValueKey('grinder-burrs-$i'),
                   controller: _burrs[i],
                   label: 'Burrs',
@@ -287,7 +287,9 @@ class _WaterDialogState extends State<_WaterDialog> {
 
   Future<void> _delete() async {
     final water = widget.water!;
-    if (!await _confirmDelete(context, water.recipe, null) || !mounted) return;
+    if (!await confirmSetupDelete(context, water.recipe, null) || !mounted) {
+      return;
+    }
     context.read<WaterStore>().remove(water.id);
     Navigator.of(context).pop();
   }
@@ -304,7 +306,7 @@ class _WaterDialogState extends State<_WaterDialog> {
         ),
         SizedBox(
           width: 110,
-          child: _Field(
+          child: SetupField(
             key: ValueKey('water-amount-${m.name}'),
             controller: _amountField(m),
             label: 'Amount',
@@ -319,14 +321,14 @@ class _WaterDialogState extends State<_WaterDialog> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.water != null;
-    return _SetupDialog(
+    return SetupDialog(
       title: editing ? 'Edit water' : 'Add water',
       canSave: _recipe.text.trim().isNotEmpty,
       onSave: _save,
       onDelete: editing ? _delete : null,
       deleteLabel: 'Delete water',
       children: [
-        _Field(
+        SetupField(
           key: const ValueKey('water-recipe'),
           controller: _recipe,
           label: 'Recipe',
@@ -353,7 +355,7 @@ class _WaterDialogState extends State<_WaterDialog> {
             ),
           ],
         ),
-        _Field(
+        SetupField(
           key: const ValueKey('water-gh'),
           controller: _gh,
           label: 'GH',
@@ -367,7 +369,7 @@ class _WaterDialogState extends State<_WaterDialog> {
         ),
         for (final m in Mineral.forGh)
           if (_ghMinerals.contains(m)) _amountRow(m),
-        _Field(
+        SetupField(
           key: const ValueKey('water-kh'),
           controller: _kh,
           label: 'KH',
@@ -381,7 +383,7 @@ class _WaterDialogState extends State<_WaterDialog> {
         ),
         for (final m in Mineral.forKh)
           if (_khMinerals.contains(m)) _amountRow(m),
-        _Field(
+        SetupField(
           key: const ValueKey('water-ppm'),
           controller: _ppm,
           label: 'Total',
@@ -436,8 +438,9 @@ class _MineralChoice extends StatelessWidget {
 }
 
 // Shared frame: scrollable fields, delete at the bottom, Cancel/Save.
-class _SetupDialog extends StatelessWidget {
-  const _SetupDialog({
+class SetupDialog extends StatelessWidget {
+  const SetupDialog({
+    super.key,
     required this.title,
     required this.children,
     required this.canSave,
@@ -504,8 +507,8 @@ class _SetupDialog extends StatelessWidget {
 // A text field in the My Setup dialogs: label and underline in neutral
 // tones (not the accent), and — like the bean form — matching earlier
 // entries as tappable chips below while typing.
-class _Field extends StatefulWidget {
-  const _Field({
+class SetupField extends StatefulWidget {
+  const SetupField({
     super.key,
     required this.controller,
     required this.label,
@@ -523,10 +526,10 @@ class _Field extends StatefulWidget {
   final List<String> suggestions;
 
   @override
-  State<_Field> createState() => _FieldState();
+  State<SetupField> createState() => _SetupFieldState();
 }
 
-class _FieldState extends State<_Field> {
+class _SetupFieldState extends State<SetupField> {
   final _focus = FocusNode();
 
   @override
@@ -537,7 +540,7 @@ class _FieldState extends State<_Field> {
   }
 
   @override
-  void didUpdateWidget(_Field old) {
+  void didUpdateWidget(SetupField old) {
     super.didUpdateWidget(old);
     if (old.controller != widget.controller) {
       old.controller.removeListener(_refresh);
@@ -645,7 +648,7 @@ class _FieldState extends State<_Field> {
   }
 }
 
-Future<bool> _confirmDelete(
+Future<bool> confirmSetupDelete(
   BuildContext context,
   String name,
   String? note,

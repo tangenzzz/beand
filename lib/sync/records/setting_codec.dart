@@ -5,8 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/ai/ai_provider.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../services/app_settings.dart';
-import '../../services/grinder_store.dart';
-import '../../services/water_store.dart';
+import '../../services/gear_store.dart';
 
 // Which settings travel between devices (whitelist). Everything not listed
 // here stays on the device — above all machine addresses, the currently
@@ -28,9 +27,10 @@ List<String> syncedSettingKeys() => [
   AppSettings.historyAvatarPrefKey,
   AppSettings.themeModePrefKey,
   AppSettings.accentPrefKey,
-  // Settings → My Setup: grinders and waters (JSON lists).
-  GrinderStore.prefKey,
-  WaterStore.prefKey,
+  // Settings → My Coffee Desk: all gear (grinders and waters included) and
+  // the brew chains (JSON lists).
+  GearStore.gearPrefKey,
+  GearStore.chainsPrefKey,
   AiSettings.providerPrefKey,
   AiSettings.baseUrlPrefKey,
   for (final p in AiProvider.values) AiSettings.modelPrefKey(p),

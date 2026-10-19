@@ -20,6 +20,7 @@ import 'screens/settings/meticulous_settings_screen.dart';
 import 'services/ai/ai_service.dart';
 import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
+import 'services/gear_store.dart';
 import 'services/grinder_store.dart';
 import 'services/water_store.dart';
 import 'services/brew_recipe_store.dart';
@@ -57,8 +58,10 @@ Future<void> main() async {
   final hostname = prefs.getString(hostnamePrefKey) ?? _defaultHostname;
 
   final appSettings = await AppSettings.load();
-  final grinders = await GrinderStore.load();
-  final waters = await WaterStore.load();
+  // All gear of My Coffee Desk; grinders and waters are views on it.
+  final gear = await GearStore.load();
+  final grinders = GrinderStore(gear);
+  final waters = WaterStore(gear);
   // AI settings (Settings → AI). Loaded before runApp so no AI button
   // briefly appears and disappears; the keys themselves stay in the
   // keystore and are fetched per call.
@@ -204,11 +207,10 @@ Future<void> main() async {
       reload: () async {
         await appSettings.reload();
         await aiSettings.reload();
-        await grinders.reload();
-        await waters.reload();
+        await gear.reload();
       },
     ),
-    settingsSources: [appSettings, aiSettings, grinders, waters],
+    settingsSources: [appSettings, aiSettings, gear],
     docsDir: getApplicationDocumentsDirectory,
   );
   await deviceSync.init();
@@ -218,6 +220,7 @@ Future<void> main() async {
       providers: [
         Provider<AppDatabase>.value(value: database),
         ChangeNotifierProvider<AppSettings>.value(value: appSettings),
+        ChangeNotifierProvider<GearStore>.value(value: gear),
         ChangeNotifierProvider<GrinderStore>.value(value: grinders),
         ChangeNotifierProvider<WaterStore>.value(value: waters),
         ChangeNotifierProvider<AiSettings>.value(value: aiSettings),

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 // The user's equipment on "My Coffee Desk": one shape for every kind of
@@ -77,14 +79,29 @@ class Gear {
 
   bool usedFor(BrewMode mode) => brewModes.contains(mode);
 
-  Gear copyWith({String? photoPath, bool clearPhoto = false}) => Gear(
+  Gear withId(String id) => Gear(
+    id: id,
+    type: type,
+    model: model,
+    brand: brand,
+    brewModes: brewModes,
+    photoPath: photoPath,
+    specs: specs,
+    stock: stock,
+  );
+
+  Gear copyWith({
+    String? photoPath,
+    bool clearPhoto = false,
+    Map<String, Object?>? specs,
+  }) => Gear(
     id: id,
     type: type,
     model: model,
     brand: brand,
     brewModes: brewModes,
     photoPath: clearPhoto ? null : (photoPath ?? this.photoPath),
-    specs: specs,
+    specs: specs ?? this.specs,
     stock: stock,
   );
 
@@ -125,6 +142,14 @@ class Gear {
       stock: stock is num ? stock.toInt() : null,
     );
   }
+
+  // Compared through the JSON so nested specs (lists, maps) count too.
+  @override
+  bool operator ==(Object other) =>
+      other is Gear && jsonEncode(other.toJson()) == jsonEncode(toJson());
+
+  @override
+  int get hashCode => jsonEncode(toJson()).hashCode;
 }
 
 // A set of gear used together for one way of brewing, e.g. "Espresso bar":
@@ -167,6 +192,25 @@ class BrewChain {
       active: json['active'] != false,
     );
   }
+
+  BrewChain copyWith({String? name, List<String>? gearIds, bool? active}) =>
+      BrewChain(
+        id: id,
+        name: name ?? this.name,
+        gearIds: gearIds ?? this.gearIds,
+        active: active ?? this.active,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is BrewChain &&
+      other.id == id &&
+      other.name == name &&
+      other.active == active &&
+      listEquals(other.gearIds, gearIds);
+
+  @override
+  int get hashCode => Object.hash(id, name, active, Object.hashAll(gearIds));
 }
 
 /// IDs of the gear some active chain uses — everything else is stored.

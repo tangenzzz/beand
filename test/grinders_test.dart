@@ -1,12 +1,14 @@
 import 'package:beand/database/database.dart';
 import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
+import 'package:beand/models/gear.dart';
 import 'package:beand/models/grinder.dart';
 import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/screens/live/shot_cards_carousel.dart';
 import 'package:beand/models/water.dart';
 import 'package:beand/screens/settings/my_coffee_desk_screen.dart';
 import 'package:beand/services/app_settings.dart';
+import 'package:beand/services/gear_store.dart';
 import 'package:beand/services/grinder_store.dart';
 import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
@@ -19,6 +21,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/offline_gaggimate.dart';
 
@@ -56,13 +59,17 @@ void main() {
         burrs: ['Stock', 'SSP'],
         activeBurr: 'SSP',
       );
-      final decoded = GrinderStore.decode(
-        '[${'{"id":"a","name":"Niche Zero","burrs":["Stock","SSP"],"active":"SSP"}'},'
-        '{"name":"no id"}, 42]',
-      );
-      expect(decoded, [g]);
+      // My Setup's old setting moves into the gear store, IDs kept.
+      final gear = GearStore.inMemory()
+        ..migrateLegacy(
+          grinders:
+              '[${'{"id":"a","name":"Niche Zero","burrs":["Stock","SSP"],"active":"SSP"}'},'
+              '{"name":"no id"}, 42]',
+          waters: 'not json',
+        );
+      expect(GrinderStore(gear).grinders, [g]);
       expect(Grinder.fromJson(g.toJson()), g);
-      expect(GrinderStore.decode('not json'), isEmpty);
+      expect(grinderFromGear(gearFromGrinder(g)), g);
     });
 
     test('mineral factors: g/L ↔ ppm as CaCO₃', () {
@@ -79,9 +86,27 @@ void main() {
       expect(Mineral.forKh, hasLength(3));
     });
 
+    test('first start moves My Setup into the gear store, IDs kept', () async {
+      SharedPreferences.setMockInitialValues({
+        GearStore.legacyGrinderKey:
+            '[{"id":"g1","name":"Zero","burrs":["SSP"],"active":"SSP"}]',
+        GearStore.legacyWaterKey: '[{"id":"w1","recipe":"Lotus","gh":68}]',
+      });
+      final gear = await GearStore.load();
+      expect(GrinderStore(gear).byId('g1')?.activeBurrs, 'SSP');
+      expect(WaterStore(gear).byId('w1')?.gh, 68);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(GearStore.legacyGrinderKey), isNull);
+      expect(GearStore.decodeGear(prefs.getString(GearStore.gearPrefKey)), [
+        ...gear.gear,
+      ]);
+      // A second start finds nothing to move and keeps the gear.
+      expect((await GearStore.load()).gear, hasLength(2));
+    });
+
     test('grinders and waters travel with the synced settings', () {
-      expect(syncedSettingKeys(), contains(GrinderStore.prefKey));
-      expect(syncedSettingKeys(), contains(WaterStore.prefKey));
+      expect(syncedSettingKeys(), contains(GearStore.gearPrefKey));
+      expect(syncedSettingKeys(), contains(GearStore.chainsPrefKey));
     });
 
     test('brand is optional and round-trips', () {
@@ -120,10 +145,11 @@ void main() {
     });
   });
 
-  Widget mySetup(GrinderStore grinders, WaterStore waters) => MultiProvider(
+  Widget mySetup(GearStore gear) => MultiProvider(
     providers: [
-      ChangeNotifierProvider<GrinderStore>.value(value: grinders),
-      ChangeNotifierProvider<WaterStore>.value(value: waters),
+      ChangeNotifierProvider<GearStore>.value(value: gear),
+      ChangeNotifierProvider<GrinderStore>(create: (_) => GrinderStore(gear)),
+      ChangeNotifierProvider<WaterStore>(create: (_) => WaterStore(gear)),
     ],
     child: MaterialApp(
       theme: buildAppTheme(),
@@ -138,7 +164,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final store = GrinderStore.inMemory();
-    await tester.pumpWidget(mySetup(store, WaterStore.inMemory()));
+    await tester.pumpWidget(mySetup(store.gear));
     // Shelves in the one card; Grinders and Water have their own "+".
     expect(find.textContaining('GRINDERS', findRichText: true), findsOneWidget);
     expect(find.textContaining('WATER', findRichText: true), findsOneWidget);
@@ -277,7 +303,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final waters = WaterStore.inMemory();
-    await tester.pumpWidget(mySetup(GrinderStore.inMemory(), waters));
+    await tester.pumpWidget(mySetup(waters.gear));
 
     await tester.tap(find.byTooltip('Add water'));
     await tester.pumpAndSettle();
@@ -338,37 +364,126 @@ void main() {
     );
   });
 
-  testWidgets('My Coffee Desk: filter narrows the shelves, empty ones go', (
+  testWidgets('My Coffee Desk: chains decide in use, filter narrows', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(412, 2400);
+    tester.view.physicalSize = const Size(412, 2600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      mySetup(GrinderStore.inMemory(), WaterStore.inMemory()),
+    final gear = GearStore.inMemory(
+      gear: const [
+        Gear(
+          id: 'm',
+          type: GearType.machine,
+          brand: 'Meticulous',
+          model: 'Meticulous',
+          brewModes: {BrewMode.espresso},
+        ),
+        Gear(
+          id: 'v60',
+          type: GearType.brewer,
+          brand: 'Hario',
+          model: 'V60 02',
+          brewModes: {BrewMode.pourOver},
+        ),
+      ],
     );
-    expect(find.text('V60 02'), findsOneWidget);
-    expect(find.text('Air M'), findsOneWidget);
+    await tester.pumpWidget(mySetup(gear));
+    // "All" shows every category, empty ones too (just "New").
     expect(find.textContaining('KETTLES', findRichText: true), findsOneWidget);
+    expect(find.text('V60 02'), findsOneWidget);
 
-    // An open detail closes on a filter change.
-    await tester.tap(find.text('Air M'));
-    await tester.pumpAndSettle();
-    expect(find.text('Air M'), findsNWidgets(2));
-
-    // Stored: only what no active chain uses; the kettle is in use, so its
-    // whole shelf goes.
+    // No chain yet: everything counts as stored.
     await tester.tap(find.text('Stored'));
     await tester.pumpAndSettle();
-    expect(find.text('Air M'), findsOneWidget);
-    expect(find.text('V60 02'), findsNothing);
+    expect(find.text('V60 02'), findsOneWidget);
     expect(find.textContaining('KETTLES', findRichText: true), findsNothing);
+
+    // A chain with the machine puts it in use.
+    await tester.tap(find.byTooltip('Add brew chain'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('chain-name')),
+      'Espresso bar',
+    );
+    await tester.tap(find.byKey(const ValueKey('chain-gear-m')));
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(gear.chains.single.gearIds, ['m']);
+    expect(gear.activeIds, {'m'});
+    expect(find.text('Meticulous'), findsNothing, reason: 'in use now');
+    expect(find.text('V60 02'), findsOneWidget);
 
     // Espresso: no brewers.
     await tester.tap(find.text('Espresso').first);
     await tester.pumpAndSettle();
     expect(find.textContaining('BREWERS', findRichText: true), findsNothing);
     expect(find.text('Meticulous'), findsOneWidget);
+    // The detail names the chain.
+    await tester.tap(find.text('Meticulous').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Espresso bar'), findsWidgets);
+
+    // Deleting gear takes it out of its chains.
+    gear.remove('m');
+    expect(gear.chains.single.gearIds, isEmpty);
+  });
+
+  testWidgets('My Coffee Desk: add a basket with the gear form', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final gear = GearStore.inMemory();
+    await tester.pumpWidget(mySetup(gear));
+
+    await tester.tap(find.byTooltip('Add basket'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add basket'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('gear-brand')), 'IMS');
+    await tester.enterText(
+      find.byKey(const ValueKey('gear-model')),
+      'Precision 18',
+    );
+    await tester.enterText(find.byKey(const ValueKey('gear-dose')), '18');
+    await tester.enterText(find.byKey(const ValueKey('gear-size')), '58 mm');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final basket = gear.ofType(GearType.basket).single;
+    expect(basket.brand, 'IMS');
+    expect(basket.specs, {'dose': 18.0, 'size': '58 mm'});
+    // A basket is for espresso unless the user says otherwise.
+    expect(basket.brewModes, {BrewMode.espresso});
+    expect(Gear.fromJson(basket.toJson()), basket);
+
+    await tester.tap(find.text('Precision 18'));
+    await tester.pumpAndSettle();
+    expect(find.text('18 g'), findsOneWidget);
+    expect(find.text('58 mm'), findsOneWidget);
+  });
+
+  test('grinder and water saved through their stores keep desk facts', () {
+    final gear = GearStore.inMemory();
+    final grinders = GrinderStore(gear);
+    final waters = WaterStore(gear);
+    final niche = grinders.add('Zero', ['Stock', 'SSP'], brand: 'Niche');
+    // A photo set on the desk survives an edit in the grinder dialog.
+    gear.save(gear.byId(niche.id)!.copyWith(photoPath: 'gear_photos/a.jpg'));
+    grinders.update(niche.copyWith(name: 'Zero 2'));
+    expect(gear.byId(niche.id)!.photoPath, 'gear_photos/a.jpg');
+    expect(grinders.byId(niche.id)!.name, 'Zero 2');
+
+    final lotus = waters.save(
+      const Water(id: '', recipe: 'Lotus', gh: 68, use: WaterUse.espresso),
+    );
+    expect(gear.byId(lotus.id)!.brewModes, {BrewMode.espresso});
+    // A cleared value doesn't linger in the specs.
+    waters.save(Water(id: lotus.id, recipe: 'Lotus'));
+    expect(waters.byId(lotus.id)!.gh, isNull);
+    expect(waters.byId(lotus.id), Water(id: lotus.id, recipe: 'Lotus'));
   });
 
   // Bug 2026-10-18: adding a grinder only worked with burrs that already
@@ -382,7 +497,7 @@ void main() {
     addTearDown(tester.view.reset);
     final store = GrinderStore.inMemory();
     store.add('Zero', ['SSP', 'Stock'], brand: 'Niche');
-    await tester.pumpWidget(mySetup(store, WaterStore.inMemory()));
+    await tester.pumpWidget(mySetup(store.gear));
 
     await tester.tap(find.byTooltip('Add grinder'));
     await tester.pumpAndSettle();

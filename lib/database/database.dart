@@ -592,6 +592,20 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  // Shots per grinder name (excluding deleted ones) — the shot counter on My
+  // Coffee Desk. Shots keep the grinder as text, so a renamed grinder
+  // starts counting anew.
+  Stream<Map<String, int>> watchGrinderShotCounts() =>
+      customSelect(
+        'SELECT grinder, COUNT(*) AS n FROM shots '
+        'WHERE grinder IS NOT NULL AND deleted_at IS NULL GROUP BY grinder',
+        readsFrom: {shots},
+      ).watch().map(
+        (rows) => {
+          for (final r in rows) r.read<String>('grinder'): r.read<int>('n'),
+        },
+      );
+
   Future<Bean> insertBean(BeansCompanion bean) =>
       into(beans).insertReturning(_stampBean(bean));
 

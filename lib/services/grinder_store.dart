@@ -1,40 +1,44 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/sync_ids.dart';
+import '../models/gear.dart';
 import '../models/grinder.dart';
+import 'gear_store.dart';
 
-// The user's grinders, kept as one JSON setting so they travel with sync
-// (whitelist in setting_codec.dart) and with the backup like every other
-// setting. Which grinder is in use is chosen per machine (ShotSetup).
+// The user's grinders — a view on the grinders in [GearStore] (My Coffee
+// Desk), with the shape the pre-shot card and the grinder dialog know.
+// Which grinder is in use is chosen per machine (ShotSetup, by ID).
 class GrinderStore extends ChangeNotifier {
-  GrinderStore._(this._prefs, this._grinders);
-
-  static const prefKey = 'my_setup_grinders';
-
-  final SharedPreferences? _prefs;
-  List<Grinder> _grinders;
+  GrinderStore(this.gear) : _grinders = _read(gear) {
+    gear.addListener(_gearChanged);
+  }
 
   /// Without prefs (tests): in memory only.
   factory GrinderStore.inMemory([List<Grinder> grinders = const []]) =>
-      GrinderStore._(null, List.of(grinders));
+      GrinderStore(
+        GearStore.inMemory(
+          gear: [for (final g in grinders) gearFromGrinder(g)],
+        ),
+      );
 
-  static Future<GrinderStore> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    return GrinderStore._(prefs, decode(prefs.getString(prefKey)));
+  final GearStore gear;
+  List<Grinder> _grinders;
+
+  static List<Grinder> _read(GearStore gear) => [
+    for (final g in gear.ofType(GearType.grinder)) grinderFromGear(g),
+  ];
+
+  void _gearChanged() {
+    final fresh = _read(gear);
+    if (listEquals(fresh, _grinders)) return;
+    _grinders = fresh;
+    notifyListeners();
   }
 
-  static List<Grinder> decode(String? json) {
-    if (json == null) return [];
-    try {
-      final list = jsonDecode(json);
-      if (list is! List) return [];
-      return list.map(Grinder.fromJson).whereType<Grinder>().toList();
-    } on FormatException {
-      return [];
-    }
+  @override
+  void dispose() {
+    gear.removeListener(_gearChanged);
+    super.dispose();
   }
 
   List<Grinder> get grinders => List.unmodifiable(_grinders);
@@ -58,13 +62,7 @@ class GrinderStore extends ChangeNotifier {
   }
 
   /// Brands already used — suggestions for the form.
-  List<String> get brandSuggestions {
-    final seen = <String>{};
-    return [
-      for (final g in _grinders)
-        if (g.brand != null && seen.add(g.brand!.toLowerCase())) g.brand!,
-    ];
-  }
+  List<String> get brandSuggestions => gear.brandSuggestions(GearType.grinder);
 
   Grinder add(String name, List<String> burrs, {String? brand}) {
     final grinder = Grinder(
@@ -73,51 +71,31 @@ class GrinderStore extends ChangeNotifier {
       brand: _blankToNull(brand),
       burrs: _clean(burrs),
     );
-    _grinders = [..._grinders, grinder];
-    _save();
+    gear.save(gearFromGrinder(grinder));
     return grinder;
   }
 
   void update(Grinder grinder) {
-    _grinders = [
-      for (final g in _grinders)
-        g.id == grinder.id
-            ? Grinder(
-                id: grinder.id,
-                name: grinder.name.trim(),
-                brand: _blankToNull(grinder.brand),
-                burrs: _clean(grinder.burrs),
-                activeBurr: grinder.activeBurr,
-              )
-            : g,
-    ];
-    _save();
+    gear.save(
+      gearFromGrinder(
+        Grinder(
+          id: grinder.id,
+          name: grinder.name.trim(),
+          brand: _blankToNull(grinder.brand),
+          burrs: _clean(grinder.burrs),
+          activeBurr: grinder.activeBurr,
+        ),
+        existing: gear.byId(grinder.id),
+      ),
+    );
   }
 
-  void remove(String id) {
-    _grinders = [
-      for (final g in _grinders)
-        if (g.id != id) g,
-    ];
-    _save();
-  }
+  void remove(String id) => gear.remove(id);
 
   void setActiveBurr(String id, String burr) {
     final g = byId(id);
     if (g == null || !g.burrs.contains(burr) || g.activeBurrs == burr) return;
     update(g.copyWith(activeBurr: burr));
-  }
-
-  /// After adopting data from sync: re-read from the prefs.
-  Future<void> reload() async {
-    final prefs = _prefs;
-    if (prefs == null) return;
-    // Sync writes through the same SharedPreferences instance, so its
-    // cache is already current.
-    final fresh = decode(prefs.getString(prefKey));
-    if (listEquals(fresh, _grinders)) return;
-    _grinders = fresh;
-    notifyListeners();
   }
 
   static String? _blankToNull(String? s) {
@@ -131,19 +109,5 @@ class GrinderStore extends ChangeNotifier {
       for (final b in burrs.map((b) => b.trim()))
         if (b.isNotEmpty && seen.add(b.toLowerCase())) b,
     ];
-  }
-
-  void _save() {
-    notifyListeners();
-    final prefs = _prefs;
-    if (prefs == null) return;
-    if (_grinders.isEmpty) {
-      prefs.remove(prefKey);
-    } else {
-      prefs.setString(
-        prefKey,
-        jsonEncode([for (final g in _grinders) g.toJson()]),
-      );
-    }
   }
 }
