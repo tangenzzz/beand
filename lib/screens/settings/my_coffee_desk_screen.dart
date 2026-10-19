@@ -381,7 +381,9 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
                       key: ValueKey('chain-${c.id}'),
                       chain: c,
                       pieces: store.gearOf(c),
+                      photoOf: store.photoFile,
                       onTap: () => showChainDialog(context, chain: c),
+                      onEditGear: _edit,
                       onCopy: () => _copyChain(c),
                       onDelete: () => _deleteChain(c),
                     ),
@@ -463,21 +465,27 @@ class _DeskTabs extends StatelessWidget {
   }
 }
 
-// One brew chain: name, its pieces in desk order. Tap edits it; swiped to
-// the left it shows Copy and Delete.
+// One brew chain as a shelf of its own: the name on top (tap edits the
+// chain, swiped to the left it shows Copy and Delete), below it the pieces
+// with their photos on a shelf board, in desk order. Tapping a piece edits
+// the chain too (to swap it), a long press edits the piece.
 class _ChainRow extends StatefulWidget {
   const _ChainRow({
     super.key,
     required this.chain,
     required this.pieces,
+    required this.photoOf,
     required this.onTap,
+    required this.onEditGear,
     required this.onCopy,
     required this.onDelete,
   });
 
   final BrewChain chain;
   final List<Gear> pieces;
+  final File? Function(Gear) photoOf;
   final VoidCallback onTap;
+  final ValueChanged<Gear> onEditGear;
   final VoidCallback onCopy;
   final VoidCallback onDelete;
 
@@ -517,17 +525,24 @@ class _ChainRowState extends State<_ChainRow>
           width: _actionWidth,
           child: InkWell(
             onTap: () => _act(f),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 20, color: color),
-                const SizedBox(height: 4),
-                Text(label, style: TextStyle(color: color, fontSize: 12)),
-              ],
+            // Scaled down rather than clipped when a large font is set.
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 18, color: color),
+                    const SizedBox(width: 4),
+                    Text(label, style: TextStyle(color: color, fontSize: 12)),
+                  ],
+                ),
+              ),
             ),
           ),
         );
-    return GestureDetector(
+    final pieces = widget.pieces;
+    final header = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onHorizontalDragUpdate: (d) =>
           _slide.value = (_slide.value - d.delta.dx).clamp(0.0, _open),
@@ -565,55 +580,10 @@ class _ChainRowState extends State<_ChainRow>
                 child: InkWell(
                   onTap: () =>
                       _slide.value > 0 ? _slide.animateTo(0) : widget.onTap(),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.dividerInset,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.chain.name,
-                                style: TextStyle(
-                                  color: colors.textPrimary,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                widget.pieces.isEmpty
-                                    ? 'No gear yet'
-                                    : [
-                                        for (final g in widget.pieces)
-                                          g.displayName,
-                                      ].join(' · '),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // A row of the pieces' line icons, quiet.
-                        for (final g in widget.pieces.take(6))
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: GearIcon(
-                              asset: g.type.iconAsset(g.specs),
-                              size: 16,
-                              color: colors.textTertiary,
-                            ),
-                          ),
-                      ],
-                    ),
+                  child: SettingsGroupLabel(
+                    widget.chain.name,
+                    icon: Icons.link,
+                    count: pieces.length,
                   ),
                 ),
               ),
@@ -621,6 +591,30 @@ class _ChainRowState extends State<_ChainRow>
           ],
         ),
       ),
+    );
+    return SettingsGroup(
+      children: [
+        header,
+        _ShelfBoard(
+          count: pieces.isEmpty ? 1 : pieces.length,
+          builder: (context, i) => pieces.isEmpty
+              ? _NewAvatar(
+                  type: GearType.machine,
+                  label: 'Add gear',
+                  onTap: widget.onTap,
+                )
+              : GearAvatar(
+                  gear: pieces[i],
+                  photo: widget.photoOf(pieces[i]),
+                  // Everything here is in use — it is in this chain.
+                  active: true,
+                  selected: false,
+                  onTap: widget.onTap,
+                  onLongPress: () => widget.onEditGear(pieces[i]),
+                ),
+        ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }
@@ -667,44 +661,18 @@ class _Shelf extends StatelessWidget {
           ),
           count: items.length,
         ),
-        // The shelf board runs right under the avatars (cut-outs stand on
-        // it), the names sit below it; the pieces scroll over a fixed board.
-        SizedBox(
-          height: GearAvatar.slotHeight,
-          child: Stack(
-            children: [
-              Positioned(
-                top: GearAvatar.boardTop,
-                left: AppSpacing.dividerInset,
-                right: AppSpacing.dividerInset,
-                child: Container(
-                  height: GearAvatar.boardHeight,
-                  decoration: BoxDecoration(
-                    color: colors.textTertiary,
-                    borderRadius: BorderRadius.circular(1.5),
-                  ),
+        _ShelfBoard(
+          count: items.length + 1,
+          builder: (context, i) => i == items.length
+              ? _NewAvatar(type: type, onTap: onAdd)
+              : GearAvatar(
+                  gear: items[i],
+                  photo: photoOf(items[i]),
+                  active: active.contains(items[i].id),
+                  selected: items[i].id == openId,
+                  onTap: () => onTap(items[i]),
+                  onLongPress: () => onEdit(items[i]),
                 ),
-              ),
-              ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.dividerInset - GearAvatar.ringGap,
-                ),
-                itemCount: items.length + 1,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
-                itemBuilder: (context, i) => i == items.length
-                    ? _NewAvatar(type: type, onTap: onAdd)
-                    : GearAvatar(
-                        gear: items[i],
-                        photo: photoOf(items[i]),
-                        active: active.contains(items[i].id),
-                        selected: items[i].id == openId,
-                        onTap: () => onTap(items[i]),
-                        onLongPress: () => onEdit(items[i]),
-                      ),
-              ),
-            ],
-          ),
         ),
         AnimatedSize(
           duration: const Duration(milliseconds: 200),
@@ -722,6 +690,48 @@ class _Shelf extends StatelessWidget {
                 ),
         ),
       ],
+    );
+  }
+}
+
+// The shelf board runs right under the avatars (cut-outs stand on it), the
+// names sit below it; the pieces scroll over a fixed board. Shared by the
+// category shelves and the brew chains.
+class _ShelfBoard extends StatelessWidget {
+  const _ShelfBoard({required this.count, required this.builder});
+
+  final int count;
+  final IndexedWidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: GearAvatar.slotHeight,
+      child: Stack(
+        children: [
+          Positioned(
+            top: GearAvatar.boardTop,
+            left: AppSpacing.dividerInset,
+            right: AppSpacing.dividerInset,
+            child: Container(
+              height: GearAvatar.boardHeight,
+              decoration: BoxDecoration(
+                color: context.colors.textTertiary,
+                borderRadius: BorderRadius.circular(1.5),
+              ),
+            ),
+          ),
+          ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.dividerInset - GearAvatar.ringGap,
+            ),
+            itemCount: count,
+            separatorBuilder: (_, _) => const SizedBox(width: 6),
+            itemBuilder: builder,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -949,9 +959,12 @@ class _ModeBadge extends StatelessWidget {
 
 // The "+" at the end of a shelf: dashed circle, "New" below.
 class _NewAvatar extends StatelessWidget {
-  const _NewAvatar({required this.type, required this.onTap});
+  const _NewAvatar({required this.type, required this.onTap, this.label});
 
   final GearType type;
+
+  /// Instead of "Add machine" and the like, e.g. on an empty brew chain.
+  final String? label;
   final VoidCallback onTap;
 
   @override
@@ -959,7 +972,7 @@ class _NewAvatar extends StatelessWidget {
     final colors = context.colors;
     return Semantics(
       button: true,
-      label: 'Add ${type.single.toLowerCase()}',
+      label: label ?? 'Add ${type.single.toLowerCase()}',
       excludeSemantics: true,
       child: GestureDetector(
         key: ValueKey('new-${type.name}'),

@@ -543,12 +543,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(gear.chains.single.gearIds, ['m', 'b2']);
     expect(gear.activeIds, {'m', 'b2'});
-    expect(find.text('Espresso bar'), findsOneWidget);
-    expect(find.text('Meticulous · VST 20'), findsOneWidget);
+    // The chain as a shelf of its own: its pieces stand on a board.
+    final bar = find.textContaining('ESPRESSO BAR', findRichText: true);
+    expect(bar, findsOneWidget);
+    final row = find.byKey(ValueKey('chain-${gear.chains.single.id}'));
+    expect(
+      find.descendant(of: row, matching: find.byType(GearAvatar)),
+      findsNWidgets(2),
+    );
+    expect(
+      find.descendant(of: row, matching: find.text('VST 20')),
+      findsOneWidget,
+    );
 
     // Swiped left: Copy makes a second chain and opens it to change one
     // category.
-    await tester.drag(find.text('Espresso bar'), const Offset(-300, 0));
+    await tester.drag(bar, const Offset(-300, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Copy'));
     await tester.pumpAndSettle();
@@ -562,7 +572,10 @@ void main() {
     expect(gear.chains.last.gearIds, ['m', 'b1']);
 
     // Delete, after asking.
-    await tester.drag(find.text('Espresso bar copy'), const Offset(-300, 0));
+    await tester.drag(
+      find.textContaining('ESPRESSO BAR COPY', findRichText: true),
+      const Offset(-300, 0),
+    );
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
