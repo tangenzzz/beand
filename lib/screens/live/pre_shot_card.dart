@@ -379,6 +379,11 @@ class _PreShotCardState extends State<PreShotCard> {
                           : grindScale.format(_grindSize!),
                       // Away from a set zero point: how far above the
                       // burrs' touch point that is.
+                      valueSuffix: grindMarkerSuffix(
+                        grinder,
+                        _grindSize,
+                        grindMarker,
+                      ),
                       trailing: GrindTrailing(
                         grinder: grinder,
                         dial: _grindSize,

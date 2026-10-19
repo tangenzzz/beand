@@ -125,16 +125,26 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     }
   }
 
+  // Long press on a piece: its dialog, with "Photo" at the top.
   Future<void> _edit(Gear g) async {
+    void photo() {
+      final current = context.read<GearStore>().byId(g.id);
+      if (current != null) _choosePhoto(current);
+    }
+
     switch (g.type) {
       case GearType.grinder:
         final grinder = context.read<GrinderStore>().byId(g.id);
-        if (grinder != null) await showGrinderDialog(context, grinder: grinder);
+        if (grinder != null) {
+          await showGrinderDialog(context, grinder: grinder, onPhoto: photo);
+        }
       case GearType.water:
         final water = context.read<WaterStore>().byId(g.id);
-        if (water != null) await showWaterDialog(context, water: water);
+        if (water != null) {
+          await showWaterDialog(context, water: water, onPhoto: photo);
+        }
       default:
-        await showGearDialog(context, type: g.type, gear: g);
+        await showGearDialog(context, type: g.type, gear: g, onPhoto: photo);
     }
   }
 
@@ -409,7 +419,6 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
                       ),
                       onAdd: () => _add(type),
                       onEdit: _edit,
-                      onPhoto: _choosePhoto,
                     ),
                 ],
               ],
@@ -631,7 +640,6 @@ class _Shelf extends StatelessWidget {
     required this.onTap,
     required this.onAdd,
     required this.onEdit,
-    required this.onPhoto,
   });
 
   final GearType type;
@@ -644,7 +652,6 @@ class _Shelf extends StatelessWidget {
   final ValueChanged<Gear> onTap;
   final VoidCallback onAdd;
   final ValueChanged<Gear> onEdit;
-  final ValueChanged<Gear> onPhoto;
 
   @override
   Widget build(BuildContext context) {
@@ -685,8 +692,6 @@ class _Shelf extends StatelessWidget {
                   gear: open,
                   shots: shotsOf(open),
                   chains: chainsOf(open),
-                  onEdit: () => onEdit(open),
-                  onPhoto: () => onPhoto(open),
                 ),
         ),
       ],
@@ -1031,13 +1036,11 @@ class _DashedCircle extends CustomPainter {
 }
 
 // The open piece: editorial, no card — brand small and gray, the model
-// large, then key-value lines on hairlines; Edit and Photo at the bottom.
+// large, then key-value lines on hairlines. Editing is a long press.
 class _GearDetail extends StatelessWidget {
   const _GearDetail({
     super.key,
     required this.gear,
-    required this.onEdit,
-    required this.onPhoto,
     this.shots,
     this.chains = const [],
   });
@@ -1045,8 +1048,6 @@ class _GearDetail extends StatelessWidget {
   final Gear gear;
   final int? shots;
   final List<String> chains;
-  final VoidCallback onEdit;
-  final VoidCallback onPhoto;
 
   // A grinder with several burr sets: the fitted one is picked right here,
   // as before in My Setup.
@@ -1141,13 +1142,8 @@ class _GearDetail extends StatelessWidget {
                 ],
               ),
             ),
-          Row(
-            children: [
-              UnderlineItem(label: 'Edit', selected: true, onTap: onEdit),
-              const SizedBox(width: UnderlineSelect.spacing),
-              UnderlineItem(label: 'Photo', selected: true, onTap: onPhoto),
-            ],
-          ),
+          // Editing (and the photo) is a long press on the piece.
+          const SizedBox(height: 4),
         ],
       ),
     );

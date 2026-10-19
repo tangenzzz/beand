@@ -17,11 +17,12 @@ Future<void> showGearDialog(
   BuildContext context, {
   required GearType type,
   Gear? gear,
+  VoidCallback? onPhoto,
 }) => showDialog<void>(
   context: context,
   builder: (_) => ChangeNotifierProvider<GearStore>.value(
     value: context.read<GearStore>(),
-    child: _GearDialog(type: type, gear: gear),
+    child: _GearDialog(type: type, gear: gear, onPhoto: onPhoto),
   ),
 );
 
@@ -36,26 +37,12 @@ Future<BrewChain?> showChainDialog(BuildContext context, {BrewChain? chain}) =>
       ),
     );
 
-// The three choices of "Used for": one mode or both.
-enum _Use {
-  espresso('Espresso', {BrewMode.espresso}),
-  pourOver('Pour over', {BrewMode.pourOver}),
-  both('Both', {BrewMode.espresso, BrewMode.pourOver});
-
-  const _Use(this.label, this.modes);
-  final String label;
-  final Set<BrewMode> modes;
-
-  static _Use of(Set<BrewMode> modes) => modes.length == 1
-      ? (modes.contains(BrewMode.espresso) ? espresso : pourOver)
-      : both;
-}
-
 class _GearDialog extends StatefulWidget {
-  const _GearDialog({required this.type, this.gear});
+  const _GearDialog({required this.type, this.gear, this.onPhoto});
 
   final GearType type;
   final Gear? gear;
+  final VoidCallback? onPhoto;
 
   @override
   State<_GearDialog> createState() => _GearDialogState();
@@ -78,9 +65,6 @@ class _GearDialogState extends State<_GearDialog> {
         },
       ),
   };
-  late _Use _use = _Use.of(
-    widget.gear?.brewModes ?? defaultBrewModes(widget.type),
-  );
   late String? _shape = widget.gear?.specs['shape'] as String?;
 
   @override
@@ -99,6 +83,9 @@ class _GearDialogState extends State<_GearDialog> {
     // shows as its kind, e.g. "Machine".
     final model = _model.text.trim();
     final existing = widget.gear;
+    final current = existing == null
+        ? null
+        : context.read<GearStore>().byId(existing.id);
     final brand = _brand.text.trim();
     final fields = specFields[widget.type] ?? const <SpecField>[];
     // Keys this form doesn't know (e.g. from a newer app version) stay.
@@ -118,11 +105,13 @@ class _GearDialogState extends State<_GearDialog> {
         type: widget.type,
         brand: brand.isEmpty ? null : brand,
         model: model,
-        brewModes: _use.modes,
-        photoPath: existing?.photoPath,
-        photoOriginalPath: existing?.photoOriginalPath,
-        photoBlob: existing?.photoBlob,
-        photoOriginalBlob: existing?.photoOriginalBlob,
+        // What it serves follows the kind (the form no longer asks).
+        brewModes: existing?.brewModes ?? defaultBrewModes(widget.type),
+        // The photo may have changed while the dialog was open.
+        photoPath: current?.photoPath,
+        photoOriginalPath: current?.photoOriginalPath,
+        photoBlob: current?.photoBlob,
+        photoOriginalBlob: current?.photoOriginalBlob,
         specs: specs,
         stock: hasStock(widget.type) ? stock : null,
       ),
@@ -149,6 +138,7 @@ class _GearDialogState extends State<_GearDialog> {
     final shapes = gearShapes[type];
     return SetupDialog(
       title: editing ? 'Edit $single' : 'Add $single',
+      onPhoto: widget.onPhoto,
       canSave: true,
       onSave: _save,
       onDelete: editing ? _delete : null,
@@ -192,12 +182,6 @@ class _GearDialogState extends State<_GearDialog> {
             onChanged: (v) => setState(() => _shape = v),
           ),
         ],
-        const SizedBox(height: 14),
-        UnderlineSelect<_Use>(
-          options: [for (final u in _Use.values) UnderlineOption(u, u.label)],
-          value: _use,
-          onChanged: (u) => setState(() => _use = u!),
-        ),
       ],
     );
   }

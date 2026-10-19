@@ -288,6 +288,11 @@ class _PreBrewCardState extends State<PreBrewCard> {
                       open: _open == _OpenList.grind,
                       onToggle: () => _toggle(_OpenList.grind),
                       onClose: _close,
+                      valueSuffix: grindMarkerSuffix(
+                        grinder,
+                        grind,
+                        setup.grindMarker,
+                      ),
                       trailing: GrindTrailing(
                         grinder: grinder,
                         dial: grind,

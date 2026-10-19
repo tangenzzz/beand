@@ -25,7 +25,7 @@ class GrindPanel extends StatefulWidget {
   final String? marker;
   final void Function(double value, String? marker) onChanged;
 
-  static const _markerRow = 36.0;
+  static const _markerRow = 30.0;
 
   static double heightFor(GrindScale scale) =>
       RulerPicker.height + (scale.hasMarkers ? _markerRow : 0);
@@ -81,7 +81,8 @@ class _GrindPanelState extends State<GrindPanel> {
                   UnderlineItem(
                     key: ValueKey('marker-${m.name}'),
                     label: m.name,
-                    leading: GrindMarkerDot(color: m.color),
+                    fontSize: 12,
+                    leading: GrindMarkerDot(color: m.color, size: 6),
                     selected: m == current,
                     onTap: () => _pick(m),
                   ),
@@ -113,7 +114,7 @@ class _GrindPanelState extends State<GrindPanel> {
 
 /// The colour of an index mark as a small dot.
 class GrindMarkerDot extends StatelessWidget {
-  const GrindMarkerDot({super.key, required this.color, this.size = 8});
+  const GrindMarkerDot({super.key, required this.color, this.size = 7});
 
   final int color;
   final double size;
@@ -123,9 +124,8 @@ class GrindMarkerDot extends StatelessWidget {
     width: size,
     height: size,
     decoration: BoxDecoration(
-      color: Color(color),
+      color: Color(markerDisplayColor(color)),
       shape: BoxShape.circle,
-      border: Border.all(color: const Color(0x33000000), width: 0.5),
     ),
   );
 }

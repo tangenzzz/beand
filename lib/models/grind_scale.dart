@@ -73,6 +73,39 @@ class GrindMarker {
   int get hashCode => Object.hash(name, color, offset);
 }
 
+/// Colours of index marks to pick from — muted, so the dots sit quietly
+/// next to the values (user 2026-10-19: the first, bright ones were too
+/// loud): green, red, white, blue, yellow, orange, purple, black.
+const markerPalette = [
+  0xFF5F8A62,
+  0xFFA85A55,
+  0xFFB9B5AC,
+  0xFF5E7FA0,
+  0xFFB59E57,
+  0xFFB37A4B,
+  0xFF84709C,
+  0xFF4A4A4A,
+];
+
+// The bright first palette, in the same order: marks saved with it are
+// shown in the muted colour.
+const _brightPalette = [
+  0xFF4CAF50,
+  0xFFE53935,
+  0xFFF2F2F2,
+  0xFF1E88E5,
+  0xFFFDD835,
+  0xFFFB8C00,
+  0xFF8E24AA,
+  0xFF212121,
+];
+
+/// The colour a mark is drawn in.
+int markerDisplayColor(int color) {
+  final i = _brightPalette.indexOf(color);
+  return i < 0 ? color : markerPalette[i];
+}
+
 /// A reading on a grinder with markers: the number and the mark it is set
 /// against.
 typedef MarkedGrind = ({double value, GrindMarker marker});

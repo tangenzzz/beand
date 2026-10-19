@@ -300,9 +300,12 @@ void main() {
     expect(store.grinders.single.activeBurrs, 'SSP');
     expect(fitted('SSP'), isTrue);
 
-    // Edit → delete at the bottom of the dialog.
-    await tester.tap(find.text('Edit'));
+    // No Edit button in the detail any more: a long press on the piece
+    // opens its dialog, with "Photo" at the top and delete at the bottom.
+    expect(find.text('Edit'), findsNothing);
+    await tester.longPress(find.text('Niche Zero').first);
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('dialog-photo')), findsOneWidget);
     await tester.tap(find.text('Delete grinder'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
@@ -454,7 +457,8 @@ void main() {
       '48.7',
     );
     await tester.enterText(find.byKey(const ValueKey('water-ppm')), '150');
-    await tester.tap(find.text('Pour Over'));
+    // What the water is for is no longer asked.
+    expect(find.text('Pour Over'), findsNothing);
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
@@ -468,7 +472,7 @@ void main() {
     expect(w.amounts[Mineral.epsomSalt], closeTo(0.12, 0.001));
     expect(w.amounts.containsKey(Mineral.bakingSoda), isFalse);
     expect(w.ppm, 150);
-    expect(w.use, WaterUse.pourOver);
+    expect(w.use, isNull);
     expect(Water.fromJson(w.toJson()), w);
     // The detail lists GH, KH, what the water is made of and its use.
     await tester.tap(find.text('Lotus'));
@@ -705,6 +709,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('new-basket')));
     await tester.pumpAndSettle();
     expect(find.text('Add basket'), findsOneWidget);
+    // What it serves follows the kind; the form doesn't ask.
+    expect(find.text('Both'), findsNothing);
     await tester.enterText(find.byKey(const ValueKey('gear-brand')), 'IMS');
     await tester.enterText(
       find.byKey(const ValueKey('gear-model')),

@@ -109,6 +109,7 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.listPlaceholder,
     this.footer,
     this.trailing,
+    this.valueSuffix,
     this.isLast = false,
     this.enabled = true,
     this.dimValue = false,
@@ -132,6 +133,7 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.icon,
     this.placeholder = '—',
     this.trailing,
+    this.valueSuffix,
     this.isLast = false,
     this.enabled = true,
     this.dimValue = false,
@@ -172,9 +174,13 @@ class ValueSelectRow<T> extends StatefulWidget {
   /// Extra content at the bottom of the open list (e.g. a free-text entry).
   final Widget? footer;
 
-  /// Sits between value and chevron with its own tap (e.g. the grinder
-  /// next to the grind size).
+  /// At the right, just before the chevron (e.g. "+12.8 from zero", the
+  /// lock of the derived water).
   final Widget? trailing;
+
+  /// Right behind the value text (e.g. the colour dot of a grinder's
+  /// index mark).
+  final Widget? valueSuffix;
   final Widget? panel;
   final bool isLast;
   final bool enabled;
@@ -407,20 +413,26 @@ class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
                   ),
                 ),
                 const SizedBox(width: ValueSelectRow._gap),
-                // With a trailing widget (the grinder next to the grind
-                // size) the chevron stays right at the value it opens, and
-                // the trailing widget takes the right end.
-                if (widget.trailing == null)
-                  Expanded(child: valueText)
-                else
-                  Flexible(child: valueText),
-                const SizedBox(width: 4),
-                chevron,
+                // Value (with its suffix right behind it), then the
+                // trailing widget, the chevron always at the right end like
+                // in every other row.
+                Expanded(
+                  child: Row(
+                    children: [
+                      Flexible(child: valueText),
+                      if (widget.valueSuffix case final suffix?) ...[
+                        const SizedBox(width: 5),
+                        suffix,
+                      ],
+                    ],
+                  ),
+                ),
                 if (widget.trailing != null) ...[
-                  const Spacer(),
                   const SizedBox(width: 8),
                   widget.trailing!,
                 ],
+                const SizedBox(width: 4),
+                chevron,
               ],
             ),
           ),

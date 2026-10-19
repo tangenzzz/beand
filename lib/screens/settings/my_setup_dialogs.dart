@@ -16,30 +16,41 @@ import 'settings_widgets.dart';
 
 /// Add ([grinder] null) or edit a grinder. Returns the saved grinder, null
 /// on cancel or delete.
-Future<Grinder?> showGrinderDialog(BuildContext context, {Grinder? grinder}) {
+/// [onPhoto]: the desk's photo choice for an existing piece — shown as
+/// "Photo" at the top of the dialog (the shelf has no Edit/Photo buttons).
+Future<Grinder?> showGrinderDialog(
+  BuildContext context, {
+  Grinder? grinder,
+  VoidCallback? onPhoto,
+}) {
   return showDialog<Grinder>(
     context: context,
     builder: (_) => ChangeNotifierProvider<GrinderStore>.value(
       value: context.read<GrinderStore>(),
-      child: _GrinderDialog(grinder: grinder),
+      child: _GrinderDialog(grinder: grinder, onPhoto: onPhoto),
     ),
   );
 }
 
-Future<void> showWaterDialog(BuildContext context, {Water? water}) {
+Future<void> showWaterDialog(
+  BuildContext context, {
+  Water? water,
+  VoidCallback? onPhoto,
+}) {
   return showDialog<void>(
     context: context,
     builder: (_) => ChangeNotifierProvider<WaterStore>.value(
       value: context.read<WaterStore>(),
-      child: _WaterDialog(water: water),
+      child: _WaterDialog(water: water, onPhoto: onPhoto),
     ),
   );
 }
 
 class _GrinderDialog extends StatefulWidget {
-  const _GrinderDialog({this.grinder});
+  const _GrinderDialog({this.grinder, this.onPhoto});
 
   final Grinder? grinder;
+  final VoidCallback? onPhoto;
 
   @override
   State<_GrinderDialog> createState() => _GrinderDialogState();
@@ -70,7 +81,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
   // Index marks (optional): colour, name, offset from the first one.
   late final List<_MarkerDraft> _markers = [
     for (final m in widget.grinder?.scale?.markers ?? const <GrindMarker>[])
-      _MarkerDraft(m.color, m.name, m.offset),
+      _MarkerDraft(markerDisplayColor(m.color), m.name, m.offset),
   ];
 
   void _addMarker() => setState(() {
@@ -241,6 +252,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     final editing = widget.grinder != null;
     return SetupDialog(
       title: editing ? 'Edit grinder' : 'Add grinder',
+      onPhoto: widget.onPhoto,
       canSave: _name.text.trim().isNotEmpty,
       onSave: _save,
       onDelete: editing ? _delete : null,
@@ -367,10 +379,10 @@ class _GrinderDialogState extends State<_GrinderDialog> {
           _label(
             'Markers (optional)',
             info:
-                'For grinders read against several marks on the body (e.g. '
-                'green, red, white). Offset: where 0 of a mark sits on the '
-                'first one — red 2.2 at green 9.0 makes red +6.8. The grind '
-                'ruler then runs across all marks.',
+                'E.g. older Kafatek grinders whose scale is not continuous '
+                'and has several marks. Offset: where 0 of a mark sits on '
+                'the first one — red 2.2 at green 9.0 makes red +6.8. The '
+                'grind ruler then runs across all marks.',
           ),
           for (final (i, m) in _markers.indexed)
             Row(
@@ -479,17 +491,8 @@ class _GrinderDialogState extends State<_GrinderDialog> {
   }
 }
 
-// Colours of index marks to pick from (tap cycles): what grinders print.
-const _markerColors = [
-  0xFF4CAF50, // green
-  0xFFE53935, // red
-  0xFFF2F2F2, // white
-  0xFF1E88E5, // blue
-  0xFFFDD835, // yellow
-  0xFFFB8C00, // orange
-  0xFF8E24AA, // purple
-  0xFF212121, // black
-];
+// Colours of index marks to pick from (tap cycles).
+const _markerColors = markerPalette;
 
 class _MarkerDraft {
   _MarkerDraft(this.color, String name, double offset)
@@ -531,9 +534,10 @@ const _months = [
 String _date(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
 class _WaterDialog extends StatefulWidget {
-  const _WaterDialog({this.water});
+  const _WaterDialog({this.water, this.onPhoto});
 
   final Water? water;
+  final VoidCallback? onPhoto;
 
   @override
   State<_WaterDialog> createState() => _WaterDialogState();
@@ -546,7 +550,8 @@ class _WaterDialogState extends State<_WaterDialog> {
   late final _ghMinerals = {...?widget.water?.ghMinerals};
   late final _khMinerals = {...?widget.water?.khMinerals};
   late final _ppm = TextEditingController(text: _num(widget.water?.ppm));
-  late WaterUse? _use = widget.water?.use;
+  // No longer asked (user 2026-10-19); an earlier choice stays.
+  late final WaterUse? _use = widget.water?.use;
   late MineralUnit _unit = widget.water?.unit ?? MineralUnit.gramsPerLitre;
   // Amount field per mineral, created on first tick; text in [_unit].
   final _amounts = <Mineral, TextEditingController>{};
@@ -669,6 +674,7 @@ class _WaterDialogState extends State<_WaterDialog> {
     final editing = widget.water != null;
     return SetupDialog(
       title: editing ? 'Edit water' : 'Add water',
+      onPhoto: widget.onPhoto,
       canSave: _recipe.text.trim().isNotEmpty,
       onSave: _save,
       onDelete: editing ? _delete : null,
@@ -736,15 +742,6 @@ class _WaterDialogState extends State<_WaterDialog> {
           suffix: 'ppm',
           numeric: true,
         ),
-        const SizedBox(height: 14),
-        UnderlineSelect<WaterUse>(
-          options: [
-            for (final u in WaterUse.values) UnderlineOption(u, u.label),
-          ],
-          value: _use,
-          allowDeselect: true,
-          onChanged: (v) => setState(() => _use = v),
-        ),
       ],
     );
   }
@@ -793,10 +790,14 @@ class SetupDialog extends StatelessWidget {
     required this.onSave,
     required this.onDelete,
     required this.deleteLabel,
+    this.onPhoto,
   });
 
   final String title;
   final List<Widget> children;
+
+  /// Choose/take/remove the piece's photo — at the top of the content.
+  final VoidCallback? onPhoto;
   final bool canSave;
   final VoidCallback onSave;
   final VoidCallback? onDelete;
@@ -813,6 +814,23 @@ class SetupDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (onPhoto != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const ValueKey('dialog-photo'),
+                  onPressed: onPhoto,
+                  icon: Icon(
+                    Icons.photo_camera_outlined,
+                    color: colors.textSecondary,
+                    size: 18,
+                  ),
+                  label: Text(
+                    'Photo',
+                    style: TextStyle(color: colors.textSecondary),
+                  ),
+                ),
+              ),
             ...children,
             if (onDelete != null) ...[
               const SizedBox(height: 18),

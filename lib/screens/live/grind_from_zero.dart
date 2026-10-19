@@ -31,8 +31,9 @@ class GrindFromZero extends StatelessWidget {
   }
 }
 
-/// Right of the grind value: the colour dot of the index mark it is set
-/// against (grinders with several), then "+x from zero".
+/// Before the chevron of the grind row: "+x from zero" — on a grinder
+/// with marks measured on the shared scale (the zero point is read at the
+/// first mark).
 class GrindTrailing extends StatelessWidget {
   const GrindTrailing({
     super.key,
@@ -48,27 +49,26 @@ class GrindTrailing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scale = grinder?.scale;
-    final mark = scale != null && scale.hasMarkers && dial != null
+    final dial = this.dial;
+    final mark = scale != null && scale.hasMarkers
         ? scale.markerNamed(marker)
         : null;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (mark != null)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GrindMarkerDot(
-              key: const ValueKey('grind-marker-dot'),
-              color: mark.color,
-            ),
-          ),
-        // With marks the zero point is read at the first one: compare on
-        // the shared scale.
-        GrindFromZero(
-          grinder: grinder,
-          dial: mark == null ? dial : scale!.absolute(dial!, mark),
-        ),
-      ],
+    return GrindFromZero(
+      grinder: grinder,
+      dial: mark == null || dial == null ? dial : scale!.absolute(dial, mark),
     );
   }
+}
+
+/// Right behind the grind value: the dot of the index mark it is set
+/// against (only on grinders with several marks), null otherwise.
+Widget? grindMarkerSuffix(Grinder? grinder, double? dial, String? marker) {
+  final scale = grinder?.scale;
+  if (scale == null || !scale.hasMarkers || dial == null) return null;
+  final mark = scale.markerNamed(marker);
+  if (mark == null) return null;
+  return GrindMarkerDot(
+    key: const ValueKey('grind-marker-dot'),
+    color: mark.color,
+  );
 }
