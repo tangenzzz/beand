@@ -117,7 +117,7 @@ class GearStore extends ChangeNotifier {
     return null;
   }
 
-  /// IDs of the gear some active chain uses — everything else is stored.
+  /// IDs of the gear some chain uses (in use) — everything else is stored.
   Set<String> get activeIds => activeGearIds(_chains);
 
   /// Chains [gearId] belongs to.
@@ -179,7 +179,6 @@ class GearStore extends ChangeNotifier {
             id: newSyncId(),
             name: chain.name.trim(),
             gearIds: chain.gearIds,
-            active: chain.active,
           )
         : chain;
     final exists = _chains.any((c) => c.id == saved.id);

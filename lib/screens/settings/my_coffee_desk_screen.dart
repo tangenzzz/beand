@@ -20,8 +20,9 @@ import 'my_setup_dialogs.dart';
 import 'settings_widgets.dart';
 
 // Settings → My Coffee Desk: all the user's gear as shelves, one per
-// category — a row of round avatars standing on a 3 dp "shelf board", no
-// hairlines between the shelves. On top one tab per brew chain next to
+// category — a row of round avatars standing on a 3 dp "shelf board" (a
+// dashed "New" at the end adds one), no hairlines between the shelves,
+// only one below the tabs. On top one tab per brew chain next to
 // "All" (+ adds a chain; tapping the open chain's tab again, or a long
 // press, edits it); search and filter (espresso, pour over, stored …) sit
 // in the app bar like in the bean list and the history. Tapping an avatar
@@ -325,6 +326,8 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
                     if (saved != null) _selectChain(saved.id);
                   },
                 ),
+                // The one hairline left: tabs above, shelves below.
+                const SettingsDivider(),
                 if (shelves.isEmpty)
                   SettingsSection(
                     child: SettingsText(
@@ -463,11 +466,6 @@ class _Shelf extends StatelessWidget {
             color: colors.textSecondary,
           ),
           count: items.length,
-          trailing: IconButton(
-            tooltip: 'Add ${type.single.toLowerCase()}',
-            icon: Icon(Icons.add, color: colors.textSecondary),
-            onPressed: onAdd,
-          ),
         ),
         SizedBox(
           height: GearAvatar.slotHeight,
@@ -479,7 +477,7 @@ class _Shelf extends StatelessWidget {
             itemCount: items.length + 1,
             separatorBuilder: (_, _) => const SizedBox(width: 6),
             itemBuilder: (context, i) => i == items.length
-                ? _NewAvatar(onTap: onAdd)
+                ? _NewAvatar(type: type, onTap: onAdd)
                 : GearAvatar(
                     gear: items[i],
                     photo: photoOf(items[i]),
@@ -694,8 +692,9 @@ class _ModeBadge extends StatelessWidget {
 
 // The "+" at the end of a shelf: dashed circle, "New" below.
 class _NewAvatar extends StatelessWidget {
-  const _NewAvatar({required this.onTap});
+  const _NewAvatar({required this.type, required this.onTap});
 
+  final GearType type;
   final VoidCallback onTap;
 
   @override
@@ -703,9 +702,10 @@ class _NewAvatar extends StatelessWidget {
     final colors = context.colors;
     return Semantics(
       button: true,
-      label: 'New',
+      label: 'Add ${type.single.toLowerCase()}',
       excludeSemantics: true,
       child: GestureDetector(
+        key: ValueKey('new-${type.name}'),
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: SizedBox(

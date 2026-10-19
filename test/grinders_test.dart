@@ -167,11 +167,11 @@ void main() {
     addTearDown(tester.view.reset);
     final store = GrinderStore.inMemory();
     await tester.pumpWidget(mySetup(store.gear));
-    // Shelves in the one card; Grinders and Water have their own "+".
+    // Shelves in the one card; each ends in a dashed "New".
     expect(find.textContaining('GRINDERS', findRichText: true), findsOneWidget);
     expect(find.textContaining('WATER', findRichText: true), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Add grinder'));
+    await tester.tap(find.byKey(const ValueKey('new-grinder')));
     await tester.pumpAndSettle();
     expect(find.text('Add grinder'), findsOneWidget);
     // Neutral label and line, but the blinking cursor in the accent color.
@@ -307,7 +307,7 @@ void main() {
     final waters = WaterStore.inMemory();
     await tester.pumpWidget(mySetup(waters.gear));
 
-    await tester.tap(find.byTooltip('Add water'));
+    await tester.tap(find.byKey(const ValueKey('new-water')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('water-recipe')), 'Lotus');
     await tester.enterText(find.byKey(const ValueKey('water-gh')), '68');
@@ -389,10 +389,10 @@ void main() {
       ],
     );
     await tester.pumpWidget(mySetup(gear));
-    // "All" shows every category, empty ones too (just "New"), and no
-    // hairlines between the shelves.
+    // "All" shows every category, empty ones too (just "New"); one hairline
+    // below the tabs, none between the shelves.
     expect(find.textContaining('KETTLES', findRichText: true), findsOneWidget);
-    expect(find.byType(SettingsDivider), findsNothing);
+    expect(find.byType(SettingsDivider), findsOneWidget);
 
     // "+" next to the tabs adds a chain, which opens as its own tab.
     await tester.tap(find.byTooltip('Add brew chain'));
@@ -412,7 +412,7 @@ void main() {
     expect(find.textContaining('KETTLES', findRichText: true), findsNothing);
 
     // Adding on the chain's tab puts the new piece into the chain.
-    await tester.tap(find.byTooltip('Add machine'));
+    await tester.tap(find.byKey(const ValueKey('new-machine')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('gear-model')), 'Gaggia');
     await tester.pump();
@@ -464,6 +464,16 @@ void main() {
     expect(matchesDeskQuery(g, 'ims 58'), isTrue);
     expect(matchesDeskQuery(g, 'basket'), isTrue);
     expect(matchesDeskQuery(g, 'vst'), isFalse);
+    // In use follows from being in a chain; an old "put away" flag is
+    // ignored.
+    final old = BrewChain.fromJson({
+      'id': 'c',
+      'name': 'Travel',
+      'gear': ['b'],
+      'active': false,
+    })!;
+    expect(activeGearIds([old]), {'b'});
+    expect(old.toJson().containsKey('active'), isFalse);
     const f = DeskFilter(modes: {BrewMode.pourOver});
     expect(f.matches(g, inUse: false), isTrue, reason: 'both modes');
     expect(
@@ -481,7 +491,7 @@ void main() {
     final gear = GearStore.inMemory();
     await tester.pumpWidget(mySetup(gear));
 
-    await tester.tap(find.byTooltip('Add basket'));
+    await tester.tap(find.byKey(const ValueKey('new-basket')));
     await tester.pumpAndSettle();
     expect(find.text('Add basket'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('gear-brand')), 'IMS');
@@ -541,7 +551,7 @@ void main() {
     store.add('Zero', ['SSP', 'Stock'], brand: 'Niche');
     await tester.pumpWidget(mySetup(store.gear));
 
-    await tester.tap(find.byTooltip('Add grinder'));
+    await tester.tap(find.byKey(const ValueKey('new-grinder')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('grinder-brand')), 'Ni');
     await tester.pumpAndSettle();

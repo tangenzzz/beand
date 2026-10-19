@@ -161,23 +161,15 @@ class BrewChain {
     required this.id,
     required this.name,
     required this.gearIds,
-    this.active = true,
   });
 
   final String id;
   final String name;
   final List<String> gearIds;
 
-  /// A chain that is put away keeps its gear but no longer marks it as in
-  /// use.
-  final bool active;
-
-  Map<String, Object?> toJson() => {
-    'id': id,
-    'name': name,
-    'gear': gearIds,
-    if (!active) 'active': false,
-  };
+  // An "active" flag (chain put away) existed until 2026-10-19; old data
+  // may still carry it and it is ignored — being in a chain means in use.
+  Map<String, Object?> toJson() => {'id': id, 'name': name, 'gear': gearIds};
 
   static BrewChain? fromJson(Object? json) {
     if (json is! Map) return null;
@@ -189,32 +181,27 @@ class BrewChain {
       id: id,
       name: name,
       gearIds: gear is List ? gear.whereType<String>().toList() : const [],
-      active: json['active'] != false,
     );
   }
 
-  BrewChain copyWith({String? name, List<String>? gearIds, bool? active}) =>
-      BrewChain(
-        id: id,
-        name: name ?? this.name,
-        gearIds: gearIds ?? this.gearIds,
-        active: active ?? this.active,
-      );
+  BrewChain copyWith({String? name, List<String>? gearIds}) => BrewChain(
+    id: id,
+    name: name ?? this.name,
+    gearIds: gearIds ?? this.gearIds,
+  );
 
   @override
   bool operator ==(Object other) =>
       other is BrewChain &&
       other.id == id &&
       other.name == name &&
-      other.active == active &&
       listEquals(other.gearIds, gearIds);
 
   @override
-  int get hashCode => Object.hash(id, name, active, Object.hashAll(gearIds));
+  int get hashCode => Object.hash(id, name, Object.hashAll(gearIds));
 }
 
-/// IDs of the gear some active chain uses — everything else is stored.
+/// IDs of the gear some chain uses — in use; everything else is stored.
 Set<String> activeGearIds(Iterable<BrewChain> chains) => {
-  for (final c in chains)
-    if (c.active) ...c.gearIds,
+  for (final c in chains) ...c.gearIds,
 };

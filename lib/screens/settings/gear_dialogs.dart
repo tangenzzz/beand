@@ -211,7 +211,6 @@ class _ChainDialogState extends State<_ChainDialog> {
   late final _name = TextEditingController(text: widget.chain?.name)
     ..addListener(() => setState(() {}));
   late final _gearIds = <String>{...?widget.chain?.gearIds};
-  late bool _active = widget.chain?.active ?? true;
 
   @override
   void dispose() {
@@ -229,12 +228,7 @@ class _ChainDialogState extends State<_ChainDialog> {
         if (_gearIds.contains(g.id)) g.id,
     ];
     final saved = store.saveChain(
-      BrewChain(
-        id: widget.chain?.id ?? '',
-        name: name,
-        gearIds: ids,
-        active: _active,
-      ),
+      BrewChain(id: widget.chain?.id ?? '', name: name, gearIds: ids),
     );
     Navigator.of(context).pop(saved);
   }
@@ -270,15 +264,6 @@ class _ChainDialogState extends State<_ChainDialog> {
           controller: _name,
           label: 'Name',
           autofocus: !editing,
-        ),
-        const SizedBox(height: 14),
-        UnderlineSelect<bool>(
-          options: const [
-            UnderlineOption(true, 'In use'),
-            UnderlineOption(false, 'Put away'),
-          ],
-          value: _active,
-          onChanged: (v) => setState(() => _active = v!),
         ),
         if (store.gear.isEmpty)
           Padding(
