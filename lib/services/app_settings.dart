@@ -23,6 +23,7 @@ enum BeanFormField {
   processing('Processing'),
   type('Type'),
   roastedFor('Roasted for'),
+  roastLevel('Roast level'),
   roastDate('Roast date'),
   weight('Weight'),
   cost('Cost'),
@@ -169,8 +170,22 @@ class AppSettings extends ChangeNotifier {
     Iterable<BeanFormField> order,
   ) {
     final result = <BeanFormField>[];
-    for (final field in [...order, ...BeanFormField.values]) {
+    for (final field in order) {
       if (!result.contains(field)) result.add(field);
+    }
+    // A field the saved order doesn't know yet (e.g. Roast level, new
+    // 2026-10-19) goes right after its predecessor in the default order when
+    // that one was saved, otherwise to the end.
+    final saved = result.toSet();
+    for (var i = 0; i < BeanFormField.values.length; i++) {
+      final field = BeanFormField.values[i];
+      if (result.contains(field)) continue;
+      final previous = i == 0 ? null : BeanFormField.values[i - 1];
+      if (previous != null && saved.contains(previous)) {
+        result.insert(result.indexOf(previous) + 1, field);
+      } else {
+        result.add(field);
+      }
     }
     return result;
   }

@@ -663,6 +663,15 @@ void main() {
     await tester.tap(find.text('Precision 18'));
     await tester.pumpAndSettle();
     expect(find.text('18 g'), findsOneWidget);
+    // Brand and model in the look of the card titles: brand small, in
+    // capitals, before the model.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('gear-title')),
+        matching: find.text('IMS'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('58 mm'), findsOneWidget);
   });
 

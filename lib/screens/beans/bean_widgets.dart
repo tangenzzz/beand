@@ -59,6 +59,21 @@ const roastedForOptions = [
   (value: 'omni', label: 'Omni'),
 ];
 
+// How dark it is roasted — stored lowercase (Beans.roastLevel).
+const roastLevelOptions = [
+  (value: 'ultra-light', label: 'Ultra light'),
+  (value: 'light', label: 'Light'),
+  (value: 'medium', label: 'Medium'),
+  (value: 'dark', label: 'Dark'),
+];
+
+String? roastLevelLabel(String? value) {
+  for (final option in roastLevelOptions) {
+    if (option.value == value) return option.label;
+  }
+  return null;
+}
+
 String? roastedForLabel(String? value) {
   for (final option in roastedForOptions) {
     if (option.value == value) return option.label;

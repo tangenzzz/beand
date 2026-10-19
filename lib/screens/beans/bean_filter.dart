@@ -14,6 +14,7 @@ String beanSearchText(Bean bean) => [
   bean.producer,
   bean.taste,
   roastedForLabel(bean.roastedFor),
+  roastLevelLabel(bean.roastLevel),
 ].whereType<String>().join(' ').toLowerCase();
 
 // Free-text search over a bean's text fields. [lowerQuery] must be
@@ -28,6 +29,7 @@ class BeanFilter {
   const BeanFilter({
     this.isBlend,
     this.roastedFor = const {},
+    this.roastLevels = const {},
     this.roasters = const {},
     this.countries = const {},
     this.processings = const {},
@@ -45,6 +47,8 @@ class BeanFilter {
   final bool? isBlend;
   // Stored values ('filter'/'espresso'/'omni'), empty = all.
   final Set<String> roastedFor;
+  // Stored values ('ultra-light' … 'dark'), empty = all.
+  final Set<String> roastLevels;
   // Selected values in original spelling; compared case-insensitively.
   final Set<String> roasters;
   final Set<String> countries;
@@ -61,6 +65,7 @@ class BeanFilter {
   int get activeCount => [
     isBlend != null,
     roastedFor.isNotEmpty,
+    roastLevels.isNotEmpty,
     roasters.isNotEmpty,
     countries.isNotEmpty,
     processings.isNotEmpty,
@@ -88,6 +93,7 @@ class BeanFilter {
   bool matches(Bean bean, [DateTime? now]) {
     if (isBlend != null && bean.isBlend != isBlend) return false;
     if (!_inSet(roastedFor, bean.roastedFor)) return false;
+    if (!_inSet(roastLevels, bean.roastLevel)) return false;
     if (!_inSet(roasters, bean.roaster)) return false;
     if (!_inSet(countries, bean.country)) return false;
     if (!_inSet(processings, bean.processing)) return false;

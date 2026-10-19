@@ -64,6 +64,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   // pill again deselects it.
   bool? _isBlend;
   String? _roastedFor;
+  String? _roastLevel;
   DateTime? _roastDate;
   late bool _isFrozen;
   DateTime? _thawedDate;
@@ -103,6 +104,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     _taste = TextEditingController(text: b?.taste);
     _isBlend = b?.isBlend;
     _roastedFor = b?.roastedFor;
+    _roastLevel = b?.roastLevel;
     _roastDate = b?.roastDate;
     _isFrozen = b?.isFrozen ?? false;
     _thawedDate = b?.thawedDate;
@@ -551,6 +553,10 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       _roastedFor = draft.roastedFor;
       filled.add(BeanFormField.roastedFor.name);
     }
+    if (draft.roastLevel != null) {
+      _roastLevel = draft.roastLevel;
+      filled.add(BeanFormField.roastLevel.name);
+    }
 
     if (newPhotoPath != null) {
       _addedPhotos.add(newPhotoPath);
@@ -656,6 +662,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       roastDate: Value(_roastDate),
       isBlend: Value(_isBlend),
       roastedFor: Value(_roastedFor),
+      roastLevel: Value(_roastLevel),
       country: Value(_nullIfEmpty(_country.text)),
       processing: Value(_nullIfEmpty(_processing.text)),
       variety: Value(_nullIfEmpty(_variety.text)),
@@ -1000,6 +1007,27 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           onChanged: (value) {
             _clearMark(field.name);
             setState(() => _roastedFor = value);
+          },
+        );
+      case BeanFormField.roastLevel:
+        return ValueSelectRow<String>(
+          label: 'Roast level',
+          labelWidth: _labelWidth,
+          labelSize: 12,
+          labelColor: _aiFilled.contains(field.name)
+              ? context.colors.accent
+              : null,
+          horizontalPadding: AppSpacing.dividerInset,
+          isLast: true,
+          placeholder: '—',
+          value: _roastLevel,
+          options: [
+            for (final option in roastLevelOptions)
+              ValueOption(value: option.value, title: option.label),
+          ],
+          onChanged: (value) {
+            _clearMark(field.name);
+            setState(() => _roastLevel = value);
           },
         );
       case BeanFormField.roastDate:
@@ -1503,6 +1531,7 @@ class _FormSnapshot {
     required this.texts,
     required this.isBlend,
     required this.roastedFor,
+    required this.roastLevel,
     required this.roastDate,
     required this.photoPath,
   });
@@ -1510,6 +1539,7 @@ class _FormSnapshot {
   final Map<String, String> texts;
   final bool? isBlend;
   final String? roastedFor;
+  final String? roastLevel;
   final DateTime? roastDate;
   final String? photoPath;
 
@@ -1520,6 +1550,7 @@ class _FormSnapshot {
     },
     isBlend: state._isBlend,
     roastedFor: state._roastedFor,
+    roastLevel: state._roastLevel,
     roastDate: state._roastDate,
     photoPath: state._photoPath,
   );
@@ -1530,6 +1561,7 @@ class _FormSnapshot {
     });
     state._isBlend = isBlend;
     state._roastedFor = roastedFor;
+    state._roastLevel = roastLevel;
     state._roastDate = roastDate;
     state._photoPath = photoPath;
   }

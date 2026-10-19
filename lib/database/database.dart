@@ -52,6 +52,8 @@ class Beans extends Table with SyncColumns {
   BoolColumn get isBlend => boolean().nullable()();
   // 'filter' | 'espresso' | 'omni', null = not specified.
   TextColumn get roastedFor => text().nullable()();
+  // 'ultra-light' | 'light' | 'medium' | 'dark', null = not specified.
+  TextColumn get roastLevel => text().nullable()();
   TextColumn get country => text().nullable()();
   TextColumn get processing => text().nullable()();
   TextColumn get variety => text().nullable()();
@@ -272,7 +274,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 21;
+  int get schemaVersion => 22;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -426,6 +428,10 @@ class AppDatabase extends _$AppDatabase {
         // Bean manually marked as empty (below 15: rebuilt above).
         await m.addColumn(beans, beans.emptiedAt);
       }
+      if (from >= 15 && from < 22) {
+        // Roast level (below 15: rebuilt above).
+        await m.addColumn(beans, beans.roastLevel);
+      }
     },
   );
 
@@ -450,6 +456,7 @@ class AppDatabase extends _$AppDatabase {
       beans.deleted,
       beans.photoBlob,
       beans.emptiedAt,
+      beans.roastLevel,
     ],
     columnTransformer: _syncTransformer(beans.syncId, beans.updatedAt),
   );
@@ -567,6 +574,7 @@ class AppDatabase extends _$AppDatabase {
     roastDate: Value(null),
     isBlend: Value(null),
     roastedFor: Value(null),
+    roastLevel: Value(null),
     country: Value(null),
     processing: Value(null),
     variety: Value(null),

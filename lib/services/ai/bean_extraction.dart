@@ -22,6 +22,7 @@ class BeanDraft {
     this.roastDate,
     this.isBlend,
     this.roastedFor,
+    this.roastLevel,
     this.country,
     this.processing,
     this.variety,
@@ -39,6 +40,9 @@ class BeanDraft {
 
   /// 'filter' | 'espresso' | 'omni'
   final String? roastedFor;
+
+  /// 'ultra-light' | 'light' | 'medium' | 'dark'
+  final String? roastLevel;
 
   final String? country;
   final String? processing;
@@ -60,6 +64,7 @@ class BeanDraft {
       roastDate == null &&
       isBlend == null &&
       roastedFor == null &&
+      roastLevel == null &&
       country == null &&
       processing == null &&
       variety == null &&
@@ -87,6 +92,12 @@ class BeanDraft {
       'filter',
       'espresso',
       'omni',
+    ]),
+    roastLevel: _oneOf(json['roastLevel'], const [
+      'ultra-light',
+      'light',
+      'medium',
+      'dark',
     ]),
     country: _text(json['country']),
     processing: _text(json['processing']),
@@ -192,6 +203,12 @@ Map<String, Object?> beanDraftSchema() => aiObjectSchema({
     'string',
     description:
         'One of "filter", "espresso", "omni" — only if the label says so.',
+  ),
+  'roastLevel': aiNullable(
+    'string',
+    description:
+        'One of "ultra-light", "light", "medium", "dark" — only if the '
+        'label names the roast level.',
   ),
   'country': aiNullable('string', description: 'Country of origin.'),
   'processing': aiNullable(

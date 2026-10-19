@@ -50,6 +50,7 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
 
   bool? _isBlend;
   late Set<String> _roastedFor;
+  late Set<String> _roastLevels;
   late Set<String> _roasters;
   late Set<String> _countries;
   late Set<String> _processings;
@@ -66,6 +67,7 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
     final f = widget.initial;
     _isBlend = f.isBlend;
     _roastedFor = {...f.roastedFor};
+    _roastLevels = {...f.roastLevels};
     _roasters = {...f.roasters};
     _countries = {...f.countries};
     _processings = {...f.processings};
@@ -80,6 +82,7 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
   BeanFilter get _filter => BeanFilter(
     isBlend: _isBlend,
     roastedFor: _roastedFor,
+    roastLevels: _roastLevels,
     roasters: _roasters,
     countries: _countries,
     processings: _processings,
@@ -94,6 +97,7 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
   void _reset() => setState(() {
     _isBlend = null;
     _roastedFor = {};
+    _roastLevels = {};
     _roasters = {};
     _countries = {};
     _processings = {};
@@ -165,6 +169,18 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
                     onTap: () => setState(() {
                       if (!_roastedFor.remove(option.value)) {
                         _roastedFor.add(option.value);
+                      }
+                    }),
+                  ),
+              ]),
+              _Section('Roast level', [
+                for (final option in roastLevelOptions)
+                  UnderlineItem(
+                    label: option.label,
+                    selected: _roastLevels.contains(option.value),
+                    onTap: () => setState(() {
+                      if (!_roastLevels.remove(option.value)) {
+                        _roastLevels.add(option.value);
                       }
                     }),
                   ),

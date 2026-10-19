@@ -123,6 +123,17 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _roastLevelMeta = const VerificationMeta(
+    'roastLevel',
+  );
+  @override
+  late final GeneratedColumn<String> roastLevel = GeneratedColumn<String>(
+    'roast_level',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _countryMeta = const VerificationMeta(
     'country',
   );
@@ -294,6 +305,7 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
     roastDate,
     isBlend,
     roastedFor,
+    roastLevel,
     country,
     processing,
     variety,
@@ -378,6 +390,12 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
       context.handle(
         _roastedForMeta,
         roastedFor.isAcceptableOrUnknown(data['roasted_for']!, _roastedForMeta),
+      );
+    }
+    if (data.containsKey('roast_level')) {
+      context.handle(
+        _roastLevelMeta,
+        roastLevel.isAcceptableOrUnknown(data['roast_level']!, _roastLevelMeta),
       );
     }
     if (data.containsKey('country')) {
@@ -516,6 +534,10 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
         DriftSqlType.string,
         data['${effectivePrefix}roasted_for'],
       ),
+      roastLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}roast_level'],
+      ),
       country: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}country'],
@@ -592,6 +614,7 @@ class Bean extends DataClass implements Insertable<Bean> {
   final DateTime? roastDate;
   final bool? isBlend;
   final String? roastedFor;
+  final String? roastLevel;
   final String? country;
   final String? processing;
   final String? variety;
@@ -617,6 +640,7 @@ class Bean extends DataClass implements Insertable<Bean> {
     this.roastDate,
     this.isBlend,
     this.roastedFor,
+    this.roastLevel,
     this.country,
     this.processing,
     this.variety,
@@ -654,6 +678,9 @@ class Bean extends DataClass implements Insertable<Bean> {
     }
     if (!nullToAbsent || roastedFor != null) {
       map['roasted_for'] = Variable<String>(roastedFor);
+    }
+    if (!nullToAbsent || roastLevel != null) {
+      map['roast_level'] = Variable<String>(roastLevel);
     }
     if (!nullToAbsent || country != null) {
       map['country'] = Variable<String>(country);
@@ -716,6 +743,9 @@ class Bean extends DataClass implements Insertable<Bean> {
       roastedFor: roastedFor == null && nullToAbsent
           ? const Value.absent()
           : Value(roastedFor),
+      roastLevel: roastLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(roastLevel),
       country: country == null && nullToAbsent
           ? const Value.absent()
           : Value(country),
@@ -769,6 +799,7 @@ class Bean extends DataClass implements Insertable<Bean> {
       roastDate: serializer.fromJson<DateTime?>(json['roastDate']),
       isBlend: serializer.fromJson<bool?>(json['isBlend']),
       roastedFor: serializer.fromJson<String?>(json['roastedFor']),
+      roastLevel: serializer.fromJson<String?>(json['roastLevel']),
       country: serializer.fromJson<String?>(json['country']),
       processing: serializer.fromJson<String?>(json['processing']),
       variety: serializer.fromJson<String?>(json['variety']),
@@ -799,6 +830,7 @@ class Bean extends DataClass implements Insertable<Bean> {
       'roastDate': serializer.toJson<DateTime?>(roastDate),
       'isBlend': serializer.toJson<bool?>(isBlend),
       'roastedFor': serializer.toJson<String?>(roastedFor),
+      'roastLevel': serializer.toJson<String?>(roastLevel),
       'country': serializer.toJson<String?>(country),
       'processing': serializer.toJson<String?>(processing),
       'variety': serializer.toJson<String?>(variety),
@@ -827,6 +859,7 @@ class Bean extends DataClass implements Insertable<Bean> {
     Value<DateTime?> roastDate = const Value.absent(),
     Value<bool?> isBlend = const Value.absent(),
     Value<String?> roastedFor = const Value.absent(),
+    Value<String?> roastLevel = const Value.absent(),
     Value<String?> country = const Value.absent(),
     Value<String?> processing = const Value.absent(),
     Value<String?> variety = const Value.absent(),
@@ -852,6 +885,7 @@ class Bean extends DataClass implements Insertable<Bean> {
     roastDate: roastDate.present ? roastDate.value : this.roastDate,
     isBlend: isBlend.present ? isBlend.value : this.isBlend,
     roastedFor: roastedFor.present ? roastedFor.value : this.roastedFor,
+    roastLevel: roastLevel.present ? roastLevel.value : this.roastLevel,
     country: country.present ? country.value : this.country,
     processing: processing.present ? processing.value : this.processing,
     variety: variety.present ? variety.value : this.variety,
@@ -881,6 +915,9 @@ class Bean extends DataClass implements Insertable<Bean> {
       roastedFor: data.roastedFor.present
           ? data.roastedFor.value
           : this.roastedFor,
+      roastLevel: data.roastLevel.present
+          ? data.roastLevel.value
+          : this.roastLevel,
       country: data.country.present ? data.country.value : this.country,
       processing: data.processing.present
           ? data.processing.value
@@ -917,6 +954,7 @@ class Bean extends DataClass implements Insertable<Bean> {
           ..write('roastDate: $roastDate, ')
           ..write('isBlend: $isBlend, ')
           ..write('roastedFor: $roastedFor, ')
+          ..write('roastLevel: $roastLevel, ')
           ..write('country: $country, ')
           ..write('processing: $processing, ')
           ..write('variety: $variety, ')
@@ -947,6 +985,7 @@ class Bean extends DataClass implements Insertable<Bean> {
     roastDate,
     isBlend,
     roastedFor,
+    roastLevel,
     country,
     processing,
     variety,
@@ -976,6 +1015,7 @@ class Bean extends DataClass implements Insertable<Bean> {
           other.roastDate == this.roastDate &&
           other.isBlend == this.isBlend &&
           other.roastedFor == this.roastedFor &&
+          other.roastLevel == this.roastLevel &&
           other.country == this.country &&
           other.processing == this.processing &&
           other.variety == this.variety &&
@@ -1003,6 +1043,7 @@ class BeansCompanion extends UpdateCompanion<Bean> {
   final Value<DateTime?> roastDate;
   final Value<bool?> isBlend;
   final Value<String?> roastedFor;
+  final Value<String?> roastLevel;
   final Value<String?> country;
   final Value<String?> processing;
   final Value<String?> variety;
@@ -1028,6 +1069,7 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     this.roastDate = const Value.absent(),
     this.isBlend = const Value.absent(),
     this.roastedFor = const Value.absent(),
+    this.roastLevel = const Value.absent(),
     this.country = const Value.absent(),
     this.processing = const Value.absent(),
     this.variety = const Value.absent(),
@@ -1054,6 +1096,7 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     this.roastDate = const Value.absent(),
     this.isBlend = const Value.absent(),
     this.roastedFor = const Value.absent(),
+    this.roastLevel = const Value.absent(),
     this.country = const Value.absent(),
     this.processing = const Value.absent(),
     this.variety = const Value.absent(),
@@ -1080,6 +1123,7 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     Expression<DateTime>? roastDate,
     Expression<bool>? isBlend,
     Expression<String>? roastedFor,
+    Expression<String>? roastLevel,
     Expression<String>? country,
     Expression<String>? processing,
     Expression<String>? variety,
@@ -1106,6 +1150,7 @@ class BeansCompanion extends UpdateCompanion<Bean> {
       if (roastDate != null) 'roast_date': roastDate,
       if (isBlend != null) 'is_blend': isBlend,
       if (roastedFor != null) 'roasted_for': roastedFor,
+      if (roastLevel != null) 'roast_level': roastLevel,
       if (country != null) 'country': country,
       if (processing != null) 'processing': processing,
       if (variety != null) 'variety': variety,
@@ -1134,6 +1179,7 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     Value<DateTime?>? roastDate,
     Value<bool?>? isBlend,
     Value<String?>? roastedFor,
+    Value<String?>? roastLevel,
     Value<String?>? country,
     Value<String?>? processing,
     Value<String?>? variety,
@@ -1160,6 +1206,7 @@ class BeansCompanion extends UpdateCompanion<Bean> {
       roastDate: roastDate ?? this.roastDate,
       isBlend: isBlend ?? this.isBlend,
       roastedFor: roastedFor ?? this.roastedFor,
+      roastLevel: roastLevel ?? this.roastLevel,
       country: country ?? this.country,
       processing: processing ?? this.processing,
       variety: variety ?? this.variety,
@@ -1209,6 +1256,9 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     }
     if (roastedFor.present) {
       map['roasted_for'] = Variable<String>(roastedFor.value);
+    }
+    if (roastLevel.present) {
+      map['roast_level'] = Variable<String>(roastLevel.value);
     }
     if (country.present) {
       map['country'] = Variable<String>(country.value);
@@ -1268,6 +1318,7 @@ class BeansCompanion extends UpdateCompanion<Bean> {
           ..write('roastDate: $roastDate, ')
           ..write('isBlend: $isBlend, ')
           ..write('roastedFor: $roastedFor, ')
+          ..write('roastLevel: $roastLevel, ')
           ..write('country: $country, ')
           ..write('processing: $processing, ')
           ..write('variety: $variety, ')
@@ -6374,6 +6425,7 @@ typedef $$BeansTableCreateCompanionBuilder = BeansCompanion Function({
   Value<DateTime?> roastDate,
   Value<bool?> isBlend,
   Value<String?> roastedFor,
+  Value<String?> roastLevel,
   Value<String?> country,
   Value<String?> processing,
   Value<String?> variety,
@@ -6400,6 +6452,7 @@ typedef $$BeansTableUpdateCompanionBuilder = BeansCompanion Function({
   Value<DateTime?> roastDate,
   Value<bool?> isBlend,
   Value<String?> roastedFor,
+  Value<String?> roastLevel,
   Value<String?> country,
   Value<String?> processing,
   Value<String?> variety,
@@ -6495,6 +6548,11 @@ class $$BeansTableFilterComposer extends Composer<_$AppDatabase, $BeansTable> {
 
   ColumnFilters<String> get roastedFor => $composableBuilder(
     column: $table.roastedFor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get roastLevel => $composableBuilder(
+    column: $table.roastLevel,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6653,6 +6711,11 @@ class $$BeansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get roastLevel => $composableBuilder(
+    column: $table.roastLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get country => $composableBuilder(
     column: $table.country,
     builder: (column) => ColumnOrderings(column),
@@ -6762,6 +6825,11 @@ class $$BeansTableAnnotationComposer
 
   GeneratedColumn<String> get roastedFor => $composableBuilder(
     column: $table.roastedFor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get roastLevel => $composableBuilder(
+    column: $table.roastLevel,
     builder: (column) => column,
   );
 
@@ -6877,6 +6945,7 @@ class $$BeansTableTableManager
                 Value<DateTime?> roastDate = const Value.absent(),
                 Value<bool?> isBlend = const Value.absent(),
                 Value<String?> roastedFor = const Value.absent(),
+                Value<String?> roastLevel = const Value.absent(),
                 Value<String?> country = const Value.absent(),
                 Value<String?> processing = const Value.absent(),
                 Value<String?> variety = const Value.absent(),
@@ -6902,6 +6971,7 @@ class $$BeansTableTableManager
                 roastDate: roastDate,
                 isBlend: isBlend,
                 roastedFor: roastedFor,
+                roastLevel: roastLevel,
                 country: country,
                 processing: processing,
                 variety: variety,
@@ -6929,6 +6999,7 @@ class $$BeansTableTableManager
                 Value<DateTime?> roastDate = const Value.absent(),
                 Value<bool?> isBlend = const Value.absent(),
                 Value<String?> roastedFor = const Value.absent(),
+                Value<String?> roastLevel = const Value.absent(),
                 Value<String?> country = const Value.absent(),
                 Value<String?> processing = const Value.absent(),
                 Value<String?> variety = const Value.absent(),
@@ -6954,6 +7025,7 @@ class $$BeansTableTableManager
                 roastDate: roastDate,
                 isBlend: isBlend,
                 roastedFor: roastedFor,
+                roastLevel: roastLevel,
                 country: country,
                 processing: processing,
                 variety: variety,

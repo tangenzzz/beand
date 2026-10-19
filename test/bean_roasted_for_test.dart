@@ -107,6 +107,67 @@ void main() {
     expect(rowValue(tester, 'Type'), 'true');
   });
 
+  testWidgets('bean form: Roast level right below Roasted for, saved', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(() => tester.runAsync(db.close));
+
+    await tester.pumpWidget(app(db, const BeanFormScreen()));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+
+    expect(rowValue(tester, 'Roast level'), 'null');
+    expect(
+      tester.getTopLeft(find.text('Roast level')).dy,
+      greaterThan(tester.getTopLeft(find.text('Roasted for')).dy),
+    );
+    await tester.enterText(find.byType(TextField).first, 'Guji');
+    await tester.tap(find.text('Roast level'));
+    await settle(tester);
+    for (final label in ['Ultra light', 'Light', 'Medium', 'Dark']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    await tester.tap(find.text('Ultra light'));
+    await settle(tester);
+    expect(rowValue(tester, 'Roast level'), 'ultra-light');
+    await tester.tap(find.text('Save'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+
+    final bean = (await tester.runAsync(() => db.select(db.beans).get()))!
+        .single;
+    expect(bean.roastLevel, 'ultra-light');
+    // Found by the search and the filter.
+    expect(beanMatchesQuery(bean, 'ultra light'), isTrue);
+    expect(
+      const BeanFilter(roastLevels: {'ultra-light'}).matches(bean),
+      isTrue,
+    );
+    expect(const BeanFilter(roastLevels: {'dark'}).matches(bean), isFalse);
+  });
+
+  test('saved form order: Roast level slots in after Roasted for', () {
+    final order = AppSettings.normalizeBeanFormOrder([
+      BeanFormField.taste,
+      BeanFormField.roastedFor,
+      BeanFormField.country,
+    ]);
+    expect(order.take(4), [
+      BeanFormField.taste,
+      BeanFormField.roastedFor,
+      BeanFormField.roastLevel,
+      BeanFormField.country,
+    ]);
+  });
+
   testWidgets('bean form: selection is saved and shown again', (tester) async {
     tester.view.physicalSize = const Size(800, 2400);
     tester.view.devicePixelRatio = 1;

@@ -64,6 +64,7 @@ void main() {
     raw.execute('ALTER TABLE shots DROP COLUMN burrs');
     raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+    raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
     raw.execute('PRAGMA user_version = 17');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -93,6 +94,7 @@ void main() {
       raw.execute('ALTER TABLE shots DROP COLUMN burrs');
       raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
       raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+      raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
       raw.execute('PRAGMA user_version = 18');
 
       final db = AppDatabase(NativeDatabase.opened(raw));
@@ -125,6 +127,7 @@ void main() {
     await fresh.close();
     raw.execute('ALTER TABLE shots DROP COLUMN brewed_with');
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+    raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
     raw.execute('PRAGMA user_version = 19');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -156,6 +159,7 @@ void main() {
         );
     await fresh.close();
     raw.execute('ALTER TABLE shots DROP COLUMN brew_chain_id');
+    raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
     raw.execute('PRAGMA user_version = 20');
 
     final db = AppDatabase(NativeDatabase.opened(raw));
@@ -170,6 +174,30 @@ void main() {
       brewedWith: 'Zero',
     );
     expect((await db.select(db.shots).get()).single.brewChainId, 'bar');
+    await db.close();
+  });
+
+  test('migration v21 -> v22: roastLevel is added, beans stay', () async {
+    final raw = sql.sqlite3.openInMemory();
+    final fresh = AppDatabase(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    await fresh.insertBean(
+      BeansCompanion.insert(name: 'Guji', roastedFor: const Value('filter')),
+    );
+    await fresh.close();
+    raw.execute('ALTER TABLE beans DROP COLUMN roast_level');
+    raw.execute('PRAGMA user_version = 21');
+
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    final bean = (await db.allBeans()).single;
+    expect(bean.roastedFor, 'filter');
+    expect(bean.roastLevel, isNull);
+    await db.updateBean(
+      bean.id,
+      const BeansCompanion(roastLevel: Value('ultra-light')),
+    );
+    expect((await db.allBeans()).single.roastLevel, 'ultra-light');
     await db.close();
   });
 }

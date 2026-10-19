@@ -93,6 +93,15 @@ void main() {
       expect(BeanDraft.fromJson({'roastedFor': 'Moka'}).roastedFor, isNull);
     });
 
+    test('roastLevel only from the four allowed values', () {
+      expect(
+        BeanDraft.fromJson({'roastLevel': 'Ultra-Light'}).roastLevel,
+        'ultra-light',
+      );
+      expect(BeanDraft.fromJson({'roastLevel': 'nordic'}).roastLevel, isNull);
+      expect(BeanDraft.fromJson({'roastLevel': 'dark'}).isEmpty, isFalse);
+    });
+
     test('price in a foreign currency does NOT go into the euro field', () {
       final draft = BeanDraft.fromJson({'cost': 22, 'currency': 'USD'});
       expect(draft.cost, 22);

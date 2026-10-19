@@ -259,6 +259,7 @@ String shotAnalysisTask(ShotAnalysisInput input) {
       if (_has(bean.roaster)) 'Roaster: ${bean.roaster}',
       if (bean.isBlend != null) bean.isBlend! ? 'Blend' : 'Single origin',
       if (_has(bean.roastedFor)) 'Roasted for: ${bean.roastedFor}',
+      if (_has(bean.roastLevel)) 'Roast level: ${bean.roastLevel}',
       if (_has(bean.country)) 'Origin: ${bean.country}',
       if (_has(bean.processing)) 'Processing: ${bean.processing}',
       if (_has(bean.variety)) 'Variety: ${bean.variety}',

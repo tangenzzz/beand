@@ -13,6 +13,7 @@ import '../../services/grinder_store.dart';
 import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
+import '../live/tile_title.dart';
 import 'coffee_desk_data.dart';
 import 'desk_filter.dart';
 import 'gear_dialogs.dart';
@@ -896,14 +897,12 @@ class _GearDetail extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (gear.brand != null)
-            Text(
-              gear.brand!,
-              style: TextStyle(color: colors.textSecondary, fontSize: 12),
-            ),
-          Text(
-            gear.model,
-            style: TextStyle(color: colors.textPrimary, fontSize: 20),
+          // Brand and model in the look of the card titles ("PREShot").
+          PrefixedTitle(
+            key: const ValueKey('gear-title'),
+            prefix: gear.brand,
+            title: gear.model,
+            maxLines: 2,
           ),
           const SizedBox(height: 10),
           for (final (key, value) in gearDetailRows(
