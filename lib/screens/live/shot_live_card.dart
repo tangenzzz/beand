@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -33,9 +35,26 @@ class _ShotLiveCardState extends State<ShotLiveCard> {
   int? _cursorMs;
   final _scrollController = ScrollController();
   ShotStage? _lastStage;
+  Timer? _cursorRelease;
+
+  // How long a cursor set by hand holds during the brew before the value
+  // row follows the newest data point again.
+  static const _cursorHold = Duration(seconds: 3);
+
+  void _setCursor(int ms, {required bool running}) {
+    setState(() => _cursorMs = ms);
+    _cursorRelease?.cancel();
+    if (!running) return;
+    _cursorRelease = Timer(_cursorHold, () {
+      if (!mounted) return;
+      if (context.read<LiveShotService>().stage != ShotStage.running) return;
+      setState(() => _cursorMs = null);
+    });
+  }
 
   @override
   void dispose() {
+    _cursorRelease?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -70,6 +89,17 @@ class _ShotLiveCardState extends State<ShotLiveCard> {
     // there's more above.
     final finished =
         stage == ShotStage.awaitingPurge || stage == ShotStage.purging;
+    // A cursor set by hand (or by a carousel swipe that started on the
+    // chart) used to stick — even into the next shot, since this state
+    // outlives the cycle — and froze the value row at an old moment, e.g. a
+    // negative flow from the lead-in for the whole brew. Now each shot
+    // starts without a cursor, and during the brew a hand-set one lets go
+    // again after [_cursorHold] (see _setCursor).
+    final running = stage == ShotStage.running;
+    if (running && _lastStage != ShotStage.running) {
+      _cursorRelease?.cancel();
+      _cursorMs = null;
+    }
     if (finished &&
         _lastStage != ShotStage.awaitingPurge &&
         _lastStage != ShotStage.purging) {
@@ -97,7 +127,7 @@ class _ShotLiveCardState extends State<ShotLiveCard> {
             dose: setup.doseGrams,
             grind: setup.grindSize,
             cursorMs: _cursorMs,
-            onCursorChanged: (ms) => setState(() => _cursorMs = ms),
+            onCursorChanged: (ms) => _setCursor(ms, running: running),
             showDetail: finished,
             scrollController: _scrollController,
           ),

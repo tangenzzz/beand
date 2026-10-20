@@ -175,4 +175,47 @@ void main() {
       live.dispose();
     },
   );
+
+  testWidgets('shot card: a swipe over the chart does not freeze the live '
+      'values', (tester) async {
+    final socket = FakeSocket();
+    final live = MeticulousLiveShotService(socket)..start();
+
+    await tester.pumpWidget(_wrap(socket, live));
+
+    // Lead-in with a negative flow, as the machine reports it right after
+    // the tare point.
+    socket.push(phase: 'Water Filling', extracting: false, weight: 5);
+    socket.push(
+      phase: 'Water Filling',
+      extracting: false,
+      flow: -1.3,
+      weight: 0,
+    );
+    await tester.pump();
+
+    // A swipe that starts on the chart (e.g. meant for the carousel) lands
+    // on its left edge — it used to pin the value row to that moment for
+    // the rest of the brew.
+    await tester.drag(find.byType(LineChart), const Offset(-200, 0));
+    await tester.pump();
+    // Scrubbing during the brew is wanted — but only for a moment.
+    expect(find.text('-1.3 ml/s', findRichText: true), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+
+    socket.push(
+      phase: 'Percolation',
+      extracting: true,
+      pressure: 9,
+      flow: 2.4,
+      weight: 20,
+    );
+    await tester.pump();
+
+    expect(find.text('2.4 ml/s', findRichText: true), findsOneWidget);
+    expect(find.text('-1.3 ml/s', findRichText: true), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    live.dispose();
+  });
 }
