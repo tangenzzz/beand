@@ -156,6 +156,8 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('grinder-name')), 'K6');
     await tester.tap(find.text('Hand'));
     await tester.pump();
+    // Scale, markers and zero point fold away under "Advanced".
+    await openAdvanced(tester);
     await tester.tap(find.text('Microns'));
     await tester.pump();
     await tester.tap(find.text('10 µm'));
@@ -163,12 +165,13 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('grinder-max')), '1200');
     await tester.enterText(find.byKey(const ValueKey('grinder-zero')), '30');
     // The number pad has no minus: the ± button sets it.
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('grinder-zero')),
-        matching: find.byTooltip('Plus/minus'),
-      ),
+    final flip = find.descendant(
+      of: find.byKey(const ValueKey('grinder-zero')),
+      matching: find.byTooltip('Plus/minus'),
     );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(flip);
+    await tester.tap(flip);
     await tester.pump();
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
@@ -312,13 +315,20 @@ void main() {
       find.byKey(const ValueKey('grinder-name')),
       'Monolith',
     );
+    await openAdvanced(tester);
     await tester.tap(find.text('Dial'));
     await tester.pump();
     await tester.tap(find.text('Steps of 0.1'));
     await tester.enterText(find.byKey(const ValueKey('grinder-max')), '9');
+    // The folded-out block grows with an animation: let it finish.
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Add marker'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Add marker'));
     await tester.tap(find.text('Add marker'));
     await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Add marker'));
     await tester.tap(find.text('Add marker'));
     await tester.pump();
     await tester.enterText(
@@ -344,4 +354,11 @@ void main() {
     );
     expect(scale.markers[0].color, isNot(scale.markers[1].color));
   });
+}
+
+Future<void> openAdvanced(WidgetTester tester) async {
+  final advanced = find.byKey(const ValueKey('dialog-advanced'));
+  await tester.ensureVisible(advanced);
+  await tester.tap(advanced);
+  await tester.pumpAndSettle();
 }

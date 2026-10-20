@@ -18,9 +18,9 @@ Future<void> showGearDialog(
   required GearType type,
   Gear? gear,
   VoidCallback? onPhoto,
-}) => showDialog<void>(
-  context: context,
-  builder: (_) => ChangeNotifierProvider<GearStore>.value(
+}) => showSetupSheet<void>(
+  context,
+  (_) => ChangeNotifierProvider<GearStore>.value(
     value: context.read<GearStore>(),
     child: _GearDialog(type: type, gear: gear, onPhoto: onPhoto),
   ),
@@ -29,9 +29,9 @@ Future<void> showGearDialog(
 /// Add ([chain] null) or edit a brew chain. Returns the saved chain, null on
 /// cancel or delete.
 Future<BrewChain?> showChainDialog(BuildContext context, {BrewChain? chain}) =>
-    showDialog<BrewChain>(
-      context: context,
-      builder: (_) => ChangeNotifierProvider<GearStore>.value(
+    showSetupSheet<BrewChain>(
+      context,
+      (_) => ChangeNotifierProvider<GearStore>.value(
         value: context.read<GearStore>(),
         child: _ChainDialog(chain: chain),
       ),
@@ -49,7 +49,8 @@ class _GearDialog extends StatefulWidget {
 }
 
 class _GearDialogState extends State<_GearDialog> {
-  late final _brand = TextEditingController(text: widget.gear?.brand);
+  late final _brand = TextEditingController(text: widget.gear?.brand)
+    ..addListener(() => setState(() {}));
   late final _model = TextEditingController(text: widget.gear?.model)
     ..addListener(() => setState(() {}));
   late final _stock = TextEditingController(
@@ -136,8 +137,14 @@ class _GearDialogState extends State<_GearDialog> {
     final editing = widget.gear != null;
     final single = type.single.toLowerCase();
     final shapes = gearShapes[type];
+    final id = widget.gear?.id;
     return SetupDialog(
       title: editing ? 'Edit $single' : 'Add $single',
+      heading: _model.text,
+      subheading: _brand.text,
+      photo: id == null || widget.onPhoto == null
+          ? null
+          : GearThumb(gearId: id, icon: type.iconAsset({'shape': ?_shape})),
       onPhoto: widget.onPhoto,
       canSave: true,
       onSave: _save,
@@ -174,14 +181,15 @@ class _GearDialogState extends State<_GearDialog> {
             label: 'Stock',
             numeric: true,
           ),
-        if (shapes != null) ...[
-          const SizedBox(height: 14),
-          UnderlineSelect<String?>(
-            options: [for (final (v, l) in shapes) UnderlineOption(v, l)],
-            value: _shape,
-            onChanged: (v) => setState(() => _shape = v),
+        if (shapes != null)
+          SetupRow(
+            label: 'Shape',
+            child: UnderlineSelect<String?>(
+              options: [for (final (v, l) in shapes) UnderlineOption(v, l)],
+              value: _shape,
+              onChanged: (v) => setState(() => _shape = v),
+            ),
           ),
-        ],
       ],
     );
   }
@@ -258,6 +266,7 @@ class _ChainDialogState extends State<_ChainDialog> {
     final editing = widget.chain != null;
     return SetupDialog(
       title: editing ? 'Edit brew chain' : 'Add brew chain',
+      heading: _name.text,
       canSave: _name.text.trim().isNotEmpty,
       onSave: _save,
       onDelete: editing ? _delete : null,

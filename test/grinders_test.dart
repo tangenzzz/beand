@@ -12,6 +12,7 @@ import 'package:beand/models/water.dart';
 import 'package:beand/screens/settings/desk_filter.dart';
 import 'package:beand/screens/settings/gear_photo_preview.dart';
 import 'package:beand/screens/settings/my_coffee_desk_screen.dart';
+import 'package:beand/screens/settings/my_setup_dialogs.dart';
 import 'package:beand/screens/settings/settings_widgets.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/gear_store.dart';
@@ -785,7 +786,7 @@ void main() {
     // The suggestion chip fills the field.
     await tester.tap(
       find.descendant(
-        of: find.byType(AlertDialog),
+        of: find.byType(SetupDialog),
         matching: find.text('Niche'),
       ),
     );

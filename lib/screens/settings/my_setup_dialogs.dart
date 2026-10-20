@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/gear.dart';
 import '../../models/grind_scale.dart';
 import '../../models/grinder.dart';
 import '../../models/water.dart';
+import '../../services/gear_store.dart';
 import '../../services/grinder_store.dart';
 import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_button.dart';
 import '../../widgets/underline_select.dart';
+import 'my_coffee_desk_screen.dart' show GearIcon;
 import 'settings_widgets.dart';
 
 // Add/edit dialogs of Settings → My Setup. Everything is free text; the
@@ -17,16 +21,23 @@ import 'settings_widgets.dart';
 /// Add ([grinder] null) or edit a grinder. Returns the saved grinder, null
 /// on cancel or delete.
 /// [onPhoto]: the desk's photo choice for an existing piece — shown as
-/// "Photo" at the top of the dialog (the shelf has no Edit/Photo buttons).
+/// the thumbnail in the sheet's head (the shelf has no Edit/Photo buttons).
 Future<Grinder?> showGrinderDialog(
   BuildContext context, {
   Grinder? grinder,
   VoidCallback? onPhoto,
 }) {
-  return showDialog<Grinder>(
-    context: context,
-    builder: (_) => ChangeNotifierProvider<GrinderStore>.value(
-      value: context.read<GrinderStore>(),
+  return showSetupSheet<Grinder>(
+    context,
+    (_) => MultiProvider(
+      providers: [
+        ChangeNotifierProvider<GrinderStore>.value(
+          value: context.read<GrinderStore>(),
+        ),
+        ChangeNotifierProvider<GearStore>.value(
+          value: context.read<GearStore>(),
+        ),
+      ],
       child: _GrinderDialog(grinder: grinder, onPhoto: onPhoto),
     ),
   );
@@ -37,10 +48,17 @@ Future<void> showWaterDialog(
   Water? water,
   VoidCallback? onPhoto,
 }) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => ChangeNotifierProvider<WaterStore>.value(
-      value: context.read<WaterStore>(),
+  return showSetupSheet<void>(
+    context,
+    (_) => MultiProvider(
+      providers: [
+        ChangeNotifierProvider<WaterStore>.value(
+          value: context.read<WaterStore>(),
+        ),
+        ChangeNotifierProvider<GearStore>.value(
+          value: context.read<GearStore>(),
+        ),
+      ],
       child: _WaterDialog(water: water, onPhoto: onPhoto),
     ),
   );
@@ -231,6 +249,17 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     ),
   );
 
+  // Shown next to the folded "Advanced": what is set in there.
+  String? _advancedSummary() {
+    final parts = [
+      if (_unit case final unit?) unit.label,
+      if (_markers.length > 1) '${_markers.length} markers',
+      if (_zero.text.trim() case final z when z.isNotEmpty && z != '0')
+        'zero $z',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
   Future<void> _delete() async {
     final grinder = widget.grinder!;
     if (!await confirmSetupDelete(
@@ -250,13 +279,25 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     final store = context.watch<GrinderStore>();
     final burrTaken = {for (final b in _entered) b.toLowerCase()};
     final editing = widget.grinder != null;
+    final id = widget.grinder?.id;
     return SetupDialog(
       title: editing ? 'Edit grinder' : 'Add grinder',
+      heading: _name.text,
+      subheading: _brand.text,
+      photo: id == null || widget.onPhoto == null
+          ? null
+          : GearThumb(
+              gearId: id,
+              icon: GearType.grinder.iconAsset({if (_hand) 'shape': 'hand'}),
+            ),
       onPhoto: widget.onPhoto,
       canSave: _name.text.trim().isNotEmpty,
       onSave: _save,
       onDelete: editing ? _delete : null,
       deleteLabel: 'Delete grinder',
+      advancedSummary: _advancedSummary(),
+      // The basics first, then what folds away under "Advanced".
+      // ignore: sort_child_properties_last
       children: [
         SetupField(
           key: const ValueKey('grinder-brand'),
@@ -296,6 +337,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
+            style: TextButton.styleFrom(padding: EdgeInsets.zero),
             onPressed: () => setState(_addBurrField),
             icon: Icon(
               Icons.add,
@@ -308,16 +350,20 @@ class _GrinderDialogState extends State<_GrinderDialog> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        UnderlineSelect<bool>(
-          key: const ValueKey('grinder-form'),
-          options: const [
-            UnderlineOption(false, 'Electric'),
-            UnderlineOption(true, 'Hand'),
-          ],
-          value: _hand,
-          onChanged: (v) => setState(() => _hand = v!),
+        SetupRow(
+          label: 'Type',
+          child: UnderlineSelect<bool>(
+            key: const ValueKey('grinder-form'),
+            options: const [
+              UnderlineOption(false, 'Electric'),
+              UnderlineOption(true, 'Hand'),
+            ],
+            value: _hand,
+            onChanged: (v) => setState(() => _hand = v!),
+          ),
         ),
+      ],
+      advanced: [
         _label(
           'Scale',
           info:
@@ -445,6 +491,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
+              style: TextButton.styleFrom(padding: EdgeInsets.zero),
               onPressed: _addMarker,
               icon: Icon(
                 Icons.add,
@@ -672,8 +719,13 @@ class _WaterDialogState extends State<_WaterDialog> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.water != null;
+    final id = widget.water?.id;
     return SetupDialog(
       title: editing ? 'Edit water' : 'Add water',
+      heading: _recipe.text,
+      photo: id == null || widget.onPhoto == null
+          ? null
+          : GearThumb(gearId: id, icon: GearType.water.iconAsset(const {})),
       onPhoto: widget.onPhoto,
       canSave: _recipe.text.trim().isNotEmpty,
       onSave: _save,
@@ -686,26 +738,16 @@ class _WaterDialogState extends State<_WaterDialog> {
           label: 'Recipe',
           autofocus: !editing,
         ),
-        const SizedBox(height: 12),
         // Unit of the mineral amounts; switching converts what is entered.
-        Row(
-          children: [
-            Text(
-              'Amounts in',
-              style: TextStyle(
-                color: context.colors.textSecondary,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(width: 8),
-            UnderlineSelect<MineralUnit>(
-              options: [
-                for (final u in MineralUnit.values) UnderlineOption(u, u.label),
-              ],
-              value: _unit,
-              onChanged: _setUnit,
-            ),
-          ],
+        SetupRow(
+          label: 'Amounts in',
+          child: UnderlineSelect<MineralUnit>(
+            options: [
+              for (final u in MineralUnit.values) UnderlineOption(u, u.label),
+            ],
+            value: _unit,
+            onChanged: _setUnit,
+          ),
         ),
         SetupField(
           key: const ValueKey('water-gh'),
@@ -780,8 +822,24 @@ class _MineralChoice extends StatelessWidget {
   }
 }
 
-// Shared frame: scrollable fields, delete at the bottom, Cancel/Save.
-class SetupDialog extends StatelessWidget {
+/// Opens a My Coffee Desk editor as a bottom sheet (see [SetupDialog]).
+Future<T?> showSetupSheet<T>(BuildContext context, WidgetBuilder builder) =>
+    showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: context.colors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: builder,
+    );
+
+// Shared frame of every My Coffee Desk editor, as a bottom sheet: handle,
+// head with the piece's photo and its name, the fields as rows, optional
+// "Advanced" to fold out, Save fixed at the bottom and delete below it.
+// Swiping down or tapping outside cancels.
+class SetupDialog extends StatefulWidget {
   const SetupDialog({
     super.key,
     required this.title,
@@ -790,80 +848,281 @@ class SetupDialog extends StatelessWidget {
     required this.onSave,
     required this.onDelete,
     required this.deleteLabel,
+    this.heading,
+    this.subheading,
+    this.photo,
     this.onPhoto,
+    this.advanced = const [],
+    this.advancedSummary,
   });
 
+  /// What is being done, e.g. "Edit grinder" — the head's big line until
+  /// [heading] has text, then the small line above it.
   final String title;
+
+  /// The piece's name as typed (live); [subheading] e.g. its brand.
+  final String? heading;
+  final String? subheading;
+
+  /// Thumbnail in the head (see [GearThumb]); tapping it calls [onPhoto].
+  final Widget? photo;
+  final VoidCallback? onPhoto;
+
   final List<Widget> children;
 
-  /// Choose/take/remove the piece's photo — at the top of the content.
-  final VoidCallback? onPhoto;
+  /// Rarely needed fields, folded away under "Advanced".
+  final List<Widget> advanced;
+
+  /// What is set in there, shown next to "Advanced" while folded.
+  final String? advancedSummary;
+
   final bool canSave;
   final VoidCallback onSave;
   final VoidCallback? onDelete;
   final String deleteLabel;
 
   @override
+  State<SetupDialog> createState() => _SetupDialogState();
+}
+
+class _SetupDialogState extends State<SetupDialog> {
+  bool _advancedOpen = false;
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return AlertDialog(
-      backgroundColor: colors.card,
-      title: Text(title, style: TextStyle(color: colors.textPrimary)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (onPhoto != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  key: const ValueKey('dialog-photo'),
-                  onPressed: onPhoto,
-                  icon: Icon(
-                    Icons.photo_camera_outlined,
-                    color: colors.textSecondary,
-                    size: 18,
-                  ),
-                  label: Text(
-                    'Photo',
-                    style: TextStyle(color: colors.textSecondary),
-                  ),
-                ),
+    final heading = widget.heading?.trim() ?? '';
+    final small = heading.isEmpty
+        ? null
+        : (widget.subheading?.trim().isNotEmpty ?? false)
+        ? widget.subheading!.trim()
+        : widget.title;
+    final big = heading.isEmpty ? widget.title : heading;
+    final photo = widget.photo;
+    return Padding(
+      // Above the keyboard.
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 34,
+              height: 4,
+              margin: const EdgeInsets.only(top: 8, bottom: 12),
+              decoration: BoxDecoration(
+                color: colors.divider,
+                borderRadius: BorderRadius.circular(2),
               ),
-            ...children,
-            if (onDelete != null) ...[
-              const SizedBox(height: 18),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: onDelete,
-                  icon: Icon(Icons.delete_outline, color: colors.danger),
-                  label: Text(
-                    deleteLabel,
-                    style: TextStyle(color: colors.danger),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-        ),
-        TextButton(
-          onPressed: canSave ? onSave : null,
-          child: Text(
-            'Save',
-            style: TextStyle(
-              color: canSave ? colors.accent : colors.textTertiary,
             ),
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Row(
+              children: [
+                if (photo != null) ...[
+                  GestureDetector(
+                    key: const ValueKey('dialog-photo'),
+                    onTap: widget.onPhoto,
+                    child: photo,
+                  ),
+                  const SizedBox(width: 14),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (small != null)
+                        Text(
+                          small,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      Text(
+                        big,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 19,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...widget.children,
+                  if (widget.advanced.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    InkWell(
+                      key: const ValueKey('dialog-advanced'),
+                      onTap: () =>
+                          setState(() => _advancedOpen = !_advancedOpen),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Advanced',
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (!_advancedOpen &&
+                                widget.advancedSummary != null) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.advancedSummary!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.textTertiary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ] else
+                              const Spacer(),
+                            Icon(
+                              _advancedOpen
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
+                              color: colors.textTertiary,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 180),
+                      alignment: Alignment.topCenter,
+                      child: _advancedOpen
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: widget.advanced,
+                            )
+                          : const SizedBox(width: double.infinity),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            child: AppButton(
+              label: 'Save',
+              onPressed: widget.canSave ? widget.onSave : null,
+            ),
+          ),
+          if (widget.onDelete != null)
+            Center(
+              child: TextButton.icon(
+                onPressed: widget.onDelete,
+                icon: Icon(Icons.delete_outline, color: colors.danger),
+                label: Text(
+                  widget.deleteLabel,
+                  style: TextStyle(color: colors.danger),
+                ),
+              ),
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+/// A row in the editors for a choice instead of text: label on the left
+/// (lined up with [SetupField]'s), the choice on the right.
+class SetupRow extends StatelessWidget {
+  const SetupRow({super.key, required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Container(
+      // The underline choice brings its own room below the text.
+      padding: const EdgeInsets.only(top: 10, bottom: 4),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.divider, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 104,
+            child: Text(
+              label,
+              style: TextStyle(color: colors.textSecondary, fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Align(alignment: Alignment.centerRight, child: child),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The head's thumbnail: the piece's photo (live, so a new one shows right
+/// away), else its type's line icon. Tapping it is the photo choice.
+class GearThumb extends StatelessWidget {
+  const GearThumb({super.key, required this.gearId, required this.icon});
+
+  final String gearId;
+
+  /// Line icon asset for when there is no photo.
+  final String icon;
+
+  static const size = 56.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final store = context.watch<GearStore>();
+    final gear = store.byId(gearId);
+    final file = gear == null ? null : store.photoFile(gear);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: colors.bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      alignment: Alignment.center,
+      child: file != null
+          ? Image.file(
+              file,
+              width: size,
+              height: size,
+              fit: (gear?.isCutout ?? false) ? BoxFit.contain : BoxFit.cover,
+              cacheWidth: 200,
+            )
+          : GearIcon(asset: icon, size: 28, color: colors.textSecondary),
     );
   }
 }
@@ -951,60 +1210,111 @@ class _SetupFieldState extends State<SetupField> {
     );
   }
 
+  // Below this width the label goes into the field as a hint (the narrow
+  // offset/amount fields sit next to their own label anyway).
+  static const _inlineLabelMinWidth = 150.0;
+
+  // Label column on full-width rows, so the values line up.
+  static const _labelWidth = 104.0;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final neutral = TextStyle(color: colors.textSecondary);
+    final neutral = TextStyle(color: colors.textSecondary, fontSize: 14);
     final matches = _matches();
+    final focused = _focus.hasFocus;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          controller: widget.controller,
-          focusNode: _focus,
-          autofocus: widget.autofocus,
-          textCapitalization: widget.numeric
-              ? TextCapitalization.none
-              : TextCapitalization.words,
-          keyboardType: widget.numeric
-              ? const TextInputType.numberWithOptions(decimal: true)
-              : null,
-          inputFormatters: widget.numeric
-              ? [
-                  FilteringTextInputFormatter.allow(
-                    widget.signed ? RegExp(r'^-?[0-9.,]*') : RegExp(r'[0-9.,]'),
-                  ),
-                ]
-              : null,
-          // The blinking cursor keeps the accent; label and line don't.
-          cursorColor: colors.accent,
-          style: TextStyle(color: colors.textPrimary),
-          decoration: InputDecoration(
-            labelText: widget.label,
-            labelStyle: neutral,
-            floatingLabelStyle: neutral,
-            suffixText: widget.suffix,
-            suffixStyle: neutral,
-            suffixIcon: widget.signed
-                ? IconButton(
-                    tooltip: 'Plus/minus',
-                    onPressed: _flipSign,
-                    icon: Text(
-                      '±',
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 18,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final showLabel = width >= _inlineLabelMinWidth;
+            final field = TextField(
+              controller: widget.controller,
+              focusNode: _focus,
+              autofocus: widget.autofocus,
+              textAlign: showLabel ? TextAlign.end : TextAlign.start,
+              textCapitalization: widget.numeric
+                  ? TextCapitalization.none
+                  : TextCapitalization.words,
+              keyboardType: widget.numeric
+                  ? const TextInputType.numberWithOptions(decimal: true)
+                  : null,
+              inputFormatters: widget.numeric
+                  ? [
+                      FilteringTextInputFormatter.allow(
+                        widget.signed
+                            ? RegExp(r'^-?[0-9.,]*')
+                            : RegExp(r'[0-9.,]'),
                       ),
-                    ),
-                  )
-                : null,
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: colors.divider),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: colors.textSecondary),
-            ),
-          ),
+                    ]
+                  : null,
+              // The blinking cursor keeps the accent; label and line don't.
+              cursorColor: colors.accent,
+              style: TextStyle(color: colors.textPrimary, fontSize: 15),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: showLabel ? '—' : widget.label,
+                hintStyle: TextStyle(color: colors.textTertiary, fontSize: 15),
+                suffixText: widget.suffix,
+                suffixStyle: neutral,
+                suffixIcon: widget.signed
+                    ? IconButton(
+                        tooltip: 'Plus/minus',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _flipSign,
+                        icon: Text(
+                          '±',
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 18,
+                          ),
+                        ),
+                      )
+                    : null,
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                border: InputBorder.none,
+              ),
+            );
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: focused ? colors.textSecondary : colors.divider,
+                    width: focused ? 1 : 0.5,
+                  ),
+                ),
+              ),
+              child: showLabel
+                  ? Row(
+                      children: [
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: width >= 260 ? _labelWidth : width * 0.45,
+                            minWidth: width >= 260 ? _labelWidth : 0,
+                          ),
+                          child: GestureDetector(
+                            onTap: _focus.requestFocus,
+                            child: Text(
+                              widget.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: neutral,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: field),
+                      ],
+                    )
+                  : field,
+            );
+          },
         ),
         AnimatedSize(
           duration: const Duration(milliseconds: 150),
