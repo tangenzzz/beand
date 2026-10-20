@@ -73,7 +73,6 @@ List<(String, String)> gearDetailRows(
         (f.label, f.unit == null ? _n(v) : '${_n(v)} ${f.unit}'),
   if (g.type == GearType.grinder && shots != null) ('Shots', '$shots'),
   if (g.stock != null) ('Stock', '${g.stock}'),
-  ('Used for', g.brewModes.map((m) => m.label).join(' · ')),
   if (chains.isNotEmpty) ('Chains', chains.join(', ')),
 ];
 

@@ -862,7 +862,8 @@ class SetupDialog extends StatefulWidget {
   final String title;
 
   /// The piece's name as typed (live) and its brand: shown like the card
-  /// titles ("PREShot") — brand small in the accent color, name big.
+  /// titles ("PREShot") — brand small in the accent color in the line
+  /// above, name big.
   final String? heading;
   final String? subheading;
 
@@ -943,6 +944,7 @@ class _SetupDialogState extends State<SetupDialog> {
                       active: true,
                       maxLines: 2,
                       fontSize: 22,
+                      stacked: true,
                     ),
                   ),
                 ),

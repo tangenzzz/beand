@@ -54,6 +54,7 @@ class PrefixedTitle extends StatelessWidget {
     this.active = false,
     this.maxLines,
     this.fontSize = 17,
+    this.stacked = false,
   });
 
   /// Shown in capitals; null or empty = the title alone.
@@ -67,6 +68,10 @@ class PrefixedTitle extends StatelessWidget {
   /// Size of [title]; prefix and raise scale along, so the proportions stay
   /// those of the card titles (e.g. a bigger head on the desk editors).
   final double fontSize;
+
+  /// Prefix in its own line right above the title instead of to its left
+  /// (the desk editors' head) — same look otherwise.
+  final bool stacked;
 
   // At title size 17: prefix 9, raised by 2.
   static const _prefixRatio = 9 / 17;
@@ -86,6 +91,27 @@ class PrefixedTitle extends StatelessWidget {
       ),
     );
     if (prefix.isEmpty) return titleText;
+    final prefixStyle = TextStyle(
+      color: active ? context.colors.accent : context.colors.textSecondary,
+      fontSize: fontSize * _prefixRatio,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 1,
+    );
+    if (stacked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            prefix.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: prefixStyle,
+          ),
+          titleText,
+        ],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -94,14 +120,7 @@ class PrefixedTitle extends StatelessWidget {
           offset: Offset(0, -fontSize * _raiseRatio),
           child: AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 220),
-            style: TextStyle(
-              color: active
-                  ? context.colors.accent
-                  : context.colors.textSecondary,
-              fontSize: fontSize * _prefixRatio,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
-            ),
+            style: prefixStyle,
             child: Text(prefix.toUpperCase()),
           ),
         ),

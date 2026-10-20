@@ -769,8 +769,8 @@ class GearIcon extends StatelessWidget {
 /// a faint hairline when stored; the selected one only gets a faint outer
 /// hairline and a brighter name. A cut-out photo has no circle: the piece
 /// stands freely on the board with a soft shadow, in use marked by a small
-/// accent dot before its name. Badge: "E" or a dripper when it serves only
-/// one brew mode.
+/// accent dot before its name. No brew-mode badge (removed on user request
+/// 2026-10-20).
 class GearAvatar extends StatelessWidget {
   const GearAvatar({
     super.key,
@@ -806,7 +806,6 @@ class GearAvatar extends StatelessWidget {
     final iconColor = active
         ? colors.textPrimary
         : colors.textPrimary.withValues(alpha: 0.4);
-    final mode = gear.brewModes.length == 1 ? gear.brewModes.first : null;
     return Semantics(
       button: true,
       selected: selected,
@@ -878,12 +877,6 @@ class GearAvatar extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (mode != null)
-                      Positioned(
-                        right: ringGap,
-                        bottom: ringGap,
-                        child: _ModeBadge(mode: mode),
-                      ),
                   ],
                 ),
               ),
@@ -922,42 +915,6 @@ class GearAvatar extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _ModeBadge extends StatelessWidget {
-  const _ModeBadge({required this.mode});
-
-  final BrewMode mode;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    return Container(
-      width: 18,
-      height: 18,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: colors.card,
-        shape: BoxShape.circle,
-        border: Border.all(color: colors.textTertiary, width: 0.5),
-      ),
-      child: mode == BrewMode.espresso
-          ? Text(
-              'E',
-              style: TextStyle(
-                color: colors.textPrimary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                height: 1,
-              ),
-            )
-          : GearIcon(
-              asset: 'assets/icons/gear/dripper_cone.svg',
-              size: 12,
-              color: colors.textPrimary,
-            ),
     );
   }
 }
