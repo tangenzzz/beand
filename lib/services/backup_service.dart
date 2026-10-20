@@ -233,6 +233,7 @@ class BackupService {
     DateTime? now,
     BackupSyncInfo? sync,
     String? encryptPassword,
+    bool snapshotDb = false,
   }) async {
     // Write open WAL transactions into the main file, otherwise the copied
     // file misses the latest changes. Fails silently if the DB is not in
@@ -242,6 +243,19 @@ class BackupService {
     } catch (_) {}
 
     targetDir.createSync(recursive: true);
+
+    // [snapshotDb]: the database goes in as a consistent copy made by
+    // SQLite itself (VACUUM INTO) instead of the raw file. For the auto
+    // backup, which may run from a background task with its own connection
+    // while the app is open — then the checkpoint above can be blocked and
+    // the raw file would miss what still sits in the WAL.
+    File? snapshot;
+    if (snapshotDb) {
+      snapshot = File(p.join(targetDir.path, '$backupDbFileName.snapshot'));
+      if (snapshot.existsSync()) snapshot.deleteSync();
+      final escaped = snapshot.path.replaceAll("'", "''");
+      await db.customStatement("VACUUM INTO '$escaped'");
+    }
     final zipFile = File(
       p.join(
         targetDir.path,
@@ -274,14 +288,14 @@ class BackupService {
       _addText(encoder, _prefsName, _pretty(prefsJson));
       if (sync != null) _addText(encoder, _syncName, _pretty(sync.toJson()));
       for (final file in files) {
-        final name = p.url.joinAll([
-          _filesPrefix,
-          ...p.split(p.relative(file.path, from: docsDir.path)),
-        ]);
-        await encoder.addFile(file, name);
+        final relative = p.relative(file.path, from: docsDir.path);
+        final name = p.url.joinAll([_filesPrefix, ...p.split(relative)]);
+        final isDb = relative == backupDbFileName;
+        await encoder.addFile(isDb ? (snapshot ?? file) : file, name);
       }
     } finally {
       await encoder.close();
+      if (snapshot?.existsSync() ?? false) snapshot!.deleteSync();
     }
     if (encryptPassword == null) return zipFile;
 

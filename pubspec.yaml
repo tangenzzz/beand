@@ -78,6 +78,10 @@ dependencies:
   local_auth: ^3.0.2
   flutter_svg: ^2.3.0
   image: ^4.3.0
+  workmanager: ^0.10.10
+  # Auto backup into a folder the user picked (local plugin, Android SAF).
+  saf_folder:
+    path: packages/saf_folder
 dev_dependencies:
   flutter_test:
     sdk: flutter

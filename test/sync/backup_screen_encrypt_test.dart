@@ -57,6 +57,9 @@ void main() {
             return Uri.file(name);
           },
           pickBackupFile: () async => picked,
+          // The auto backup block reaches for the platform (folder,
+          // WorkManager) — not part of this test.
+          autoBackup: const SizedBox(),
         ),
       ),
     );

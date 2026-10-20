@@ -15,6 +15,7 @@ import '../../sync/crypto/backup_cipher.dart';
 import '../../sync/crypto/nip49.dart';
 import '../../sync/sync_service.dart';
 import '../../theme/app_theme.dart';
+import 'auto_backup_section.dart';
 import 'backup_dialogs.dart';
 import 'settings_widgets.dart';
 
@@ -32,6 +33,7 @@ class BackupSettingsScreen extends StatefulWidget {
     this.pickBackupFile,
     this.saveBackupFile,
     this.safetyDir,
+    this.autoBackup,
   });
 
   /// Tests only: ready-made service or file dialogs without system UI.
@@ -42,6 +44,9 @@ class BackupSettingsScreen extends StatefulWidget {
   /// Folder of the safety copy (before "Replace" when pairing) — replaceable
   /// for tests only.
   final Future<Directory> Function()? safetyDir;
+
+  /// The auto backup block; tests pass one with fake folder access.
+  final Widget? autoBackup;
 
   @override
   State<BackupSettingsScreen> createState() => _BackupSettingsScreenState();
@@ -409,7 +414,8 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
-          // One block: three actions, no lines between them.
+          // Block 1: the actions by hand, no lines between them. Block 2:
+          // the auto backup.
           SettingsCard(
             children: [
               SettingsGroup(
@@ -447,6 +453,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
                     ),
                 ],
               ),
+              widget.autoBackup ?? const AutoBackupSection(),
             ],
           ),
           if (_busy || _status != null)

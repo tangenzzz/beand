@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'database/database.dart';
 import 'machines/gaggimate/gaggimate_live_shot_service.dart';
@@ -20,6 +22,7 @@ import 'screens/settings/meticulous_settings_screen.dart';
 import 'services/ai/ai_service.dart';
 import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
+import 'services/auto_backup.dart';
 import 'services/bundled_licenses.dart';
 import 'services/gear_store.dart';
 import 'services/grinder_store.dart';
@@ -222,6 +225,11 @@ Future<void> main() async {
   );
   await deviceSync.init();
 
+  // Auto backup (Settings → Backup): WorkManager runs it at the set times,
+  // in this engine while the app is open — then with this database.
+  AutoBackup.appDatabase = database;
+  unawaited(_startAutoBackup());
+
   runApp(
     MultiProvider(
       providers: [
@@ -280,5 +288,19 @@ class BeandApp extends StatelessWidget {
       theme: buildAppTheme(variant: variant, accent: settings.accent),
       home: const RootScaffold(),
     );
+  }
+}
+
+// Registers the background entry point, then catches up on a slot that was
+// missed (phone off, Doze) and queues the next one. A little after the
+// start, so it does not compete with the first frames.
+Future<void> _startAutoBackup() async {
+  try {
+    await Workmanager().initialize(autoBackupDispatcher);
+    await Future<void>.delayed(const Duration(seconds: 10));
+    final backup = await AutoBackup.platform();
+    await backup.run();
+  } catch (e) {
+    debugPrint('Auto backup check failed: $e');
   }
 }
