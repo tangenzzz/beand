@@ -7,11 +7,10 @@ enum GrindUnit {
   /// Numbers on a dial (Niche 0–50, DF64 0–90).
   dial('Dial', ''),
 
-  /// Clicks of a hand grinder (Comandante, Kingrinder).
+  /// Clicks of a hand grinder (Comandante, Kingrinder). With clicks per
+  /// rotation set, read as rotations and clicks (1Zpresso: "2.14") — until
+  /// 2026-10-20 that was a unit of its own, "rotations" (see fromJson).
   clicks('Clicks', 'clicks'),
-
-  /// Rotations and clicks (1Zpresso: "2.14") — counted as clicks inside.
-  rotations('Rotations', ''),
 
   /// Microns, as some single-dose grinders give their scale.
   microns('Microns', 'µm');
@@ -26,7 +25,7 @@ enum GrindUnit {
   List<double> get steps => switch (this) {
     GrindUnit.dial => const [1, 0.5, 0.25, 0.1],
     GrindUnit.microns => const [50, 25, 10, 5, 1],
-    GrindUnit.clicks || GrindUnit.rotations => const [1],
+    GrindUnit.clicks => const [1],
   };
 }
 
@@ -117,7 +116,7 @@ class GrindScale {
     this.step = 0.1,
     this.min = 0,
     this.max = 20,
-    this.clicksPerRotation = 30,
+    this.clicksPerRotation = 0,
     this.markers = const [],
   });
 
@@ -179,8 +178,15 @@ class GrindScale {
   final double min;
   final double max;
 
-  /// Only for [GrindUnit.rotations].
+  /// Clicks only: above 0 the value reads as rotations and clicks ("2.14"),
+  /// 0 as plain clicks ("24 clicks").
   final int clicksPerRotation;
+
+  bool get _asRotations => unit == GrindUnit.clicks && clicksPerRotation > 0;
+
+  /// After the value: the unit's, except clicks read as rotations ("2.14"
+  /// stands alone).
+  String get suffix => _asRotations ? '' : unit.suffix;
 
   int get digits {
     if (step >= 1) return 0;
@@ -191,7 +197,7 @@ class GrindScale {
   /// The value as read on the grinder, with its unit.
   String format(double value, {bool withUnit = true}) {
     final String text;
-    if (unit == GrindUnit.rotations && clicksPerRotation > 0) {
+    if (_asRotations) {
       final clicks = value.round();
       final sign = clicks < 0 ? '-' : '';
       final abs = clicks.abs();
@@ -199,7 +205,7 @@ class GrindScale {
     } else {
       text = value.toStringAsFixed(digits);
     }
-    return withUnit && unit.suffix.isNotEmpty ? '$text ${unit.suffix}' : text;
+    return withUnit && suffix.isNotEmpty ? '$text $suffix' : text;
   }
 
   double clamp(double value) => value.clamp(min, max).toDouble();
@@ -209,13 +215,18 @@ class GrindScale {
     'step': step,
     'min': min,
     'max': max,
-    if (unit == GrindUnit.rotations) 'perRotation': clicksPerRotation,
+    if (_asRotations) 'perRotation': clicksPerRotation,
     if (markers.isNotEmpty) 'markers': [for (final m in markers) m.toJson()],
   };
 
   static GrindScale? fromJson(Object? json) {
     if (json is! Map) return null;
-    final unit = GrindUnit.values.asNameMap()[json['unit']];
+    // "rotations" was its own unit until 2026-10-20: now clicks with clicks
+    // per rotation (30 when none was stored, its default then).
+    final legacyRotations = json['unit'] == 'rotations';
+    final unit = legacyRotations
+        ? GrindUnit.clicks
+        : GrindUnit.values.asNameMap()[json['unit']];
     final step = json['step'], min = json['min'], max = json['max'];
     if (unit == null || step is! num || min is! num || max is! num) {
       return null;
@@ -228,7 +239,9 @@ class GrindScale {
       step: step.toDouble(),
       min: min.toDouble(),
       max: max.toDouble(),
-      clicksPerRotation: per is num && per > 0 ? per.toInt() : 30,
+      clicksPerRotation: per is num && per > 0
+          ? per.toInt()
+          : (legacyRotations ? 30 : 0),
       markers: markers is List
           ? [for (final m in markers) ?GrindMarker.fromJson(m)]
           : const [],

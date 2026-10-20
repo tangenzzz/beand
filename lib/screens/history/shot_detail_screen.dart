@@ -655,7 +655,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             _Stat(
               'Grind',
               grindScale.format(grind, withUnit: false),
-              grindScale.unit.suffix,
+              grindScale.suffix,
               marker: grindScale.hasMarkers
                   ? grindScale.markerNamed(_markerDraft ?? shot.grindMarker)
                   : null,

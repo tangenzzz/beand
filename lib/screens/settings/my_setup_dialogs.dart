@@ -91,7 +91,10 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     text: _num(widget.grinder?.scale?.max),
   );
   late final _perRotation = TextEditingController(
-    text: widget.grinder?.scale?.clicksPerRotation.toString() ?? '30',
+    text: switch (widget.grinder?.scale?.clicksPerRotation) {
+      final int n when n > 0 => '$n',
+      _ => '',
+    },
   );
   late final _zero = TextEditingController(
     text: _num(widget.grinder?.zeroPoint?.value),
@@ -138,7 +141,6 @@ class _GrinderDialogState extends State<_GrinderDialog> {
       _max.text = switch (unit) {
         GrindUnit.dial => '50',
         GrindUnit.clicks => '40',
-        GrindUnit.rotations => '120',
         GrindUnit.microns => '1500',
       };
     }
@@ -153,7 +155,9 @@ class _GrinderDialogState extends State<_GrinderDialog> {
       step: unit.steps.contains(_step) ? _step : unit.steps.first,
       min: min,
       max: max,
-      clicksPerRotation: int.tryParse(_perRotation.text.trim()) ?? 30,
+      clicksPerRotation: _unit == GrindUnit.clicks
+          ? int.tryParse(_perRotation.text.trim()) ?? 0
+          : 0,
       markers: [
         for (final (i, m) in _markers.indexed)
           if (m.name.text.trim().isNotEmpty)
@@ -416,11 +420,12 @@ class _GrinderDialogState extends State<_GrinderDialog> {
               ),
             ],
           ),
-          if (unit == GrindUnit.rotations)
+          // Optional: with it the clicks read as rotations ("2.14", 1Zpresso).
+          if (unit == GrindUnit.clicks)
             SetupField(
               key: const ValueKey('grinder-per-rotation'),
               controller: _perRotation,
-              label: 'Clicks per rotation',
+              label: 'Per rotation',
               numeric: true,
             ),
           _label(
@@ -521,7 +526,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
               : 'Zero point · ${widget.grinder?.activeBurrs ?? _entered.first}',
           numeric: true,
           signed: true,
-          suffix: _unit?.suffix,
+          suffix: _scale?.suffix ?? _unit?.suffix,
         ),
         if (widget.grinder?.zeroPoint case final z?)
           Padding(

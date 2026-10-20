@@ -64,7 +64,7 @@ class _GrindPanelState extends State<GrindPanel> {
         max: _scale.max,
         step: _scale.step,
         format: (v) => _scale.format(v, withUnit: false),
-        unit: _scale.unit.suffix,
+        unit: _scale.suffix,
         showLabels: false,
         onChanged: (v) => widget.onChanged(v, null),
       );
@@ -103,7 +103,7 @@ class _GrindPanelState extends State<GrindPanel> {
             _scale.read(abs, _current ?? current).value,
             withUnit: false,
           ),
-          unit: _scale.unit.suffix,
+          unit: _scale.suffix,
           showLabels: false,
           onChanged: (abs) {
             final r = _scale.read(abs, _current ?? current);

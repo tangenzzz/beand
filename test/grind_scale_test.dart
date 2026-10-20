@@ -36,13 +36,28 @@ void main() {
       expect(microns.format(450, withUnit: false), '450');
       const clicks = GrindScale(unit: GrindUnit.clicks, step: 1, max: 40);
       expect(clicks.format(24), '24 clicks');
+      // Clicks per rotation set: read as rotations and clicks, no suffix.
       const rotations = GrindScale(
-        unit: GrindUnit.rotations,
+        unit: GrindUnit.clicks,
         step: 1,
         max: 120,
         clicksPerRotation: 30,
       );
       expect(rotations.format(74), '2.14');
+      expect(rotations.suffix, '');
+      expect(GrindScale.fromJson(rotations.toJson()), rotations);
+      // Stored before 2026-10-20 as a unit of its own.
+      final legacy = GrindScale.fromJson({
+        'unit': 'rotations',
+        'step': 1,
+        'min': 0,
+        'max': 120,
+      })!;
+      expect(legacy.unit, GrindUnit.clicks);
+      expect(legacy.clicksPerRotation, 30);
+      expect(legacy.format(74), '2.14');
+      // Plain clicks stay plain.
+      expect(GrindScale.fromJson(clicks.toJson())!.format(24), '24 clicks');
     });
 
     test('range may start below zero; JSON round trip; nonsense dropped', () {

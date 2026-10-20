@@ -89,7 +89,7 @@ List<(String, String)> _grinderRows(Gear g) {
         [
           scale.unit.label,
           '${n(scale.min, scale)}–${n(scale.max, scale)}'
-              '${scale.unit.suffix.isEmpty ? '' : ' ${scale.unit.suffix}'}',
+              '${scale.suffix.isEmpty ? '' : ' ${scale.suffix}'}',
           if (scale.unit.steps.length > 1) 'steps of ${_n(scale.step)}',
         ].join(' · '),
       ),

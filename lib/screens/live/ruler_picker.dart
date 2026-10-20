@@ -26,7 +26,8 @@ class RulerPicker extends StatefulWidget {
   final bool showLabels;
 
   /// Shows the value as read on the device instead of plain digits (e.g. a
-  /// grinder's "2.14" in rotations); the unit is added separately.
+  /// grinder's "2.14" in rotations and clicks); the unit is added
+  /// separately.
   final String Function(double value)? format;
 
   final double value;
