@@ -4,6 +4,11 @@ import 'package:beand/database/database.dart';
 import 'package:beand/screens/settings/auto_backup_section.dart';
 import 'package:beand/services/auto_backup.dart';
 import 'package:beand/services/backup_service.dart';
+import 'package:beand/sync/crypto/backup_cipher.dart';
+import 'package:beand/sync/engine/sync_state_store.dart';
+import 'package:beand/sync/identity/identity.dart';
+import 'package:beand/sync/identity/key_store.dart';
+import 'package:beand/sync/sync_service.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -79,6 +84,9 @@ void main() {
     late List<Duration?> scheduled;
     late DateTime now;
     var failWrite = false;
+    late InMemoryAutoBackupPassword password;
+    late InMemorySyncKeyStore keys;
+    late SyncIdentity identity;
 
     setUp(() async {
       root = Directory.systemTemp.createTempSync('beand_auto_backup');
@@ -92,6 +100,10 @@ void main() {
       scheduled = [];
       now = DateTime(2026, 10, 21, 3, 2);
       failWrite = false;
+      password = InMemoryAutoBackupPassword();
+      keys = InMemorySyncKeyStore();
+      identity = SyncIdentity.generate();
+      await keys.writeIdentity(identity);
     });
 
     tearDown(() async {
@@ -107,9 +119,15 @@ void main() {
         prefs: await SharedPreferences.getInstance(),
       ),
       workDir: () async => Directory(p.join(root.path, 'cache')),
-      writeToFolder: (uri, source) async {
+      password: password,
+      syncInfo: (pw) => readSyncInfo(
+        pw,
+        keyStore: keys,
+        stateStore: InMemorySyncStateStore(),
+      ),
+      writeToFolder: (uri, name, source) async {
         if (failWrite) throw const BackupException('Folder is gone');
-        File(source).copySync(p.join(folder.path, AutoBackup.fileName));
+        File(source).copySync(p.join(folder.path, name));
       },
       schedule: (delay) async => scheduled.add(delay),
       now: () => now,
@@ -138,7 +156,7 @@ void main() {
         prefs: await SharedPreferences.getInstance(),
       ).readManifest(file);
       expect(manifest.beans, 1);
-      expect(manifest.syncNpub, isNull, reason: 'never with the sync key');
+      expect(manifest.syncNpub, isNull, reason: 'no password, no sync key');
       expect(config.lastAt, now);
       expect(config.lastBytes, file.lengthSync());
       expect(config.lastError, isNull);
@@ -225,6 +243,76 @@ void main() {
       expect(scheduled.last, isNull);
     });
 
+    test('with a password the sync key goes in, locked with it', () async {
+      final backup = make();
+      await arm(backup);
+      await password.write('correct horse');
+
+      await backup.run();
+
+      final file = File(p.join(folder.path, AutoBackup.fileName));
+      final service = BackupService(
+        db: db,
+        docsDir: docs,
+        prefs: await SharedPreferences.getInstance(),
+      );
+      expect((await service.readManifest(file)).syncNpub, identity.npub);
+      final info = await service.readSyncInfo(file);
+      final key = await SyncService.decryptBackupKey(info!, 'correct horse');
+      expect(key, identity.privateKeyBytes);
+    });
+
+    test('encrypted: the whole file is locked, under its own name', () async {
+      final backup = make();
+      await backup.store.save(
+        AutoBackupConfig(
+          frequency: AutoBackupFrequency.daily,
+          minuteOfDay: 3 * 60,
+          folderUri: 'content://folder',
+          encrypt: true,
+          armedAt: DateTime(2026, 10, 20, 12),
+        ),
+      );
+      await password.write('correct horse');
+
+      final config = await backup.run();
+
+      expect(config.lastError, isNull);
+      final file = File(p.join(folder.path, AutoBackup.encryptedFileName));
+      expect(isEncryptedBackup(file), isTrue);
+      final service = BackupService(
+        db: db,
+        docsDir: docs,
+        prefs: await SharedPreferences.getInstance(),
+      );
+      final plain = await service.decryptBackup(
+        file,
+        'correct horse',
+        targetDir: Directory(p.join(root.path, 'plain')),
+      );
+      expect((await service.readManifest(plain)).beans, 1);
+    });
+
+    test(
+      'encrypted without a stored password: fails, writes nothing',
+      () async {
+        final backup = make();
+        await backup.store.save(
+          AutoBackupConfig(
+            frequency: AutoBackupFrequency.daily,
+            folderUri: 'content://folder',
+            encrypt: true,
+            armedAt: DateTime(2026, 10, 20, 0, 1),
+          ),
+        );
+
+        final config = await backup.run();
+
+        expect(config.lastError, contains('password'));
+        expect(folder.listSync(), isEmpty);
+      },
+    );
+
     testWidgets('section: picking schedule and folder saves and queues', (
       tester,
     ) async {
@@ -265,6 +353,8 @@ void main() {
       await tester.tap(find.text('Weekly'));
       await settle();
       expect(find.text('Su'), findsOneWidget);
+      // Without sync no dialog pops up; the row says what is missing.
+      expect(find.text('Not set'), findsOneWidget);
 
       await tester.tap(find.text('Folder'));
       await settle();

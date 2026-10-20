@@ -9,9 +9,16 @@ import '../../widgets/app_switch_tile.dart';
 /// What was chosen when creating. [password] is null if neither a key is
 /// included nor anything is encrypted.
 class BackupOptions {
-  const BackupOptions({required this.password, required this.encrypt});
+  const BackupOptions({
+    required this.password,
+    required this.encrypt,
+    this.remove = false,
+  });
   final String? password;
   final bool encrypt;
+
+  /// Auto backup only: the stored password is to be removed.
+  final bool remove;
 }
 
 Future<BackupOptions?> showBackupOptionsDialog(
@@ -22,9 +29,36 @@ Future<BackupOptions?> showBackupOptionsDialog(
   builder: (_) => _OptionsDialog(hasSyncKey: hasSyncKey),
 );
 
+/// The same choice for the auto backup: the password is set once here and
+/// kept on the phone, so every run can use it. A password is always asked
+/// for (that is what the dialog is for); [canRemove] offers dropping the
+/// stored one.
+Future<BackupOptions?> showAutoBackupPasswordDialog(
+  BuildContext context, {
+  required bool hasSyncKey,
+  required bool encrypt,
+  required bool canRemove,
+}) => showDialog<BackupOptions>(
+  context: context,
+  builder: (_) => _OptionsDialog(
+    hasSyncKey: hasSyncKey,
+    auto: true,
+    initialEncrypt: encrypt,
+    canRemove: canRemove,
+  ),
+);
+
 class _OptionsDialog extends StatefulWidget {
-  const _OptionsDialog({required this.hasSyncKey});
+  const _OptionsDialog({
+    required this.hasSyncKey,
+    this.auto = false,
+    this.initialEncrypt = false,
+    this.canRemove = false,
+  });
   final bool hasSyncKey;
+  final bool auto;
+  final bool initialEncrypt;
+  final bool canRemove;
 
   @override
   State<_OptionsDialog> createState() => _OptionsDialogState();
@@ -33,10 +67,10 @@ class _OptionsDialog extends StatefulWidget {
 class _OptionsDialogState extends State<_OptionsDialog> {
   final _first = TextEditingController();
   final _second = TextEditingController();
-  bool _encrypt = false;
+  late bool _encrypt = widget.initialEncrypt;
   String? _error;
 
-  bool get _needsPassword => widget.hasSyncKey || _encrypt;
+  bool get _needsPassword => widget.auto || widget.hasSyncKey || _encrypt;
 
   @override
   void dispose() {
@@ -69,7 +103,10 @@ class _OptionsDialogState extends State<_OptionsDialog> {
     final colors = context.colors;
     // Short and only what's needed, plus the advice to also keep the
     // password somewhere outside this device.
-    final note = _encrypt
+    final note = widget.auto
+        ? 'Kept on this phone for every auto backup; only a restore asks '
+              'for it. Keep it safe elsewhere too.'
+        : _encrypt
         ? 'Keep the password safe, not only on this phone. Without it the '
               'backup is lost.'
         : widget.hasSyncKey
@@ -78,7 +115,10 @@ class _OptionsDialogState extends State<_OptionsDialog> {
         : null;
     return AlertDialog(
       backgroundColor: colors.card,
-      title: Text('Create backup', style: TextStyle(color: colors.textPrimary)),
+      title: Text(
+        widget.auto ? 'Auto backup password' : 'Create backup',
+        style: TextStyle(color: colors.textPrimary),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -131,13 +171,23 @@ class _OptionsDialogState extends State<_OptionsDialog> {
         ),
       ),
       actions: [
+        if (widget.canRemove)
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(
+              const BackupOptions(password: null, encrypt: false, remove: true),
+            ),
+            child: Text('Remove', style: TextStyle(color: colors.danger)),
+          ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
         ),
         TextButton(
           onPressed: _submit,
-          child: Text('Create', style: TextStyle(color: colors.accent)),
+          child: Text(
+            widget.auto ? 'Save' : 'Create',
+            style: TextStyle(color: colors.accent),
+          ),
         ),
       ],
     );

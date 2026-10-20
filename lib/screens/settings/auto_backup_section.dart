@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:saf_folder/saf_folder.dart';
 
 import '../../services/auto_backup.dart';
+import '../../sync/sync_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
+import 'backup_dialogs.dart';
 import 'settings_widgets.dart';
 
 /// Block "Auto backup" on the backup page: schedule (off/daily/weekly), day,
-/// time, target folder, status of the last run and "Back up now".
+/// time, target folder, password (sync key + optional encryption), status
+/// of the last run and "Back up now".
 class AutoBackupSection extends StatefulWidget {
   const AutoBackupSection({super.key, this.backup, this.pickFolder});
 
@@ -24,6 +28,7 @@ class _AutoBackupSectionState extends State<AutoBackupSection> {
   AutoBackup? _backup;
   AutoBackupConfig? _config;
   bool _running = false;
+  bool _hasPassword = false;
 
   // The saved folder is no longer writable (permission revoked, folder
   // gone) — shown instead of its name.
@@ -40,10 +45,12 @@ class _AutoBackupSectionState extends State<AutoBackupSection> {
   Future<void> _load() async {
     final backup = await (widget.backup ?? AutoBackup.platform)();
     final config = await backup.store.load();
+    final hasPassword = await backup.password.read() != null;
     if (!mounted) return;
     setState(() {
       _backup = backup;
       _config = config;
+      _hasPassword = hasPassword;
     });
     final uri = config.folderUri;
     if (uri != null && widget.pickFolder == null) {
@@ -63,6 +70,47 @@ class _AutoBackupSectionState extends State<AutoBackupSection> {
     setState(() => _config = config);
     await backup.store.save(config);
     await backup.reschedule(config);
+  }
+
+  bool get _hasSyncKey {
+    try {
+      return context.read<SyncService>().identity != null;
+    } on ProviderNotFoundException {
+      return false;
+    }
+  }
+
+  Future<void> _setFrequency(AutoBackupFrequency f) async {
+    final config = _config!;
+    final turningOn = !config.enabled && f != AutoBackupFrequency.off;
+    await _update(config.copyWith(frequency: f));
+    // With sync on, the password belongs to setting it up — otherwise the
+    // sync key would quietly stay out.
+    if (turningOn && _hasSyncKey && !_hasPassword && mounted) {
+      await _editPassword();
+    }
+  }
+
+  Future<void> _editPassword() async {
+    final backup = _backup;
+    final config = _config;
+    if (backup == null || config == null) return;
+    final options = await showAutoBackupPasswordDialog(
+      context,
+      hasSyncKey: _hasSyncKey,
+      encrypt: config.encrypt,
+      canRemove: _hasPassword,
+    );
+    if (options == null || !mounted) return;
+    final password = options.password;
+    if (options.remove) {
+      await backup.password.delete();
+    } else if (password != null) {
+      await backup.password.write(password);
+    }
+    if (!mounted) return;
+    setState(() => _hasPassword = !options.remove && password != null);
+    await _update(config.copyWith(encrypt: options.encrypt), rearm: false);
   }
 
   Future<void> _pickTime() async {
@@ -154,17 +202,17 @@ class _AutoBackupSectionState extends State<AutoBackupSection> {
           title: 'Schedule',
           info:
               'Saves a backup on its own and overwrites the same file each '
-              'time: ${AutoBackup.fileName} in the folder below. The app '
-              'does not have to be open; the phone may run it a few minutes '
-              'late. Not encrypted and without your sync key — for that, '
-              'create a backup by hand.',
+              'time in the folder below. The app does not have to be open; '
+              'the phone may run it a few minutes late. With a password, '
+              'your sync key goes in too — asked for only when you '
+              'restore.',
           child: UnderlineSelect<AutoBackupFrequency>(
             options: [
               for (final f in AutoBackupFrequency.values)
                 UnderlineOption(f, f.label),
             ],
             value: config.frequency,
-            onChanged: (f) => _update(config.copyWith(frequency: f)),
+            onChanged: (f) => _setFrequency(f!),
           ),
         ),
         if (config.frequency == AutoBackupFrequency.weekly)
@@ -196,6 +244,16 @@ class _AutoBackupSectionState extends State<AutoBackupSection> {
                 : config.folderName,
             danger: _folderLost,
             onTap: _pickFolder,
+          ),
+          SettingsRow(
+            icon: Icons.lock_outline,
+            title: 'Password',
+            subtitle: !_hasPassword
+                ? (_hasSyncKey ? 'Not set — sync key left out' : 'Not set')
+                : config.encrypt
+                ? 'Set · whole backup encrypted'
+                : (_hasSyncKey ? 'Set · sync key included' : 'Set'),
+            onTap: _editPassword,
           ),
           SettingsRow(
             icon: Icons.save_alt,

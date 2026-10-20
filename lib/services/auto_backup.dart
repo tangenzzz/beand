@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:saf_folder/saf_folder.dart';
@@ -11,6 +13,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import '../database/database.dart';
+import '../sync/crypto/nip49.dart';
+import '../sync/engine/sync_state_store.dart';
+import '../sync/identity/key_store.dart';
 import 'backup_service.dart';
 
 // Auto backup (Settings → Backup): at set times the app writes a backup on
@@ -25,8 +30,11 @@ import 'backup_service.dart';
 // a little; as a fallback the app checks at every start whether a slot was
 // missed.
 //
-// Unlike a backup made by hand: never encrypted and without the sync key —
-// both need a password that nobody is there to type.
+// Sync key and encryption need a password, and nobody is there to type
+// it: so it is entered once when setting up and kept in the secure key
+// store (like the sync key itself), see [AutoBackupPassword]. Each run
+// locks the sync key with it and, if chosen, encrypts the whole file. Only
+// a restore asks for it again.
 
 enum AutoBackupFrequency {
   off('Off'),
@@ -45,6 +53,7 @@ class AutoBackupConfig {
     this.minuteOfDay = 3 * 60,
     this.folderUri,
     this.folderName,
+    this.encrypt = false,
     this.armedAt,
     this.lastAt,
     this.lastBytes,
@@ -62,6 +71,9 @@ class AutoBackupConfig {
 
   final String? folderUri;
   final String? folderName;
+
+  /// Encrypt the whole file (.beandbak) with the stored password.
+  final bool encrypt;
 
   /// When the schedule was last set. Slots before that do not count as
   /// missed — otherwise turning it on at 14:00 with 03:00 would back up
@@ -84,6 +96,7 @@ class AutoBackupConfig {
     int? minuteOfDay,
     String? folderUri,
     String? folderName,
+    bool? encrypt,
     DateTime? armedAt,
     DateTime? lastAt,
     int? lastBytes,
@@ -96,6 +109,7 @@ class AutoBackupConfig {
     minuteOfDay: minuteOfDay ?? this.minuteOfDay,
     folderUri: folderUri ?? this.folderUri,
     folderName: folderName ?? this.folderName,
+    encrypt: encrypt ?? this.encrypt,
     armedAt: armedAt ?? this.armedAt,
     lastAt: lastAt ?? this.lastAt,
     lastBytes: lastBytes ?? this.lastBytes,
@@ -109,6 +123,7 @@ class AutoBackupConfig {
     'minuteOfDay': minuteOfDay,
     'folderUri': folderUri,
     'folderName': folderName,
+    'encrypt': encrypt,
     'armedAt': armedAt?.toIso8601String(),
     'lastAt': lastAt?.toIso8601String(),
     'lastBytes': lastBytes,
@@ -127,6 +142,7 @@ class AutoBackupConfig {
       minuteOfDay: (json['minuteOfDay'] as num?)?.toInt() ?? 3 * 60,
       folderUri: json['folderUri'] as String?,
       folderName: json['folderName'] as String?,
+      encrypt: json['encrypt'] == true,
       armedAt: time('armedAt'),
       lastAt: time('lastAt'),
       lastBytes: (json['lastBytes'] as num?)?.toInt(),
@@ -219,15 +235,76 @@ class AutoBackupStore {
   }
 }
 
+/// The auto backup password: entered once in the settings, read by every
+/// run (also in the background engine). Lives in the secure key store, never
+/// in a file or a backup.
+abstract class AutoBackupPassword {
+  Future<String?> read();
+  Future<void> write(String password);
+  Future<void> delete();
+}
+
+class SecureAutoBackupPassword implements AutoBackupPassword {
+  SecureAutoBackupPassword([FlutterSecureStorage? storage])
+    : _storage = storage ?? const FlutterSecureStorage();
+
+  static const _key = 'auto_backup_password';
+  final FlutterSecureStorage _storage;
+
+  @override
+  Future<String?> read() => _storage.read(key: _key);
+  @override
+  Future<void> write(String password) =>
+      _storage.write(key: _key, value: password);
+  @override
+  Future<void> delete() => _storage.delete(key: _key);
+}
+
+class InMemoryAutoBackupPassword implements AutoBackupPassword {
+  String? value;
+  @override
+  Future<String?> read() async => value;
+  @override
+  Future<void> write(String password) async => value = password;
+  @override
+  Future<void> delete() async => value = null;
+}
+
+/// The sync key locked with [password] plus the servers — the same as a
+/// backup by hand puts in (SyncService.backupInfo), but read straight from
+/// the key store, since the background engine has no SyncService. Null
+/// without sync.
+Future<BackupSyncInfo?> readSyncInfo(
+  String password, {
+  SyncKeyStore? keyStore,
+  SyncStateStore? stateStore,
+}) async {
+  final identity = await (keyStore ?? SecureSyncKeyStore()).readIdentity();
+  if (identity == null) return null;
+  final state = await (stateStore ?? FileSyncStateStore()).load();
+  final key = identity.privateKeyBytes;
+  return BackupSyncInfo(
+    ncryptsec: await Isolate.run(() => nip49Encrypt(key, password)),
+    npub: identity.npub,
+    enabled: state.enabled,
+    relays: [...state.relays],
+    blobServers: [...state.blobServers],
+  );
+}
+
 class AutoBackup {
   AutoBackup({
     required this.store,
     required this.openService,
     required this.workDir,
-    Future<void> Function(String uri, String sourcePath)? writeToFolder,
+    required this.password,
+    Future<BackupSyncInfo?> Function(String password)? syncInfo,
+    Future<void> Function(String uri, String name, String sourcePath)?
+    writeToFolder,
     Future<void> Function(Duration? delay)? schedule,
     DateTime Function()? now,
-  }) : _writeToFolder = writeToFolder ?? _writeWithSaf,
+  }) : _syncInfo = syncInfo ?? readSyncInfo,
+       _writeToFolder = writeToFolder ?? _writeWithSaf,
        _schedule = schedule ?? _scheduleWithWorkManager,
        _now = now ?? DateTime.now;
 
@@ -249,10 +326,13 @@ class AutoBackup {
       workDir: () async => Directory(
         p.join((await getTemporaryDirectory()).path, 'auto-backup'),
       ),
+      password: SecureAutoBackupPassword(),
     );
   }
 
   static const fileName = 'beand-auto-backup.zip';
+  static const encryptedFileName =
+      'beand-auto-backup.$encryptedBackupExtension';
   static const taskName = 'beand.autoBackup';
   static const _uniqueName = 'beand-auto-backup';
 
@@ -265,7 +345,10 @@ class AutoBackup {
   final AutoBackupStore store;
   final Future<BackupService> Function() openService;
   final Future<Directory> Function() workDir;
-  final Future<void> Function(String uri, String sourcePath) _writeToFolder;
+  final AutoBackupPassword password;
+  final Future<BackupSyncInfo?> Function(String password) _syncInfo;
+  final Future<void> Function(String uri, String name, String sourcePath)
+  _writeToFolder;
   final Future<void> Function(Duration? delay) _schedule;
   final DateTime Function() _now;
 
@@ -294,14 +377,21 @@ class AutoBackup {
     final dir = await workDir();
     try {
       if (dir.existsSync()) dir.deleteSync(recursive: true);
+      final secret = await password.read();
+      if (config.encrypt && secret == null) {
+        throw const BackupException('No password set — set it again');
+      }
       final service = await openService();
+      final name = config.encrypt ? encryptedFileName : fileName;
       final zip = await service.createBackup(
         targetDir: dir,
-        fileName: fileName,
+        fileName: name,
+        sync: secret == null ? null : await _syncInfo(secret),
+        encryptPassword: config.encrypt ? secret : null,
         snapshotDb: true,
       );
       final bytes = zip.lengthSync();
-      await _writeToFolder(uri, zip.path);
+      await _writeToFolder(uri, name, zip.path);
       config = config.copyWith(
         lastAt: _now(),
         lastBytes: bytes,
@@ -341,8 +431,11 @@ class AutoBackup {
     return match?.group(1) ?? text;
   }
 
-  static Future<void> _writeWithSaf(String uri, String sourcePath) =>
-      SafFolder.writeFile(uri, name: fileName, sourcePath: sourcePath);
+  static Future<void> _writeWithSaf(
+    String uri,
+    String name,
+    String sourcePath,
+  ) => SafFolder.writeFile(uri, name: name, sourcePath: sourcePath);
 
   static Future<void> _scheduleWithWorkManager(Duration? delay) async {
     if (delay == null) {
