@@ -797,7 +797,8 @@ class GearAvatar extends StatelessWidget {
   static const boardTop = _slot;
   static const boardHeight = 3.0;
   static const _nameGap = boardHeight + 5;
-  static const slotHeight = _slot + _nameGap + 16;
+  // Below the board only room for the in-use dot of a cut-out.
+  static const slotHeight = _slot + _nameGap + 4;
 
   @override
   Widget build(BuildContext context) {
@@ -811,6 +812,8 @@ class GearAvatar extends StatelessWidget {
       selected: selected,
       label: gear.label,
       child: GestureDetector(
+        // The shelf shows no names: tests find a piece by this key.
+        key: ValueKey('avatar-${gear.displayName}'),
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         // Long press: straight to the edit dialog.
@@ -880,37 +883,20 @@ class GearAvatar extends StatelessWidget {
                   ],
                 ),
               ),
+              // No name under the board (user request 2026-10-20): the
+              // photo or icon says it, tapping shows brand and name. A
+              // cut-out in use keeps its small accent dot here.
               const SizedBox(height: _nameGap),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (gear.isCutout && photo != null && active)
-                    Container(
-                      key: const ValueKey('in-use-dot'),
-                      width: 4,
-                      height: 4,
-                      margin: const EdgeInsets.only(right: 4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colors.accent.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  Flexible(
-                    child: Text(
-                      gear.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: selected
-                            ? colors.textPrimary
-                            : colors.textSecondary,
-                        fontSize: 11,
-                      ),
-                    ),
+              if (gear.isCutout && photo != null && active)
+                Container(
+                  key: const ValueKey('in-use-dot'),
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colors.accent.withValues(alpha: 0.7),
                   ),
-                ],
-              ),
+                ),
             ],
           ),
         ),
@@ -919,7 +905,7 @@ class GearAvatar extends StatelessWidget {
   }
 }
 
-// The "+" at the end of a shelf: dashed circle, "New" below.
+// The "+" at the end of a shelf: dashed circle, nothing below.
 class _NewAvatar extends StatelessWidget {
   const _NewAvatar({required this.type, required this.onTap, this.label});
 
@@ -955,11 +941,6 @@ class _NewAvatar extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: GearAvatar._nameGap),
-              Text(
-                'New',
-                style: TextStyle(color: colors.textSecondary, fontSize: 11),
               ),
             ],
           ),
@@ -1059,6 +1040,7 @@ class _GearDetail extends StatelessWidget {
             title: gear.displayName,
             active: true,
             maxLines: 2,
+            stacked: true,
           ),
           const SizedBox(height: 10),
           for (final (key, value) in gearDetailRows(

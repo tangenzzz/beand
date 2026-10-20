@@ -289,9 +289,10 @@ void main() {
     expect(store.grinders.single.brand, 'Niche');
     // The new grinder stands on the shelf; a tap folds out its detail,
     // where the fitted burr set is picked.
-    await tester.tap(find.text('Niche Zero'));
+    await tester.tap(find.byKey(const ValueKey('avatar-Niche Zero')));
     await tester.pumpAndSettle();
-    expect(find.text('Niche Zero'), findsNWidgets(2), reason: 'label + title');
+    // No name under the shelf board any more, only the detail's title.
+    expect(find.text('Niche Zero'), findsOneWidget);
     bool fitted(String burr) => tester
         .widget<UnderlineItem>(
           find.ancestor(
@@ -311,7 +312,7 @@ void main() {
     // No Edit button in the detail any more: a long press on the piece
     // opens its dialog, with "Photo" at the top and delete at the bottom.
     expect(find.text('Edit'), findsNothing);
-    await tester.longPress(find.text('Niche Zero').first);
+    await tester.longPress(find.byKey(const ValueKey('avatar-Niche Zero')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('dialog-photo')), findsOneWidget);
     await tester.tap(find.text('Delete grinder'));
@@ -483,7 +484,7 @@ void main() {
     expect(w.use, isNull);
     expect(Water.fromJson(w.toJson()), w);
     // The detail lists GH, KH, what the water is made of and its use.
-    await tester.tap(find.text('Lotus'));
+    await tester.tap(find.byKey(const ValueKey('avatar-Lotus')));
     await tester.pumpAndSettle();
     expect(find.text('68 ppm'), findsOneWidget);
     expect(find.text('40.5 ppm'), findsOneWidget);
@@ -564,7 +565,10 @@ void main() {
       findsNWidgets(2),
     );
     expect(
-      find.descendant(of: row, matching: find.text('VST 20')),
+      find.descendant(
+        of: row,
+        matching: find.byKey(const ValueKey('avatar-VST 20')),
+      ),
       findsOneWidget,
     );
 
@@ -609,9 +613,9 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Show 2 pieces'));
     await tester.pumpAndSettle();
-    expect(find.text('V60 02'), findsOneWidget);
-    expect(find.text('IMS 18'), findsOneWidget);
-    expect(find.text('VST 20'), findsNothing);
+    expect(find.byKey(const ValueKey('avatar-V60 02')), findsOneWidget);
+    expect(find.byKey(const ValueKey('avatar-IMS 18')), findsOneWidget);
+    expect(find.byKey(const ValueKey('avatar-VST 20')), findsNothing);
 
     // Deleting gear takes it out of its chains.
     gear.remove('m');
@@ -634,10 +638,11 @@ void main() {
     final machine = gear.ofType(GearType.machine).single;
     expect(machine.model, '');
     expect(machine.label, 'Machine');
-    // Shown as its kind.
-    expect(find.text('Machine'), findsOneWidget);
+    // On the shelf under its kind's name.
+    final avatar = find.byKey(ValueKey('avatar-${machine.displayName}'));
+    expect(avatar, findsOneWidget);
 
-    await tester.longPress(find.text('Machine'));
+    await tester.longPress(avatar);
     await tester.pumpAndSettle();
     // No "Edit …" in the head: without brand and model just its kind.
     expect(
@@ -749,7 +754,7 @@ void main() {
     expect(basket.brewModes, {BrewMode.espresso});
     expect(Gear.fromJson(basket.toJson()), basket);
 
-    await tester.tap(find.text('Precision 18'));
+    await tester.tap(find.byKey(const ValueKey('avatar-Precision 18')));
     await tester.pumpAndSettle();
     expect(find.text('18 g'), findsOneWidget);
     // Brand and model in the look of the card titles: brand small, in

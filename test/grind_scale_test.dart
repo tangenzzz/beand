@@ -190,7 +190,7 @@ void main() {
       contains('grinder_hand'),
     );
     // The detail names scale and zero point.
-    await tester.tap(find.text('K6'));
+    await tester.tap(find.byKey(const ValueKey('avatar-K6')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Microns · 0–1200 µm'), findsOneWidget);
     expect(find.textContaining('-30 ·'), findsOneWidget);
