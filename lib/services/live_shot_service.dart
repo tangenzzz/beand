@@ -145,32 +145,6 @@ abstract class LiveShotService extends ChangeNotifier {
   @protected
   bool get hasReadings => _readings.isNotEmpty;
 
-  // Shifts all data points from [from] on by [deltaMs] — for a time axis
-  // that later turns out to be anchored wrongly (see
-  // MeticulousLiveShotService._readingTimeMs).
-  @protected
-  void shiftReadings(int from, int deltaMs) {
-    for (var i = from; i < _readings.length; i++) {
-      _readings[i] = _readings[i].copyWith(
-        timeMs: _readings[i].timeMs + deltaMs,
-      );
-    }
-  }
-
-  // Moves the data points from [end] backwards to the left so that each is
-  // at most at [limitMs] and at least [stepMs] before its successor — for
-  // messages that arrived late in a batch. Never below 0.
-  @protected
-  void pullBackReadings(int end, int limitMs, int stepMs) {
-    var limit = limitMs;
-    for (var i = end; i >= 0; i--) {
-      if (_readings[i].timeMs <= limit) return;
-      final t = math.max(limit, 0);
-      _readings[i] = _readings[i].copyWith(timeMs: t);
-      limit = t - stepMs;
-    }
-  }
-
   @protected
   void resetReadings() {
     _readings.clear();
@@ -311,19 +285,6 @@ class MeticulousLiveShotService extends LiveShotService {
   DateTime? _inBandSince;
   MachineSensors? _lastStabilitySensors;
 
-  // ---- Live readings for the Shot card ----
-  DateTime? _runStartedAt;
-
-  // Offset between the app clock (from tare) and the machine time
-  // (`status.time`, counts from the start of extraction). Once fixed, every
-  // data point gets the machine's time instead of its arrival time: if
-  // messages arrive late in a batch, they still land in the right place
-  // instead of forming a gap followed by a clump.
-  int? _machineOffsetMs;
-  int? _firstMachineTimeMs;
-  // How many data points come from before machine time (they stay put when
-  // shifting).
-  int _preMachineCount = 0;
   MachineStatus? _lastStatus;
   DateTime? _lastStatusAt;
 
@@ -445,26 +406,22 @@ class MeticulousLiveShotService extends LiveShotService {
   static const _maintenancePhases = {'home'};
   static const _resetPhases = {'idle', 'starting...', 'heating'};
 
-  // Between "click to start" and the actual brew the machine inserts a
-  // short lead-in (retracting -> water filling -> closing valve), during
-  // which cup/portafilter are already on the scale before it tares
-  // automatically — the weight drops abruptly to ~0 (in the saved shot
-  // exactly this lead-in is already cut off). Instead of hardcoding a
-  // specific phase name for it (not every profile necessarily goes through
-  // the same lead-in stages, e.g. bypass profiles), the tare drop itself is
-  // detected: weight was above the threshold, drops to ~0 -> that is the
-  // start of the live curve. If this drop is missing for any reason, the
-  // start of the real extraction (`extracting` true) is the latest safe
-  // fallback.
-  static const _tareDropThreshold = 3.0;
-  static const _tareEpsilon = 1.0;
-  bool _preRunTareDetected = false;
-  double? _lastPreTareWeight;
+  // The live curve runs on the machine's own clock (`status.time`): it
+  // counts from the start of the extraction, exactly like the timer on the
+  // machine and the time series in its history. The lead-in before that
+  // (retracting -> water filling -> closing valve) reports time 0 and is
+  // left out — it used to be drawn from the tare point on, which put the
+  // live time 3–6 s ahead of the machine depending on the profile, and
+  // its first point carried a bogus negative flow.
+  //
+  // Late messages (Wi-Fi delivering a batch at once) need no special care
+  // this way: each point carries its time from the machine, not its
+  // arrival time.
+  //
   // Has really been extracting at least once — distinguishes the final
   // "retracting" stage (piston moves back after the brew, do NOT record
   // here any more) from the short "retracting" right after "click to
-  // start" (before the tare point, which never reaches this code path
-  // because of the early return above).
+  // start" (which reports time 0 and is skipped anyway).
   bool _hasExtracted = false;
 
   void _updateReadings(MachineStatus? status, String phase) {
@@ -474,28 +431,16 @@ class MeticulousLiveShotService extends LiveShotService {
         !_maintenancePhases.contains(phase);
     if (running) {
       final extracting = status?.extracting ?? false;
-
-      if (!_preRunTareDetected) {
-        final weight = status?.weight;
-        final tareNow =
-            extracting ||
-            (weight != null &&
-                _lastPreTareWeight != null &&
-                _lastPreTareWeight! > _tareDropThreshold &&
-                weight <= _tareEpsilon);
-        if (weight != null) _lastPreTareWeight = weight;
-        if (!tareNow) return;
-        _preRunTareDetected = true;
-        _runStartedAt = DateTime.now();
-      }
-
       markExtracting(extracting);
       if (extracting) _hasExtracted = true;
 
       final finalRetraction = phase == retractionStage && _hasExtracted;
-      if (status != null && !finalRetraction) {
+      if (status != null && status.timeMs > 0 && !finalRetraction) {
+        final readings = liveReadings;
+        final last = readings.isEmpty ? 0 : readings.last.timeMs;
         addReading(
-          timeMs: _readingTimeMs(status),
+          // Never backwards, should a message overtake another.
+          timeMs: math.max(status.timeMs, last),
           pressure: status.pressure,
           flow: status.flow,
           weight: status.weight,
@@ -507,59 +452,11 @@ class MeticulousLiveShotService extends LiveShotService {
       // 'click to purge'/'purge'/'finished', on the other hand, the last
       // recorded curve stays unchanged — the Shot card keeps showing the
       // finished chart until the next profile start.
-      if (hasReadings || _runStartedAt != null || _preRunTareDetected) {
+      if (hasReadings || _hasExtracted || wasExtracting) {
         resetReadings();
-        _runStartedAt = null;
-        _machineOffsetMs = null;
-        _firstMachineTimeMs = null;
-        _preMachineCount = 0;
         _hasExtracted = false;
-        _preRunTareDetected = false;
-        _lastPreTareWeight = null;
       }
     }
-  }
-
-  // Before extraction the machine time is 0; there the arrival time
-  // applies. From the first message with machine time on, offset + machine
-  // time applies; never backwards, in case the clocks differ slightly.
-  //
-  // Lateness only shifts to the right, never to the left. So the SMALLEST
-  // offset seen so far applies, and the machine sends evenly about every
-  // 107 ms in every phase (all captures): if a point is not at least
-  // [_statusStepMs] before its successor, it arrived late in a batch and
-  // moves left. Observed in practice: the phone's Wi-Fi delivered nothing
-  // for ~14 s, in the middle of water filling and brew start, then
-  // everything at once. The live curve stood still at the start and was
-  // almost twice as long as on the machine (~40 s instead of 21 s).
-  static const _statusStepMs = 100;
-
-  int _readingTimeMs(MachineStatus status) {
-    final arrival = DateTime.now().difference(_runStartedAt!).inMilliseconds;
-    final readings = liveReadings;
-    if (status.timeMs <= 0) {
-      pullBackReadings(
-        readings.length - 1,
-        arrival - _statusStepMs,
-        _statusStepMs,
-      );
-      _preMachineCount = readings.length + 1;
-      return arrival;
-    }
-    final first = _firstMachineTimeMs ??= status.timeMs;
-    final candidate = arrival - status.timeMs;
-    final offset = _machineOffsetMs;
-    if (offset == null || candidate < offset) {
-      if (offset != null) shiftReadings(_preMachineCount, candidate - offset);
-      _machineOffsetMs = candidate;
-      pullBackReadings(
-        _preMachineCount - 1,
-        candidate + first - _statusStepMs,
-        _statusStepMs,
-      );
-    }
-    final last = readings.isEmpty ? 0 : readings.last.timeMs;
-    return math.max(_machineOffsetMs! + status.timeMs, last);
   }
 
   void _watchForGaps(MachineStatus? fresh) {

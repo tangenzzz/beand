@@ -60,16 +60,17 @@ void main() {
     }
   });
 
-  test('if the phone hangs at the start, the curve still moves to its '
-      'place', () async {
+  test('the lead-in is not part of the curve; time is the machine time, '
+      'even after a hang', () async {
     final socket = FakeSocket();
     final live = MeticulousLiveShotService(socket)..start();
     addTearDown(live.dispose);
 
     socket.push('click to start', extracting: false);
     socket.push('retracting', extracting: false, w: 80);
-    // The machine tares: recording starts here.
+    socket.push('Water Filling', extracting: false);
     socket.push('closing valve', extracting: false);
+    expect(live.liveReadings, isEmpty, reason: 'lead-in reports time 0');
 
     // The phone hangs for 1.5 s; the first 1.5 s of the brew then arrive at
     // once, the rest on time again.
@@ -83,49 +84,11 @@ void main() {
     }
 
     final times = live.liveReadings.map((r) => r.timeMs).toList();
-    // First brew point right after the tare point, not 1.5 s later.
-    expect(times[1] - times[0], lessThan(400));
-    // The curve is as long as the brew on the machine.
-    expect(times.last - times[1], 1900);
-    for (var i = 2; i < times.length; i++) {
-      expect(times[i] - times[i - 1], 100);
-    }
-  });
-
-  test('Wi-Fi gap in the lead-in: lead-in and brew both move to their '
-      'place', () async {
-    final socket = FakeSocket();
-    final live = MeticulousLiveShotService(socket)..start();
-    addTearDown(live.dispose);
-
-    socket.push('click to start', extracting: false);
-    socket.push('retracting', extracting: false, w: 80);
-    // Tare on time, then Wi-Fi delivers nothing for 1.5 s.
-    socket.push('Water Filling', extracting: false);
-    await Future<void>.delayed(const Duration(milliseconds: 1500));
-    // Backlog: 0.5 s lead-in, then 1 s brew, all at once.
-    for (var i = 0; i < 4; i++) {
-      socket.push('Water Filling', extracting: false);
-    }
-    socket.push('closing valve', extracting: false);
-    for (var t = 100; t <= 1000; t += 100) {
-      socket.push('Percolation', timeMs: t);
-    }
-    // On time again from here.
-    for (var t = 1100; t <= 1500; t += 100) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      socket.push('Percolation', timeMs: t);
-    }
-
-    final times = live.liveReadings.map((r) => r.timeMs).toList();
-    // 1 tare point + 5 lead-in + 15 brew.
-    expect(times.length, 21);
-    final firstBrew = times[6];
-    // Brew starts ~0.5 s after tare, not only after the gap (~1.5 s).
-    expect(firstBrew, inInclusiveRange(400, 900));
-    expect(times.last - firstBrew, 1400);
+    // Starts where the machine's own timer starts.
+    expect(times.first, 100);
+    expect(times.last, 2000);
     for (var i = 1; i < times.length; i++) {
-      expect(times[i], greaterThan(times[i - 1]));
+      expect(times[i] - times[i - 1], 100);
     }
   });
 

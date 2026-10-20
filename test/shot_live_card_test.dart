@@ -20,6 +20,10 @@ const _cardHeight = ShotCardsCarousel.cardHeight;
 class FakeSocket extends MeticulousSocketService {
   FakeSocket() : super(hostname: 'unreachable.local');
 
+  // Machine time: 0 in the lead-in, then 100 ms per message — like the
+  // real machine, whose clock starts with the extraction.
+  int _timeMs = 0;
+
   void push({
     required String phase,
     required bool extracting,
@@ -27,10 +31,12 @@ class FakeSocket extends MeticulousSocketService {
     double flow = 0,
     double weight = 0,
   }) {
+    if (extracting) _timeMs += 100;
     latestStatus = MachineStatus.fromJson({
       'name': phase,
       'state': phase == 'idle' ? 'idle' : 'brewing',
       'extracting': extracting,
+      'time': extracting ? _timeMs : 0,
       'sensors': {'p': pressure, 'f': flow, 'w': weight, 't': 92.0, 'g': 0.0},
     });
     notifyListeners();
@@ -183,15 +189,15 @@ void main() {
 
     await tester.pumpWidget(_wrap(socket, live));
 
-    // Lead-in with a negative flow, as the machine reports it right after
-    // the tare point.
-    socket.push(phase: 'Water Filling', extracting: false, weight: 5);
-    socket.push(
-      phase: 'Water Filling',
-      extracting: false,
-      flow: -1.3,
-      weight: 0,
-    );
+    for (var i = 0; i < 20; i++) {
+      socket.push(
+        phase: 'Preinfusion',
+        extracting: true,
+        pressure: 2,
+        flow: 1.3,
+        weight: 0,
+      );
+    }
     await tester.pump();
 
     // A swipe that starts on the chart (e.g. meant for the carousel) lands
@@ -200,7 +206,7 @@ void main() {
     await tester.drag(find.byType(LineChart), const Offset(-200, 0));
     await tester.pump();
     // Scrubbing during the brew is wanted — but only for a moment.
-    expect(find.text('-1.3 ml/s', findRichText: true), findsOneWidget);
+    expect(find.text('1.3 ml/s', findRichText: true), findsOneWidget);
     await tester.pump(const Duration(seconds: 4));
 
     socket.push(
@@ -213,7 +219,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('2.4 ml/s', findRichText: true), findsOneWidget);
-    expect(find.text('-1.3 ml/s', findRichText: true), findsNothing);
+    expect(find.text('1.3 ml/s', findRichText: true), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
     live.dispose();
