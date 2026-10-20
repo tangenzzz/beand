@@ -28,7 +28,7 @@ class GrindPanel extends StatefulWidget {
   static const _markerRow = 30.0;
 
   static double heightFor(GrindScale scale) =>
-      RulerPicker.height + (scale.hasMarkers ? _markerRow : 0);
+      RulerPicker.compactHeight + (scale.hasMarkers ? _markerRow : 0);
 
   @override
   State<GrindPanel> createState() => _GrindPanelState();
@@ -65,6 +65,7 @@ class _GrindPanelState extends State<GrindPanel> {
         step: _scale.step,
         format: (v) => _scale.format(v, withUnit: false),
         unit: _scale.unit.suffix,
+        showLabels: false,
         onChanged: (v) => widget.onChanged(v, null),
       );
     }
@@ -81,7 +82,9 @@ class _GrindPanelState extends State<GrindPanel> {
                   UnderlineItem(
                     key: ValueKey('marker-${m.name}'),
                     label: m.name,
-                    fontSize: 12,
+                    fontSize: 10,
+                    // The chosen mark only in brighter text, no accent line.
+                    underlineColor: Colors.transparent,
                     leading: GrindMarkerDot(color: m.color, size: 6),
                     selected: m == current,
                     onTap: () => _pick(m),
@@ -101,6 +104,7 @@ class _GrindPanelState extends State<GrindPanel> {
             withUnit: false,
           ),
           unit: _scale.unit.suffix,
+          showLabels: false,
           onChanged: (abs) {
             final r = _scale.read(abs, _current ?? current);
             if (r.marker != _current) setState(() => _current = r.marker);

@@ -19,7 +19,7 @@ class ShotCardsCarousel extends StatefulWidget {
     super.key,
     this.preCard,
     this.liveCard,
-    this.extraCardHeight = 0,
+    this.extraCardHeight = machineExtra,
   });
 
   // Pour Over swaps Pre and Live for its own cards; the Post card stays the
@@ -27,10 +27,15 @@ class ShotCardsCarousel extends StatefulWidget {
   // lists).
   final Widget Function(ValueChanged<double> onExtraHeight)? preCard;
   final Widget? liveCard;
-  // More height for all three cards of this home screen. Only Pour Over
-  // uses it: its Pre Brew card has more rows in Profile mode and should not
-  // scroll internally. The machines stay at [cardHeight].
+  // More height for all three cards of this home screen: Pour Over sets its
+  // own (Pre Brew has more rows in Profile mode), the machines get
+  // [machineExtra]. Without it the Pre card scrolls and its title slips
+  // into the top edge.
   final double extraCardHeight;
+
+  /// The Pre-Shot card's Chain row (since 2026-10-19) on top of
+  /// [cardHeight] — measured: the card ran 45 px short.
+  static const machineExtra = 46.0;
 
   // Height all three cards get (the shot card's height test relies on
   // this).

@@ -18,7 +18,12 @@ class RulerPicker extends StatefulWidget {
     required this.onChanged,
     this.step = 0.1,
     this.format,
+    this.showLabels = true,
   });
+
+  /// Numbers under the long ticks. Off for the grind ruler (user request
+  /// 2026-10-20): the big value above says it; the ruler gets lower.
+  final bool showLabels;
 
   /// Shows the value as read on the device instead of plain digits (e.g. a
   /// grinder's "2.14" in rotations); the unit is added separately.
@@ -36,6 +41,8 @@ class RulerPicker extends StatefulWidget {
 
   static const _valueAreaHeight = 64.0;
   static const _rulerHeight = 58.0;
+  // Room of the numbers under the ticks, left out without labels.
+  static const _labelArea = 22.0;
   static const _gapBelow = 12.0;
   static const _marginTop = 2.0;
   static const _marginBottom = 8.0;
@@ -50,6 +57,11 @@ class RulerPicker extends StatefulWidget {
       _gapBelow +
       1 +
       _marginBottom;
+
+  /// The same without the ruler's numbers ([showLabels] false).
+  static const compactHeight = height - _labelArea;
+
+  double get _rulerH => showLabels ? _rulerHeight : _rulerHeight - _labelArea;
 
   @override
   State<RulerPicker> createState() => _RulerPickerState();
@@ -145,7 +157,7 @@ class _RulerPickerState extends State<RulerPicker> {
           child: SizedBox(
             height:
                 RulerPicker._valueAreaHeight +
-                RulerPicker._rulerHeight +
+                widget._rulerH +
                 RulerPicker._gapBelow,
             child: _typing
                 ? Row(
@@ -194,10 +206,7 @@ class _RulerPickerState extends State<RulerPicker> {
                           ),
                         ),
                       ),
-                      SizedBox(
-                        height: RulerPicker._rulerHeight,
-                        child: _ruler(),
-                      ),
+                      SizedBox(height: widget._rulerH, child: _ruler()),
                       const SizedBox(height: RulerPicker._gapBelow),
                     ],
                   ),
@@ -249,7 +258,7 @@ class _RulerPickerState extends State<RulerPicker> {
                   child: CustomPaint(
                     size: Size(
                       _tickCount * RulerPicker._tickGap,
-                      RulerPicker._rulerHeight,
+                      widget._rulerH,
                     ),
                     painter: _RulerPainter(
                       minTenths: _minTenths,
@@ -257,6 +266,7 @@ class _RulerPickerState extends State<RulerPicker> {
                       tickCount: _tickCount,
                       tickColor: context.colors.textPrimary,
                       labelColor: context.colors.textSecondary,
+                      showLabels: widget.showLabels,
                     ),
                   ),
                 ),
@@ -318,6 +328,7 @@ class _RulerPainter extends CustomPainter {
     required this.tickCount,
     required this.tickColor,
     required this.labelColor,
+    required this.showLabels,
   });
 
   final int minTenths;
@@ -327,6 +338,7 @@ class _RulerPainter extends CustomPainter {
   /// Ticks and numbers of the ruler.
   final Color tickColor;
   final Color labelColor;
+  final bool showLabels;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -351,7 +363,7 @@ class _RulerPainter extends CustomPainter {
       }
       paint.color = tickColor.withValues(alpha: alpha);
       canvas.drawLine(Offset(x, 0), Offset(x, h), paint);
-      if (tenths % 10 == 0) {
+      if (showLabels && tenths % 10 == 0) {
         final label = TextPainter(
           text: TextSpan(
             text: _label(tenths * step),
@@ -377,7 +389,8 @@ class _RulerPainter extends CustomPainter {
       old.minTenths != minTenths ||
       old.tickCount != tickCount ||
       old.tickColor != tickColor ||
-      old.labelColor != labelColor;
+      old.labelColor != labelColor ||
+      old.showLabels != showLabels;
 }
 
 // Snaps to whole steps; the swipe velocity carries the ruler a bit further
