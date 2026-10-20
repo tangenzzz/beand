@@ -141,7 +141,7 @@ class _PreShotCardState extends State<PreShotCard> {
       _profileOptions(),
       action: true,
     ),
-    _OpenList.dose => RulerPicker.height,
+    _OpenList.dose => RulerPicker.compactHeight,
     _OpenList.grind => GrindPanel.heightFor(
       context.read<ShotSetup>().grinder?.scaleOrStandard ?? GrindScale.standard,
     ),
@@ -365,6 +365,8 @@ class _PreShotCardState extends State<PreShotCard> {
                         min: _doseMin,
                         max: _doseMax,
                         unit: 'g',
+                        // Like the grind ruler: no numbers, same height.
+                        showLabels: false,
                         onChanged: (v) {
                           setState(() => _doseGrams = v);
                           context.read<ShotSetup>().setDose(v);

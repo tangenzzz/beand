@@ -227,7 +227,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     expect(find.byType(RulerPicker), findsOneWidget);
-    expect(extra.last, RulerPicker.height);
+    expect(extra.last, RulerPicker.compactHeight);
     expect(find.text('18.0  g'), findsOneWidget);
     await tester.drag(
       find.descendant(

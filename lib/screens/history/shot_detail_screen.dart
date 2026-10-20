@@ -679,6 +679,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               min: 5,
               max: 30,
               unit: 'g',
+              showLabels: false,
               onChanged: _setDose,
             ),
           ),

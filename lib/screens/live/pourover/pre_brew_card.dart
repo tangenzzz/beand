@@ -90,7 +90,8 @@ class _PreBrewCardState extends State<PreBrewCard> {
       _beanOptions(context.read<AppSettings>().showBeanStock),
       action: true,
     ),
-    _OpenList.dose || _OpenList.water || _OpenList.temp => RulerPicker.height,
+    _OpenList.dose => RulerPicker.compactHeight,
+    _OpenList.water || _OpenList.temp => RulerPicker.height,
     _OpenList.grind => GrindPanel.heightFor(
       context.read<ShotSetup>().grinder?.scale ?? const GrindScale(max: 60),
     ),
@@ -269,6 +270,8 @@ class _PreBrewCardState extends State<PreBrewCard> {
                         min: 5,
                         max: 60,
                         unit: 'g',
+                        // Like the grind ruler: no numbers, same height.
+                        showLabels: false,
                         onChanged: setup.setDose,
                       ),
                     ),
