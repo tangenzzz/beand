@@ -684,8 +684,8 @@ void main() {
     await tester.pumpWidget(mySetup(gear));
     expect(find.byType(StandingImage), findsOneWidget);
     expect(find.byType(CircleAvatar), findsNothing);
-    // In use: a small dot before the name instead of the ring.
-    expect(find.byKey(const ValueKey('in-use-dot')), findsOneWidget);
+    // In use, but no mark under the board (user request 2026-10-20).
+    expect(find.byKey(const ValueKey('in-use-dot')), findsNothing);
   });
 
   test('desk search matches brand, model and type fields', () {

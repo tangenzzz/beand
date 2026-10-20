@@ -768,8 +768,7 @@ class GearIcon extends StatelessWidget {
 /// were far too loud): a thin, muted accent hairline when a chain uses it,
 /// a faint hairline when stored; the selected one only gets a faint outer
 /// hairline and a brighter name. A cut-out photo has no circle: the piece
-/// stands freely on the board with a soft shadow, in use marked by a small
-/// accent dot before its name. No brew-mode badge (removed on user request
+/// stands freely on the board with a soft shadow, without an in-use mark. No brew-mode badge (removed on user request
 /// 2026-10-20).
 class GearAvatar extends StatelessWidget {
   const GearAvatar({
@@ -796,9 +795,8 @@ class GearAvatar extends StatelessWidget {
   /// Where the shelf board runs: right under the avatar.
   static const boardTop = _slot;
   static const boardHeight = 3.0;
-  static const _nameGap = boardHeight + 5;
-  // Below the board only room for the in-use dot of a cut-out.
-  static const slotHeight = _slot + _nameGap + 4;
+  // Nothing below the board: the slot ends right under it.
+  static const slotHeight = _slot + boardHeight + 2;
 
   @override
   Widget build(BuildContext context) {
@@ -883,20 +881,9 @@ class GearAvatar extends StatelessWidget {
                   ],
                 ),
               ),
-              // No name under the board (user request 2026-10-20): the
-              // photo or icon says it, tapping shows brand and name. A
-              // cut-out in use keeps its small accent dot here.
-              const SizedBox(height: _nameGap),
-              if (gear.isCutout && photo != null && active)
-                Container(
-                  key: const ValueKey('in-use-dot'),
-                  width: 4,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: colors.accent.withValues(alpha: 0.7),
-                  ),
-                ),
+              // Nothing under the board (user request 2026-10-20): no name,
+              // no in-use dot — the photo or icon says it, tapping shows
+              // brand and name.
             ],
           ),
         ),
