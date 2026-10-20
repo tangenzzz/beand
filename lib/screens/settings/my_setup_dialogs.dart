@@ -12,6 +12,7 @@ import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/underline_select.dart';
+import '../live/tile_title.dart';
 import 'my_coffee_desk_screen.dart' show GearIcon;
 import 'settings_widgets.dart';
 
@@ -281,7 +282,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     final editing = widget.grinder != null;
     final id = widget.grinder?.id;
     return SetupDialog(
-      title: editing ? 'Edit grinder' : 'Add grinder',
+      title: 'Grinder',
       heading: _name.text,
       subheading: _brand.text,
       photo: id == null || widget.onPhoto == null
@@ -721,7 +722,7 @@ class _WaterDialogState extends State<_WaterDialog> {
     final editing = widget.water != null;
     final id = widget.water?.id;
     return SetupDialog(
-      title: editing ? 'Edit water' : 'Add water',
+      title: 'Water',
       heading: _recipe.text,
       photo: id == null || widget.onPhoto == null
           ? null
@@ -856,11 +857,12 @@ class SetupDialog extends StatefulWidget {
     this.advancedSummary,
   });
 
-  /// What is being done, e.g. "Edit grinder" — the head's big line until
-  /// [heading] has text, then the small line above it.
+  /// The kind of piece, e.g. "Grinder" — the head only shows it while
+  /// neither [heading] nor [subheading] has text.
   final String title;
 
-  /// The piece's name as typed (live); [subheading] e.g. its brand.
+  /// The piece's name as typed (live) and its brand: shown like the card
+  /// titles ("PREShot") — brand small in the accent color, name big.
   final String? heading;
   final String? subheading;
 
@@ -891,13 +893,15 @@ class _SetupDialogState extends State<SetupDialog> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final heading = widget.heading?.trim() ?? '';
-    final small = heading.isEmpty
-        ? null
-        : (widget.subheading?.trim().isNotEmpty ?? false)
-        ? widget.subheading!.trim()
-        : widget.title;
-    final big = heading.isEmpty ? widget.title : heading;
+    final name = widget.heading?.trim() ?? '';
+    final brand = widget.subheading?.trim() ?? '';
+    // Name with brand as prefix; only one of them: that one alone; neither:
+    // the kind of piece.
+    final (prefix, big) = name.isNotEmpty
+        ? (brand, name)
+        : brand.isNotEmpty
+        ? ('', brand)
+        : ('', widget.title);
     final photo = widget.photo;
     return Padding(
       // Above the keyboard.
@@ -930,30 +934,16 @@ class _SetupDialogState extends State<SetupDialog> {
                   const SizedBox(width: 14),
                 ],
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (small != null)
-                        Text(
-                          small,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      Text(
-                        big,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.textPrimary,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: PrefixedTitle(
+                      key: const ValueKey('dialog-heading'),
+                      prefix: prefix,
+                      title: big,
+                      active: true,
+                      maxLines: 2,
+                      fontSize: 22,
+                    ),
                   ),
                 ),
               ],

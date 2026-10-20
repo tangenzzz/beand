@@ -245,7 +245,14 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('new-grinder')));
     await tester.pumpAndSettle();
-    expect(find.text('Add grinder'), findsOneWidget);
+    // A new piece without brand and name: the head shows only its kind.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('dialog-heading')),
+        matching: find.text('Grinder'),
+      ),
+      findsOneWidget,
+    );
     // Neutral label and line, but the blinking cursor in the accent color.
     final brandField = tester.widget<TextField>(
       find.descendant(
@@ -567,7 +574,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Copy'));
     await tester.pumpAndSettle();
-    expect(find.text('Edit brew chain'), findsOneWidget);
+    expect(find.byType(SetupDialog), findsOneWidget);
     await tester.tap(find.text('IMS 18'));
     await tester.pump();
     await tester.tap(find.text('Save'));
@@ -632,7 +639,14 @@ void main() {
 
     await tester.longPress(find.text('Machine'));
     await tester.pumpAndSettle();
-    expect(find.text('Edit machine'), findsOneWidget);
+    // No "Edit …" in the head: without brand and model just its kind.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('dialog-heading')),
+        matching: find.text('Machine'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('My Coffee Desk: a cut-out stands on the shelf, no circle', (
@@ -709,7 +723,13 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('new-basket')));
     await tester.pumpAndSettle();
-    expect(find.text('Add basket'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('dialog-heading')),
+        matching: find.text('Basket'),
+      ),
+      findsOneWidget,
+    );
     // What it serves follows the kind; the form doesn't ask.
     expect(find.text('Both'), findsNothing);
     await tester.enterText(find.byKey(const ValueKey('gear-brand')), 'IMS');

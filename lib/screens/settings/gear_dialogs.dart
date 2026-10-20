@@ -139,7 +139,7 @@ class _GearDialogState extends State<_GearDialog> {
     final shapes = gearShapes[type];
     final id = widget.gear?.id;
     return SetupDialog(
-      title: editing ? 'Edit $single' : 'Add $single',
+      title: type.single,
       heading: _model.text,
       subheading: _brand.text,
       photo: id == null || widget.onPhoto == null
@@ -265,7 +265,7 @@ class _ChainDialogState extends State<_ChainDialog> {
     final store = context.watch<GearStore>();
     final editing = widget.chain != null;
     return SetupDialog(
-      title: editing ? 'Edit brew chain' : 'Add brew chain',
+      title: 'Brew chain',
       heading: _name.text,
       canSave: _name.text.trim().isNotEmpty,
       onSave: _save,

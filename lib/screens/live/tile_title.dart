@@ -53,6 +53,7 @@ class PrefixedTitle extends StatelessWidget {
     required this.title,
     this.active = false,
     this.maxLines,
+    this.fontSize = 17,
   });
 
   /// Shown in capitals; null or empty = the title alone.
@@ -63,7 +64,13 @@ class PrefixedTitle extends StatelessWidget {
   final bool active;
   final int? maxLines;
 
-  static const _raise = 2.0;
+  /// Size of [title]; prefix and raise scale along, so the proportions stay
+  /// those of the card titles (e.g. a bigger head on the desk editors).
+  final double fontSize;
+
+  // At title size 17: prefix 9, raised by 2.
+  static const _prefixRatio = 9 / 17;
+  static const _raiseRatio = 2 / 17;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +81,7 @@ class PrefixedTitle extends StatelessWidget {
       overflow: maxLines == null ? null : TextOverflow.ellipsis,
       style: TextStyle(
         color: context.colors.textPrimary,
-        fontSize: 17,
+        fontSize: fontSize,
         fontWeight: FontWeight.w600,
       ),
     );
@@ -84,14 +91,14 @@ class PrefixedTitle extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Transform.translate(
-          offset: const Offset(0, -_raise),
+          offset: Offset(0, -fontSize * _raiseRatio),
           child: AnimatedDefaultTextStyle(
             duration: const Duration(milliseconds: 220),
             style: TextStyle(
               color: active
                   ? context.colors.accent
                   : context.colors.textSecondary,
-              fontSize: 9,
+              fontSize: fontSize * _prefixRatio,
               fontWeight: FontWeight.w700,
               letterSpacing: 1,
             ),

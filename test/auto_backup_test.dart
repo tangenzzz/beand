@@ -318,9 +318,10 @@ void main() {
     ) async {
       // File access runs for real: let it finish and the results arrive.
       Future<void> settle() async {
-        for (var i = 0; i < 5; i++) {
+        // Generous: a busy machine (full suite in parallel) is slow.
+        for (var i = 0; i < 10; i++) {
           await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+            () => Future<void>.delayed(const Duration(milliseconds: 40)),
           );
           await tester.pump();
         }
