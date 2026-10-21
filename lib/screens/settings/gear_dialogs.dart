@@ -27,15 +27,19 @@ Future<void> showGearDialog(
 );
 
 /// Add ([chain] null) or edit a brew chain. Returns the saved chain, null on
-/// cancel or delete.
-Future<BrewChain?> showChainDialog(BuildContext context, {BrewChain? chain}) =>
-    showSetupSheet<BrewChain>(
-      context,
-      (_) => ChangeNotifierProvider<GearStore>.value(
-        value: context.read<GearStore>(),
-        child: _ChainDialog(chain: chain),
-      ),
-    );
+/// cancel or delete. [onCopy]: "Copy brew chain" at the bottom — the sheet
+/// closes, then the desk makes the copy and opens it.
+Future<BrewChain?> showChainDialog(
+  BuildContext context, {
+  BrewChain? chain,
+  VoidCallback? onCopy,
+}) => showSetupSheet<BrewChain>(
+  context,
+  (_) => ChangeNotifierProvider<GearStore>.value(
+    value: context.read<GearStore>(),
+    child: _ChainDialog(chain: chain, onCopy: onCopy),
+  ),
+);
 
 class _GearDialog extends StatefulWidget {
   const _GearDialog({required this.type, this.gear, this.onPhoto});
@@ -196,9 +200,10 @@ class _GearDialogState extends State<_GearDialog> {
 }
 
 class _ChainDialog extends StatefulWidget {
-  const _ChainDialog({this.chain});
+  const _ChainDialog({this.chain, this.onCopy});
 
   final BrewChain? chain;
+  final VoidCallback? onCopy;
 
   @override
   State<_ChainDialog> createState() => _ChainDialogState();
@@ -271,6 +276,16 @@ class _ChainDialogState extends State<_ChainDialog> {
       onSave: _save,
       onDelete: editing ? _delete : null,
       deleteLabel: 'Delete brew chain',
+      extraAction: editing && widget.onCopy != null
+          ? (
+              label: 'Copy brew chain',
+              icon: Icons.copy_outlined,
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.onCopy!();
+              },
+            )
+          : null,
       children: [
         SetupField(
           key: const ValueKey('chain-name'),

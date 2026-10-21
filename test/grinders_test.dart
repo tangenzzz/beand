@@ -557,7 +557,7 @@ void main() {
     expect(gear.chains.single.gearIds, ['m', 'b2']);
     expect(gear.activeIds, {'m', 'b2'});
     // The chain as a shelf of its own: its pieces stand on a board.
-    final bar = find.textContaining('ESPRESSO BAR', findRichText: true);
+    final bar = find.text('ESPRESSO BAR');
     expect(bar, findsOneWidget);
     final row = find.byKey(ValueKey('chain-${gear.chains.single.id}'));
     expect(
@@ -572,11 +572,14 @@ void main() {
       findsOneWidget,
     );
 
-    // Swiped left: Copy makes a second chain and opens it to change one
-    // category.
-    await tester.drag(bar, const Offset(-300, 0));
+    // The name sits on the plate below the board; tapping it opens the
+    // chain, Copy at the bottom makes a second one and opens it to change
+    // one category.
+    expect(bar, findsOneWidget);
+    await tester.tap(bar);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Copy'));
+    await tester.ensureVisible(find.text('Copy brew chain'));
+    await tester.tap(find.text('Copy brew chain'));
     await tester.pumpAndSettle();
     expect(find.byType(SetupDialog), findsOneWidget);
     await tester.tap(find.text('IMS 18'));
@@ -587,18 +590,13 @@ void main() {
     expect(gear.chains.last.name, 'Espresso bar copy');
     expect(gear.chains.last.gearIds, ['m', 'b1']);
 
-    // Delete, after asking.
-    await tester.drag(
+    // Delete from the chain's sheet, after asking.
+    await tester.tap(
       find.textContaining('ESPRESSO BAR COPY', findRichText: true),
-      const Offset(-300, 0),
     );
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(ValueKey('chain-${gear.chains.last.id}')),
-        matching: find.text('Delete'),
-      ),
-    );
+    await tester.ensureVisible(find.text('Delete brew chain'));
+    await tester.tap(find.text('Delete brew chain'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete').last);
     await tester.pumpAndSettle();

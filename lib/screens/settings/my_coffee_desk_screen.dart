@@ -83,18 +83,6 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     await showChainDialog(context, chain: copy);
   }
 
-  Future<void> _deleteChain(BrewChain chain) async {
-    final store = context.read<GearStore>();
-    if (await confirmSetupDelete(
-          context,
-          chain.name,
-          'The gear stays on the desk.',
-        ) &&
-        mounted) {
-      store.removeChain(chain.id);
-    }
-  }
-
   Future<void> _openFilter() async {
     final store = context.read<GearStore>();
     final result = await showDeskFilterSheet(
@@ -392,10 +380,12 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
                       chain: c,
                       pieces: store.gearOf(c),
                       photoOf: store.photoFile,
-                      onTap: () => showChainDialog(context, chain: c),
+                      onTap: () => showChainDialog(
+                        context,
+                        chain: c,
+                        onCopy: () => _copyChain(c),
+                      ),
                       onEditGear: _edit,
-                      onCopy: () => _copyChain(c),
-                      onDelete: () => _deleteChain(c),
                     ),
                   const SizedBox(height: 8),
                 ] else ...[
@@ -474,11 +464,11 @@ class _DeskTabs extends StatelessWidget {
   }
 }
 
-// One brew chain as a shelf of its own: the name on top (tap edits the
-// chain, swiped to the left it shows Copy and Delete), below it the pieces
-// with their photos on a shelf board, in desk order. Tapping a piece edits
-// the chain too (to swap it), a long press edits the piece.
-class _ChainRow extends StatefulWidget {
+// One brew chain as a shelf of its own: the pieces with their photos on a
+// board, the chain's name on the plate below it. Tapping the plate or a
+// piece edits the chain (copy and delete are in there), a long press edits
+// the piece.
+class _ChainRow extends StatelessWidget {
   const _ChainRow({
     super.key,
     required this.chain,
@@ -486,8 +476,6 @@ class _ChainRow extends StatefulWidget {
     required this.photoOf,
     required this.onTap,
     required this.onEditGear,
-    required this.onCopy,
-    required this.onDelete,
   });
 
   final BrewChain chain;
@@ -495,131 +483,30 @@ class _ChainRow extends StatefulWidget {
   final File? Function(Gear) photoOf;
   final VoidCallback onTap;
   final ValueChanged<Gear> onEditGear;
-  final VoidCallback onCopy;
-  final VoidCallback onDelete;
-
-  @override
-  State<_ChainRow> createState() => _ChainRowState();
-}
-
-class _ChainRowState extends State<_ChainRow>
-    with SingleTickerProviderStateMixin {
-  static const _actionWidth = 72.0;
-  static const _open = 2 * _actionWidth;
-
-  late final AnimationController _slide = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 180),
-    upperBound: _open,
-  );
-
-  @override
-  void dispose() {
-    _slide.dispose();
-    super.dispose();
-  }
-
-  void _settle() => _slide.animateTo(_slide.value > _open / 2 ? _open : 0);
-
-  void _act(VoidCallback action) {
-    _slide.animateTo(0);
-    action();
-  }
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    Widget action(String label, IconData icon, Color color, VoidCallback f) =>
-        SizedBox(
-          width: _actionWidth,
-          child: InkWell(
-            onTap: () => _act(f),
-            // Scaled down rather than clipped when a large font is set.
-            child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, size: 18, color: color),
-                    const SizedBox(width: 4),
-                    Text(label, style: TextStyle(color: color, fontSize: 12)),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-    final pieces = widget.pieces;
-    final header = GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onHorizontalDragUpdate: (d) =>
-          _slide.value = (_slide.value - d.delta.dx).clamp(0.0, _open),
-      onHorizontalDragEnd: (_) => _settle(),
-      child: ClipRect(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  action(
-                    'Copy',
-                    Icons.copy_outlined,
-                    colors.textSecondary,
-                    widget.onCopy,
-                  ),
-                  action(
-                    'Delete',
-                    Icons.delete_outline,
-                    colors.danger,
-                    widget.onDelete,
-                  ),
-                ],
-              ),
-            ),
-            AnimatedBuilder(
-              animation: _slide,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(-_slide.value, 0),
-                child: child,
-              ),
-              child: Material(
-                color: colors.card,
-                child: InkWell(
-                  onTap: () =>
-                      _slide.value > 0 ? _slide.animateTo(0) : widget.onTap(),
-                  child: SettingsGroupLabel(
-                    widget.chain.name,
-                    icon: Icons.link,
-                    count: pieces.length,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
     return SettingsGroup(
       children: [
-        header,
+        const SizedBox(height: 10),
         _ShelfBoard(
+          label: chain.name,
+          onLabelTap: onTap,
           count: pieces.isEmpty ? 1 : pieces.length,
           builder: (context, i) => pieces.isEmpty
               ? _NewAvatar(
                   type: GearType.machine,
                   label: 'Add gear',
-                  onTap: widget.onTap,
+                  onTap: onTap,
                 )
               : GearAvatar(
                   gear: pieces[i],
-                  photo: widget.photoOf(pieces[i]),
+                  photo: photoOf(pieces[i]),
                   // Everything here is in use — it is in this chain.
                   active: true,
                   selected: false,
-                  onTap: widget.onTap,
-                  onLongPress: () => widget.onEditGear(pieces[i]),
+                  onTap: onTap,
+                  onLongPress: () => onEditGear(pieces[i]),
                 ),
         ),
         const SizedBox(height: 12),
@@ -655,20 +542,12 @@ class _Shelf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
     final open = items.where((g) => g.id == openId).firstOrNull;
     return SettingsGroup(
       children: [
-        SettingsGroupLabel(
-          type.label,
-          leading: GearIcon(
-            asset: type.iconAsset(const {}),
-            size: 17,
-            color: colors.textSecondary,
-          ),
-          count: items.length,
-        ),
+        const SizedBox(height: 10),
         _ShelfBoard(
+          label: type.label,
           count: items.length + 1,
           builder: (context, i) => i == items.length
               ? _NewAvatar(type: type, onTap: onAdd)
@@ -699,19 +578,44 @@ class _Shelf extends StatelessWidget {
   }
 }
 
-// The shelf board runs right under the avatars (cut-outs stand on it), the
-// names sit below it; the pieces scroll over a fixed board. Shared by the
-// category shelves and the brew chains.
+// The shelf board runs right under the avatars (cut-outs stand on it); the
+// pieces scroll over a fixed board. Below the board on the right a small
+// plate names the shelf — the category or the chain — instead of a heading
+// above it (user choice 2026-10-21: calmer, the shelves sit closer).
+// Shared by the category shelves and the brew chains.
 class _ShelfBoard extends StatelessWidget {
-  const _ShelfBoard({required this.count, required this.builder});
+  const _ShelfBoard({
+    required this.count,
+    required this.builder,
+    required this.label,
+    this.onLabelTap,
+  });
 
   final int count;
   final IndexedWidgetBuilder builder;
+  final String label;
+
+  /// Tapping the plate (a chain: edit it).
+  final VoidCallback? onLabelTap;
+
+  static const _plateHeight = 16.0;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final plate = Text(
+      label.toUpperCase(),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: colors.textTertiary,
+        fontSize: 9.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.9,
+      ),
+    );
     return SizedBox(
-      height: GearAvatar.slotHeight,
+      height: GearAvatar.slotHeight + _plateHeight,
       child: Stack(
         children: [
           Positioned(
@@ -721,19 +625,40 @@ class _ShelfBoard extends StatelessWidget {
             child: Container(
               height: GearAvatar.boardHeight,
               decoration: BoxDecoration(
-                color: context.colors.textTertiary,
+                color: colors.textTertiary,
                 borderRadius: BorderRadius.circular(1.5),
               ),
             ),
           ),
-          ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.dividerInset - GearAvatar.ringGap,
+          Positioned(
+            top: GearAvatar.boardTop + GearAvatar.boardHeight,
+            right: AppSpacing.dividerInset - 8,
+            child: onLabelTap == null
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+                    child: plate,
+                  )
+                : InkWell(
+                    key: ValueKey('plate-$label'),
+                    onTap: onLabelTap,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 3, 8, 3),
+                      child: plate,
+                    ),
+                  ),
+          ),
+          SizedBox(
+            height: GearAvatar.slotHeight,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.dividerInset - GearAvatar.ringGap,
+              ),
+              itemCount: count,
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              itemBuilder: builder,
             ),
-            itemCount: count,
-            separatorBuilder: (_, _) => const SizedBox(width: 6),
-            itemBuilder: builder,
           ),
         ],
       ),

@@ -860,6 +860,7 @@ class SetupDialog extends StatefulWidget {
     this.onPhoto,
     this.advanced = const [],
     this.advancedSummary,
+    this.extraAction,
   });
 
   /// The kind of piece, e.g. "Grinder" — the head only shows it while
@@ -888,6 +889,9 @@ class SetupDialog extends StatefulWidget {
   final VoidCallback onSave;
   final VoidCallback? onDelete;
   final String deleteLabel;
+
+  /// A quiet action above delete (a chain: "Copy brew chain").
+  final ({String label, IconData icon, VoidCallback onTap})? extraAction;
 
   @override
   State<SetupDialog> createState() => _SetupDialogState();
@@ -1030,6 +1034,17 @@ class _SetupDialogState extends State<SetupDialog> {
               onPressed: widget.canSave ? widget.onSave : null,
             ),
           ),
+          if (widget.extraAction case final extra?)
+            Center(
+              child: TextButton.icon(
+                onPressed: extra.onTap,
+                icon: Icon(extra.icon, color: colors.textSecondary),
+                label: Text(
+                  extra.label,
+                  style: TextStyle(color: colors.textSecondary),
+                ),
+              ),
+            ),
           if (widget.onDelete != null)
             Center(
               child: TextButton.icon(
