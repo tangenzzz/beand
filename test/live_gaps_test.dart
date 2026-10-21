@@ -1,5 +1,5 @@
 import 'package:beand/models/machine_status.dart';
-import 'package:beand/services/live_gap_log.dart';
+import 'package:beand/services/connection_log.dart';
 import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,9 +34,9 @@ void main() {
   late List<String> logged;
   setUp(() {
     logged = [];
-    LiveGapLog.sink = logged.add;
+    ConnectionLog.sink = logged.add;
   });
-  tearDown(() => LiveGapLog.sink = null);
+  tearDown(() => ConnectionLog.sink = null);
 
   test('messages delayed in a batch get the machine time, '
       'not the arrival time', () {

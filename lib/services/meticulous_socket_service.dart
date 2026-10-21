@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
+import 'connection_log.dart';
 import '../machines/espresso_machine.dart';
 import '../models/machine_profile.dart';
 import '../models/profile_draft.dart';
@@ -152,8 +153,37 @@ class MeticulousSocketService extends ChangeNotifier
     }
   }
 
+  // For the connection log: the watchdog's ticks also show whether the app
+  // itself hung (a tick far too late while in front) and when it went to
+  // the background and back.
+  DateTime? _lastTick;
+  bool? _lastForeground;
+
   void _checkStale() {
-    if (!_inForeground() || !isStale(DateTime.now())) return;
+    final now = DateTime.now();
+    final foreground = _inForeground();
+    final lastTick = _lastTick;
+    if (foreground &&
+        _lastForeground == true &&
+        lastTick != null &&
+        now.difference(lastTick) > const Duration(milliseconds: 2500)) {
+      ConnectionLog.write(
+        'stall',
+        'app was blocked ~${now.difference(lastTick).inMilliseconds} ms',
+      );
+    }
+    if (_lastForeground != null && foreground != _lastForeground) {
+      ConnectionLog.write('app', foreground ? 'back in front' : 'background');
+    }
+    _lastTick = now;
+    _lastForeground = foreground;
+
+    if (!foreground || !isStale(now)) return;
+    final last = _lastStatusAt;
+    ConnectionLog.write(
+      'reconnect',
+      'no status for ${last == null ? '?' : now.difference(last).inMilliseconds} ms',
+    );
     lastError = 'No data from the machine — reconnecting';
     connect();
   }
@@ -169,6 +199,7 @@ class MeticulousSocketService extends ChangeNotifier
     connectionState = MachineConnectionState.connecting;
     lastError = null;
     notifyListeners();
+    ConnectionLog.write('connect', _hostname);
 
     _socket = io.io(
       'http://$_hostname',
@@ -182,6 +213,7 @@ class MeticulousSocketService extends ChangeNotifier
     _socket!
       ..onConnect((_) {
         connectionState = MachineConnectionState.connected;
+        ConnectionLog.write('connected', _hostname);
         // Clear the message of the last failed attempt: otherwise "timeout"
         // still shows under the green dot in the settings, although the
         // connection has long been up.
@@ -189,13 +221,15 @@ class MeticulousSocketService extends ChangeNotifier
         addressFallback?.reset();
         notifyListeners();
       })
-      ..onDisconnect((_) {
+      ..onDisconnect((reason) {
         connectionState = MachineConnectionState.disconnected;
+        ConnectionLog.write('disconnected', '$reason');
         notifyListeners();
       })
       ..onConnectError((err) {
         connectionState = MachineConnectionState.error;
         lastError = err.toString();
+        ConnectionLog.write('error', '$err');
         notifyListeners();
         // Socket.IO retries by itself — the fallback search throttles
         // itself (cooldown + already tried addresses), so it may run along
@@ -477,13 +511,26 @@ class MeticulousSocketService extends ChangeNotifier
   static const _getActions = {'start', 'stop', 'preheat', 'tare', 'continue'};
 
   Future<bool> triggerAction(String action) async {
+    final started = DateTime.now();
+    String took() => '${DateTime.now().difference(started).inMilliseconds} ms';
     try {
       final uri = Uri.parse('http://$_hostname/api/v1/action/$action');
       final response = _getActions.contains(action)
           ? await http.get(uri).timeout(const Duration(seconds: 5))
           : await http.post(uri).timeout(const Duration(seconds: 5));
-      return response.statusCode >= 200 && response.statusCode < 300;
-    } catch (_) {
+      final ok = response.statusCode >= 200 && response.statusCode < 300;
+      ConnectionLog.write(
+        'action',
+        ok
+            ? '$action ok (${took()})'
+            : '$action failed: HTTP ${response.statusCode} (${took()})',
+      );
+      return ok;
+    } on TimeoutException {
+      ConnectionLog.write('action', '$action failed: no answer in 5 s');
+      return false;
+    } catch (e) {
+      ConnectionLog.write('action', '$action failed: $e (${took()})');
       return false;
     }
   }
@@ -499,6 +546,7 @@ class MeticulousSocketService extends ChangeNotifier
     // Has someone entered an address by hand meanwhile? Then the result
     // belongs to a question that has been settled.
     if (next == null || next == _hostname || attemptedHost != _hostname) return;
+    ConnectionLog.write('address', '$attemptedHost → $next');
     onAddressChanged?.call(next, fallback.lastIp);
     updateHostname(next);
   }

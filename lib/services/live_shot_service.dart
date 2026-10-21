@@ -8,7 +8,7 @@ import '../database/database.dart';
 import '../models/machine_sensors.dart';
 import '../models/machine_status.dart';
 import '../models/shot_phases.dart';
-import 'live_gap_log.dart';
+import 'connection_log.dart';
 import 'meticulous_socket_service.dart';
 
 // State of the Pre-Shot/Shot/Post-Shot cards, derived purely from
@@ -293,7 +293,7 @@ class MeticulousLiveShotService extends LiveShotService {
   DateTime? _lastStatusAt;
 
   // Heartbeat during the brew: if it comes clearly too late, the app itself
-  // hung, not the network (see LiveGapLog).
+  // hung, not the network (see ConnectionLog).
   static const _beatInterval = Duration(milliseconds: 250);
   static const _gapThreshold = Duration(seconds: 1);
   Timer? _heartbeat;
@@ -469,7 +469,7 @@ class MeticulousLiveShotService extends LiveShotService {
 
     final connection = _socket.connectionState;
     if (running && _lastConnection != null && connection != _lastConnection) {
-      LiveGapLog.write(
+      ConnectionLog.write(
         'connection',
         '${_lastConnection!.name} -> ${connection.name}',
       );
@@ -481,7 +481,7 @@ class MeticulousLiveShotService extends LiveShotService {
       if (running &&
           previous != null &&
           now.difference(previous) > _gapThreshold) {
-        LiveGapLog.write(
+        ConnectionLog.write(
           'status',
           'arrival gap ${now.difference(previous).inMilliseconds} ms, '
               'phase "${fresh.phase}", machine time ${fresh.timeMs} ms',
@@ -502,7 +502,7 @@ class MeticulousLiveShotService extends LiveShotService {
     final now = DateTime.now();
     final last = _lastBeat;
     if (last != null && now.difference(last) > _beatInterval + _gapThreshold) {
-      LiveGapLog.write(
+      ConnectionLog.write(
         'stall',
         'app was blocked ~${now.difference(last).inMilliseconds} ms',
       );
