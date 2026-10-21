@@ -1,10 +1,14 @@
 import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/database/database.dart';
+import 'package:beand/models/gear.dart';
+import 'package:beand/models/grind_scale.dart';
 import 'package:beand/models/machine_profile.dart';
 import 'package:beand/models/machine_status.dart';
 import 'package:beand/screens/live/pre_shot_card.dart';
 import 'package:beand/services/app_settings.dart';
+import 'package:beand/services/gear_store.dart';
+import 'package:beand/services/grinder_store.dart';
 import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/services/shot_setup.dart';
@@ -61,6 +65,7 @@ Future<int> insertShot(
   int? beanId,
   double? dose,
   String? grind,
+  String? marker,
 }) => db
     .into(db.shots)
     .insert(
@@ -70,6 +75,7 @@ Future<int> insertShot(
         beanId: Value(beanId),
         doseGrams: Value(dose),
         grindSize: Value(grind),
+        grindMarker: Value(marker),
       ),
     );
 
@@ -315,6 +321,120 @@ void main() {
       await db.close();
     },
   );
+
+  testWidgets('Pre Shot: the grind mark comes along with the grind size '
+      '(profile, then profile+bean)', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    // A grinder with several index marks in the chain (Monolith).
+    final grinders = GrinderStore.inMemory();
+    final mono = grinders.add('Monolith', const []);
+    grinders.update(
+      grinders
+          .byId(mono.id)!
+          .copyWith(
+            scale: const GrindScale(
+              step: 0.1,
+              max: 9,
+              markers: [
+                GrindMarker(name: 'Espresso', color: 0xFF4CAF50),
+                GrindMarker(name: 'Soup', color: 0xFFE53935, offset: 6.8),
+              ],
+            ),
+          ),
+    );
+    final gear = grinders.gear
+      ..saveChain(BrewChain(id: '', name: 'Bar', gearIds: [mono.id]));
+    final setup = ShotSetup.inMemory()..gear = gear;
+
+    final db = AppDatabase(NativeDatabase.memory());
+    late Bean guji;
+    await tester.runAsync(() async {
+      guji = await db.insertBean(BeansCompanion.insert(name: 'Guji'));
+      final kiambu = await db.insertBean(BeansCompanion.insert(name: 'Kiambu'));
+      // Last "Classic" shot: 5.5 at the green mark.
+      await insertShot(
+        db,
+        at: DateTime(2026, 10, 20),
+        profile: 'Classic',
+        beanId: kiambu.id,
+        dose: 18,
+        grind: '5.5',
+        marker: 'Espresso',
+      );
+      // "Classic" + Guji before: 2.8 at the red mark.
+      await insertShot(
+        db,
+        at: DateTime(2026, 10, 19),
+        profile: 'Classic',
+        beanId: guji.id,
+        dose: 18,
+        grind: '2.8',
+        marker: 'Soup',
+      );
+    });
+    // Set to the other mark before, as after an earlier shot.
+    setup.setGrindMarker('Soup');
+    final service = FakeService()..setIdle();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(value: AppSettings()),
+          ChangeNotifierProvider<GearStore>.value(value: gear),
+          ChangeNotifierProvider<ShotSetup>.value(value: setup),
+          ChangeNotifierProvider<MeticulousSocketService>.value(value: service),
+          ChangeNotifierProvider<EspressoMachine>.value(value: service),
+          ChangeNotifierProvider<GaggiMateService>.value(
+            value: offlineGaggiMate(),
+          ),
+          ChangeNotifierProvider<LiveShotService>.value(
+            value: MeticulousLiveShotService(service)..start(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const Scaffold(
+            body: SingleChildScrollView(child: PreShotCard()),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+
+    Future<void> pick(String opener, String item) async {
+      await tester.tap(find.text(opener));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.textContaining(item).last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+    }
+
+    await pick('Select profile', 'Classic');
+    expect(setup.grindSize, 5.5);
+    expect(setup.grindMarker, 'Espresso');
+
+    await pick('Select bean', 'Guji');
+    expect(setup.grindSize, 2.8);
+    expect(setup.grindMarker, 'Soup', reason: 'the mark of that shot');
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(Duration.zero);
+    await db.close();
+  });
 
   testWidgets(
     'a profile started on the machine replaces the one last chosen in the '

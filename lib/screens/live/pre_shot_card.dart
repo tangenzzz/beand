@@ -566,10 +566,12 @@ class _PreShotCardState extends State<PreShotCard> {
     final setup = context.read<ShotSetup>();
     setup.setDose(null);
     setup.setGrind(null);
+    setup.setGrindMarker(null);
   }
 
-  // Take dose/grind size from the most recent matching shot. Only fields
-  // this shot actually has; if a value is missing, the current one stays.
+  // Take dose/grind size (with its mark) from the most recent matching
+  // shot. Only fields this shot actually has; if a value is missing, the
+  // current one stays.
   // Without a matching shot nothing happens.
   Future<void> _applyLastShotSetup({
     required String profileName,
@@ -596,7 +598,12 @@ class _PreShotCardState extends State<PreShotCard> {
       }
     });
     if (dose != null) setup.setDose(_doseGrams);
-    if (grind != null) setup.setGrind(_grindSize);
+    if (grind != null) {
+      setup.setGrind(_grindSize);
+      // The mark goes with the number: "3.2" means something else at
+      // another one (as in ShotSetup.restoreFromLastShot).
+      setup.setGrindMarker(shot.grindMarker);
+    }
   }
 
   Widget _buildActionButton(
