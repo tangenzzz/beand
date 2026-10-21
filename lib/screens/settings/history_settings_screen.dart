@@ -23,24 +23,13 @@ class HistorySettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
-          // One card per settings page: the list on top, the shot detail
-          // below — one line between them.
+          // One card per settings page: the list, the shot detail, then
+          // comparing shots — one line between the blocks.
           SettingsCard(
             children: [
-              SettingsGroup(
+              const SettingsGroup(
                 label: 'List',
-                children: [
-                  const _ThumbnailPicker(),
-                  SettingsSwitchRow(
-                    title: 'Grind from zero',
-                    info:
-                        'Next to the grind: how far it was from the zero '
-                        'point that day. Compares shots fairly after you '
-                        'reset the zero point.',
-                    value: settings.showGrindFromZero,
-                    onChanged: settings.setShowGrindFromZero,
-                  ),
-                ],
+                children: [_ThumbnailPicker()],
               ),
               SettingsGroup(
                 label: 'Shot detail',
@@ -66,6 +55,20 @@ class HistorySettingsScreen extends StatelessWidget {
                         ? (value) =>
                               ai.setFeatureOn(AiFeature.shotAnalysis, value)
                         : null,
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                label: 'Compare',
+                children: [
+                  SettingsSwitchRow(
+                    title: 'Grind from zero',
+                    info:
+                        'Next to the grind: how far it was from the zero '
+                        'point that day. Compares shots fairly after you '
+                        'reset the zero point.',
+                    value: settings.showGrindFromZero,
+                    onChanged: settings.setShowGrindFromZero,
                   ),
                 ],
               ),
