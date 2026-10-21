@@ -1,5 +1,5 @@
 import 'package:clock/clock.dart';
-import 'package:beand/services/heating_snapshot.dart';
+import 'package:beand/services/heating_estimator.dart';
 import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/services/machine_notifications.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
@@ -92,25 +92,31 @@ void main() {
   late FakeLive live;
   late FakeSink sink;
   late NotificationSettings settings;
+  late HeatingEstimator heating;
   late MachineNotifications notifications;
 
   setUp(() {
-    HeatingSnapshot.instance.clear();
     socket = MeticulousSocketService(hostname: 'unreachable.local')
       ..connectionState = MachineConnectionState.connected;
     live = FakeLive();
     sink = FakeSink();
     settings = NotificationSettings();
+    // Not started: the test sets its results by hand.
+    heating = HeatingEstimator(socket);
     notifications = MachineNotifications(
       socket: socket,
       live: live,
       settings: settings,
       sink: sink,
+      heating: heating,
       dose: () => 18,
     )..start();
   });
 
-  tearDown(() => notifications.dispose());
+  tearDown(() {
+    notifications.dispose();
+    heating.dispose();
+  });
 
   testWidgets('a full cycle: status from preheat on, each alert once', (
     tester,
@@ -122,15 +128,17 @@ void main() {
     expect(sink.statuses.last.title, startsWith('Heating'));
     expect(sink.statuses.last.body, 'Heating up');
 
-    // The hero ring's estimate counts down in the notification.
-    HeatingSnapshot.instance.publishEta(218, clock.now());
-    HeatingSnapshot.instance.progress = 0.62;
+    // The heating model's estimate counts down in the notification.
+    heating
+      ..etaSeconds = 218
+      ..etaAt = clock.now()
+      ..ringProgress = 0.62;
     await tester.pump(const Duration(seconds: 2));
     // Text only in minutes; the exact countdown is a clock Android runs
     // (and shows in the status bar chip from Android 16 on).
     expect(sink.statuses.last.body, 'Ready in about 4 min');
     expect(sink.statuses.last.progress, 0.62);
-    expect(sink.statuses.last.countdownTo, HeatingSnapshot.instance.readyAt);
+    expect(sink.statuses.last.countdownTo, heating.readyAt);
 
     live.set(ShotStage.ready);
     expect(sink.alerts, [MachineAlert.reached]);

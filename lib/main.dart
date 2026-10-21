@@ -28,6 +28,7 @@ import 'services/gear_store.dart';
 import 'services/grinder_store.dart';
 import 'services/water_store.dart';
 import 'services/brew_recipe_store.dart';
+import 'services/heating_estimator.dart';
 import 'services/live_shot_service.dart';
 import 'services/machine_notifications.dart';
 import 'services/notification_settings.dart';
@@ -136,6 +137,9 @@ Future<void> main() async {
 
   // Notifications for the Meticulous (Settings → Notifications): status
   // notification from preheat until the shot is done, plus single alerts.
+  // The hero's heating model: runs on every machine update, also in the
+  // background, so the notification's ETA follows the real temperature.
+  final heatingEstimator = HeatingEstimator(socketService)..start();
   final notificationSettings = await NotificationSettings.load();
   final notificationSink = LocalNotificationSink();
   final machineNotifications = MachineNotifications(
@@ -143,6 +147,7 @@ Future<void> main() async {
     live: liveShotService,
     settings: notificationSettings,
     sink: notificationSink,
+    heating: heatingEstimator,
     dose: () => shotSetup.doseGrams,
   );
   try {
@@ -260,6 +265,9 @@ Future<void> main() async {
         ChangeNotifierProvider<AppSettings>.value(value: appSettings),
         ChangeNotifierProvider<NotificationSettings>.value(
           value: notificationSettings,
+        ),
+        ChangeNotifierProvider<HeatingEstimator>.value(
+          value: heatingEstimator,
         ),
         ChangeNotifierProvider<GearStore>.value(value: gear),
         ChangeNotifierProvider<GrinderStore>.value(value: grinders),

@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-import 'heating_snapshot.dart';
+import 'heating_estimator.dart';
 import 'live_shot_service.dart';
 import 'meticulous_socket_service.dart';
 import 'notification_settings.dart';
@@ -114,6 +114,7 @@ class MachineNotifications {
     required this.live,
     required this.settings,
     required this.sink,
+    required this.heating,
     this.dose,
     DateTime Function()? now,
     // `clock` looked up on every call, so a fake clock (tests) takes effect.
@@ -123,6 +124,10 @@ class MachineNotifications {
   final LiveShotService live;
   final NotificationSettings settings;
   final NotificationSink sink;
+
+  /// The hero's heating model — runs in the background too, so the ETA
+  /// follows the real temperature while the app is closed.
+  final HeatingEstimator heating;
 
   /// Dose of the current shot, for the ratio in "Shot done".
   final double? Function()? dose;
@@ -159,6 +164,7 @@ class MachineNotifications {
     live.addListener(_update);
     socket.addListener(_update);
     settings.addListener(_update);
+    heating.addListener(_update);
     _update();
   }
 
@@ -166,6 +172,7 @@ class MachineNotifications {
     live.removeListener(_update);
     socket.removeListener(_update);
     settings.removeListener(_update);
+    heating.removeListener(_update);
     _connectionTimer?.cancel();
     _statusTimer?.cancel();
   }
@@ -327,9 +334,9 @@ class MachineNotifications {
             ? 'Heating · ${_temp(hero)}'
             : 'Heating ${_temp(hero)} → ${_temp(target)}';
         final now = _now();
-        final left = HeatingSnapshot.instance.remainingSeconds(now);
-        final readyAt = HeatingSnapshot.instance.readyAt;
-        final progress = HeatingSnapshot.instance.progress;
+        final left = heating.remainingSeconds(now);
+        final readyAt = heating.readyAt;
+        final progress = heating.ringProgress;
         // The exact countdown runs in the clock; the text only in minutes,
         // so it does not change every second.
         return StatusContent(
@@ -347,9 +354,7 @@ class MachineNotifications {
   }
 
   double? _hero() {
-    final s = socket.latestSensors;
-    if (s == null) return null;
-    return (s.barUp + s.barMidUp + s.barMidDown + s.barDown) / 4;
+    return heating.heroValue;
   }
 
   String? _profile() {
