@@ -20,6 +20,7 @@ import '../../widgets/taste_chips.dart';
 import '../beans/bean_form_screen.dart';
 import '../beans/bean_widgets.dart';
 import '../../widgets/value_select_row.dart';
+import '../live/grind_from_zero.dart';
 import '../live/grind_panel.dart';
 import '../live/ruler_picker.dart';
 import '../settings/gear_dialogs.dart';
@@ -493,6 +494,30 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
         _grindDraft ??
         double.tryParse(shot.grindSize ?? '') ??
         ShotSetup.defaultGrind;
+    // Settings → History: the grind also from the zero point of its day,
+    // for this shot and the compared one.
+    String? fromZeroNote() {
+      if (!context.select<AppSettings, bool>((s) => s.showGrindFromZero)) {
+        return null;
+      }
+      final zero = shot.grindZero;
+      final mark = grindScale.hasMarkers
+          ? grindScale.markerNamed(_markerDraft ?? shot.grindMarker)
+          : null;
+      final mine = zero == null
+          ? null
+          : (mark == null ? grind : grindScale.absolute(grind, mark)) - zero;
+      final theirs = compare
+          ? shotGrindFromZero(other, _grinderOf(other)?.scale)
+          : null;
+      if (mine == null && theirs == null) return null;
+      String text(double? v) => v == null ? '–' : fromZeroText(v, grindScale);
+      return compare
+          ? '${text(mine)}  ${text(theirs)} from zero'
+          : '${text(mine)} from zero';
+    }
+
+    final grindNote = fromZeroNote();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -660,6 +685,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                   ? grindScale.markerNamed(_markerDraft ?? shot.grindMarker)
                   : null,
               otherOf(grindOf(other?.grindSize)),
+              note: grindNote,
               onTap: () => _toggle(_Open.grind),
               active: _open == _Open.grind,
             ),
@@ -902,11 +928,15 @@ class _Stat extends StatelessWidget {
     this.onTap,
     this.active = false,
     this.marker,
+    this.note,
   });
 
   /// The grinder's index mark the grind was set against: its dot after
   /// the value.
   final GrindMarker? marker;
+
+  /// A small line below the value (the grind from zero).
+  final String? note;
 
   final String label;
   final String? value;
@@ -1000,6 +1030,17 @@ class _Stat extends StatelessWidget {
             ],
           ],
         ),
+        if (note case final text?)
+          Text(
+            text,
+            key: const ValueKey('stat-note'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: context.colors.textTertiary,
+              fontSize: 10.5,
+            ),
+          ),
       ],
     );
 

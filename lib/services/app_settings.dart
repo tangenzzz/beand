@@ -60,12 +60,14 @@ class AppSettings extends ChangeNotifier {
     AppAccent accent = AppAccent.teal,
     bool showStageDetails = true,
     bool showShotFacts = true,
+    bool showGrindFromZero = false,
     bool expandAiAnalysis = true,
   }) {
     _showFreshnessRing = showFreshnessRing;
     _showBeanStock = showBeanStock;
     _showStageDetails = showStageDetails;
     _showShotFacts = showShotFacts;
+    _showGrindFromZero = showGrindFromZero;
     _expandAiAnalysis = expandAiAnalysis;
     _enabledHomeModes = {...enabledHomeModes};
     _homeMode = homeMode;
@@ -81,6 +83,7 @@ class AppSettings extends ChangeNotifier {
   static const showBeanStockPrefKey = 'beans_show_stock';
   static const showStageDetailsPrefKey = 'history_show_stage_details';
   static const showShotFactsPrefKey = 'history_show_shot_facts';
+  static const showGrindFromZeroPrefKey = 'history_show_grind_from_zero';
   static const expandAiAnalysisPrefKey = 'history_expand_ai_analysis';
   static const homeModePrefKey = 'home_mode_selected';
   static const homeModeOrderPrefKey = 'home_mode_order';
@@ -107,6 +110,7 @@ class AppSettings extends ChangeNotifier {
       showBeanStock: prefs.getBool(showBeanStockPrefKey) ?? true,
       showStageDetails: prefs.getBool(showStageDetailsPrefKey) ?? true,
       showShotFacts: prefs.getBool(showShotFactsPrefKey) ?? true,
+      showGrindFromZero: prefs.getBool(showGrindFromZeroPrefKey) ?? false,
       expandAiAnalysis: prefs.getBool(expandAiAnalysisPrefKey) ?? true,
       enabledHomeModes: {
         for (final mode in HomeMode.values)
@@ -197,6 +201,7 @@ class AppSettings extends ChangeNotifier {
     _showBeanStock = fresh._showBeanStock;
     _showStageDetails = fresh._showStageDetails;
     _showShotFacts = fresh._showShotFacts;
+    _showGrindFromZero = fresh._showGrindFromZero;
     _expandAiAnalysis = fresh._expandAiAnalysis;
     _enabledHomeModes = fresh._enabledHomeModes;
     _homeMode = fresh._homeMode;
@@ -214,6 +219,7 @@ class AppSettings extends ChangeNotifier {
   late bool _showBeanStock;
   late bool _showStageDetails;
   late bool _showShotFacts;
+  late bool _showGrindFromZero;
   late bool _expandAiAnalysis;
   late Set<HomeMode> _enabledHomeModes;
   late HomeMode _homeMode;
@@ -271,6 +277,19 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(showShotFactsPrefKey, value);
+  }
+
+  // Next to the grind in the history list and the comparison: how far the
+  // dial stood from the zero point of its day ("3.2 (+2.7)") — so shots
+  // from before and after re-zeroing compare fairly (History settings).
+  bool get showGrindFromZero => _showGrindFromZero;
+
+  Future<void> setShowGrindFromZero(bool value) async {
+    if (value == _showGrindFromZero) return;
+    _showGrindFromZero = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(showGrindFromZeroPrefKey, value);
   }
 
   // AI analysis expanded or collapsed, applies to all shots and is persisted

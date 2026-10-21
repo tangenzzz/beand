@@ -27,9 +27,20 @@ class HistorySettingsScreen extends StatelessWidget {
           // below — one line between them.
           SettingsCard(
             children: [
-              const SettingsGroup(
+              SettingsGroup(
                 label: 'List',
-                children: [_ThumbnailPicker()],
+                children: [
+                  const _ThumbnailPicker(),
+                  SettingsSwitchRow(
+                    title: 'Grind from zero',
+                    info:
+                        'Next to the grind: how far it was from the zero '
+                        'point that day. Compares shots fairly after you '
+                        'reset the zero point.',
+                    value: settings.showGrindFromZero,
+                    onChanged: settings.setShowGrindFromZero,
+                  ),
+                ],
               ),
               SettingsGroup(
                 label: 'Shot detail',

@@ -19,6 +19,7 @@ List<String> syncedSettingKeys() => [
   AppSettings.showBeanStockPrefKey,
   AppSettings.showStageDetailsPrefKey,
   AppSettings.showShotFactsPrefKey,
+  AppSettings.showGrindFromZeroPrefKey,
   AppSettings.expandAiAnalysisPrefKey,
   AppSettings.homeModeOrderPrefKey,
   for (final mode in HomeMode.values) AppSettings.homeModeEnabledPrefKey(mode),

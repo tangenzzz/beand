@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../database/database.dart';
+import '../../models/grind_scale.dart';
 import '../../models/grinder.dart';
 import '../../theme/app_theme.dart';
 import 'grind_panel.dart';
@@ -71,4 +73,28 @@ Widget? grindMarkerSuffix(Grinder? grinder, double? dial, String? marker) {
     key: const ValueKey('grind-marker-dot'),
     color: mark.color,
   );
+}
+
+/// A shot's grind measured from the zero point of its day (stored with the
+/// shot), so shots from before and after re-zeroing compare fairly. On a
+/// grinder with marks [scale] puts the reading on the shared scale first.
+/// Null when the shot has no grind or no zero point (shots from before
+/// 2026-10-19).
+double? shotGrindFromZero(Shot shot, [GrindScale? scale]) {
+  final dial = double.tryParse(shot.grindSize ?? '');
+  final zero = shot.grindZero;
+  if (dial == null || zero == null) return null;
+  final mark = scale != null && scale.hasMarkers
+      ? scale.markerNamed(shot.grindMarker)
+      : null;
+  final absolute = mark == null ? dial : scale!.absolute(dial, mark);
+  return absolute - zero;
+}
+
+/// "+2.7" — in the grinder's own way of reading when [scale] is known.
+String fromZeroText(double value, [GrindScale? scale]) {
+  final text =
+      scale?.format(value, withUnit: false) ??
+      (value % 1 == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1));
+  return value >= 0 ? '+$text' : text;
 }

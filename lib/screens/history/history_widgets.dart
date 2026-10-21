@@ -11,6 +11,7 @@ import '../../database/database.dart';
 import '../../services/app_settings.dart';
 import '../../services/profile_images.dart';
 import '../../theme/app_theme.dart';
+import '../live/grind_from_zero.dart';
 import 'history_logic.dart';
 
 // [fallback] applies when the machine does not provide a profile color —
@@ -200,7 +201,13 @@ class StarRating extends StatelessWidget {
 // Grind/dose/yield as icon + value for the second line of the history row.
 // Grind and dose icons are the same as in the pre-shot card
 // (Icons.blur_on / Icons.balance).
-List<InlineSpan> _metricSpans(BuildContext context, Shot shot) {
+// With [fromZero] the grind also says how far it was from the zero point
+// of its day: "3.2 (+2.7)" (Settings → History).
+List<InlineSpan> _metricSpans(
+  BuildContext context,
+  Shot shot, {
+  bool fromZero = false,
+}) {
   final valueStyle = TextStyle(
     color: context.colors.textSecondary,
     fontSize: 11.5,
@@ -218,7 +225,13 @@ List<InlineSpan> _metricSpans(BuildContext context, Shot shot) {
   }
 
   return [
-    if (shot.grindSize != null) ...item(Icons.blur_on, shot.grindSize!),
+    if (shot.grindSize != null)
+      ...item(Icons.blur_on, switch (fromZero
+          ? shotGrindFromZero(shot)
+          : null) {
+        final v? => '${shot.grindSize!} (${fromZeroText(v)})',
+        null => shot.grindSize!,
+      }),
     if (shot.doseGrams != null)
       ...item(Icons.balance, '${grams(shot.doseGrams!)} g'),
     if (shot.finalWeight != null)
@@ -259,7 +272,11 @@ class ShotRow extends StatelessWidget {
     // profile is shown in the first line.
     final first = bean?.name ?? (profile.isEmpty ? 'Shot' : profile);
     final roaster = bean?.roaster?.trim();
-    final metricSpans = _metricSpans(context, shot);
+    final metricSpans = _metricSpans(
+      context,
+      shot,
+      fromZero: _showGrindFromZero(context),
+    );
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -658,4 +675,12 @@ Future<bool> confirmDeleteShots(BuildContext context, int count) async {
     ),
   );
   return result ?? false;
+}
+
+bool _showGrindFromZero(BuildContext context) {
+  try {
+    return context.select<AppSettings, bool>((s) => s.showGrindFromZero);
+  } on ProviderNotFoundException {
+    return false;
+  }
 }
