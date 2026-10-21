@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:clock/clock.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -31,6 +32,9 @@ class StatusContent {
     required this.body,
     this.progress,
     this.action,
+    this.countdownTo,
+    this.countUpFrom,
+    this.chip,
   });
 
   final String title;
@@ -40,16 +44,36 @@ class StatusContent {
   final double? progress;
   final NotificationAction? action;
 
+  /// A clock Android runs by itself: down to this moment (heating) or up
+  /// from it (brewing). Shown in the notification and, from Android 16 on,
+  /// in the status bar chip.
+  final DateTime? countdownTo;
+  final DateTime? countUpFrom;
+
+  /// A short word for the chip when there is no clock ("Ready").
+  final String? chip;
+
   @override
   bool operator ==(Object other) =>
       other is StatusContent &&
       other.title == title &&
       other.body == body &&
       other.progress == progress &&
-      other.action == action;
+      other.action == action &&
+      other.countdownTo == countdownTo &&
+      other.countUpFrom == countUpFrom &&
+      other.chip == chip;
 
   @override
-  int get hashCode => Object.hash(title, body, progress, action);
+  int get hashCode => Object.hash(
+    title,
+    body,
+    progress,
+    action,
+    countdownTo,
+    countUpFrom,
+    chip,
+  );
 }
 
 /// Buttons on notifications; tapping one opens the app and does it there.
@@ -263,7 +287,8 @@ class MachineNotifications {
       case ShotStage.running:
         final last = live.liveReadings.isEmpty ? null : live.liveReadings.last;
         return StatusContent(
-          title: 'Brewing · ${_seconds(live.elapsedExtractionMs)} s',
+          title: 'Brewing',
+          countUpFrom: live.extractionStartedAt,
           body: last == null
               ? 'Starting'
               : '${(last.weight ?? 0).toStringAsFixed(1)} g · '
@@ -275,6 +300,7 @@ class MachineNotifications {
           title: 'Shot done · ${_shotSummary()}',
           body: 'Ready to purge',
           action: NotificationAction.purge,
+          chip: 'Done',
         );
       case ShotStage.ready:
         return live.stabilized
@@ -282,11 +308,13 @@ class MachineNotifications {
                 title: 'Stable · ready to brew',
                 body: _profile() ?? 'All sensors in range',
                 progress: 1,
+                chip: 'Stable',
               )
             : StatusContent(
                 title: 'Ready · ${_temp(_hero())}',
                 body: 'Settling',
                 progress: 1,
+                chip: 'Ready',
               );
       case ShotStage.heating:
       case ShotStage.idle:
@@ -298,12 +326,22 @@ class MachineNotifications {
             : target == null || socket.isPreheatActive
             ? 'Heating · ${_temp(hero)}'
             : 'Heating ${_temp(hero)} → ${_temp(target)}';
-        final left = HeatingSnapshot.instance.remainingSeconds(_now());
+        final now = _now();
+        final left = HeatingSnapshot.instance.remainingSeconds(now);
+        final readyAt = HeatingSnapshot.instance.readyAt;
         final progress = HeatingSnapshot.instance.progress;
+        // The exact countdown runs in the clock; the text only in minutes,
+        // so it does not change every second.
         return StatusContent(
           title: heat,
-          body: left == null ? 'Heating up' : 'about ${_clock(left)} left',
+          body: left == null
+              ? 'Heating up'
+              : left < 60
+              ? 'Ready in under a minute'
+              : 'Ready in about ${(left / 60).ceil()} min',
           progress: progress > 0 ? progress : null,
+          countdownTo: readyAt != null && readyAt.isAfter(now) ? readyAt : null,
+          chip: hero == null ? null : _temp(hero),
         );
     }
   }
@@ -342,12 +380,6 @@ class MachineNotifications {
 
   static String _seconds(int ms) => (ms / 1000).round().toString();
   static String _temp(double? v) => v == null ? '–' : '${v.round()}°';
-
-  static String _clock(double seconds) {
-    final total = seconds.round();
-    final m = total ~/ 60, s = total % 60;
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
 
   /// A button on a notification was tapped (the app is open by then).
   Future<void> handleAction(NotificationAction action) async {
@@ -393,11 +425,30 @@ class LocalNotificationSink implements NotificationSink {
         AndroidFlutterLocalNotificationsPlugin
       >();
 
+  // The status notification as a Live Update (android/…/LiveStatus.kt):
+  // chip in the status bar from Android 16 on. The plugin starts the
+  // foreground service; this channel then fills in the notification.
+  static const _live = MethodChannel('beand/live_status');
+
   /// Sets up channels and the tap handler; [onAction] gets button taps.
   Future<void> init(void Function(NotificationAction action) onAction) async {
+    // Buttons on the status notification come through LiveStatus: while
+    // running as a call, after a cold start as the pending one.
+    _live.setMethodCallHandler((call) async {
+      if (call.method != 'action') return;
+      final action = NotificationAction.byId(call.arguments as String?);
+      if (action != null) onAction(action);
+    });
+    try {
+      final pending = await _live.invokeMethod<String>('takeAction');
+      final action = NotificationAction.byId(pending);
+      if (action != null) onAction(action);
+    } on MissingPluginException {
+      // Not on Android.
+    }
     await _plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: AndroidInitializationSettings('ic_stat_beand'),
       ),
       onDidReceiveNotificationResponse: (response) {
         final action = NotificationAction.byId(response.actionId);
@@ -452,7 +503,8 @@ class LocalNotificationSink implements NotificationSink {
           },
         );
         _serviceRunning = true;
-      } else {
+      }
+      if (!await _showLive(content)) {
         await _plugin.show(
           id: _statusId,
           title: content.title,
@@ -462,6 +514,30 @@ class LocalNotificationSink implements NotificationSink {
       }
     } catch (e) {
       debugPrint('Status notification failed: $e');
+    }
+  }
+
+  // Same id as the service's notification: replaces its content with the
+  // Live Update version. False where LiveStatus is missing.
+  Future<bool> _showLive(StatusContent c) async {
+    final progress = c.progress;
+    try {
+      return await _live.invokeMethod<bool>('show', {
+            'title': c.title,
+            'body': c.body,
+            'progress': progress == null ? null : (progress * 100).round(),
+            'countdownTo': c.countdownTo?.millisecondsSinceEpoch,
+            'countUpFrom': c.countUpFrom?.millisecondsSinceEpoch,
+            'chip': c.chip,
+            'actionId': c.action?.id,
+            'actionLabel': c.action?.label,
+          }) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException catch (e) {
+      debugPrint('Live status failed: $e');
+      return false;
     }
   }
 

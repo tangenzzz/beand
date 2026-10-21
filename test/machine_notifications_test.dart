@@ -12,6 +12,7 @@ class FakeLive extends LiveShotService {
 
   void set(ShotStage next, {bool? stable}) {
     stage = next;
+    markExtracting(next == ShotStage.running);
     if (stable != null) stabilized = stable;
     notifyListeners();
   }
@@ -125,16 +126,22 @@ void main() {
     HeatingSnapshot.instance.publishEta(218, clock.now());
     HeatingSnapshot.instance.progress = 0.62;
     await tester.pump(const Duration(seconds: 2));
-    expect(sink.statuses.last.body, startsWith('about 3:3'));
+    // Text only in minutes; the exact countdown is a clock Android runs
+    // (and shows in the status bar chip from Android 16 on).
+    expect(sink.statuses.last.body, 'Ready in about 4 min');
     expect(sink.statuses.last.progress, 0.62);
+    expect(sink.statuses.last.countdownTo, HeatingSnapshot.instance.readyAt);
 
     live.set(ShotStage.ready);
     expect(sink.alerts, [MachineAlert.reached]);
     expect(sink.statuses.last.title, startsWith('Ready'));
+    expect(sink.statuses.last.chip, 'Ready');
+    expect(sink.statuses.last.countdownTo, isNull);
 
     live.set(ShotStage.ready, stable: true);
     expect(sink.alerts, [MachineAlert.reached, MachineAlert.stable]);
     expect(sink.statuses.last.title, 'Stable · ready to brew');
+    expect(sink.statuses.last.chip, 'Stable');
     // The same again does not ring twice.
     live.set(ShotStage.ready, stable: true);
     expect(sink.alerts, hasLength(2));
@@ -145,6 +152,8 @@ void main() {
     expect(sink.statuses.last.title, startsWith('Brewing'));
     expect(sink.statuses.last.body, '22.4 g · 8.9 bar');
     expect(sink.statuses.last.action, NotificationAction.stop);
+    expect(sink.statuses.last.countUpFrom, isNotNull);
+    expect(sink.statuses.last.countUpFrom, live.extractionStartedAt);
 
     live.reading(weight: 41.4, pressure: 0.5);
     live.set(ShotStage.awaitingPurge);

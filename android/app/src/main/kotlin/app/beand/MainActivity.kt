@@ -1,6 +1,7 @@
 package app.beand
 
 import android.content.Intent
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.WindowManager
@@ -11,8 +12,21 @@ import io.flutter.plugin.common.MethodChannel
 // FlutterFragmentActivity instead of FlutterActivity: local_auth (fingerprint/
 // PIN before showing the sync key) needs a FragmentActivity.
 class MainActivity : FlutterFragmentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        LiveStatus.onIntent(intent, atLaunch = true)
+    }
+
+    // A notification button while the app is running (singleTop).
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        LiveStatus.onIntent(intent, atLaunch = false)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // Machine status notification as a Live Update (LiveStatus.kt).
+        LiveStatus.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         // Screens showing the sync key (QR, plain text): no screenshots, no
         // screen recording, blank preview in the app switcher
         // (lib/sync/secure_screen.dart).

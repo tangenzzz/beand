@@ -105,6 +105,10 @@ abstract class LiveShotService extends ChangeNotifier {
     return end.difference(start).inMilliseconds;
   }
 
+  /// When the extraction started (null before) — for a clock that counts
+  /// up by itself, e.g. in the status notification.
+  DateTime? get extractionStartedAt => _extractionStartedAt;
+
   @protected
   void markExtracting(bool extracting) {
     if (extracting && !_wasExtracting) _extractionStartedAt = DateTime.now();

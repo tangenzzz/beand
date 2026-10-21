@@ -23,6 +23,14 @@ class HeatingSnapshot {
     _etaAt = seconds == null ? null : at;
   }
 
+  /// When the machine should be ready by the last estimate — a fixed point,
+  /// so a countdown to it can tick on its own (the status bar chip).
+  DateTime? get readyAt {
+    final seconds = _etaSeconds, at = _etaAt;
+    if (seconds == null || at == null) return null;
+    return at.add(Duration(milliseconds: (seconds * 1000).round()));
+  }
+
   /// Seconds left at [now], counted down from the last estimate; null when
   /// there is none.
   double? remainingSeconds(DateTime now) {

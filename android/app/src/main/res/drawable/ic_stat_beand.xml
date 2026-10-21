@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar / notification icon: a cup (Material Icons "local_cafe",
+     Apache 2.0). Android shows it as a white silhouette, so it is one flat
+     shape — the colourful launcher icon would turn into a white square. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2,21h18v-2H2V21z M20,8h-2V5h2V8z M20,3H4v10c0,2.21 1.79,4 4,4h6c2.21,0 4,-1.79 4,-4v-3h2c1.11,0 2,-0.89 2,-2V5C22,3.89 21.11,3 20,3z"/>
+</vector>
