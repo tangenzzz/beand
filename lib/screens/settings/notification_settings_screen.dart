@@ -26,11 +26,8 @@ class NotificationSettingsScreen extends StatelessWidget {
                   SettingsSwitchRow(
                     title: 'Notifications',
                     info:
-                        'From preheat until the shot is done, bean\'d shows '
-                        'the machine in a notification: temperature, time '
-                        'left, the shot. That keeps the connection alive '
-                        'while the app is closed. It goes away when the '
-                        'shot is done.',
+                        'Shows heating and brewing in your notifications, '
+                        'even with the app closed.',
                     value: on,
                     onChanged: settings.setEnabled,
                   ),
@@ -51,9 +48,7 @@ class NotificationSettingsScreen extends StatelessWidget {
                 children: [
                   SettingsSwitchRow(
                     title: 'Only when the app is closed',
-                    info:
-                        'Off: the alerts come even while bean\'d is open, '
-                        'e.g. with the phone next to the machine.',
+                    info: 'Off: you also get them while bean\'d is open.',
                     value: settings.onlyWhenClosed,
                     onChanged: on ? settings.setOnlyWhenClosed : null,
                   ),
