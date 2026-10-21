@@ -100,7 +100,8 @@ void main() {
       ..connectionState = MachineConnectionState.connected;
     live = FakeLive();
     sink = FakeSink();
-    settings = NotificationSettings();
+    // All alerts on here; the default (off) has its own test below.
+    settings = NotificationSettings(alerts: MachineAlert.values.toSet());
     // Not started: the test sets its results by hand.
     heating = HeatingEstimator(socket);
     notifications = MachineNotifications(
@@ -213,6 +214,18 @@ void main() {
     notifications.inForeground = false;
     stable(true);
     expect(sink.alerts, [MachineAlert.stable]);
+    live.set(ShotStage.idle);
+  });
+
+  testWidgets('by default only the live status, no alerts', (tester) async {
+    expect(NotificationSettings().alerts, isEmpty);
+    settings.alerts.clear();
+    live.set(ShotStage.heating);
+    live.set(ShotStage.ready);
+    stable(true);
+    expect(sink.alerts, isEmpty);
+    expect(sink.statuses, isNotEmpty);
+    stable(false);
     live.set(ShotStage.idle);
   });
 

@@ -5,8 +5,8 @@ import '../../services/notification_settings.dart';
 import '../../theme/app_theme.dart';
 import 'settings_widgets.dart';
 
-// Settings → Notifications: one card — the master switch, then the
-// Meticulous's alerts, then "only when the app is closed".
+// Settings → Notifications: one card — the live status (the mini player in
+// the notifications), then the alerts that ring once, off by default.
 class NotificationSettingsScreen extends StatelessWidget {
   const NotificationSettingsScreen({super.key});
 
@@ -21,10 +21,11 @@ class NotificationSettingsScreen extends StatelessWidget {
         children: [
           SettingsCard(
             children: [
+              // What runs along: the live notification (mini player).
               SettingsGroup(
                 children: [
                   SettingsSwitchRow(
-                    title: 'Notifications',
+                    title: 'Live status',
                     info:
                         'Shows heating and brewing in your notifications, '
                         'even with the app closed.',
@@ -33,8 +34,12 @@ class NotificationSettingsScreen extends StatelessWidget {
                   ),
                 ],
               ),
+              // Extras that ring once.
               SettingsGroup(
-                label: 'Meticulous',
+                label: 'Alerts',
+                info:
+                    'An extra notification with sound when something '
+                    'happens.',
                 children: [
                   for (final alert in MachineAlert.values)
                     SettingsSwitchRow(
@@ -42,15 +47,12 @@ class NotificationSettingsScreen extends StatelessWidget {
                       value: settings.alerts.contains(alert),
                       onChanged: on ? (v) => settings.setAlert(alert, v) : null,
                     ),
-                ],
-              ),
-              SettingsGroup(
-                children: [
                   SettingsSwitchRow(
                     title: 'Only when the app is closed',
-                    info: 'Off: you also get them while bean\'d is open.',
                     value: settings.onlyWhenClosed,
-                    onChanged: on ? settings.setOnlyWhenClosed : null,
+                    onChanged: on && settings.alerts.isNotEmpty
+                        ? settings.setOnlyWhenClosed
+                        : null,
                   ),
                 ],
               ),

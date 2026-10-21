@@ -80,11 +80,15 @@ class SettingsGroup extends StatelessWidget {
     this.label,
     this.icon,
     this.trailing,
+    this.info,
     required this.children,
   });
 
   final String? label;
   final IconData? icon;
+
+  /// ⓘ right after the heading, for what the whole block is about.
+  final String? info;
 
   /// At the far right of the heading, e.g. a "+" or "Scan".
   final Widget? trailing;
@@ -95,7 +99,7 @@ class SettingsGroup extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       if (label != null)
-        SettingsGroupLabel(label!, icon: icon, trailing: trailing),
+        SettingsGroupLabel(label!, icon: icon, trailing: trailing, info: info),
       ...children,
     ],
   );
@@ -110,7 +114,11 @@ class SettingsGroupLabel extends StatelessWidget {
     this.leading,
     this.count,
     this.trailing,
+    this.info,
   });
+
+  /// ⓘ right after the label (see [SettingsInfo]).
+  final String? info;
 
   final String text;
   final IconData? icon;
@@ -158,7 +166,13 @@ class SettingsGroupLabel extends StatelessWidget {
             ),
             const SizedBox(width: 8),
           ],
-          Expanded(child: label),
+          if (info case final text?) ...[
+            Flexible(child: label),
+            const SizedBox(width: 4),
+            SettingsInfo(text),
+            const Spacer(),
+          ] else
+            Expanded(child: label),
           ?trailing,
         ],
       ),

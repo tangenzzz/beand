@@ -12,15 +12,17 @@ enum MachineAlert {
   final String label;
 }
 
-/// Settings → Notifications: on/off, each alert, and whether alerts come
-/// only while the app is closed. Everything on by default except the last.
+/// Settings → Notifications: the live status on/off, each alert, and
+/// whether alerts come only while the app is closed. The live status is on
+/// by default, the alerts are off (user decision 2026-10-21: the mini
+/// player is enough for most).
 class NotificationSettings extends ChangeNotifier {
   NotificationSettings({
     this.enabled = true,
     Set<MachineAlert>? alerts,
     this.onlyWhenClosed = false,
     this.prefs,
-  }) : alerts = alerts ?? MachineAlert.values.toSet();
+  }) : alerts = alerts ?? {};
 
   static const _enabledKey = 'notify.enabled';
   static const _onlyClosedKey = 'notify.onlyWhenClosed';
@@ -32,7 +34,7 @@ class NotificationSettings extends ChangeNotifier {
       enabled: prefs.getBool(_enabledKey) ?? true,
       alerts: {
         for (final a in MachineAlert.values)
-          if (prefs.getBool(_alertKey(a)) ?? true) a,
+          if (prefs.getBool(_alertKey(a)) ?? false) a,
       },
       onlyWhenClosed: prefs.getBool(_onlyClosedKey) ?? false,
       prefs: prefs,
@@ -42,7 +44,7 @@ class NotificationSettings extends ChangeNotifier {
   /// Where the switches are kept; null in tests.
   final SharedPreferences? prefs;
 
-  /// Master switch: off = no status notification and no alerts.
+  /// Live status (the mini player); off = no alerts either.
   bool enabled;
   final Set<MachineAlert> alerts;
 
