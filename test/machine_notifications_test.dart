@@ -217,6 +217,32 @@ void main() {
     live.set(ShotStage.idle);
   });
 
+  testWidgets('alerts and status name profile and bean', (tester) async {
+    notifications.dispose();
+    notifications = MachineNotifications(
+      socket: socket,
+      live: live,
+      settings: settings,
+      sink: sink,
+      heating: heating,
+      dose: () => 18,
+      headline: () => 'Classic · Guji',
+    )..start();
+    socket.targetTemperature = 90;
+    live.set(ShotStage.heating);
+    expect(sink.statuses.last.title, 'Classic · Guji');
+    live.set(ShotStage.ready);
+    expect(sink.alertTitles.last, 'Temperature reached · 90° | Classic · Guji');
+    stable(true);
+    expect(sink.alertTitles.last, 'Stable · ready to brew | Classic · Guji');
+    stable(false);
+    live.set(ShotStage.running);
+    live.reading(weight: 36, pressure: 1);
+    live.set(ShotStage.awaitingPurge);
+    expect(sink.alertTitles.last, endsWith('| Ratio 1:2.0 · Classic · Guji'));
+    live.set(ShotStage.idle);
+  });
+
   testWidgets('by default only the live status, no alerts', (tester) async {
     expect(NotificationSettings().alerts, isEmpty);
     settings.alerts.clear();

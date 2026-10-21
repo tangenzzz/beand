@@ -187,8 +187,18 @@ class MachineNotifications {
       unawaited(sink.requestPermission());
     }
 
+    // Alerts: the moment and its numbers on top, below profile and bean —
+    // the same line as on top of the status notification.
+    final who = _who();
     if (previous == ShotStage.heating && stage == ShotStage.ready) {
-      _send(MachineAlert.reached, 'Temperature reached', _readyBody());
+      final target = socket.targetTemperature;
+      _send(
+        MachineAlert.reached,
+        target == null
+            ? 'Temperature reached'
+            : 'Temperature reached · ${_temp(target)}',
+        who ?? 'Ready to brew',
+      );
     }
     // "Stable" as the hero ring shows it.
     final stable = heating.stabilized;
@@ -196,7 +206,7 @@ class MachineNotifications {
       _send(
         MachineAlert.stable,
         'Stable · ready to brew',
-        'All sensors in range',
+        who ?? 'All sensors in range',
         action: NotificationAction.startShot,
       );
     }
@@ -205,7 +215,7 @@ class MachineNotifications {
       _send(
         MachineAlert.shotDone,
         'Shot done · ${_shotSummary()}',
-        _ratio() ?? 'Ready to purge',
+        [?_ratio(), ?who].join(' · ').ifEmpty('Ready to purge'),
         action: NotificationAction.purge,
       );
     }
@@ -362,11 +372,7 @@ class MachineNotifications {
     return '${live.stage.name}/${heating.stabilized}/$stabilizing';
   }
 
-  String _headline() {
-    final text = headline?.call()?.trim() ?? '';
-    if (text.isNotEmpty) return text;
-    return _profile() ?? "bean'd";
-  }
+  String _headline() => _who() ?? "bean'd";
 
   static String _clock(double seconds) {
     final total = seconds.round();
@@ -383,10 +389,11 @@ class MachineNotifications {
     return name.isEmpty ? null : name;
   }
 
-  String _readyBody() {
-    final target = socket.targetTemperature;
-    final parts = [if (target != null) _temp(target), ?_profile()];
-    return parts.isEmpty ? 'Ready to brew' : parts.join(' · ');
+  // Profile and bean, or null when neither is known.
+  String? _who() {
+    final text = headline?.call()?.trim() ?? '';
+    if (text.isNotEmpty) return text;
+    return _profile();
   }
 
   String _shotSummary() {
@@ -632,4 +639,8 @@ class NotificationLifecycle {
   final AppLifecycleListener _listener;
 
   void dispose() => _listener.dispose();
+}
+
+extension on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }
