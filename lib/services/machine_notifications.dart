@@ -32,8 +32,6 @@ class StatusContent {
     required this.body,
     this.progress,
     this.action,
-    this.countdownTo,
-    this.countUpFrom,
     this.chip,
   });
 
@@ -44,13 +42,9 @@ class StatusContent {
   final double? progress;
   final NotificationAction? action;
 
-  /// A clock Android runs by itself: down to this moment (heating) or up
-  /// from it (brewing). Shown in the notification and, from Android 16 on,
-  /// in the status bar chip.
-  final DateTime? countdownTo;
-  final DateTime? countUpFrom;
-
-  /// A short word for the chip when there is no clock ("Ready").
+  /// What the status bar chip shows (Android 16+): the countdown while
+  /// heating, a word or percentage after, the seconds while brewing. Kept
+  /// short, Android cuts it after ~7 characters.
   final String? chip;
 
   @override
@@ -60,20 +54,10 @@ class StatusContent {
       other.body == body &&
       other.progress == progress &&
       other.action == action &&
-      other.countdownTo == countdownTo &&
-      other.countUpFrom == countUpFrom &&
       other.chip == chip;
 
   @override
-  int get hashCode => Object.hash(
-    title,
-    body,
-    progress,
-    action,
-    countdownTo,
-    countUpFrom,
-    chip,
-  );
+  int get hashCode => Object.hash(title, body, progress, action, chip);
 }
 
 /// Buttons on notifications. They act in the running app without opening
@@ -118,6 +102,7 @@ class MachineNotifications {
     required this.sink,
     required this.heating,
     this.dose,
+    this.headline,
     DateTime Function()? now,
     // `clock` looked up on every call, so a fake clock (tests) takes effect.
   }) : _now = now ?? (() => clock.now());
@@ -133,6 +118,10 @@ class MachineNotifications {
 
   /// Dose of the current shot, for the ratio in "Shot done".
   final double? Function()? dose;
+
+  /// The status notification's top line: profile and bean
+  /// ("Damian's LRv2 · Guji"); null or empty: the machine's profile.
+  final String? Function()? headline;
   final DateTime Function() _now;
 
   /// How long the connection may be gone before "Connection lost".
@@ -146,6 +135,7 @@ class MachineNotifications {
 
   bool _statusShown = false;
   StatusContent? _lastStatus;
+  String? _lastStatusKind;
   DateTime? _lastStatusAt;
   bool _permissionAsked = false;
 
@@ -200,7 +190,8 @@ class MachineNotifications {
     if (previous == ShotStage.heating && stage == ShotStage.ready) {
       _send(MachineAlert.reached, 'Temperature reached', _readyBody());
     }
-    final stable = live.stabilized;
+    // "Stable" as the hero ring shows it.
+    final stable = heating.stabilized;
     if (stable && !_wasStable && _activeStages.contains(stage)) {
       _send(
         MachineAlert.stable,
@@ -276,83 +267,111 @@ class MachineNotifications {
     final content = statusContent();
     final now = _now();
     if (content == _lastStatus) return;
+    // Numbers change at most once a second; a new state (Ready, Stable,
+    // Brewing, …) shows at once.
+    final kind = _statusKind();
     final last = _lastStatusAt;
     if (_statusShown &&
         last != null &&
         now.difference(last) < statusInterval &&
-        content.title == _lastStatus?.title) {
+        kind == _lastStatusKind) {
       return;
     }
     _lastStatus = content;
+    _lastStatusKind = kind;
     _lastStatusAt = now;
     _statusShown = true;
     unawaited(sink.showStatus(content));
   }
 
-  /// What the status notification says right now.
+  /// What the status notification says right now: profile and bean on
+  /// top, below the state with its numbers — exact to the second, so the
+  /// notification is updated every second while active.
   @visibleForTesting
   StatusContent statusContent() {
+    final title = _headline();
     switch (live.stage) {
       case ShotStage.running:
         final last = live.liveReadings.isEmpty ? null : live.liveReadings.last;
+        final time = _clock(live.elapsedExtractionMs / 1000);
         return StatusContent(
-          title: 'Brewing',
-          countUpFrom: live.extractionStartedAt,
+          title: title,
           body: last == null
-              ? 'Starting'
-              : '${(last.weight ?? 0).toStringAsFixed(1)} g · '
-                    '${(last.pressure ?? 0).toStringAsFixed(1)} bar',
+              ? 'Brewing · $time'
+              : 'Brewing · $time · ${(last.weight ?? 0).toStringAsFixed(1)} g'
+                    ' · ${(last.pressure ?? 0).toStringAsFixed(1)} bar',
           action: NotificationAction.stop,
+          chip: time,
         );
       case ShotStage.awaitingPurge:
         return StatusContent(
-          title: 'Shot done · ${_shotSummary()}',
-          body: 'Ready to purge',
+          title: title,
+          body: 'Shot done · ${_shotSummary()}',
           action: NotificationAction.purge,
           chip: 'Done',
         );
       case ShotStage.ready:
-        return live.stabilized
-            ? StatusContent(
-                title: 'Stable · ready to brew',
-                body: _profile() ?? 'All sensors in range',
-                progress: 1,
-                chip: 'Stable',
-              )
-            : StatusContent(
-                title: 'Ready · ${_temp(_hero())}',
-                body: 'Settling',
-                progress: 1,
-                chip: 'Ready',
-              );
+        // Ready → Stabilizing → Stable, as the hero ring says it; the bar
+        // shows the outer ring's fill.
+        if (heating.stabilized) {
+          return StatusContent(
+            title: title,
+            body: 'Stable · ready to brew',
+            progress: 1,
+            chip: 'Stable',
+          );
+        }
+        final fill = heating.stabilityProgress;
+        final stabilizing = heating.stabilityShown && fill > 0.02;
+        return StatusContent(
+          title: title,
+          body: stabilizing
+              ? 'Stabilizing · ${_temp(_hero())}'
+              : 'Ready · ${_temp(_hero())}',
+          progress: stabilizing ? fill : 0,
+          chip: stabilizing ? '${(fill * 100).round()}%' : 'Ready',
+        );
       case ShotStage.heating:
       case ShotStage.idle:
       case ShotStage.purging:
         final hero = _hero();
         final target = socket.targetTemperature;
-        final heat = hero == null
-            ? 'Heating'
+        final temps = hero == null
+            ? null
             : target == null || socket.isPreheatActive
-            ? 'Heating · ${_temp(hero)}'
-            : 'Heating ${_temp(hero)} → ${_temp(target)}';
-        final now = _now();
-        final left = heating.remainingSeconds(now);
-        final readyAt = heating.readyAt;
+            ? _temp(hero)
+            : '${_temp(hero)} → ${_temp(target)}';
+        final left = heating.remainingSeconds(_now());
         final progress = heating.ringProgress;
-        // The exact countdown runs in the clock; the text only in minutes,
-        // so it does not change every second.
         return StatusContent(
-          title: heat,
-          body: left == null
-              ? 'Heating up'
-              : left < 60
-              ? 'Ready in under a minute'
-              : 'Ready in about ${(left / 60).ceil()} min',
+          title: title,
+          body: [
+            if (left != null) '${_clock(left)} left' else 'Heating',
+            ?temps,
+          ].join(' · '),
           progress: progress > 0 ? progress : null,
-          countdownTo: readyAt != null && readyAt.isAfter(now) ? readyAt : null,
-          chip: hero == null ? null : _temp(hero),
+          chip: left != null ? _clock(left) : temps,
         );
     }
+  }
+
+  // Which state the status shows, without its numbers.
+  String _statusKind() {
+    final stabilizing =
+        heating.stabilityShown && heating.stabilityProgress > 0.02;
+    return '${live.stage.name}/${heating.stabilized}/$stabilizing';
+  }
+
+  String _headline() {
+    final text = headline?.call()?.trim() ?? '';
+    if (text.isNotEmpty) return text;
+    return _profile() ?? "bean'd";
+  }
+
+  static String _clock(double seconds) {
+    final total = seconds.round();
+    final m = total ~/ 60, s = total % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 
   double? _hero() {
@@ -533,8 +552,6 @@ class LocalNotificationSink implements NotificationSink {
             'title': c.title,
             'body': c.body,
             'progress': progress == null ? null : (progress * 100).round(),
-            'countdownTo': c.countdownTo?.millisecondsSinceEpoch,
-            'countUpFrom': c.countUpFrom?.millisecondsSinceEpoch,
             'chip': c.chip,
             'actionId': c.action?.id,
             'actionLabel': c.action?.label,

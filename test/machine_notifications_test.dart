@@ -113,6 +113,13 @@ void main() {
     )..start();
   });
 
+  // "Stable" comes from the heating model, as in the hero ring.
+  void stable(bool value) {
+    heating.stabilized = value;
+    // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+    heating.notifyListeners();
+  }
+
   tearDown(() {
     notifications.dispose();
     heating.dispose();
@@ -125,43 +132,54 @@ void main() {
 
     live.set(ShotStage.heating);
     expect(sink.permissionAsks, 1);
-    expect(sink.statuses.last.title, startsWith('Heating'));
-    expect(sink.statuses.last.body, 'Heating up');
+    // Top line: profile and bean (here the fallback, no profile known).
+    expect(sink.statuses.last.title, "bean'd");
+    expect(sink.statuses.last.body, 'Heating');
 
-    // The heating model's estimate counts down in the notification.
+    // The heating model's estimate, exact to the second, counted down.
     heating
       ..etaSeconds = 218
       ..etaAt = clock.now()
       ..ringProgress = 0.62;
     await tester.pump(const Duration(seconds: 2));
-    // Text only in minutes; the exact countdown is a clock Android runs
-    // (and shows in the status bar chip from Android 16 on).
-    expect(sink.statuses.last.body, 'Ready in about 4 min');
+    expect(sink.statuses.last.body, '3:36 left');
+    expect(sink.statuses.last.chip, '3:36');
     expect(sink.statuses.last.progress, 0.62);
-    expect(sink.statuses.last.countdownTo, heating.readyAt);
+    await tester.pump(const Duration(seconds: 1));
+    expect(sink.statuses.last.body, '3:35 left', reason: 'every second');
 
     live.set(ShotStage.ready);
     expect(sink.alerts, [MachineAlert.reached]);
-    expect(sink.statuses.last.title, startsWith('Ready'));
+    expect(sink.statuses.last.body, startsWith('Ready'));
     expect(sink.statuses.last.chip, 'Ready');
-    expect(sink.statuses.last.countdownTo, isNull);
 
-    live.set(ShotStage.ready, stable: true);
+    // Stabilizing: the bar shows the outer ring's fill.
+    heating
+      ..stabilityShown = true
+      ..stabilityProgress = 0.5;
+    stable(false);
+    await tester.pump(const Duration(seconds: 1));
+    expect(sink.statuses.last.body, startsWith('Stabilizing'));
+    expect(sink.statuses.last.progress, 0.5);
+    expect(sink.statuses.last.chip, '50%');
+
+    stable(true);
     expect(sink.alerts, [MachineAlert.reached, MachineAlert.stable]);
-    expect(sink.statuses.last.title, 'Stable · ready to brew');
+    await tester.pump(const Duration(seconds: 1));
+    expect(sink.statuses.last.body, 'Stable · ready to brew');
     expect(sink.statuses.last.chip, 'Stable');
     // The same again does not ring twice.
-    live.set(ShotStage.ready, stable: true);
+    stable(true);
     expect(sink.alerts, hasLength(2));
 
-    live.set(ShotStage.running, stable: false);
+    stable(false);
+    heating.stabilityShown = false;
+    live.set(ShotStage.running);
     live.reading(weight: 22.4, pressure: 8.9);
     await tester.pump(const Duration(seconds: 2));
-    expect(sink.statuses.last.title, startsWith('Brewing'));
-    expect(sink.statuses.last.body, '22.4 g · 8.9 bar');
+    expect(sink.statuses.last.body, startsWith('Brewing · 0:0'));
+    expect(sink.statuses.last.body, endsWith('22.4 g · 8.9 bar'));
     expect(sink.statuses.last.action, NotificationAction.stop);
-    expect(sink.statuses.last.countUpFrom, isNotNull);
-    expect(sink.statuses.last.countUpFrom, live.extractionStartedAt);
 
     live.reading(weight: 41.4, pressure: 0.5);
     live.set(ShotStage.awaitingPurge);
@@ -193,7 +211,7 @@ void main() {
     expect(sink.statuses, isNotEmpty, reason: 'the status shows anyway');
 
     notifications.inForeground = false;
-    live.set(ShotStage.ready, stable: true);
+    stable(true);
     expect(sink.alerts, [MachineAlert.stable]);
     live.set(ShotStage.idle);
   });

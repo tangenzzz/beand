@@ -141,6 +141,25 @@ Future<void> main() async {
   // background, so the notification's ETA follows the real temperature.
   final heatingEstimator = HeatingEstimator(socketService)..start();
   final notificationSettings = await NotificationSettings.load();
+  // Top line of the status notification: profile and bean of the Pre-Shot
+  // card. The bean's name is looked up once per change of the pick.
+  String? notificationBean;
+  Future<void> lookUpBean() async {
+    final id = shotSetup.beanId;
+    notificationBean = id == null
+        ? null
+        : (await (database.select(
+            database.beans,
+          )..where((b) => b.id.equals(id))).getSingleOrNull())?.name;
+  }
+
+  await lookUpBean();
+  int? lookedUpBeanId = shotSetup.beanId;
+  shotSetup.addListener(() {
+    if (shotSetup.beanId == lookedUpBeanId) return;
+    lookedUpBeanId = shotSetup.beanId;
+    unawaited(lookUpBean());
+  });
   final notificationSink = LocalNotificationSink();
   final machineNotifications = MachineNotifications(
     socket: socketService,
@@ -149,6 +168,12 @@ Future<void> main() async {
     sink: notificationSink,
     heating: heatingEstimator,
     dose: () => shotSetup.doseGrams,
+    headline: () => [
+      ?(socketService.latestStatus?.loadedProfile.isNotEmpty ?? false
+          ? socketService.latestStatus!.loadedProfile
+          : shotSetup.profileName),
+      ?notificationBean,
+    ].join(' · '),
   );
   try {
     await notificationSink.init(
@@ -266,9 +291,7 @@ Future<void> main() async {
         ChangeNotifierProvider<NotificationSettings>.value(
           value: notificationSettings,
         ),
-        ChangeNotifierProvider<HeatingEstimator>.value(
-          value: heatingEstimator,
-        ),
+        ChangeNotifierProvider<HeatingEstimator>.value(value: heatingEstimator),
         ChangeNotifierProvider<GearStore>.value(value: gear),
         ChangeNotifierProvider<GrinderStore>.value(value: grinders),
         ChangeNotifierProvider<WaterStore>.value(value: waters),
