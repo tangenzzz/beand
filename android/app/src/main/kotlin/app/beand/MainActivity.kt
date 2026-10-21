@@ -23,6 +23,11 @@ class MainActivity : FlutterFragmentActivity() {
         LiveStatus.onIntent(intent, atLaunch = false)
     }
 
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        LiveStatus.unregister()
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         // Machine status notification as a Live Update (LiveStatus.kt).

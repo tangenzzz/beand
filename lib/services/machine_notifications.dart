@@ -76,7 +76,9 @@ class StatusContent {
   );
 }
 
-/// Buttons on notifications; tapping one opens the app and does it there.
+/// Buttons on notifications. They act in the running app without opening
+/// it (android/…/LiveStatus.kt); only if the app is not running any more
+/// does a tap open it and act there.
 enum NotificationAction {
   startShot('start', 'Start shot'),
   stop('stop', 'Stop'),
@@ -564,6 +566,22 @@ class LocalNotificationSink implements NotificationSink {
     String body, {
     NotificationAction? action,
   }) async {
+    // Through LiveStatus, so the button acts directly; the plugin only
+    // where that is missing.
+    try {
+      final shown = await _live.invokeMethod<bool>('alert', {
+        'id': 10 + alert.index,
+        'title': title,
+        'body': body,
+        'actionId': action?.id,
+        'actionLabel': action?.label,
+      });
+      if (shown ?? false) return;
+    } on MissingPluginException {
+      // Not on Android: below.
+    } on PlatformException catch (e) {
+      debugPrint('Live alert failed: $e');
+    }
     try {
       await _plugin.show(
         id: 10 + alert.index,

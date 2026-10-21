@@ -69,6 +69,11 @@
         <receiver
             android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver"/>
+        <!-- Buttons on bean'd's own machine notifications: act in the
+             running app without opening it (LiveStatus.kt). -->
+        <receiver
+            android:exported="false"
+            android:name=".ActionReceiver"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
