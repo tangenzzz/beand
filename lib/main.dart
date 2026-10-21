@@ -29,6 +29,8 @@ import 'services/grinder_store.dart';
 import 'services/water_store.dart';
 import 'services/brew_recipe_store.dart';
 import 'services/live_shot_service.dart';
+import 'services/machine_notifications.dart';
+import 'services/notification_settings.dart';
 import 'services/machine_address_fallback.dart';
 import 'services/machine_discovery.dart';
 import 'services/meticulous_socket_service.dart';
@@ -131,6 +133,27 @@ Future<void> main() async {
   // Drives the pre-shot/shot/post-shot card purely from the machine's live
   // status (see live_shot_service.dart).
   final liveShotService = MeticulousLiveShotService(socketService)..start();
+
+  // Notifications for the Meticulous (Settings → Notifications): status
+  // notification from preheat until the shot is done, plus single alerts.
+  final notificationSettings = await NotificationSettings.load();
+  final notificationSink = LocalNotificationSink();
+  final machineNotifications = MachineNotifications(
+    socket: socketService,
+    live: liveShotService,
+    settings: notificationSettings,
+    sink: notificationSink,
+    dose: () => shotSetup.doseGrams,
+  );
+  try {
+    await notificationSink.init(
+      (action) => unawaited(machineNotifications.handleAction(action)),
+    );
+  } catch (e) {
+    debugPrint('Notifications unavailable: $e');
+  }
+  machineNotifications.start();
+  NotificationLifecycle(machineNotifications);
 
   // GaggiMate: only connect if the pill is shown at all — otherwise
   // everyone without a GaggiMate would get a reconnect loop into nowhere.
@@ -235,6 +258,9 @@ Future<void> main() async {
       providers: [
         Provider<AppDatabase>.value(value: database),
         ChangeNotifierProvider<AppSettings>.value(value: appSettings),
+        ChangeNotifierProvider<NotificationSettings>.value(
+          value: notificationSettings,
+        ),
         ChangeNotifierProvider<GearStore>.value(value: gear),
         ChangeNotifierProvider<GrinderStore>.value(value: grinders),
         ChangeNotifierProvider<WaterStore>.value(value: waters),

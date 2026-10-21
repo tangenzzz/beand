@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/machine_sensors.dart';
+import '../../services/heating_snapshot.dart';
 import '../../services/meticulous_socket_service.dart';
 import '../../theme/app_theme.dart';
 import 'sensor_stack.dart';
@@ -156,6 +157,16 @@ class _TemperatureTileState extends State<TemperatureTile> {
     return math.max(0.0, excesses.reduce(math.max));
   }
 
+  // The seconds behind the last ETA text, for the notification (see
+  // HeatingSnapshot) — recorded where the text is made, so the calibrated
+  // model itself stays untouched.
+  double? _etaSeconds;
+
+  String _etaText(double seconds) {
+    _etaSeconds = seconds;
+    return _formatEtaSeconds(seconds);
+  }
+
   static String _formatEtaSeconds(double seconds) {
     final total = seconds.round().clamp(0, 999999);
     if (total >= 60) {
@@ -268,7 +279,11 @@ class _TemperatureTileState extends State<TemperatureTile> {
   static const _assumedPreheatTarget = 70.0;
 
   String? _estimateEta(double target, double currentHero) {
-    if (currentHero >= target) return 'at target';
+    _etaSeconds = null;
+    if (currentHero >= target) {
+      _etaSeconds = 0;
+      return 'at target';
+    }
     final startHero = _sessionStartHero;
     final startAt = _sessionStartAt;
     if (startHero == null || startAt == null || target <= startHero) {
@@ -295,7 +310,7 @@ class _TemperatureTileState extends State<TemperatureTile> {
         final capped = linearEtaSeconds == null
             ? expEtaSeconds
             : math.min(expEtaSeconds, linearEtaSeconds * _expEtaCapFactor);
-        return _formatEtaSeconds(capped + _machineHoldSeconds);
+        return _etaText(capped + _machineHoldSeconds);
       }
     }
 
@@ -312,9 +327,9 @@ class _TemperatureTileState extends State<TemperatureTile> {
     // 0.25…0.40 C/s.
     final diff = target - currentHero;
     if (diff <= _atTargetThreshold) {
-      return _formatEtaSeconds(_machineHoldSeconds);
+      return _etaText(_machineHoldSeconds);
     }
-    return _formatEtaSeconds(
+    return _etaText(
       _estimateEtaPrior(elapsedSeconds, diff) + _machineHoldSeconds,
     );
   }
@@ -545,6 +560,7 @@ class _TemperatureTileState extends State<TemperatureTile> {
       _displayedEta = null;
       _lastDisplayUpdateAt = null;
       ringProgress = 0;
+      HeatingSnapshot.instance.publishEta(null, now);
     } else if (service.isPreheatActive) {
       // Preheat countdown (real machine event, heater_status) is already
       // throttled by itself (~1x/s) — take it over directly here WITHOUT the
@@ -557,6 +573,7 @@ class _TemperatureTileState extends State<TemperatureTile> {
           ? _formatEtaSeconds(preheatCountdown)
           : null;
       _lastDisplayUpdateAt = now;
+      HeatingSnapshot.instance.publishEta(preheatCountdown, now);
     } else if (_displayedEta == null ||
         _lastDisplayUpdateAt == null ||
         now.difference(_lastDisplayUpdateAt!) >= _displayUpdateInterval) {
@@ -569,7 +586,12 @@ class _TemperatureTileState extends State<TemperatureTile> {
           : null;
       _displayedEta = rawEta;
       _lastDisplayUpdateAt = now;
+      HeatingSnapshot.instance.publishEta(
+        rawEta == null ? null : _etaSeconds,
+        now,
+      );
     }
+    HeatingSnapshot.instance.progress = ringProgress;
     final eta = _displayedEta;
 
     // Status line in the ring: ETA while heating, then Ready → Stabilizing

@@ -26,6 +26,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // flutter_local_notifications needs it (java.time on older Android).
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -78,4 +80,6 @@ dependencies {
     // runtime — no Google Play services needed, 16 KB page aligned, ~4.5 MB
     // on arm64 (ONNX Runtime was ~33 MB).
     implementation("com.google.ai.edge.litert:litert:1.4.2")
+    // For isCoreLibraryDesugaringEnabled above.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

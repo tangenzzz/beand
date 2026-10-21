@@ -151,6 +151,8 @@ void main() {
     );
 
     // Open a subpage: tab bar stays there too.
+    await tester.ensureVisible(find.text('Backup'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Backup'));
     await tester.pumpAndSettle();
     expect(find.text('Create backup'), findsOneWidget);

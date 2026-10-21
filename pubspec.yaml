@@ -82,6 +82,7 @@ dependencies:
   # Auto backup into a folder the user picked (local plugin, Android SAF).
   saf_folder:
     path: packages/saf_folder
+  flutter_local_notifications: ^22.3.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
