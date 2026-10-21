@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -291,7 +293,7 @@ class _TemperatureTileState extends State<TemperatureTile> {
     }
 
     final elapsedSeconds =
-        DateTime.now().difference(startAt).inMilliseconds / 1000;
+        clock.now().difference(startAt).inMilliseconds / 1000;
     if (elapsedSeconds <= 0) return null;
 
     final rate = (currentHero - startHero) / elapsedSeconds;
@@ -424,7 +426,7 @@ class _TemperatureTileState extends State<TemperatureTile> {
       // temperature climbs back above the start value (the ETA flashed
       // briefly, then disappeared for good). Once the temperature really
       // rises, the anchor stays at the low point by itself.
-      final now = DateTime.now();
+      final now = clock.now();
       if (_sessionStartHero == null) {
         final lastIdle = _lastIdleSeenAt;
         final joinedLate =
@@ -458,7 +460,7 @@ class _TemperatureTileState extends State<TemperatureTile> {
     }
     if (!isHeatingSession && heroValue != null) {
       _lastIdleHero = heroValue;
-      _lastIdleSeenAt = DateTime.now();
+      _lastIdleSeenAt = clock.now();
     }
 
     // Ring/ETA run up to target − _readyMargin (= the machine's Ready to
@@ -506,13 +508,13 @@ class _TemperatureTileState extends State<TemperatureTile> {
           _lastStabilitySensors = sensors;
         }
         if (excess <= 0) {
-          _inBandSince ??= DateTime.now();
+          _inBandSince ??= clock.now();
         } else {
           _inBandSince = null;
         }
         stabilized =
             _inBandSince != null &&
-            DateTime.now().difference(_inBandSince!) >= _stableHold;
+            clock.now().difference(_inBandSince!) >= _stableHold;
         final denominator = math.max(_readyExcess!, _minReadyExcess);
         stabilityProgress = stabilized
             ? 1.0
@@ -552,7 +554,7 @@ class _TemperatureTileState extends State<TemperatureTile> {
     }
 
     final sessionEnded = !isHeatingSession;
-    final now = DateTime.now();
+    final now = clock.now();
     // The ring follows every reading (previously only every 10 s with the
     // ETA — it stuck and jumped); it looks calm thanks to the gliding in
     // TemperatureRing, not throttling.

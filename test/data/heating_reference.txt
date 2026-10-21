@@ -1,0 +1,186 @@
+idle 9 | 27.5250 | - | 0.0000 | 0.0000 | false
+idle 19 | 27.5250 | - | 0.0000 | 0.0000 | false
+idle 29 | 27.5250 | - | 0.0000 | 0.0000 | false
+idle 39 | 27.5250 | - | 0.0000 | 0.0000 | false
+heating 2.0 | 29.0066 | ~4:06 | 0.0166 | 0.0000 | false
+heating 4.5 | 29.4711 | ~4:06 | 0.0243 | 0.0000 | false
+heating 7.0 | 29.6968 | ~4:06 | 0.0281 | 0.0000 | false
+heating 9.5 | 29.8233 | ~4:06 | 0.0302 | 0.0000 | false
+heating 12.0 | 29.9272 | ~3:56 | 0.0319 | 0.0000 | false
+heating 14.5 | 30.0853 | ~3:56 | 0.0346 | 0.0000 | false
+heating 17.0 | 30.3425 | ~3:56 | 0.0388 | 0.0000 | false
+heating 19.5 | 30.6869 | ~3:56 | 0.0446 | 0.0000 | false
+heating 22.0 | 31.0581 | ~3:47 | 0.0508 | 0.0000 | false
+heating 24.5 | 31.3871 | ~3:47 | 0.0563 | 0.0000 | false
+heating 27.0 | 31.6426 | ~3:47 | 0.0605 | 0.0000 | false
+heating 29.5 | 31.8515 | ~3:47 | 0.0640 | 0.0000 | false
+heating 32.0 | 32.0817 | ~3:37 | 0.0678 | 0.0000 | false
+heating 34.5 | 32.3984 | ~3:37 | 0.0731 | 0.0000 | false
+heating 37.0 | 32.8218 | ~3:37 | 0.0802 | 0.0000 | false
+heating 39.5 | 33.3140 | ~3:37 | 0.0884 | 0.0000 | false
+heating 42.0 | 33.8049 | ~3:27 | 0.0966 | 0.0000 | false
+heating 44.5 | 34.2379 | ~3:27 | 0.1038 | 0.0000 | false
+heating 47.0 | 34.6082 | ~3:27 | 0.1100 | 0.0000 | false
+heating 49.5 | 34.9658 | ~3:27 | 0.1159 | 0.0000 | false
+heating 52.0 | 35.3835 | ~3:19 | 0.1229 | 0.0000 | false
+heating 54.5 | 35.9095 | ~3:19 | 0.1316 | 0.0000 | false
+heating 57.0 | 36.5363 | ~3:19 | 0.1421 | 0.0000 | false
+heating 59.5 | 37.2059 | ~3:19 | 0.1533 | 0.0000 | false
+heating 62.0 | 37.8483 | ~3:15 | 0.1640 | 0.0000 | false
+heating 64.5 | 38.4273 | ~3:15 | 0.1736 | 0.0000 | false
+heating 67.0 | 38.9648 | ~3:15 | 0.1826 | 0.0000 | false
+heating 69.5 | 39.5267 | ~3:15 | 0.1919 | 0.0000 | false
+heating 72.0 | 40.1794 | ~3:08 | 0.2028 | 0.0000 | false
+heating 74.5 | 40.9469 | ~3:08 | 0.2156 | 0.0000 | false
+heating 77.0 | 41.7947 | ~3:08 | 0.2298 | 0.0000 | false
+heating 79.5 | 42.6525 | ~3:08 | 0.2441 | 0.0000 | false
+heating 82.0 | 43.4601 | ~2:59 | 0.2575 | 0.0000 | false
+heating 84.5 | 44.2066 | ~2:59 | 0.2700 | 0.0000 | false
+heating 87.0 | 44.9371 | ~2:59 | 0.2821 | 0.0000 | false
+heating 89.5 | 45.7229 | ~2:59 | 0.2952 | 0.0000 | false
+heating 92.0 | 46.6142 | ~2:53 | 0.3101 | 0.0000 | false
+heating 94.5 | 47.6066 | ~2:53 | 0.3266 | 0.0000 | false
+heating 97.0 | 48.6432 | ~2:53 | 0.3439 | 0.0000 | false
+heating 99.5 | 49.6513 | ~2:53 | 0.3607 | 0.0000 | false
+heating 102.0 | 50.5889 | ~2:45 | 0.3764 | 0.0000 | false
+heating 104.5 | 51.4713 | ~2:45 | 0.3911 | 0.0000 | false
+heating 107.0 | 52.3602 | ~2:45 | 0.4059 | 0.0000 | false
+heating 109.5 | 53.3218 | ~2:45 | 0.4219 | 0.0000 | false
+heating 112.0 | 54.3824 | ~2:41 | 0.4396 | 0.0000 | false
+heating 114.5 | 55.5101 | ~2:41 | 0.4584 | 0.0000 | false
+heating 117.0 | 56.6339 | ~2:41 | 0.4771 | 0.0000 | false
+heating 119.5 | 57.6891 | ~2:41 | 0.4947 | 0.0000 | false
+heating 122.0 | 58.6585 | ~2:31 | 0.5109 | 0.0000 | false
+heating 124.5 | 59.5818 | ~2:31 | 0.5263 | 0.0000 | false
+heating 127.0 | 60.5285 | ~2:31 | 0.5420 | 0.0000 | false
+heating 129.5 | 61.5507 | ~2:31 | 0.5591 | 0.0000 | false
+heating 132.0 | 62.6478 | ~2:22 | 0.5774 | 0.0000 | false
+heating 134.5 | 63.7653 | ~2:22 | 0.5960 | 0.0000 | false
+heating 137.0 | 64.8292 | ~2:22 | 0.6137 | 0.0000 | false
+heating 139.5 | 65.7933 | ~2:22 | 0.6298 | 0.0000 | false
+heating 142.0 | 66.6680 | ~2:14 | 0.6444 | 0.0000 | false
+heating 144.5 | 67.5127 | ~2:14 | 0.6585 | 0.0000 | false
+heating 147.0 | 68.3953 | ~2:14 | 0.6732 | 0.0000 | false
+heating 149.5 | 69.3472 | ~2:14 | 0.6891 | 0.0000 | false
+heating 152.0 | 70.3413 | ~2:08 | 0.7056 | 0.0000 | false
+heating 154.5 | 71.3095 | ~2:08 | 0.7218 | 0.0000 | false
+heating 157.0 | 72.1860 | ~2:08 | 0.7364 | 0.0000 | false
+heating 159.5 | 72.9502 | ~2:08 | 0.7491 | 0.0000 | false
+heating 162.0 | 73.6395 | ~3:34 | 0.7606 | 0.0000 | false
+heating 164.5 | 74.3242 | ~3:34 | 0.7720 | 0.0000 | false
+heating 167.0 | 75.0614 | ~3:34 | 0.7843 | 0.0000 | false
+heating 169.5 | 75.8570 | ~3:34 | 0.7976 | 0.0000 | false
+heating 172.0 | 76.6619 | ~2:52 | 0.8110 | 0.0000 | false
+heating 174.5 | 77.4039 | ~2:52 | 0.8234 | 0.0000 | false
+heating 177.0 | 78.0351 | ~2:52 | 0.8339 | 0.0000 | false
+heating 179.5 | 78.5632 | ~2:52 | 0.8427 | 0.0000 | false
+heating 182.0 | 79.0468 | ~2:16 | 0.8508 | 0.0000 | false
+heating 184.5 | 79.5569 | ~2:16 | 0.8593 | 0.0000 | false
+heating 187.0 | 80.1307 | ~2:16 | 0.8688 | 0.0000 | false
+heating 189.5 | 80.7478 | ~2:16 | 0.8791 | 0.0000 | false
+heating 192.0 | 81.3433 | ~1:46 | 0.8890 | 0.0000 | false
+heating 194.5 | 81.8512 | ~1:46 | 0.8975 | 0.0000 | false
+heating 197.0 | 82.2479 | ~1:46 | 0.9041 | 0.0000 | false
+heating 199.5 | 82.5678 | ~1:46 | 0.9094 | 0.0000 | false
+heating 202.0 | 82.8816 | ~1:23 | 0.9147 | 0.0000 | false
+heating 204.5 | 83.2501 | ~1:23 | 0.9208 | 0.0000 | false
+heating 207.0 | 83.6851 | ~1:23 | 0.9281 | 0.0000 | false
+heating 209.5 | 84.1419 | ~1:23 | 0.9357 | 0.0000 | false
+heating 212.0 | 84.5493 | ~1:00 | 0.9425 | 0.0000 | false
+heating 214.5 | 84.8565 | ~1:00 | 0.9476 | 0.0000 | false
+heating 217.0 | 85.0670 | ~1:00 | 0.9511 | 0.0000 | false
+heating 219.5 | 85.2368 | ~1:00 | 0.9539 | 0.0000 | false
+heating 222.0 | 85.4381 | ~46s | 0.9573 | 0.0000 | false
+heating 224.5 | 85.7126 | ~46s | 0.9619 | 0.0000 | false
+heating 227.0 | 86.0443 | ~46s | 0.9674 | 0.0000 | false
+heating 229.5 | 86.3709 | ~46s | 0.9728 | 0.0000 | false
+heating 232.0 | 86.6248 | ~29s | 0.9771 | 0.0000 | false
+heating 234.5 | 86.7776 | ~29s | 0.9796 | 0.0000 | false
+heating 237.0 | 86.8596 | ~29s | 0.9810 | 0.0000 | false
+heating 239.5 | 86.9399 | ~29s | 0.9823 | 0.0000 | false
+heating 242.0 | 87.0819 | ~21s | 0.9847 | 0.0000 | false
+heating 244.5 | 87.3016 | ~21s | 0.9884 | 0.0000 | false
+heating 247.0 | 87.5581 | ~21s | 0.9926 | 0.0000 | false
+heating 249.5 | 87.7803 | ~21s | 0.9963 | 0.0000 | false
+heating 252.0 | 87.9138 | ~5s | 0.9986 | 0.0000 | false
+heating 254.5 | 87.9573 | ~5s | 0.9993 | 0.0000 | false
+heating 257.0 | 87.9630 | ~5s | 0.9994 | 0.0000 | false
+click to start 259.5 | 88.0035 | Stabilizing | 1.0000 | 0.9700 | false
+click to start 262.0 | 88.1239 | Stabilizing | 1.0000 | 0.9700 | false
+click to start 264.5 | 88.3127 | Stabilizing | 1.0000 | 0.9700 | false
+click to start 267.0 | 88.5097 | Stabilizing | 1.0000 | 0.9700 | false
+click to start 269.5 | 88.6455 | Stable | 1.0000 | 1.0000 | true
+click to start 272.0 | 88.6872 | Stable | 1.0000 | 1.0000 | true
+click to start 274.5 | 88.6604 | Stable | 1.0000 | 1.0000 | true
+click to start 277.0 | 88.6321 | Stable | 1.0000 | 1.0000 | true
+click to start 279.5 | 88.6677 | Stable | 1.0000 | 1.0000 | true
+click to start 282.0 | 88.7877 | Stable | 1.0000 | 1.0000 | true
+click to start 284.5 | 88.9547 | Stable | 1.0000 | 1.0000 | true
+click to start 287.0 | 89.0982 | Stable | 1.0000 | 1.0000 | true
+click to start 289.5 | 89.1606 | Stable | 1.0000 | 1.0000 | true
+click to start 292.0 | 89.1353 | Stable | 1.0000 | 1.0000 | true
+click to start 294.5 | 89.0712 | Stable | 1.0000 | 1.0000 | true
+click to start 297.0 | 89.0406 | Stable | 1.0000 | 1.0000 | true
+click to start 299.5 | 89.0920 | Stable | 1.0000 | 1.0000 | true
+click to start 302.0 | 89.2187 | Stable | 1.0000 | 1.0000 | true
+click to start 304.5 | 89.3627 | Stable | 1.0000 | 1.0000 | true
+click to start 307.0 | 89.4536 | Stable | 1.0000 | 1.0000 | true
+click to start 309.5 | 89.4540 | Stable | 1.0000 | 1.0000 | true
+click to start 312.0 | 89.3847 | Stable | 1.0000 | 1.0000 | true
+click to start 314.5 | 89.3109 | Stable | 1.0000 | 1.0000 | true
+click to start 317.0 | 89.2995 | Stable | 1.0000 | 1.0000 | true
+click to start 319.5 | 89.3755 | Stable | 1.0000 | 1.0000 | true
+click to start 322.0 | 89.5055 | Stable | 1.0000 | 1.0000 | true
+click to start 324.5 | 89.6200 | Stable | 1.0000 | 1.0000 | true
+click to start 327.0 | 89.6584 | Stable | 1.0000 | 1.0000 | true
+click to start 329.5 | 89.6095 | Stable | 1.0000 | 1.0000 | true
+click to start 332.0 | 89.5181 | Stable | 1.0000 | 1.0000 | true
+click to start 334.5 | 89.4564 | Stable | 1.0000 | 1.0000 | true
+click to start 337.0 | 89.4764 | Stable | 1.0000 | 1.0000 | true
+click to start 339.5 | 89.5757 | Stable | 1.0000 | 1.0000 | true
+click to start 342.0 | 89.6996 | Stable | 1.0000 | 1.0000 | true
+click to start 344.5 | 89.7765 | Stable | 1.0000 | 1.0000 | true
+click to start 347.0 | 89.7652 | Stable | 1.0000 | 1.0000 | true
+click to start 349.5 | 89.6816 | Stable | 1.0000 | 1.0000 | true
+click to start 352.0 | 89.5887 | Stable | 1.0000 | 1.0000 | true
+click to start 354.5 | 89.5550 | Stable | 1.0000 | 1.0000 | true
+click to start 357.0 | 89.6098 | Stable | 1.0000 | 1.0000 | true
+click to start 359.5 | 89.7240 | Stable | 1.0000 | 1.0000 | true
+click to start 362.0 | 89.8294 | Stable | 1.0000 | 1.0000 | true
+click to start 364.5 | 89.8630 | Stable | 1.0000 | 1.0000 | true
+click to start 367.0 | 89.8085 | Stable | 1.0000 | 1.0000 | true
+click to start 369.5 | 89.7072 | Stable | 1.0000 | 1.0000 | true
+click to start 372.0 | 89.6307 | Stable | 1.0000 | 1.0000 | true
+click to start 374.5 | 89.6339 | Stable | 1.0000 | 1.0000 | true
+click to start 377.0 | 89.7195 | Stable | 1.0000 | 1.0000 | true
+click to start 379.5 | 89.8359 | Stable | 1.0000 | 1.0000 | true
+click to start 382.0 | 89.9109 | Stable | 1.0000 | 1.0000 | true
+click to start 384.5 | 89.8995 | Stable | 1.0000 | 1.0000 | true
+click to start 387.0 | 89.8129 | Stable | 1.0000 | 1.0000 | true
+click to start 389.5 | 89.7115 | Stable | 1.0000 | 1.0000 | true
+click to start 392.0 | 89.6651 | Stable | 1.0000 | 1.0000 | true
+click to start 394.5 | 89.7074 | Stable | 1.0000 | 1.0000 | true
+click to start 397.0 | 89.8139 | Stable | 1.0000 | 1.0000 | true
+click to start 399.5 | 89.9176 | Stable | 1.0000 | 1.0000 | true
+click to start 402.0 | 89.9535 | Stable | 1.0000 | 1.0000 | true
+click to start 404.5 | 89.9008 | Stable | 1.0000 | 1.0000 | true
+click to start 407.0 | 89.7965 | Stable | 1.0000 | 1.0000 | true
+click to start 409.5 | 89.7115 | Stable | 1.0000 | 1.0000 | true
+click to start 412.0 | 89.7038 | Stable | 1.0000 | 1.0000 | true
+click to start 414.5 | 89.7807 | Stable | 1.0000 | 1.0000 | true
+click to start 417.0 | 89.8940 | Stable | 1.0000 | 1.0000 | true
+click to start 419.5 | 89.9715 | Stable | 1.0000 | 1.0000 | true
+click to start 422.0 | 89.9644 | Stable | 1.0000 | 1.0000 | true
+click to start 424.5 | 89.8793 | Stable | 1.0000 | 1.0000 | true
+click to start 427.0 | 89.7738 | Stable | 1.0000 | 1.0000 | true
+click to start 429.5 | 89.7187 | Stable | 1.0000 | 1.0000 | true
+click to start 432.0 | 89.7518 | Stable | 1.0000 | 1.0000 | true
+click to start 434.5 | 89.8531 | Stable | 1.0000 | 1.0000 | true
+click to start 437.0 | 89.9577 | Stable | 1.0000 | 1.0000 | true
+click to start 439.5 | 89.9987 | Stable | 1.0000 | 1.0000 | true
+click to start 442.0 | 89.9506 | Stable | 1.0000 | 1.0000 | true
+click to start 444.5 | 89.8463 | Stable | 1.0000 | 1.0000 | true
+click to start 447.0 | 89.7555 | Stable | 1.0000 | 1.0000 | true
+click to start 449.5 | 89.7391 | Stable | 1.0000 | 1.0000 | true
+shot | 88.2762 | at target | 1.0000 | 0.0000 | false
+idle after | 87.3033 | - | 0.0000 | 0.0000 | false
