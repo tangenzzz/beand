@@ -64,9 +64,10 @@ class HistorySettingsScreen extends StatelessWidget {
                   SettingsSwitchRow(
                     title: 'Grind from zero',
                     info:
-                        'Next to the grind: how far it was from the zero '
-                        'point that day. Compares shots fairly after you '
-                        'reset the zero point.',
+                        'The zero point is where the burrs just touch. '
+                        'After you reset it, the same grind number grinds '
+                        "differently. This shows each shot's grind from its "
+                        'own zero point, so you can compare them.',
                     value: settings.showGrindFromZero,
                     onChanged: settings.setShowGrindFromZero,
                   ),
