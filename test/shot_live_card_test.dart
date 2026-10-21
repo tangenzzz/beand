@@ -7,6 +7,7 @@ import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/services/shot_setup.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:beand/widgets/app_button.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,8 +15,9 @@ import 'package:provider/provider.dart';
 
 import 'support/offline_gaggimate.dart';
 
-// Height that ShotCardsCarousel gives the cards.
-const _cardHeight = ShotCardsCarousel.cardHeight;
+// Height that ShotCardsCarousel gives the cards on the machines' home.
+const _cardHeight =
+    ShotCardsCarousel.cardHeight + ShotCardsCarousel.machineExtra;
 
 class FakeSocket extends MeticulousSocketService {
   FakeSocket() : super(hostname: 'unreachable.local');
@@ -164,18 +166,22 @@ void main() {
       expect(live.liveReadings, isNotEmpty);
       expect(live.livePhases.length, greaterThan(1));
 
-      // The card does scroll in principle (for the detail values above),
-      // but while the shot is running none of that may be needed.
-      final scrollable = tester.widget<Scrollable>(
-        find.byType(Scrollable).first,
-      );
-      expect(
-        scrollable.controller!.position.maxScrollExtent,
-        0,
-        reason:
-            'Time/Yield/Flow/Pressure, chart, stages and button must be '
-            'visible without scrolling',
-      );
+      // Setup row, live values, chart, stages and button in the card's
+      // height — no overflow, the button inside the card.
+      expect(tester.takeException(), isNull, reason: 'no overflow');
+      for (final label in [
+        'TARGET',
+        'DOSE',
+        'RATIO',
+        'GRIND',
+        'TIME',
+        'FLOW',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+      final card = tester.getRect(find.byType(ShotLiveCard));
+      final button = tester.getRect(find.byType(AppButton));
+      expect(button.bottom, lessThanOrEqualTo(card.bottom));
 
       await tester.pumpWidget(const SizedBox());
       live.dispose();

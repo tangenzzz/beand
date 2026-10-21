@@ -488,7 +488,10 @@ void main() {
           home: Scaffold(
             body: Center(
               child: SizedBox(
-                height: ShotCardsCarousel.cardHeight,
+                // As the carousel on the machines' home gives it.
+                height:
+                    ShotCardsCarousel.cardHeight +
+                    ShotCardsCarousel.machineExtra,
                 width: 340,
                 child: const ShotLiveCard(),
               ),
@@ -568,7 +571,10 @@ void main() {
               body: Center(
                 child: SizedBox(
                   // Below the cards there is also the dots bar.
-                  height: ShotCardsCarousel.cardHeight + 80,
+                  height:
+                      ShotCardsCarousel.cardHeight +
+                      ShotCardsCarousel.machineExtra +
+                      80,
                   width: 340,
                   child: const ShotCardsCarousel(),
                 ),

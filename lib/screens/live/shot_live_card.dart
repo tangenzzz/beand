@@ -33,7 +33,6 @@ class ShotLiveCard extends StatefulWidget {
 
 class _ShotLiveCardState extends State<ShotLiveCard> {
   int? _cursorMs;
-  final _scrollController = ScrollController();
   ShotStage? _lastStage;
   Timer? _cursorRelease;
 
@@ -55,19 +54,7 @@ class _ShotLiveCardState extends State<ShotLiveCard> {
   @override
   void dispose() {
     _cursorRelease?.cancel();
-    _scrollController.dispose();
     super.dispose();
-  }
-
-  void _scrollToCompactView() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOut,
-      );
-    });
   }
 
   @override
@@ -84,11 +71,6 @@ class _ShotLiveCardState extends State<ShotLiveCard> {
     );
     final setup = context.watch<ShotSetup>();
 
-    // As soon as the shot is done (detail rows appear above the chart),
-    // first scroll to the compact view (bottom) — the up arrow indicates
-    // there's more above.
-    final finished =
-        stage == ShotStage.awaitingPurge || stage == ShotStage.purging;
     // A cursor set by hand (or by a carousel swipe that started on the
     // chart) used to stick — even into the next shot, since this state
     // outlives the cycle — and froze the value row at an old moment, e.g. a
@@ -100,11 +82,6 @@ class _ShotLiveCardState extends State<ShotLiveCard> {
       _cursorRelease?.cancel();
       _cursorMs = null;
     }
-    if (finished &&
-        _lastStage != ShotStage.awaitingPurge &&
-        _lastStage != ShotStage.purging) {
-      _scrollToCompactView();
-    }
     _lastStage = stage;
 
     return Container(
@@ -112,54 +89,18 @@ class _ShotLiveCardState extends State<ShotLiveCard> {
         color: context.colors.card,
         borderRadius: BorderRadius.circular(AppRadii.tile),
       ),
-      // See PreShotCard: horizontal padding inside so the scroll view
-      // doesn't clip the glow of the pulsing Purge button.
       padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Stack(
-        children: [
-          _Body(
-            readings: readings,
-            phases: phases,
-            stage: stage,
-            isActiveCard: service.activeCard == ActiveCard.live,
-            target: target,
-            tracksTemperature: tracksTemperature,
-            dose: setup.doseGrams,
-            grind: setup.grindSize,
-            cursorMs: _cursorMs,
-            onCursorChanged: (ms) => _setCursor(ms, running: running),
-            showDetail: finished,
-            scrollController: _scrollController,
-          ),
-          if (finished && readings.isNotEmpty)
-            const Positioned(top: 0, left: 0, right: 0, child: _ExpandHint()),
-        ],
-      ),
-    );
-  }
-}
-
-// Subtle hint above the chart: "there are more values up here if you
-// scroll up".
-class _ExpandHint extends StatelessWidget {
-  const _ExpandHint();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: context.colors.card.withValues(alpha: 0.9),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            Icons.keyboard_arrow_up,
-            color: context.colors.textTertiary,
-            size: 18,
-          ),
-        ),
+      child: _Body(
+        readings: readings,
+        phases: phases,
+        stage: stage,
+        isActiveCard: service.activeCard == ActiveCard.live,
+        target: target,
+        tracksTemperature: tracksTemperature,
+        dose: setup.doseGrams,
+        grind: setup.grindSize,
+        cursorMs: _cursorMs,
+        onCursorChanged: (ms) => _setCursor(ms, running: running),
       ),
     );
   }
@@ -177,8 +118,6 @@ class _Body extends StatelessWidget {
     required this.grind,
     required this.cursorMs,
     required this.onCursorChanged,
-    required this.showDetail,
-    required this.scrollController,
   });
 
   final List<ShotReading> readings;
@@ -194,8 +133,6 @@ class _Body extends StatelessWidget {
   final double? grind;
   final int? cursorMs;
   final ValueChanged<int> onCursorChanged;
-  final bool showDetail;
-  final ScrollController scrollController;
 
   // Fixed time window for the live chart: it starts at the y-axis and moves
   // to the right, instead of the axis growing with every data point. If the
@@ -224,99 +161,78 @@ class _Body extends StatelessWidget {
         : readingNear(readings, effectiveCursor);
     final ratio = (dose ?? 0) > 0 ? (atCursor?.weight ?? 0) / dose! : 0.0;
 
-    // The always-visible part sits in a page with exactly the card's height:
-    // that way the button reliably sits at the bottom (with the same spacing
-    // as in the other cards) and the chart never slips below the edge.
-    // Only the detail row lies above and is reachable by scrolling up.
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        controller: scrollController,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (showDetail) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Row(
-                  children: [
-                    LiveStat(
-                      tracksTemperature ? 'Target' : 'Temp',
-                      target?.toStringAsFixed(0),
-                      '°C',
-                    ),
-                    LiveStat('Dose', dose == null ? '—' : grams(dose!), 'g'),
-                    LiveStat('Ratio', '1:${ratio.toStringAsFixed(1)}', ''),
-                    LiveStat('Grind', grind?.toStringAsFixed(1) ?? '—', ''),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
+    // Everything in the card's height, without scrolling: since the Chain
+    // row made the carousel taller (2026-10-20) the setup row fits above the
+    // live values all the time — no scrolling up after the shot any more.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TileTitle(short: 'LIVE', active: isActiveCard),
+          const SizedBox(height: 8),
+          // The setup of this shot; Ratio follows the yield.
+          Row(
+            children: [
+              // The machine's target, not a measured value.
+              LiveStat('Target', target?.toStringAsFixed(0), '°C'),
+              LiveStat('Dose', dose == null ? '—' : grams(dose!), 'g'),
+              LiveStat('Ratio', '1:${ratio.toStringAsFixed(1)}', ''),
+              LiveStat('Grind', grind?.toStringAsFixed(1) ?? '—', ''),
             ],
-            SizedBox(
-              height: constraints.maxHeight,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TileTitle(short: 'LIVE', active: isActiveCard),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        LiveStat(
-                          'Time',
-                          readings.isEmpty ? null : seconds(effectiveCursor),
-                          's',
-                        ),
-                        LiveStat(
-                          'Yield',
-                          atCursor?.weight?.toStringAsFixed(1),
-                          'g',
-                          color: context.colors.sensorMid,
-                        ),
-                        LiveStat(
-                          'Flow',
-                          atCursor?.flow?.toStringAsFixed(1),
-                          'ml/s',
-                          color: context.colors.sensorDown,
-                        ),
-                        LiveStat(
-                          // Five columns need the short form, otherwise the
-                          // labels wrap.
-                          tracksTemperature ? 'Press' : 'Pressure',
-                          atCursor?.pressure?.toStringAsFixed(1),
-                          'bar',
-                          color: context.colors.success,
-                        ),
-                        if (tracksTemperature)
-                          LiveStat(
-                            'Temp',
-                            atCursor?.barUp?.toStringAsFixed(1),
-                            '°C',
-                            color: context.colors.danger,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ShotChart(
-                      readings: readings,
-                      phases: phases,
-                      cursorMs: effectiveCursor,
-                      onCursorChanged: onCursorChanged,
-                      height: _chartHeight,
-                      minWindowSeconds: _timeWindow(readings),
-                      showTemperature: tracksTemperature,
-                      temperatureTarget: target,
-                    ),
-                    const Spacer(),
-                    _ActionButton(stage: stage),
-                    const SizedBox(height: AppSpacing.tileActionBottom),
-                  ],
-                ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              LiveStat(
+                'Time',
+                readings.isEmpty ? null : seconds(effectiveCursor),
+                's',
               ),
-            ),
-          ],
-        ),
+              LiveStat(
+                'Yield',
+                atCursor?.weight?.toStringAsFixed(1),
+                'g',
+                color: context.colors.sensorMid,
+              ),
+              LiveStat(
+                'Flow',
+                atCursor?.flow?.toStringAsFixed(1),
+                'ml/s',
+                color: context.colors.sensorDown,
+              ),
+              LiveStat(
+                // Five columns need the short form, otherwise the
+                // labels wrap.
+                tracksTemperature ? 'Press' : 'Pressure',
+                atCursor?.pressure?.toStringAsFixed(1),
+                'bar',
+                color: context.colors.success,
+              ),
+              if (tracksTemperature)
+                LiveStat(
+                  'Temp',
+                  atCursor?.barUp?.toStringAsFixed(1),
+                  '°C',
+                  color: context.colors.danger,
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ShotChart(
+            readings: readings,
+            phases: phases,
+            cursorMs: effectiveCursor,
+            onCursorChanged: onCursorChanged,
+            height: _chartHeight,
+            minWindowSeconds: _timeWindow(readings),
+            showTemperature: tracksTemperature,
+            temperatureTarget: target,
+          ),
+          const Spacer(),
+          _ActionButton(stage: stage),
+          const SizedBox(height: AppSpacing.tileActionBottom),
+        ],
       ),
     );
   }
