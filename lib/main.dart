@@ -13,7 +13,7 @@ import 'machines/gaggimate/gaggimate_live_shot_service.dart';
 import 'machines/gaggimate/gaggimate_service.dart';
 import 'machines/gaggimate/gaggimate_profile_sync_service.dart';
 import 'machines/gaggimate/gaggimate_shot_sync_service.dart';
-import 'scale/acaia_scale.dart';
+import 'scale/ble_scale.dart';
 import 'scale/brew_scale.dart';
 import 'scale/simulated_scale.dart';
 import 'screens/root_scaffold.dart';
@@ -244,7 +244,7 @@ Future<void> main() async {
   late final PourOverBrewService pourOver;
   final BrewScale scale = const bool.fromEnvironment('BEAND_SIM_SCALE')
       ? SimulatedScale(speed: 3, autoPour: () => pourOver.plan)
-      : AcaiaScale();
+      : BleScale();
   pourOver = PourOverBrewService(
     scale: scale,
     recipes: recipeStore,

@@ -338,8 +338,8 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
           if (_found.isEmpty) _hint(context),
           const SizedBox(height: 4),
           Text(
-            'Supported: Acaia Lunar, Pearl, Pyxis and other Acaia scales. '
-            'Close other apps that use the scale first.',
+            'Supported: Acaia (Lunar, Pearl, Pyxis …), Decent and Bookoo '
+            'scales. Close other apps that use the scale first.',
             style: TextStyle(color: colors.textTertiary, fontSize: 12),
           ),
         ],

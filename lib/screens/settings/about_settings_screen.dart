@@ -28,6 +28,18 @@ const credits = [
     'https://github.com/tatemazer/AcaiaArduinoBLE',
   ),
   Credit(
+    'BOOKOO OpenSource',
+    'Bookoo scale protocol',
+    'MIT',
+    'https://github.com/BooKooCode/OpenSource',
+  ),
+  Credit(
+    'Decent Scale API',
+    'Decent scale protocol',
+    null,
+    'https://decentespresso.com/decentscale_api',
+  ),
+  Credit(
     'MeticAI',
     'Rules for the shot findings',
     'MIT',

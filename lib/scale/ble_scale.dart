@@ -6,20 +6,44 @@ import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'acaia_protocol.dart';
+import 'acaia_driver.dart';
+import 'acaia_protocol.dart' show hexPacket;
+import 'bookoo_driver.dart';
 import 'brew_scale.dart';
+import 'decent_driver.dart';
+import 'scale_driver.dart';
 
 const scaleLastDeviceIdPrefKey = 'scale.lastDeviceId';
 const scaleLastDeviceNamePrefKey = 'scale.lastDeviceName';
 
-/// Acaia Lunar/Pearl (old and new firmware) via flutter_reactive_ble.
-/// Protocol details: acaia_protocol.dart.
-class AcaiaScale extends BrewScale {
-  AcaiaScale({FlutterReactiveBle? ble}) : _ble = ble ?? FlutterReactiveBle() {
+/// A Bluetooth scale via flutter_reactive_ble: scan, connect, reconnect and
+/// permissions are the same for every scale; what a scale speaks is in its
+/// [ScaleDriver] — Acaia (Lunar/Pearl, old and new firmware), Decent and
+/// Bookoo — picked by the name it advertises. Until 2026-10-21 this was
+/// AcaiaScale; the Acaia steps moved unchanged into AcaiaDriver.
+class BleScale extends BrewScale {
+  BleScale({FlutterReactiveBle? ble, List<ScaleDriver>? drivers})
+    : _ble = ble ?? FlutterReactiveBle(),
+      _drivers = drivers ?? [AcaiaDriver(), DecentDriver(), BookooDriver()] {
     unawaited(_loadRemembered());
   }
 
   final FlutterReactiveBle _ble;
+  final List<ScaleDriver> _drivers;
+
+  /// The driver for the connected (or connecting) scale.
+  ScaleDriver? _driver;
+
+  ScaleDriver? _driverFor(String? name) {
+    if (name == null) return null;
+    for (final d in _drivers) {
+      if (d.matches(name)) return d;
+    }
+    return null;
+  }
+
+  @override
+  String? get details => isConnected ? _driver?.details : null;
 
   static const _scanTimeout = Duration(seconds: 15);
   static const _connectTimeout = Duration(seconds: 10);
@@ -64,8 +88,6 @@ class AcaiaScale extends BrewScale {
   Stream<ScaleReading> get readings => _readings.stream;
 
   String? _deviceId;
-  AcaiaGeneration? _generation;
-  final _parser = AcaiaFrameParser();
   Characteristic? _writeChar;
   StreamSubscription<ConnectionStateUpdate>? _connSub;
   StreamSubscription<List<int>>? _notifySub;
@@ -100,7 +122,7 @@ class AcaiaScale extends BrewScale {
     await _waitForBluetooth();
     final seen = <String>{};
     yield* _scanStream()
-        .where((d) => isAcaiaName(d.name) && seen.add(d.id))
+        .where((d) => _driverFor(d.name) != null && seen.add(d.id))
         .map((d) => ScaleCandidate(id: d.id, name: d.name, rssi: d.rssi))
         .timeout(timeout, onTimeout: (sink) => sink.close());
   }
@@ -157,7 +179,7 @@ class AcaiaScale extends BrewScale {
       }
       if (target == null) {
         _fail(
-          'No Acaia scale found. Is it switched on and not connected to another app?',
+          'No scale found. Is it switched on and not connected to another app?',
         );
         return;
       }
@@ -228,16 +250,26 @@ class AcaiaScale extends BrewScale {
   }
 
   @override
-  Future<void> tare() => _write(AcaiaCommands.tare);
+  Future<void> tare() => _send(_driver?.tare);
 
   @override
-  Future<void> startTimer() => _write(AcaiaCommands.startTimer);
+  Future<void> startTimer() => _send(_driver?.startTimer);
 
   @override
-  Future<void> stopTimer() => _write(AcaiaCommands.stopTimer);
+  Future<void> stopTimer() => _send(_driver?.stopTimer);
 
   @override
-  Future<void> resetTimer() => _write(AcaiaCommands.resetTimer);
+  Future<void> resetTimer() => _send(_driver?.resetTimer);
+
+  // One command may be several writes (see ScaleDriver.tare).
+  Future<void> _send(List<Uint8List>? writes) async {
+    final driver = _driver;
+    if (driver == null || writes == null) return;
+    for (var i = 0; i < writes.length; i++) {
+      if (i > 0) await Future<void>.delayed(driver.repeatGap);
+      await _write(writes[i]);
+    }
+  }
 
   // ---------------------------------------------------------------------
 
@@ -332,7 +364,7 @@ class AcaiaScale extends BrewScale {
     final services = await _ble.getDiscoveredServices(id);
     for (final s in services) {
       debugPrint(
-        'AcaiaScale: service ${s.id} → '
+        'BleScale: service ${s.id} → '
         '${s.characteristics.map((c) => '${c.id}'
             '${c.isNotifiable ? ' N' : ''}${c.isIndicatable ? ' I' : ''}'
             '${c.isWritableWithResponse ? ' W' : ''}'
@@ -349,56 +381,54 @@ class AcaiaScale extends BrewScale {
       return null;
     }
 
-    final modernNotify = find(AcaiaUuids.modernNotify);
-    final modernWrite = find(AcaiaUuids.modernWrite);
-    final old = find(AcaiaUuids.oldChar);
-    final Characteristic notify;
-    if (modernNotify != null && modernWrite != null) {
-      _generation = AcaiaGeneration.modern;
-      notify = modernNotify;
-      _writeChar = modernWrite;
-    } else if (old != null) {
-      _generation = AcaiaGeneration.old;
-      notify = old;
-      _writeChar = old;
-    } else {
-      throw const _ScaleException(
-        'This scale does not speak the Acaia protocol.',
-      );
+    final driver = _driverFor(_deviceName);
+    if (driver == null) {
+      throw _ScaleException('$_deviceName is not a supported scale.');
     }
-    debugPrint('AcaiaScale: $_deviceName → ${_generation!.name} firmware');
+    _driver = driver;
+    final ScaleChannels channels;
+    try {
+      channels = driver.pick(find);
+    } on ScaleSetupException catch (e) {
+      throw _ScaleException(e.message);
+    }
+    final notify = channels.notify;
+    _writeChar = channels.write;
+    debugPrint(
+      'BleScale: $_deviceName → ${driver.brand}'
+      '${driver.details == null ? '' : ' (${driver.details})'}',
+    );
 
-    final battery = find('00002a19-0000-1000-8000-00805f9b34fb');
+    final battery = driver.readsBatteryService
+        ? find('00002a19-0000-1000-8000-00805f9b34fb')
+        : null;
 
-    _parser.reset();
+    driver.reset();
+    _battery = null;
     _packets.clear();
     _packetCount = 0;
     await _notifySub?.cancel();
     _notifySub = notify.subscribe().listen(
       _onPacket,
       onError: (Object e) {
-        debugPrint('AcaiaScale: notify error $e');
+        debugPrint('BleScale: notify error $e');
       },
     );
-    // Wait briefly until notifications are really enabled — otherwise the
-    // reply to IDENTIFY gets lost.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    await _write(AcaiaCommands.identify);
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    await _write(AcaiaCommands.notificationRequest);
+    await driver.start(_write);
 
     _lastPacket = DateTime.now();
     _heartbeat?.cancel();
-    _heartbeat = Timer.periodic(acaiaHeartbeatPeriod, (_) {
-      _write(AcaiaCommands.heartbeat).catchError((Object e) {
-        debugPrint('AcaiaScale: heartbeat failed $e');
+    final beat = driver.heartbeat;
+    if (beat != null) {
+      _heartbeat = Timer.periodic(driver.heartbeatPeriod, (_) {
+        _write(beat).catchError((Object e) {
+          debugPrint('BleScale: heartbeat failed $e');
+        });
       });
-    });
-    // Battery level via the standard service (0x180F/0x2A19) — read only
-    // once weight data is flowing, and only read, never subscribe: with
-    // battery notifications enabled BEFORE the weight channel, the Pearl
-    // (old firmware) stopped sending weight packets entirely and the
-    // connection dropped every 10 s.
+    }
+    // Battery level via the standard service (0x180F/0x2A19) where the
+    // driver wants it — read only once weight data is flowing, and only
+    // read, never subscribe (see AcaiaDriver.readsBatteryService).
     _batteryTimer?.cancel();
     if (battery != null) {
       Future<void> readBattery() async {
@@ -409,7 +439,7 @@ class AcaiaScale extends BrewScale {
             notifyListeners();
           }
         } catch (e) {
-          debugPrint('AcaiaScale: battery read failed $e');
+          debugPrint('BleScale: battery read failed $e');
         }
       }
 
@@ -425,11 +455,9 @@ class AcaiaScale extends BrewScale {
     _watchdog?.cancel();
     _watchdog = Timer.periodic(const Duration(seconds: 1), (_) {
       final last = _lastPacket;
-      if (last != null &&
-          DateTime.now().difference(last) > acaiaPacketTimeout) {
-        debugPrint(
-          'AcaiaScale: no packets for ${acaiaPacketTimeout.inSeconds}s',
-        );
+      final timeout = driver.packetTimeout;
+      if (last != null && DateTime.now().difference(last) > timeout) {
+        debugPrint('BleScale: no packets for ${timeout.inSeconds}s');
         _onLost();
       }
     });
@@ -441,17 +469,14 @@ class AcaiaScale extends BrewScale {
     final hex = hexPacket(packet);
     _packets.add(hex);
     if (_packets.length > _keepPackets) _packets.removeAt(0);
-    if (_packetCount <= 40) debugPrint('AcaiaScale: rx $hex');
+    if (_packetCount <= 40) debugPrint('BleScale: rx $hex');
 
-    var weights = _parser.feed(packet);
-    if (weights.isEmpty) {
-      final g = parseHeaderlessWeight(packet);
-      if (g != null) weights = [g];
-    }
-    for (final g in weights) {
+    final parsed = _driver?.parse(packet) ?? ScalePacket.empty;
+    for (final g in parsed.weights) {
       _grams = g;
       _readings.add(ScaleReading(g, _lastPacket!));
     }
+    if (parsed.battery case final b?) _battery = b;
     notifyListeners();
   }
 
@@ -477,7 +502,7 @@ class AcaiaScale extends BrewScale {
       final deadline = DateTime.now().add(_reconnectWindow);
       while (_wantConnected && DateTime.now().isBefore(deadline)) {
         _reconnects++;
-        debugPrint('AcaiaScale: reconnect $_reconnects');
+        debugPrint('BleScale: reconnect $_reconnects');
         try {
           if (_reconnects > 1) {
             _set(ScaleConnection.scanning);
@@ -489,7 +514,7 @@ class AcaiaScale extends BrewScale {
           await _open();
           return;
         } catch (e) {
-          debugPrint('AcaiaScale: reconnect failed $e');
+          debugPrint('BleScale: reconnect failed $e');
           await _teardown();
           await Future<void>.delayed(const Duration(seconds: 2));
         }

@@ -91,7 +91,8 @@ abstract class BrewScale extends ChangeNotifier {
   Future<void> resetTimer() async {}
 }
 
-/// Short model name for tight spots (command row): the Acaia advertises
+/// Short model name for tight spots (command row). Decent advertises
+/// "Decent Scale", Bookoo names starting with "BOOKOO". The Acaia advertises
 /// device names like "PROCHBT001" (Pearl) or "ACAIAL13006" (Lunar), both
 /// read off real scales. Unknown names stay as they are.
 String scaleShortName(String? name) {
@@ -103,5 +104,7 @@ String scaleShortName(String? name) {
   if (n.startsWith('PYXIS')) return 'Pyxis';
   if (n.startsWith('CINCO')) return 'Cinco';
   if (n.startsWith('UMBRA')) return 'Umbra';
+  if (n.startsWith('DECENT')) return 'Decent';
+  if (n.startsWith('BOOKOO')) return 'Bookoo';
   return name;
 }
