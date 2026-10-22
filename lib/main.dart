@@ -23,6 +23,7 @@ import 'services/ai/ai_service.dart';
 import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
 import 'services/auto_backup.dart';
+import 'services/connection_log.dart';
 import 'services/bundled_licenses.dart';
 import 'services/gear_store.dart';
 import 'services/grinder_store.dart';
@@ -180,7 +181,7 @@ Future<void> main() async {
       (action) => unawaited(machineNotifications.handleAction(action)),
     );
   } catch (e) {
-    debugPrint('Notifications unavailable: $e');
+    ConnectionLog.write('notify', 'unavailable: $e');
   }
   machineNotifications.start();
   NotificationLifecycle(machineNotifications);

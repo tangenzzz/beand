@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import 'connection_log.dart';
 import 'heating_estimator.dart';
 import 'live_shot_service.dart';
 import 'meticulous_socket_service.dart';
@@ -218,7 +219,14 @@ class MachineNotifications {
 
     if (_active && !_permissionAsked) {
       _permissionAsked = true;
-      unawaited(sink.requestPermission());
+      unawaited(
+        sink.requestPermission().then(
+          (ok) => ConnectionLog.write(
+            'notify',
+            ok ? 'permission granted' : 'permission refused',
+          ),
+        ),
+      );
     }
 
     // Alerts: the moment and its numbers on top, below profile and bean —
@@ -279,6 +287,11 @@ class MachineNotifications {
           planned.difference(readyAt).abs() < replanThreshold) {
         return;
       }
+      ConnectionLog.write(
+        'notify',
+        '"Should be ready" ${planned == null ? 'planned' : 'moved'} for '
+            '${_hhmmss(readyAt)} (in ${_clock(readyAt.difference(_now()).inMilliseconds / 1000)})',
+      );
       _plannedAt = readyAt;
       final target = socket.targetTemperature;
       unawaited(
@@ -294,6 +307,10 @@ class MachineNotifications {
       return;
     }
     if (planned == null) return;
+    ConnectionLog.write(
+      'notify',
+      '"Should be ready" taken back (${_whyNot()})',
+    );
     _plannedAt = null;
     // Already shown: the real one would come twice.
     if (!planned.isAfter(_now())) _sent.add(MachineAlert.reached);
@@ -308,8 +325,16 @@ class MachineNotifications {
   }) {
     if (_sent.contains(alert)) return;
     _sent.add(alert);
-    if (!settings.wants(alert)) return;
-    if (settings.onlyWhenClosed && inForeground) return;
+    // In the connection log, so a missing notification can be traced.
+    if (!settings.wants(alert)) {
+      ConnectionLog.write('notify', '${alert.name} skipped (switched off)');
+      return;
+    }
+    if (settings.onlyWhenClosed && inForeground) {
+      ConnectionLog.write('notify', '${alert.name} skipped (app in front)');
+      return;
+    }
+    ConnectionLog.write('notify', '${alert.name} sent');
     unawaited(sink.alert(alert, title, body, action: action));
   }
 
@@ -441,6 +466,19 @@ class MachineNotifications {
         );
     }
   }
+
+  // Why no "Should be ready" is wanted now — for the connection log.
+  String _whyNot() {
+    if (_inForeground) return 'app in front';
+    if (!settings.enabled) return 'live status off';
+    if (live.stage != ShotStage.heating) return 'stage ${live.stage.name}';
+    if (heating.readyAt == null) return 'no estimate';
+    return 'already rang';
+  }
+
+  static String _hhmmss(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'
+      ':${t.second.toString().padLeft(2, '0')}';
 
   // Which state the status shows, without its numbers.
   String _statusKind() {
@@ -634,8 +672,10 @@ class LocalNotificationSink implements NotificationSink {
         notificationDetails: NotificationDetails(iOS: _darwin(null)),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       );
+      final pending = await _plugin.pendingNotificationRequests();
+      ConnectionLog.write('notify', 'iOS holds ${pending.length} planned');
     } catch (e) {
-      debugPrint('Planning alert failed: $e');
+      ConnectionLog.write('notify', 'planning failed: $e');
     }
   }
 
@@ -779,7 +819,7 @@ class LocalNotificationSink implements NotificationSink {
         ),
       );
     } catch (e) {
-      debugPrint('Alert notification failed: $e');
+      ConnectionLog.write('notify', 'alert failed: $e');
     }
   }
 }
