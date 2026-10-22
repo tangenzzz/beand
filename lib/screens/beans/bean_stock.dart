@@ -27,6 +27,34 @@ bool beanIsEmpty(Bean bean, Map<int, double> usage) {
 bool beanUsedUp(Bean bean, Map<int, double> usage, {required bool stock}) =>
     bean.emptiedAt != null || (stock && beanIsEmpty(bean, usage));
 
+/// Which beans the list shows (Beans tab, above the list).
+enum BeanStatus {
+  all('All'),
+  open('Open'),
+  frozen('Frozen'),
+  finished('Finished');
+
+  const BeanStatus(this.label);
+  final String label;
+}
+
+/// Finished = used up (see [beanUsedUp]); frozen = in the freezer and not
+/// finished; open = neither.
+bool beanHasStatus(
+  Bean bean,
+  BeanStatus status,
+  Map<int, double> usage, {
+  required bool stock,
+}) {
+  final finished = beanUsedUp(bean, usage, stock: stock);
+  return switch (status) {
+    BeanStatus.all => true,
+    BeanStatus.finished => finished,
+    BeanStatus.frozen => bean.isFrozen && !finished,
+    BeanStatus.open => !bean.isFrozen && !finished,
+  };
+}
+
 // Below this fraction ring and number turn a muted orange.
 const beanStockLowFraction = 0.2;
 

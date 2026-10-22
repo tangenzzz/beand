@@ -8,11 +8,14 @@ import '../root_scaffold.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
+import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/header_icon_button.dart';
+import '../../widgets/underline_select.dart';
 import 'bean_filter.dart';
 import 'bean_filter_sheet.dart';
 import 'bean_form_screen.dart';
+import 'bean_stock.dart';
 import 'bean_widgets.dart';
 
 class BeansTab extends StatefulWidget {
@@ -34,6 +37,7 @@ class _BeansTabState extends State<BeansTab> {
   Map<int, double> _usage = const {};
   bool _searching = false;
   BeanFilter _filter = BeanFilter.empty;
+  BeanStatus _status = BeanStatus.all;
   final _scroll = ScrollController();
 
   @override
@@ -186,8 +190,13 @@ class _BeansTabState extends State<BeansTab> {
     if (beans.isEmpty) {
       return const _EmptyMessage('No beans added yet.\nTap + to add one.');
     }
-    final visible = filterBeans(beans, query: _search.text, filter: _filter);
-    if (visible.isEmpty) {
+    final stock = context.watch<AppSettings>().showBeanStock;
+    final matching = filterBeans(beans, query: _search.text, filter: _filter);
+    final visible = [
+      for (final b in matching)
+        if (beanHasStatus(b, _status, _usage, stock: stock)) b,
+    ];
+    if (matching.isEmpty) {
       return _EmptyMessage(
         'No matching beans.',
         action: _filter.isActive
@@ -199,6 +208,8 @@ class _BeansTabState extends State<BeansTab> {
       );
     }
     return _BeanListTile(
+      status: _status,
+      onStatus: (s) => setState(() => _status = s),
       beans: visible,
       usage: _usage,
       onTap: _openForm,
@@ -317,6 +328,8 @@ class _EmptyMessage extends StatelessWidget {
 
 class _BeanListTile extends StatelessWidget {
   const _BeanListTile({
+    required this.status,
+    required this.onStatus,
     required this.beans,
     required this.usage,
     required this.onTap,
@@ -325,6 +338,8 @@ class _BeanListTile extends StatelessWidget {
     required this.onFreeze,
   });
 
+  final BeanStatus status;
+  final ValueChanged<BeanStatus> onStatus;
   final List<Bean> beans;
   final Map<int, double> usage;
   final ValueChanged<Bean> onTap;
@@ -344,6 +359,47 @@ class _BeanListTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // All · Open · Frozen · Finished — like the tabs of My Coffee Desk.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.dividerInset,
+              4,
+              AppSpacing.dividerInset,
+              0,
+            ),
+            child: SizedBox(
+              height: 48,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: UnderlineSelect<BeanStatus>(
+                  key: const ValueKey('bean-status'),
+                  options: [
+                    for (final s in BeanStatus.values)
+                      UnderlineOption(s, s.label),
+                  ],
+                  value: status,
+                  onChanged: (s) => onStatus(s!),
+                ),
+              ),
+            ),
+          ),
+          Divider(
+            height: 1,
+            indent: AppSpacing.dividerInset,
+            endIndent: AppSpacing.dividerInset,
+            color: context.colors.divider,
+          ),
+          if (beans.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.dividerInset,
+                vertical: 20,
+              ),
+              child: Text(
+                'No ${status.label.toLowerCase()} beans.',
+                style: TextStyle(color: context.colors.textSecondary),
+              ),
+            ),
           // A divider only where the roaster changes — within one roaster
           // the beans stand together without dividers.
           for (var g = 0; g < groups.length; g++) ...[

@@ -170,9 +170,85 @@ void main() {
     expect(find.text('BONANZA'), findsOneWidget);
     expect(find.text('COFFEE COLLECTIVE'), findsOneWidget);
 
-    // Two roasters, one line between them — and none between Kiambu and
-    // Lekempti, which both belong to Bonanza.
-    expect(find.byType(Divider), findsOneWidget);
+    // One line under All/Open/Frozen/Finished, then two roasters with one
+    // line between them — and none between Kiambu and Lekempti, which both
+    // belong to Bonanza.
+    expect(find.byType(Divider), findsNWidgets(2));
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(Duration.zero);
+    await db.close();
+  });
+
+  testWidgets('Beans tab: All, Open, Frozen, Finished', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final db = AppDatabase(NativeDatabase.memory());
+    await tester.runAsync(() async {
+      await db.insertBean(BeansCompanion.insert(name: 'Kiambu'));
+      await db.insertBean(
+        BeansCompanion.insert(name: 'Gesha', isFrozen: const Value(true)),
+      );
+      await db.insertBean(
+        BeansCompanion.insert(
+          name: 'Lekempti',
+          emptiedAt: Value(DateTime(2026, 10, 1)),
+        ),
+      );
+    });
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(value: AppSettings()),
+          ChangeNotifierProvider<MeticulousSocketService>.value(
+            value: MeticulousSocketService(hostname: 'unreachable.local'),
+          ),
+          ChangeNotifierProvider<EspressoMachine>.value(
+            value: MeticulousSocketService(hostname: 'unreachable.local'),
+          ),
+          ChangeNotifierProvider<GaggiMateService>.value(
+            value: offlineGaggiMate(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const Scaffold(body: BeansTab()),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+
+    Future<void> pick(String label) async {
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('bean-status')),
+          matching: find.text(label),
+        ),
+      );
+      await tester.pump();
+    }
+
+    // All by default.
+    for (final name in ['Kiambu', 'Gesha', 'Lekempti']) {
+      expect(find.text(name), findsOneWidget);
+    }
+    await pick('Open');
+    expect(find.text('Kiambu'), findsOneWidget);
+    expect(find.text('Gesha'), findsNothing);
+    expect(find.text('Lekempti'), findsNothing);
+    await pick('Frozen');
+    expect(find.text('Gesha'), findsOneWidget);
+    expect(find.text('Kiambu'), findsNothing);
+    await pick('Finished');
+    expect(find.text('Lekempti'), findsOneWidget);
+    expect(find.text('Gesha'), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(Duration.zero);
