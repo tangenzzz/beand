@@ -26,6 +26,21 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>bean'd connects to your Bluetooth coffee scale to follow your pour-over brew.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_meticulous._tcp</string>
+		<string>_gaggimate._tcp</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Take photos of your beans and gear, and scan the sync key of your other device.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Confirm it is you before the unprotected sync key is shown.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>bean'd looks for your espresso machine on your local network.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick photos of your beans and gear from your library.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -65,21 +80,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>Take photos of your beans and gear, and scan the sync key of your other device.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Pick photos of your beans and gear from your library.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Confirm it is you before the unprotected sync key is shown.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>bean'd connects to your Bluetooth coffee scale to follow your pour-over brew.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>bean'd looks for your espresso machine on your local network.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_meticulous._tcp</string>
-		<string>_gaggimate._tcp</string>
 	</array>
 </dict>
 </plist>
