@@ -597,7 +597,10 @@ class HeatingEstimator extends ChangeNotifier {
       etaAt = null;
       _lastDisplayUpdateAt = null;
       ringProgress = 0;
-    } else if (service.isPreheatActive) {
+    } else if (service.isPreheatActive && !isProfileSessionActive) {
+      // A profile started during a preheat heats to its own target: the
+      // countdown below would then be the preheat's (~70°, ~10 min), not
+      // the profile's — the iOS "Should be ready" came minutes late.
       // Preheat countdown (real machine event, heater_status) is already
       // throttled by itself (~1x/s) — take it over directly here WITHOUT the
       // 10s throttling below, otherwise the display "hangs" in 10s steps

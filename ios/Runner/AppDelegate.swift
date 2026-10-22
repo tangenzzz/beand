@@ -18,7 +18,32 @@ import workmanager_apple
       GeneratedPluginRegistrant.register(with: registry)
     }
     WorkmanagerPlugin.registerBGProcessingTask(withIdentifier: "app.beand.autoBackup")
+    // Machine notifications (lib/services/machine_notifications.dart): a
+    // little time after leaving the app, so the connection stays up and a
+    // better estimate can still move "Should be ready" — or take it back.
+    let center = NotificationCenter.default
+    center.addObserver(
+      forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
+    ) { [weak self] _ in self?.beginGrace() }
+    center.addObserver(
+      forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main
+    ) { [weak self] _ in self?.endGrace() }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  private var grace: UIBackgroundTaskIdentifier = .invalid
+
+  private func beginGrace() {
+    guard grace == .invalid else { return }
+    grace = UIApplication.shared.beginBackgroundTask(withName: "beand.machine") { [weak self] in
+      self?.endGrace()
+    }
+  }
+
+  private func endGrace() {
+    guard grace != .invalid else { return }
+    UIApplication.shared.endBackgroundTask(grace)
+    grace = .invalid
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {

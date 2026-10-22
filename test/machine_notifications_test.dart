@@ -291,6 +291,29 @@ void main() {
     live.set(ShotStage.idle);
   });
 
+  testWidgets('a better estimate before iOS stops the app moves the plan', (
+    tester,
+  ) async {
+    sink.plansAhead = true;
+    final start = clock.now();
+    heating
+      ..etaSeconds = 300
+      ..etaAt = start;
+    live.set(ShotStage.heating);
+    notifications.inForeground = false;
+    expect(sink.planned[MachineAlert.reached], start.add(_s(300)));
+
+    // A few seconds off: left as it is.
+    heating.etaSeconds = 290;
+    live.set(ShotStage.heating);
+    expect(sink.planned[MachineAlert.reached], start.add(_s(300)));
+
+    heating.etaSeconds = 200;
+    live.set(ShotStage.heating);
+    expect(sink.planned[MachineAlert.reached], start.add(_s(200)));
+    live.set(ShotStage.idle);
+  });
+
   testWidgets('the plan comes with the live status, alerts off', (
     tester,
   ) async {
@@ -412,3 +435,5 @@ void main() {
     live.set(ShotStage.idle);
   });
 }
+
+Duration _s(int seconds) => Duration(seconds: seconds);

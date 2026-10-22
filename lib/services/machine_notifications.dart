@@ -142,6 +142,9 @@ class MachineNotifications {
   final String? Function()? headline;
   final DateTime Function() _now;
 
+  /// A planned "Should be ready" moves only for a bigger shift than this.
+  static const replanThreshold = Duration(seconds: 15);
+
   /// How long the connection may be gone before "Connection lost".
   static const connectionGrace = Duration(seconds: 10);
 
@@ -270,7 +273,12 @@ class MachineNotifications {
         !_sent.contains(MachineAlert.reached);
     final planned = _plannedAt;
     if (want) {
-      if (planned != null) return;
+      // iOS leaves the app some seconds after it is left (AppDelegate asks
+      // for them): a better estimate in that time replaces the plan.
+      if (planned != null &&
+          planned.difference(readyAt).abs() < replanThreshold) {
+        return;
+      }
       _plannedAt = readyAt;
       final target = socket.targetTemperature;
       unawaited(
