@@ -779,7 +779,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('new-basket')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('gear-model')), 'VST');
-    // The photo is there before the piece exists (user 2026-10-22).
+    // The photo is there before the piece exists (user 2026-10-22), with a
+    // small "+" while it has none.
+    expect(find.byKey(const ValueKey('photo-add')), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('dialog-photo')));
     await tester.pumpAndSettle();
     expect(gear.ofType(GearType.basket).single.model, 'VST');

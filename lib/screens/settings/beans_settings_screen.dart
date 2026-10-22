@@ -48,20 +48,17 @@ class BeansSettingsScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              SettingsGroup(
-                label: 'AI',
-                children: [
-                  SettingsSwitchRow(
-                    title: AiFeature.beanForm.label,
-                    info: aiReady
-                        ? AiFeature.beanForm.description
-                        : 'Needs your own AI key in Settings → AI.',
-                    value: ai.isEnabled(AiFeature.beanForm),
-                    onChanged: aiReady
-                        ? (v) => ai.setFeatureOn(AiFeature.beanForm, v)
-                        : null,
-                  ),
-                ],
+              // Like "AI analysis" in Settings → History: the same switch
+              // as in Settings → AI, grayed out and off without a key.
+              SettingsSwitchRow(
+                title: 'Fill bean form with AI',
+                info:
+                    'Reads a bean from a photo of the packaging or from a '
+                    'shop link. Needs an AI API key in Settings → AI.',
+                value: aiReady && ai.isFeatureOn(AiFeature.beanForm),
+                onChanged: aiReady
+                    ? (v) => ai.setFeatureOn(AiFeature.beanForm, v)
+                    : null,
               ),
               SettingsRow(
                 icon: Icons.dynamic_form_outlined,

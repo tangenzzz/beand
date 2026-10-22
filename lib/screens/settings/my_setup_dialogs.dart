@@ -1184,7 +1184,31 @@ class GearThumb extends StatelessWidget {
               fit: (gear?.isCutout ?? false) ? BoxFit.contain : BoxFit.cover,
               cacheWidth: 200,
             )
-          : GearIcon(asset: icon, size: 28, color: colors.textSecondary),
+          // No photo yet: a small "+" says the thumbnail adds one.
+          : Stack(
+              alignment: Alignment.center,
+              children: [
+                GearIcon(asset: icon, size: 28, color: colors.textSecondary),
+                Positioned(
+                  right: 4,
+                  bottom: 4,
+                  child: Container(
+                    key: const ValueKey('photo-add'),
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: colors.card,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.add,
+                      size: 14,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

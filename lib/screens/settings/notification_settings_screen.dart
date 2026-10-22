@@ -31,9 +31,9 @@ class NotificationSettingsScreen extends StatelessWidget {
                     // iOS stops the app soon after it is left
                     // (services/machine_notifications.dart).
                     info: Platform.isIOS
-                        ? 'iOS pauses bean\'d soon after you leave it. '
-                              'Leave it while heating and "Preheat done" or '
-                              '"Should be ready" comes at the expected time.'
+                        ? 'iOS pauses bean\'d shortly after you switch '
+                              'away. You still get a message when the machine '
+                              'should be ready.'
                         : 'Shows heating and brewing in your notifications, '
                               'even with the app closed.',
                     value: on,
