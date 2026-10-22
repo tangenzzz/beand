@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// The machine notifications that can be switched one by one.
 enum MachineAlert {
+  preheatDone('Preheat done'),
   reached('Temperature reached'),
   stable('Stable'),
   shotDone('Shot done'),

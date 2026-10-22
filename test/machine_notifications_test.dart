@@ -53,6 +53,25 @@ class FakeLive extends LiveShotService {
   }
 }
 
+// A plain preheat: only the countdown (heater_status) shows it.
+class PreheatSocket extends MeticulousSocketService {
+  PreheatSocket() : super(hostname: 'unreachable.local') {
+    connectionState = MachineConnectionState.connected;
+  }
+
+  double? left;
+
+  void count(double? seconds) {
+    left = seconds;
+    notifyListeners();
+  }
+
+  @override
+  bool get isPreheatActive => (left ?? 0) > 0;
+  @override
+  double? get preheatCountdownSeconds => left;
+}
+
 class FakeSink implements NotificationSink {
   final statuses = <StatusContent>[];
   final alerts = <MachineAlert>[];
@@ -331,6 +350,89 @@ void main() {
     notifications.inForeground = false;
     expect(sink.planned, isEmpty, reason: 'live status off: nothing');
     live.set(ShotStage.idle);
+  });
+
+  group('preheat done', () {
+    late PreheatSocket machine;
+
+    setUp(() {
+      notifications.dispose();
+      machine = PreheatSocket();
+      notifications = MachineNotifications(
+        socket: machine,
+        live: live,
+        settings: settings,
+        sink: sink,
+        heating: heating,
+      )..start();
+    });
+
+    testWidgets('a countdown that runs out rings once', (tester) async {
+      machine.count(600);
+      machine.count(2);
+      expect(sink.alerts, isEmpty);
+      machine.count(0);
+      expect(sink.alerts, [MachineAlert.preheatDone]);
+      machine.count(null);
+      expect(sink.alerts, hasLength(1));
+    });
+
+    testWidgets('a cancelled preheat stays quiet', (tester) async {
+      machine.count(540);
+      machine.count(0);
+      expect(sink.alerts, isEmpty);
+    });
+
+    testWidgets('iOS: planned on leaving, taken back on return', (
+      tester,
+    ) async {
+      sink.plansAhead = true;
+      final start = clock.now();
+      machine.count(300);
+      expect(sink.planned, isEmpty, reason: 'the app is in front');
+      notifications.inForeground = false;
+      expect(sink.planned[MachineAlert.preheatDone], start.add(_s(300)));
+      notifications.inForeground = true;
+      expect(sink.planned, isEmpty);
+      machine.count(1);
+      machine.count(0);
+      expect(sink.alerts, [MachineAlert.preheatDone]);
+    });
+
+    testWidgets('iOS: a planned one that rang is not sent again', (
+      tester,
+    ) async {
+      sink.plansAhead = true;
+      var now = DateTime(2026, 10, 22, 8);
+      notifications.dispose();
+      notifications = MachineNotifications(
+        socket: machine,
+        live: live,
+        settings: settings,
+        sink: sink,
+        heating: heating,
+        now: () => now,
+      )..start();
+      machine.count(60);
+      notifications.inForeground = false;
+      expect(sink.planned, hasLength(1));
+      now = now.add(const Duration(minutes: 2));
+      notifications.inForeground = true;
+      machine.count(0);
+      expect(sink.alerts, isEmpty);
+    });
+
+    testWidgets('iOS: cancelling the preheat takes the plan back', (
+      tester,
+    ) async {
+      sink.plansAhead = true;
+      machine.count(300);
+      notifications.inForeground = false;
+      expect(sink.planned, hasLength(1));
+      machine.count(0);
+      expect(sink.planned, isEmpty);
+      expect(sink.alerts, isEmpty);
+    });
   });
 
   testWidgets('Android plans nothing ahead', (tester) async {

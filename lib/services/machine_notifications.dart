@@ -22,14 +22,15 @@ import 'notification_settings.dart';
 // freezes the app soon after it is left and nothing would arrive. It goes
 // away when the cycle ends, so it costs nothing the rest of the time.
 //
-// On top, single alerts with sound, each once per cycle: temperature
-// reached (the machine's "click to start"), stable (all sensors in range,
+// On top, single alerts with sound, each once per cycle: preheat done
+// (the machine's own preheat countdown ran out), temperature reached (the machine's "click to start"), stable (all sensors in range,
 // the hero's outer ring), shot done, and connection lost while heating or
 // brewing.
 //
 // iOS has no such service: the app stops a few seconds after it is left.
 // There the status stays away, and leaving the app while heating plans
-// "Temperature reached" ahead for when the heating model expects it.
+// "Temperature reached" ahead for when the heating model expects it —
+// during a plain preheat "Preheat done" for when its countdown ends.
 
 /// What the status notification shows.
 @immutable
@@ -158,12 +159,26 @@ class MachineNotifications {
     if (value == _inForeground) return;
     _inForeground = value;
     _planReady();
+    _planPreheat();
   }
 
   bool _inForeground = true;
 
   /// When the planned "Temperature reached" is due; null when none is.
   DateTime? _plannedAt;
+
+  /// A running preheat's last countdown (seconds), null when none runs.
+  double? _preheatLeft;
+  Timer? _preheatTimer;
+
+  /// When the planned "Preheat done" is due, and whether one already rang
+  /// (then the real one stays away).
+  DateTime? _preheatPlannedAt;
+  bool _preheatRang = false;
+
+  /// A preheat that stops with at most this much left ran out; more means
+  /// it was cancelled (reset jumps straight from its count to 0).
+  static const preheatDoneWithin = 3.0;
 
   bool _statusShown = false;
   StatusContent? _lastStatus;
@@ -199,6 +214,7 @@ class MachineNotifications {
     heating.removeListener(_update);
     _connectionTimer?.cancel();
     _statusTimer?.cancel();
+    _preheatTimer?.cancel();
   }
 
   bool get _active => settings.enabled && _activeStages.contains(live.stage);
@@ -263,7 +279,84 @@ class MachineNotifications {
     }
     _watchConnection();
     _planReady();
+    _watchPreheat();
     _updateStatus();
+  }
+
+  // A plain preheat runs while the machine says "idle"; only its countdown
+  // (heater_status) shows it. A timer checks each second, since the count
+  // also just stops coming (isPreheatActive goes stale without an event).
+  void _watchPreheat() {
+    final left = socket.preheatCountdownSeconds;
+    if (socket.isPreheatActive && left != null && left > 0) {
+      _preheatLeft = left;
+      _preheatTimer ??= Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => _watchPreheat(),
+      );
+      _planPreheat();
+      return;
+    }
+    final last = _preheatLeft;
+    if (last == null) return;
+    _preheatLeft = null;
+    _preheatTimer?.cancel();
+    _preheatTimer = null;
+    _planPreheat();
+    final rang = _preheatRang;
+    _preheatRang = false;
+    if (last > preheatDoneWithin) {
+      ConnectionLog.write(
+        'notify',
+        'preheat cancelled (${last.round()} s left)',
+      );
+      return;
+    }
+    if (rang) return;
+    _sent.remove(MachineAlert.preheatDone);
+    _send(MachineAlert.preheatDone, 'Preheat done', 'The machine is warmed up');
+  }
+
+  // iOS: "Preheat done" planned for the end of the countdown when the app
+  // is left during a preheat — exact, the machine counts it itself. Comes
+  // with the live status switch, like "Should be ready".
+  void _planPreheat() {
+    if (!sink.plansAhead) return;
+    final left = _preheatLeft;
+    final want =
+        !_inForeground && settings.enabled && left != null && !_preheatRang;
+    final planned = _preheatPlannedAt;
+    if (want) {
+      final at = _now().add(Duration(milliseconds: (left * 1000).round()));
+      if (planned != null && planned.difference(at).abs() < replanThreshold) {
+        return;
+      }
+      ConnectionLog.write(
+        'notify',
+        '"Preheat done" ${planned == null ? 'planned' : 'moved'} for '
+            '${_hhmmss(at)} (in ${_clock(left)})',
+      );
+      _preheatPlannedAt = at;
+      unawaited(
+        sink.planAlert(
+          MachineAlert.preheatDone,
+          at,
+          'Preheat done',
+          'The machine is warmed up',
+        ),
+      );
+      return;
+    }
+    if (planned == null) return;
+    ConnectionLog.write(
+      'notify',
+      '"Preheat done" taken back '
+          '(${_inForeground ? 'app in front' : 'preheat over'})',
+    );
+    _preheatPlannedAt = null;
+    // Already shown: the real one would come twice.
+    if (!planned.isAfter(_now())) _preheatRang = true;
+    unawaited(sink.cancelPlanned(MachineAlert.preheatDone));
   }
 
   // Plans "Temperature reached" when the app is left while heating, and
