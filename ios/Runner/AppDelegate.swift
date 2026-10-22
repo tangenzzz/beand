@@ -27,5 +27,16 @@ import workmanager_apple
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BeandCutout") {
       Cutout.register(messenger: registrar.messenger())
     }
+    // After a restore (lib/services/app_restart.dart): iOS cannot start an
+    // app again, so it only ends; the user opens it anew.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BeandApp") {
+      FlutterMethodChannel(name: "beand/app", binaryMessenger: registrar.messenger())
+        .setMethodCallHandler { call, result in
+          guard call.method == "restart" else { return result(FlutterMethodNotImplemented) }
+          result(nil)
+          // Briefly, so settings are fully written.
+          DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { exit(0) }
+        }
+    }
   }
 }

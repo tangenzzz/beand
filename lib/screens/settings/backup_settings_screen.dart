@@ -388,7 +388,10 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
           style: TextStyle(color: context.colors.textPrimary),
         ),
         content: Text(
-          'The backup is in place. bean\'d restarts now to load it.',
+          restartReopensItself
+              ? 'The backup is in place. bean\'d restarts now to load it.'
+              : 'The backup is in place. bean\'d closes now — open it '
+                    'again to load it.',
           style: TextStyle(color: context.colors.textSecondary, height: 1.4),
         ),
         actions: [
@@ -398,7 +401,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
               restartApp();
             },
             child: Text(
-              'Restart',
+              restartReopensItself ? 'Restart' : 'Close',
               style: TextStyle(color: context.colors.accent),
             ),
           ),

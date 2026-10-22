@@ -265,8 +265,9 @@ class MachineNotifications {
         _active &&
         live.stage == ShotStage.heating &&
         readyAt != null &&
-        !_sent.contains(MachineAlert.reached) &&
-        settings.wants(MachineAlert.reached);
+        // Stands in for the live status iOS cannot show: comes with that
+        // switch, not with the (default off) alert of the same moment.
+        !_sent.contains(MachineAlert.reached);
     final planned = _plannedAt;
     if (want) {
       if (planned != null) return;

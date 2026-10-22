@@ -291,6 +291,25 @@ void main() {
     live.set(ShotStage.idle);
   });
 
+  testWidgets('the plan comes with the live status, alerts off', (
+    tester,
+  ) async {
+    sink.plansAhead = true;
+    settings.alerts.clear();
+    heating
+      ..etaSeconds = 180
+      ..etaAt = clock.now();
+    live.set(ShotStage.heating);
+    notifications.inForeground = false;
+    expect(sink.planned, hasLength(1));
+
+    notifications.inForeground = true;
+    settings.setEnabled(false);
+    notifications.inForeground = false;
+    expect(sink.planned, isEmpty, reason: 'live status off: nothing');
+    live.set(ShotStage.idle);
+  });
+
   testWidgets('Android plans nothing ahead', (tester) async {
     heating
       ..etaSeconds = 180

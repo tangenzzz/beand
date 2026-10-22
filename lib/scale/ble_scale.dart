@@ -179,7 +179,7 @@ class BleScale extends BrewScale {
       }
       if (target == null) {
         _fail(
-          'No scale found. Is it switched on and not connected to another app?',
+          'No scale found. Is it on and free? A scale takes one connection — another phone or app may hold it.',
         );
         return;
       }
