@@ -48,26 +48,33 @@ class BeansSettingsScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              // Like "AI analysis" in Settings → History: the same switch
-              // as in Settings → AI, grayed out and off without a key.
-              SettingsSwitchRow(
-                title: 'Fill bean form with AI',
-                info:
-                    'Reads a bean from a photo of the packaging or from a '
-                    'shop link. Needs an AI API key in Settings → AI.',
-                value: aiReady && ai.isFeatureOn(AiFeature.beanForm),
-                onChanged: aiReady
-                    ? (v) => ai.setFeatureOn(AiFeature.beanForm, v)
-                    : null,
-              ),
-              SettingsRow(
-                icon: Icons.dynamic_form_outlined,
-                title: 'Form',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const BeansFormSettingsScreen(),
+              // The form and its AI fill belong together: one block, no
+              // line between them (user 2026-10-22).
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SettingsRow(
+                    icon: Icons.dynamic_form_outlined,
+                    title: 'Form',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const BeansFormSettingsScreen(),
+                      ),
+                    ),
                   ),
-                ),
+                  // Like "AI analysis" in Settings → History: the same switch
+                  // as in Settings → AI, grayed out and off without a key.
+                  SettingsSwitchRow(
+                    title: 'Fill bean form with AI',
+                    info:
+                        'Reads a bean from a photo of the packaging or from a '
+                        'shop link. Needs an AI API key in Settings → AI.',
+                    value: aiReady && ai.isFeatureOn(AiFeature.beanForm),
+                    onChanged: aiReady
+                        ? (v) => ai.setFeatureOn(AiFeature.beanForm, v)
+                        : null,
+                  ),
+                ],
               ),
             ],
           ),
