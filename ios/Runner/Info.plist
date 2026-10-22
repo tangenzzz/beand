@@ -67,7 +67,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Scan the sync key of your other device.</string>
+	<string>Take photos of your beans and gear, and scan the sync key of your other device.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick photos of your beans and gear from your library.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Confirm it is you before the unprotected sync key is shown.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
