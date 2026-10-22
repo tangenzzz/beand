@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:saf_folder/saf_folder.dart';
@@ -200,12 +202,17 @@ class _AutoBackupSectionState extends State<AutoBackupSection> {
       children: [
         SettingsSection(
           title: 'Schedule',
-          info:
-              'Saves a backup on its own and overwrites the same file each '
-              'time in the folder below. The app does not have to be open; '
-              'the phone may run it a few minutes late. With a password, '
-              'your sync key goes in too — asked for only when you '
-              'restore.',
+          info: Platform.isIOS
+              ? 'Saves a backup on its own and overwrites the same file each '
+                    'time in the folder below. iOS picks the moment after the '
+                    'set time, mostly at night while charging; opening the '
+                    'app catches up. With a password, your sync key goes in '
+                    'too — asked for only when you restore.'
+              : 'Saves a backup on its own and overwrites the same file each '
+                    'time in the folder below. The app does not have to be '
+                    'open; the phone may run it a few minutes late. With a '
+                    'password, your sync key goes in too — asked for only '
+                    'when you restore.',
           child: UnderlineSelect<AutoBackupFrequency>(
             options: [
               for (final f in AutoBackupFrequency.values)

@@ -1,12 +1,14 @@
 import 'package:flutter/services.dart';
 
-/// A folder the user picked once through the system dialog (Storage Access
-/// Framework). The permission is kept across restarts, so files can be
-/// written there later — also from a background task.
+/// A folder the user picked once through the system dialog (Android: Storage
+/// Access Framework, iOS: document picker, kept as a bookmark). The
+/// permission is kept across restarts, so files can be written there later —
+/// also from a background task.
 class SafFolder {
   const SafFolder({required this.uri, this.name});
 
-  /// Tree URI (`content://…/tree/…`) — the handle for later writes.
+  /// Tree URI (`content://…/tree/…`) on Android, `bookmark:…` on iOS — the
+  /// handle for later writes.
   final String uri;
 
   /// Display name of the folder, e.g. "Download"; null if unknown.

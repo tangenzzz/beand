@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -26,9 +28,14 @@ class NotificationSettingsScreen extends StatelessWidget {
                 children: [
                   SettingsSwitchRow(
                     title: 'Live status',
-                    info:
-                        'Shows heating and brewing in your notifications, '
-                        'even with the app closed.',
+                    // iOS stops the app soon after it is left
+                    // (services/machine_notifications.dart).
+                    info: Platform.isIOS
+                        ? 'iOS pauses bean\'d soon after you leave it. '
+                              '"Temperature reached" then comes at the '
+                              'estimated time.'
+                        : 'Shows heating and brewing in your notifications, '
+                              'even with the app closed.',
                     value: on,
                     onChanged: settings.setEnabled,
                   ),

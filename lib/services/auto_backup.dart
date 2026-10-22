@@ -30,6 +30,12 @@ import 'backup_service.dart';
 // a little; as a fallback the app checks at every start whether a slot was
 // missed.
 //
+// iOS has no exact times: the slot becomes the earliest start of a
+// background processing task (BGTaskScheduler), which iOS runs when it
+// sees fit, mostly at night while charging. The folder is a document
+// picker bookmark (saf_folder's iOS side). The catch-up at app start
+// matters more there.
+//
 // Sync key and encryption need a password, and nobody is there to type
 // it: so it is entered once when setting up and kept in the secure key
 // store (like the sync key itself), see [AutoBackupPassword]. Each run
@@ -246,7 +252,14 @@ abstract class AutoBackupPassword {
 
 class SecureAutoBackupPassword implements AutoBackupPassword {
   SecureAutoBackupPassword([FlutterSecureStorage? storage])
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage(iOptions: _iosOptions);
+
+  // The run may come while the iPhone is locked (at night): readable after
+  // the first unlock, like the sync key.
+  static const _iosOptions = IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock_this_device,
+    synchronizable: false,
+  );
 
   static const _key = 'auto_backup_password';
   final FlutterSecureStorage _storage;
@@ -335,6 +348,11 @@ class AutoBackup {
       'beand-auto-backup.$encryptedBackupExtension';
   static const taskName = 'beand.autoBackup';
   static const _uniqueName = 'beand-auto-backup';
+
+  /// iOS: the BGTaskScheduler identifier (Info.plist
+  /// BGTaskSchedulerPermittedIdentifiers, AppDelegate). There the task
+  /// arrives under this name, not [taskName].
+  static const iosTaskId = 'app.beand.autoBackup';
 
   /// After a failure, try again this much later (if still due).
   static const retryDelay = Duration(hours: 1);
@@ -438,6 +456,19 @@ class AutoBackup {
   ) => SafFolder.writeFile(uri, name: name, sourcePath: sourcePath);
 
   static Future<void> _scheduleWithWorkManager(Duration? delay) async {
+    if (Platform.isIOS) {
+      if (delay == null) {
+        await Workmanager().cancelByUniqueName(iosTaskId);
+        return;
+      }
+      // Submitting the same identifier again replaces the pending request.
+      await Workmanager().registerProcessingTask(
+        iosTaskId,
+        iosTaskId,
+        initialDelay: delay,
+      );
+      return;
+    }
     if (delay == null) {
       await Workmanager().cancelByUniqueName(_uniqueName);
       return;
@@ -456,7 +487,9 @@ class AutoBackup {
 @pragma('vm:entry-point')
 void autoBackupDispatcher() {
   Workmanager().executeTask((task, _) async {
-    if (task != AutoBackup.taskName) return true;
+    if (task != AutoBackup.taskName && task != AutoBackup.iosTaskId) {
+      return true;
+    }
     DartPluginRegistrant.ensureInitialized();
     final ownDb = AutoBackup.appDatabase == null;
     final backup = await AutoBackup.platform();

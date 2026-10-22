@@ -302,8 +302,12 @@ class BleScale extends BrewScale {
       case BleStatus.poweredOff:
         throw const _ScaleException('Bluetooth is switched off.');
       case BleStatus.unauthorized:
-        throw const _ScaleException(
-          'Bluetooth permission denied. Allow "Nearby devices" for bean\'d.',
+        // iOS asks on its own (CoreBluetooth); a "no" can only be undone
+        // in the system settings.
+        throw _ScaleException(
+          Platform.isIOS
+              ? 'Bluetooth permission denied. Allow Bluetooth for bean\'d in Settings.'
+              : 'Bluetooth permission denied. Allow "Nearby devices" for bean\'d.',
         );
       case BleStatus.locationServicesDisabled:
         throw const _ScaleException(

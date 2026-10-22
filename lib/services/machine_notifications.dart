@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import 'heating_estimator.dart';
 import 'live_shot_service.dart';
@@ -23,6 +25,10 @@ import 'notification_settings.dart';
 // reached (the machine's "click to start"), stable (all sensors in range,
 // the hero's outer ring), shot done, and connection lost while heating or
 // brewing.
+//
+// iOS has no such service: the app stops a few seconds after it is left.
+// There the status stays away, and leaving the app while heating plans
+// "Temperature reached" ahead for when the heating model expects it.
 
 /// What the status notification shows.
 @immutable
@@ -92,6 +98,18 @@ abstract class NotificationSink {
     String body, {
     NotificationAction? action,
   });
+
+  /// The app stops when it is left (iOS): alerts are then planned ahead.
+  bool get plansAhead;
+
+  /// Shows [alert] at [at] even if the app is not running any more.
+  Future<void> planAlert(
+    MachineAlert alert,
+    DateTime at,
+    String title,
+    String body,
+  );
+  Future<void> cancelPlanned(MachineAlert alert);
 }
 
 class MachineNotifications {
@@ -131,7 +149,17 @@ class MachineNotifications {
   static const statusInterval = Duration(seconds: 1);
 
   /// Set from the app lifecycle: alerts can be limited to "app closed".
-  bool inForeground = true;
+  bool get inForeground => _inForeground;
+  set inForeground(bool value) {
+    if (value == _inForeground) return;
+    _inForeground = value;
+    _planReady();
+  }
+
+  bool _inForeground = true;
+
+  /// When the planned "Temperature reached" is due; null when none is.
+  DateTime? _plannedAt;
 
   bool _statusShown = false;
   StatusContent? _lastStatus;
@@ -175,6 +203,9 @@ class MachineNotifications {
     final stage = live.stage;
     final previous = _stage;
     _stage = stage;
+    // Left heating with a plan in place: settle it before the cycle's
+    // alerts are cleared below.
+    if (stage != ShotStage.heating) _planReady();
 
     // A new cycle: every alert may come once again.
     if (!_activeStages.contains(stage)) {
@@ -220,7 +251,44 @@ class MachineNotifications {
       );
     }
     _watchConnection();
+    _planReady();
     _updateStatus();
+  }
+
+  // Plans "Temperature reached" when the app is left while heating, and
+  // takes it back once the app is in front again or heating is over.
+  void _planReady() {
+    if (!sink.plansAhead) return;
+    final readyAt = heating.readyAt;
+    final want =
+        !_inForeground &&
+        _active &&
+        live.stage == ShotStage.heating &&
+        readyAt != null &&
+        !_sent.contains(MachineAlert.reached) &&
+        settings.wants(MachineAlert.reached);
+    final planned = _plannedAt;
+    if (want) {
+      if (planned != null) return;
+      _plannedAt = readyAt;
+      final target = socket.targetTemperature;
+      unawaited(
+        sink.planAlert(
+          MachineAlert.reached,
+          readyAt,
+          target == null
+              ? 'Should be ready'
+              : 'Should be ready · ${_temp(target)}',
+          _who() ?? 'Estimated while bean\'d was closed',
+        ),
+      );
+      return;
+    }
+    if (planned == null) return;
+    _plannedAt = null;
+    // Already shown: the real one would come twice.
+    if (!planned.isAfter(_now())) _sent.add(MachineAlert.reached);
+    unawaited(sink.cancelPlanned(MachineAlert.reached));
   }
 
   void _send(
@@ -458,6 +526,36 @@ class LocalNotificationSink implements NotificationSink {
         AndroidFlutterLocalNotificationsPlugin
       >();
 
+  IOSFlutterLocalNotificationsPlugin? get _ios => _plugin
+      .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin
+      >();
+
+  // iOS: one category per button; "foreground" opens the app, which then
+  // acts (onDidReceiveNotificationResponse).
+  static final _darwinCategories = [
+    for (final a in NotificationAction.values)
+      DarwinNotificationCategory(
+        'beand_${a.id}',
+        actions: [
+          DarwinNotificationAction.plain(
+            a.id,
+            a.label,
+            options: {DarwinNotificationActionOption.foreground},
+          ),
+        ],
+      ),
+  ];
+
+  static DarwinNotificationDetails _darwin(NotificationAction? a) =>
+      DarwinNotificationDetails(
+        presentAlert: true,
+        presentBanner: true,
+        presentList: true,
+        presentSound: true,
+        categoryIdentifier: a == null ? null : 'beand_${a.id}',
+      );
+
   // The status notification as a Live Update (android/…/LiveStatus.kt):
   // chip in the status bar from Android 16 on. The plugin starts the
   // foreground service; this channel then fills in the notification.
@@ -480,8 +578,15 @@ class LocalNotificationSink implements NotificationSink {
       // Not on Android.
     }
     await _plugin.initialize(
-      settings: const InitializationSettings(
-        android: AndroidInitializationSettings('ic_stat_beand'),
+      settings: InitializationSettings(
+        android: const AndroidInitializationSettings('ic_stat_beand'),
+        // Asked once a cycle starts (requestPermission), not at launch.
+        iOS: DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestSoundPermission: false,
+          requestBadgePermission: false,
+          notificationCategories: _darwinCategories,
+        ),
       ),
       onDidReceiveNotificationResponse: (response) {
         final action = NotificationAction.byId(response.actionId);
@@ -493,8 +598,46 @@ class LocalNotificationSink implements NotificationSink {
   }
 
   @override
-  Future<bool> requestPermission() async =>
-      await _android?.requestNotificationsPermission() ?? true;
+  Future<bool> requestPermission() async {
+    final ios = _ios;
+    if (ios != null) {
+      return await ios.requestPermissions(alert: true, sound: true) ?? false;
+    }
+    return await _android?.requestNotificationsPermission() ?? true;
+  }
+
+  @override
+  bool get plansAhead => Platform.isIOS;
+
+  @override
+  Future<void> planAlert(
+    MachineAlert alert,
+    DateTime at,
+    String title,
+    String body,
+  ) async {
+    try {
+      await _plugin.zonedSchedule(
+        id: 10 + alert.index,
+        title: title,
+        body: body,
+        scheduledDate: tz.TZDateTime.from(at, tz.UTC),
+        notificationDetails: NotificationDetails(iOS: _darwin(null)),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    } catch (e) {
+      debugPrint('Planning alert failed: $e');
+    }
+  }
+
+  @override
+  Future<void> cancelPlanned(MachineAlert alert) async {
+    try {
+      await _plugin.cancel(id: 10 + alert.index);
+    } catch (e) {
+      debugPrint('Cancelling planned alert failed: $e');
+    }
+  }
 
   static List<AndroidNotificationAction>? _actions(NotificationAction? a) =>
       a == null
@@ -505,6 +648,8 @@ class LocalNotificationSink implements NotificationSink {
 
   @override
   Future<void> showStatus(StatusContent content) async {
+    // iOS has no lasting notification (and no service to keep it up).
+    if (Platform.isIOS) return;
     final progress = content.progress;
     final details = AndroidNotificationDetails(
       _statusChannel.id,
@@ -574,6 +719,7 @@ class LocalNotificationSink implements NotificationSink {
 
   @override
   Future<void> hideStatus() async {
+    if (Platform.isIOS) return;
     try {
       if (_serviceRunning) await _android?.stopForegroundService();
       await _plugin.cancel(id: _statusId);
@@ -620,6 +766,7 @@ class LocalNotificationSink implements NotificationSink {
             priority: Priority.high,
             actions: _actions(action),
           ),
+          iOS: _darwin(action),
         ),
       );
     } catch (e) {

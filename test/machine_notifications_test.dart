@@ -85,6 +85,25 @@ class FakeSink implements NotificationSink {
     alerts.add(alert);
     alertTitles.add('$title | $body');
   }
+
+  @override
+  bool plansAhead = false;
+  final planned = <MachineAlert, DateTime>{};
+  final plannedTitles = <String>[];
+
+  @override
+  Future<void> planAlert(
+    MachineAlert alert,
+    DateTime at,
+    String title,
+    String body,
+  ) async {
+    planned[alert] = at;
+    plannedTitles.add('$title | $body');
+  }
+
+  @override
+  Future<void> cancelPlanned(MachineAlert alert) async => planned.remove(alert);
 }
 
 void main() {
@@ -214,6 +233,71 @@ void main() {
     notifications.inForeground = false;
     stable(true);
     expect(sink.alerts, [MachineAlert.stable]);
+    live.set(ShotStage.idle);
+  });
+
+  testWidgets('leaving the app while heating plans "reached" ahead (iOS)', (
+    tester,
+  ) async {
+    sink.plansAhead = true;
+    socket.targetTemperature = 90;
+    final readyAt = clock.now().add(const Duration(minutes: 3));
+    heating
+      ..etaSeconds = 180
+      ..etaAt = clock.now();
+    live.set(ShotStage.heating);
+    expect(sink.planned, isEmpty, reason: 'the app is in front');
+
+    notifications.inForeground = false;
+    expect(sink.planned[MachineAlert.reached], readyAt);
+    expect(sink.plannedTitles.single, startsWith('Should be ready · 90°'));
+
+    notifications.inForeground = true;
+    expect(sink.planned, isEmpty, reason: 'back in front: taken back');
+
+    // Ready while still away: the plan goes, the real alert comes.
+    notifications.inForeground = false;
+    live.set(ShotStage.ready);
+    expect(sink.planned, isEmpty);
+    expect(sink.alerts, [MachineAlert.reached]);
+    live.set(ShotStage.idle);
+  });
+
+  testWidgets('a planned "reached" already shown is not sent twice', (
+    tester,
+  ) async {
+    sink.plansAhead = true;
+    var now = DateTime(2026, 10, 22, 8);
+    notifications.dispose();
+    notifications = MachineNotifications(
+      socket: socket,
+      live: live,
+      settings: settings,
+      sink: sink,
+      heating: heating,
+      now: () => now,
+    )..start();
+    heating
+      ..etaSeconds = 60
+      ..etaAt = now;
+    live.set(ShotStage.heating);
+    notifications.inForeground = false;
+    expect(sink.planned, hasLength(1));
+
+    now = now.add(const Duration(minutes: 2));
+    notifications.inForeground = true;
+    live.set(ShotStage.ready);
+    expect(sink.alerts, isEmpty, reason: 'the planned one already rang');
+    live.set(ShotStage.idle);
+  });
+
+  testWidgets('Android plans nothing ahead', (tester) async {
+    heating
+      ..etaSeconds = 180
+      ..etaAt = clock.now();
+    live.set(ShotStage.heating);
+    notifications.inForeground = false;
+    expect(sink.planned, isEmpty);
     live.set(ShotStage.idle);
   });
 
