@@ -111,8 +111,16 @@ void main() {
 
     runThroughShot(socket);
     expect(live.stage, ShotStage.purging);
-    expect(live.activeCard, ActiveCard.post);
+    // While the purge still pushes water out, the Live card stays up —
+    // jumping at its start made it look finished (2026-10-22).
+    expect(live.activeCard, ActiveCard.live);
+    await Future<void>.delayed(Duration.zero);
+    expect(jumps, [1]);
 
+    socket.phase('finished');
+    expect(live.activeCard, ActiveCard.live, reason: 'still the purge');
+    socket.phase('idle');
+    expect(live.activeCard, ActiveCard.post);
     await Future<void>.delayed(Duration.zero);
     expect(jumps, [1, 2]);
   });
@@ -140,10 +148,10 @@ void main() {
     expect(live.activeCard, ActiveCard.live, reason: 'until after the purge');
 
     socket.phase('purge');
-    expect(live.activeCard, ActiveCard.post);
-    // The machine cleans up — POST still stays.
+    expect(live.activeCard, ActiveCard.live, reason: 'purge still running');
     socket.phase('finished');
     socket.phase('idle');
+    // Purge over: now the shot is done.
     expect(live.activeCard, ActiveCard.post);
 
     await Future<void>.delayed(Duration.zero);

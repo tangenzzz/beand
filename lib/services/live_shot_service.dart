@@ -70,6 +70,13 @@ abstract class LiveShotService extends ChangeNotifier {
   // is a moment in the flow and not a permanent state.
   bool get pulsesWhenReady => true;
 
+  // Does the Post card wait until the purge is over? On the Meticulous the
+  // purge is a real stage that still pushes water out under pressure —
+  // jumping to Post at its start made it look finished (user report
+  // 2026-10-22). On the GaggiMate "purging" only means "done, waiting to be
+  // cleared", so Post comes right away there.
+  bool get postAfterPurge => false;
+
   // Does this machine deliver a temperature per data point? Then the Shot
   // card also draws the red temperature curve and shows a TEMP column. The
   // Meticulous has its own temperature card with four sensors for that —
@@ -220,9 +227,14 @@ abstract class LiveShotService extends ChangeNotifier {
 
     if (stage == ShotStage.running && _previousStage != ShotStage.running) {
       _pageJumps.add(1);
-    } else if (stage == ShotStage.purging &&
+    } else if (!postAfterPurge &&
+        stage == ShotStage.purging &&
         (_previousStage == ShotStage.awaitingPurge ||
             _previousStage == ShotStage.running)) {
+      _pageJumps.add(2);
+    } else if (postAfterPurge &&
+        _previousStage == ShotStage.purging &&
+        stage == ShotStage.idle) {
       _pageJumps.add(2);
     }
     _updateActiveCard();
@@ -242,10 +254,21 @@ abstract class LiveShotService extends ChangeNotifier {
       case ShotStage.awaitingPurge:
         activeCard = ActiveCard.live;
       case ShotStage.purging:
-        activeCard = ActiveCard.post;
-        postShotPending = true;
+        if (postAfterPurge) {
+          // Still purging: the Live card stays up ("Purging…").
+          activeCard = ActiveCard.live;
+        } else {
+          activeCard = ActiveCard.post;
+          postShotPending = true;
+        }
       case ShotStage.idle:
-        if (activeCard == ActiveCard.live) activeCard = ActiveCard.pre;
+        if (postAfterPurge && _previousStage == ShotStage.purging) {
+          // The purge is over — now the shot is done.
+          activeCard = ActiveCard.post;
+          postShotPending = true;
+        } else if (activeCard == ActiveCard.live) {
+          activeCard = ActiveCard.pre;
+        }
         _autoStartFired = false;
     }
   }
@@ -271,6 +294,9 @@ class MeticulousLiveShotService extends LiveShotService {
 
   @override
   String get machineKey => 'meticulous';
+
+  @override
+  bool get postAfterPurge => true;
 
   // ---- "Stabilized" detection for the Pre-Shot Start Shot button ----
   // Independent of TemperatureTile._TemperatureTileState (same definition:
@@ -554,6 +580,16 @@ class MeticulousLiveShotService extends LiveShotService {
   @override
   Future<bool> stopShot() => _socket.triggerAction('stop');
 
+  // At the end of a shot ("click to purge") the machine waits for the dial
+  // press — that is `continue`, and it runs the profile's own purge stage
+  // to its end (pressure-controlled until the piston is back). `purge`
+  // there started the machine's separate, fixed purge routine instead:
+  // it finished early and the machine jumped to the profile overview
+  // while the puck was still wet and under pressure (user report
+  // 2026-10-22; with the dial it never happened). `purge` stays for a
+  // purge from idle (command row), where there is no profile stage.
   @override
-  Future<bool> purge() => _socket.triggerAction('purge');
+  Future<bool> purge() => _socket.triggerAction(
+    stage == ShotStage.awaitingPurge ? 'continue' : 'purge',
+  );
 }
