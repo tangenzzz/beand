@@ -65,7 +65,8 @@ class BlossomClient {
   /// Uploads [bytes]; the result is the URL according to the server. Throws
   /// [BlossomException] with a readable message.
   Future<String> upload(String server, Uint8List bytes) async {
-    final sha = sha256Hex(bytes);
+    // In the background: hashing a photo on the main isolate froze the app.
+    final sha = await sha256HexInBackground(bytes);
     final http.Response response;
     try {
       response = await _client
@@ -113,7 +114,7 @@ class BlossomClient {
       final response = await _client.get(url).timeout(timeout);
       if (response.statusCode != 200) return null;
       final bytes = response.bodyBytes;
-      return sha256Hex(bytes) == sha256 ? bytes : null;
+      return await sha256HexInBackground(bytes) == sha256 ? bytes : null;
     } catch (_) {
       return null;
     }

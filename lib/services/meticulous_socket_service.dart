@@ -169,7 +169,8 @@ class MeticulousSocketService extends ChangeNotifier
         now.difference(lastTick) > const Duration(milliseconds: 2500)) {
       ConnectionLog.write(
         'stall',
-        'app was blocked ~${now.difference(lastTick).inMilliseconds} ms',
+        'app was blocked ~${now.difference(lastTick).inMilliseconds} ms'
+            '${ConnectionLog.busy}',
       );
     }
     if (_lastForeground != null && foreground != _lastForeground) {

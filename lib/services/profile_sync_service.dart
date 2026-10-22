@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'connection_log.dart';
 import '../database/database.dart';
 import 'meticulous_socket_service.dart';
 import 'profile_image_cache.dart';
@@ -73,7 +74,7 @@ class ProfileSyncService implements ProfileStore {
   // Sync all of the machine's profiles (never runs twice).
   @override
   Future<void> sync() {
-    return _running ??= () async {
+    return _running ??= ConnectionLog.track('profile sync', () async {
       try {
         final list = await _getJson('profile/list?full=true');
         if (list is! List) return;
@@ -93,7 +94,7 @@ class ProfileSyncService implements ProfileStore {
       } finally {
         _running = null;
       }
-    }();
+    });
   }
 
   // Fetch one profile fresh from the machine (when opening the view).

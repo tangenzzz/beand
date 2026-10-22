@@ -40,6 +40,12 @@ void main() {
     );
     await tester.pump();
 
+    // Folded by default; the toggle names how many there are.
+    expect(find.text('Show 2 entries'), findsOneWidget);
+    expect(find.textContaining('no status', findRichText: true), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('log-toggle')));
+    await tester.pump();
+
     final reconnect = find.textContaining('no status', findRichText: true);
     final connected = find.textContaining(
       'meticulous.local',

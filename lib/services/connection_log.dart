@@ -32,6 +32,23 @@ class ConnectionLog {
   // Writes in sequence so lines don't overtake each other.
   static Future<void> _queue = Future.value();
 
+  // What the app is busy with right now (sync, import, …) — named in a
+  // `stall` line, so a freeze points at its cause.
+  static final _busy = <String>[];
+
+  /// Runs [body] marked as [label] for the stall lines.
+  static Future<T> track<T>(String label, Future<T> Function() body) async {
+    _busy.add(label);
+    try {
+      return await body();
+    } finally {
+      _busy.remove(label);
+    }
+  }
+
+  /// Labels of the work running now, for a stall line.
+  static String get busy => _busy.isEmpty ? '' : ' during ${_busy.join(', ')}';
+
   /// For tests: here instead of a file.
   @visibleForTesting
   static void Function(String line)? sink;

@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 
 import 'package:http/http.dart' as http;
 
+import '../services/connection_log.dart';
 import '../database/database.dart';
 import 'blobs/blob_sync.dart';
 import 'blobs/blossom_client.dart';
@@ -343,19 +344,20 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
       _againForce = _againForce || force;
       return _running!;
     }
-    return _running = _run(force).whenComplete(() {
-      _running = null;
-      if (_settingsChangedDuringRun) {
-        _settingsChangedDuringRun = false;
-        _onSettingsChanged();
-      }
-      if (_again) {
-        final again = _againForce;
-        _again = false;
-        _againForce = false;
-        unawaited(syncNow(force: again));
-      }
-    });
+    return _running = ConnectionLog.track('nostr sync', () => _run(force))
+        .whenComplete(() {
+          _running = null;
+          if (_settingsChangedDuringRun) {
+            _settingsChangedDuringRun = false;
+            _onSettingsChanged();
+          }
+          if (_again) {
+            final again = _againForce;
+            _again = false;
+            _againForce = false;
+            unawaited(syncNow(force: again));
+          }
+        });
   }
 
   Future<void> _run(bool force) async {

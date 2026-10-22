@@ -22,6 +22,9 @@ class ConnectionLogScreen extends StatefulWidget {
 class _ConnectionLogScreenState extends State<ConnectionLogScreen> {
   List<String>? _lines;
 
+  // Folded by default (user request 2026-10-22): the lines only on demand.
+  bool _expanded = false;
+
   @override
   void initState() {
     super.initState();
@@ -72,8 +75,39 @@ class _ConnectionLogScreenState extends State<ConnectionLogScreen> {
                     const SettingsSection(
                       child: SettingsText('Nothing logged yet.'),
                     )
-                  else
-                    for (final line in lines.take(400)) _LogLine(line),
+                  else ...[
+                    InkWell(
+                      key: const ValueKey('log-toggle'),
+                      onTap: () => setState(() => _expanded = !_expanded),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.dividerInset,
+                          vertical: 14,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _expanded
+                                    ? 'Hide entries'
+                                    : 'Show ${lines.length} entries',
+                                style: TextStyle(
+                                  color: context.colors.textPrimary,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _expanded ? Icons.expand_less : Icons.expand_more,
+                              color: context.colors.textTertiary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (_expanded)
+                      for (final line in lines.take(400)) _LogLine(line),
+                  ],
                   const SizedBox(height: 8),
                 ],
               ),

@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'connection_log.dart';
 import '../database/database.dart';
 import '../models/history_import.dart';
 import 'meticulous_socket_service.dart';
@@ -113,7 +114,10 @@ class ShotSyncService {
       try {
         do {
           _rerun = false;
-          await _syncOnce(recentOnly: recentOnly);
+          await ConnectionLog.track(
+            'shot import',
+            () => _syncOnce(recentOnly: recentOnly),
+          );
         } while (_rerun && !_disposed);
       } finally {
         _running = null;

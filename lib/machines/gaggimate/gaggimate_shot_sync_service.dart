@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../../services/connection_log.dart';
 import '../../database/database.dart';
 import '../../services/shot_setup.dart';
 import '../espresso_machine.dart';
@@ -111,7 +112,7 @@ class GaggiMateShotSyncService {
       try {
         do {
           _rerun = false;
-          await _syncOnce();
+          await ConnectionLog.track('GaggiMate shot import', _syncOnce);
         } while (_rerun && !_disposed);
       } finally {
         _running = null;

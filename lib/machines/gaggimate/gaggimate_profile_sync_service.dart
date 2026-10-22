@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../services/connection_log.dart';
 import '../../database/database.dart';
 import '../../services/profile_store.dart';
 import '../espresso_machine.dart';
@@ -53,7 +54,7 @@ class GaggiMateProfileSyncService implements ProfileStore {
 
   @override
   Future<void> sync() {
-    return _running ??= () async {
+    return _running ??= ConnectionLog.track('GaggiMate profile sync', () async {
       try {
         // The list already carries the full profiles — unlike the
         // Meticulous, no second call per profile is needed.
@@ -71,7 +72,7 @@ class GaggiMateProfileSyncService implements ProfileStore {
       } finally {
         _running = null;
       }
-    }();
+    });
   }
 
   @override
