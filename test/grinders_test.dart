@@ -767,6 +767,34 @@ void main() {
     expect(find.text('58 mm'), findsOneWidget);
   });
 
+  testWidgets('My Coffee Desk: a photo while adding saves the piece first', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final gear = GearStore.inMemory();
+    await tester.pumpWidget(mySetup(gear));
+
+    await tester.tap(find.byKey(const ValueKey('new-basket')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('gear-model')), 'VST');
+    // The photo is there before the piece exists (user 2026-10-22).
+    await tester.tap(find.byKey(const ValueKey('dialog-photo')));
+    await tester.pumpAndSettle();
+    expect(gear.ofType(GearType.basket).single.model, 'VST');
+    expect(find.text('Take photo'), findsOneWidget);
+    await tester.tapAt(const Offset(200, 50));
+    await tester.pumpAndSettle();
+
+    // Saving afterwards keeps one piece, with what came after the photo.
+    await tester.enterText(find.byKey(const ValueKey('gear-brand')), 'VST');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    final basket = gear.ofType(GearType.basket).single;
+    expect(basket.brand, 'VST');
+  });
+
   test('grinder and water saved through their stores keep desk facts', () {
     final gear = GearStore.inMemory();
     final grinders = GrinderStore(gear);

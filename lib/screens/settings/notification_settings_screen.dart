@@ -32,8 +32,8 @@ class NotificationSettingsScreen extends StatelessWidget {
                     // (services/machine_notifications.dart).
                     info: Platform.isIOS
                         ? 'iOS pauses bean\'d soon after you leave it. '
-                              '"Temperature reached" then comes at the '
-                              'estimated time.'
+                              'Leave it while heating and "Preheat done" or '
+                              '"Should be ready" comes at the expected time.'
                         : 'Shows heating and brewing in your notifications, '
                               'even with the app closed.',
                     value: on,

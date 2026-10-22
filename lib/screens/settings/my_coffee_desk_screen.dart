@@ -102,37 +102,48 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
 
   Future<void> _add(GearType type) => _openAddDialog(type);
 
+  // The photo choice from a dialog's head; a new piece is already saved
+  // by then (user 2026-10-22: photo while adding, not only afterwards).
+  void _photoFor(String id) {
+    final current = context.read<GearStore>().byId(id);
+    if (current != null) _choosePhoto(current);
+  }
+
   Future<void> _openAddDialog(GearType type) async {
     switch (type) {
       case GearType.grinder:
-        await showGrinderDialog(context);
+        await showGrinderDialog(context, onPhoto: _photoFor);
       case GearType.water:
-        await showWaterDialog(context);
+        await showWaterDialog(context, onPhoto: _photoFor);
       default:
-        await showGearDialog(context, type: type);
+        await showGearDialog(context, type: type, onPhoto: _photoFor);
     }
   }
 
   // Long press on a piece: its dialog, with "Photo" at the top.
   Future<void> _edit(Gear g) async {
-    void photo() {
-      final current = context.read<GearStore>().byId(g.id);
-      if (current != null) _choosePhoto(current);
-    }
-
     switch (g.type) {
       case GearType.grinder:
         final grinder = context.read<GrinderStore>().byId(g.id);
         if (grinder != null) {
-          await showGrinderDialog(context, grinder: grinder, onPhoto: photo);
+          await showGrinderDialog(
+            context,
+            grinder: grinder,
+            onPhoto: _photoFor,
+          );
         }
       case GearType.water:
         final water = context.read<WaterStore>().byId(g.id);
         if (water != null) {
-          await showWaterDialog(context, water: water, onPhoto: photo);
+          await showWaterDialog(context, water: water, onPhoto: _photoFor);
         }
       default:
-        await showGearDialog(context, type: g.type, gear: g, onPhoto: photo);
+        await showGearDialog(
+          context,
+          type: g.type,
+          gear: g,
+          onPhoto: _photoFor,
+        );
     }
   }
 

@@ -12,12 +12,13 @@ import 'my_setup_dialogs.dart';
 // or a water (those keep their own dialogs), and for brew chains. Same look
 // as the My Setup dialogs: neutral fields, earlier entries as suggestions.
 
-/// Add ([gear] null) or edit a piece of [type].
+/// Add ([gear] null) or edit a piece of [type]. [onPhoto] gets the piece's
+/// ID; a new piece is saved first, so its photo has somewhere to go.
 Future<void> showGearDialog(
   BuildContext context, {
   required GearType type,
   Gear? gear,
-  VoidCallback? onPhoto,
+  void Function(String id)? onPhoto,
 }) => showSetupSheet<void>(
   context,
   (_) => ChangeNotifierProvider<GearStore>.value(
@@ -46,7 +47,7 @@ class _GearDialog extends StatefulWidget {
 
   final GearType type;
   final Gear? gear;
-  final VoidCallback? onPhoto;
+  final void Function(String id)? onPhoto;
 
   @override
   State<_GearDialog> createState() => _GearDialogState();
@@ -72,6 +73,9 @@ class _GearDialogState extends State<_GearDialog> {
   };
   late String? _shape = widget.gear?.specs['shape'] as String?;
 
+  /// The piece's ID — for a new one set once the photo saved it early.
+  late String? _id = widget.gear?.id;
+
   @override
   void dispose() {
     for (final c in [_brand, _model, _stock, ..._specs.values]) {
@@ -84,13 +88,24 @@ class _GearDialogState extends State<_GearDialog> {
       double.tryParse(s.trim().replaceAll(',', '.'));
 
   void _save() {
+    _persist();
+    Navigator.of(context).pop();
+  }
+
+  // A photo for a piece that isn't saved yet: save it now, then choose.
+  void _photo() {
+    final id = _persist();
+    setState(() => _id = id);
+    widget.onPhoto?.call(id);
+  }
+
+  String _persist() {
     // Brand and model are optional (user 2026-10-19): a piece without them
     // shows as its kind, e.g. "Machine".
     final model = _model.text.trim();
-    final existing = widget.gear;
-    final current = existing == null
-        ? null
-        : context.read<GearStore>().byId(existing.id);
+    final id = _id;
+    final current = id == null ? null : context.read<GearStore>().byId(id);
+    final existing = current ?? widget.gear;
     final brand = _brand.text.trim();
     final fields = specFields[widget.type] ?? const <SpecField>[];
     // Keys this form doesn't know (e.g. from a newer app version) stay.
@@ -104,24 +119,26 @@ class _GearDialogState extends State<_GearDialog> {
       'shape': ?_shape,
     };
     final stock = int.tryParse(_stock.text.trim());
-    context.read<GearStore>().save(
-      Gear(
-        id: existing?.id ?? '',
-        type: widget.type,
-        brand: brand.isEmpty ? null : brand,
-        model: model,
-        // What it serves follows the kind (the form no longer asks).
-        brewModes: existing?.brewModes ?? defaultBrewModes(widget.type),
-        // The photo may have changed while the dialog was open.
-        photoPath: current?.photoPath,
-        photoOriginalPath: current?.photoOriginalPath,
-        photoBlob: current?.photoBlob,
-        photoOriginalBlob: current?.photoOriginalBlob,
-        specs: specs,
-        stock: hasStock(widget.type) ? stock : null,
-      ),
-    );
-    Navigator.of(context).pop();
+    return context
+        .read<GearStore>()
+        .save(
+          Gear(
+            id: existing?.id ?? '',
+            type: widget.type,
+            brand: brand.isEmpty ? null : brand,
+            model: model,
+            // What it serves follows the kind (the form no longer asks).
+            brewModes: existing?.brewModes ?? defaultBrewModes(widget.type),
+            // The photo may have changed while the dialog was open.
+            photoPath: current?.photoPath,
+            photoOriginalPath: current?.photoOriginalPath,
+            photoBlob: current?.photoBlob,
+            photoOriginalBlob: current?.photoOriginalBlob,
+            specs: specs,
+            stock: hasStock(widget.type) ? stock : null,
+          ),
+        )
+        .id;
   }
 
   Future<void> _delete() async {
@@ -141,15 +158,17 @@ class _GearDialogState extends State<_GearDialog> {
     final editing = widget.gear != null;
     final single = type.single.toLowerCase();
     final shapes = gearShapes[type];
-    final id = widget.gear?.id;
     return SetupDialog(
       title: type.single,
       heading: _model.text,
       subheading: _brand.text,
-      photo: id == null || widget.onPhoto == null
+      photo: widget.onPhoto == null
           ? null
-          : GearThumb(gearId: id, icon: type.iconAsset({'shape': ?_shape})),
-      onPhoto: widget.onPhoto,
+          : GearThumb(
+              gearId: _id ?? '',
+              icon: type.iconAsset({'shape': ?_shape}),
+            ),
+      onPhoto: _photo,
       canSave: true,
       onSave: _save,
       onDelete: editing ? _delete : null,

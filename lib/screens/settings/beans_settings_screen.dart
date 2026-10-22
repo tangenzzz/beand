@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/ai/ai_settings.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import '../beans/freshness.dart';
@@ -13,6 +14,10 @@ class BeansSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<AppSettings>();
+    final ai = context.watch<AiSettings>();
+    // The same switch as Settings → AI → Features; without a key it does
+    // nothing, so it stays greyed out.
+    final aiReady = ai.enabled && ai.isConfigured;
     return Scaffold(
       appBar: AppBar(title: const Text('Beans')),
       body: ListView(
@@ -40,6 +45,21 @@ class BeansSettingsScreen extends StatelessWidget {
                         'Needs a bag weight.',
                     value: settings.showBeanStock,
                     onChanged: settings.setShowBeanStock,
+                  ),
+                ],
+              ),
+              SettingsGroup(
+                label: 'AI',
+                children: [
+                  SettingsSwitchRow(
+                    title: AiFeature.beanForm.label,
+                    info: aiReady
+                        ? AiFeature.beanForm.description
+                        : 'Needs your own AI key in Settings → AI.',
+                    value: ai.isEnabled(AiFeature.beanForm),
+                    onChanged: aiReady
+                        ? (v) => ai.setFeatureOn(AiFeature.beanForm, v)
+                        : null,
                   ),
                 ],
               ),

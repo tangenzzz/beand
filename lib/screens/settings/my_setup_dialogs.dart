@@ -21,12 +21,13 @@ import 'settings_widgets.dart';
 
 /// Add ([grinder] null) or edit a grinder. Returns the saved grinder, null
 /// on cancel or delete.
-/// [onPhoto]: the desk's photo choice for an existing piece — shown as
-/// the thumbnail in the sheet's head (the shelf has no Edit/Photo buttons).
+/// [onPhoto]: the desk's photo choice — shown as the thumbnail in the
+/// sheet's head (the shelf has no Edit/Photo buttons). It gets the piece's
+/// ID; a new piece is saved first, so its photo has somewhere to go.
 Future<Grinder?> showGrinderDialog(
   BuildContext context, {
   Grinder? grinder,
-  VoidCallback? onPhoto,
+  void Function(String id)? onPhoto,
 }) {
   return showSetupSheet<Grinder>(
     context,
@@ -47,7 +48,7 @@ Future<Grinder?> showGrinderDialog(
 Future<void> showWaterDialog(
   BuildContext context, {
   Water? water,
-  VoidCallback? onPhoto,
+  void Function(String id)? onPhoto,
 }) {
   return showSetupSheet<void>(
     context,
@@ -69,7 +70,7 @@ class _GrinderDialog extends StatefulWidget {
   const _GrinderDialog({this.grinder, this.onPhoto});
 
   final Grinder? grinder;
-  final VoidCallback? onPhoto;
+  final void Function(String id)? onPhoto;
 
   @override
   State<_GrinderDialog> createState() => _GrinderDialogState();
@@ -212,10 +213,35 @@ class _GrinderDialogState extends State<_GrinderDialog> {
   ];
 
   void _save() {
-    final name = _name.text.trim();
-    if (name.isEmpty) return;
+    final id = _persist();
+    if (id == null) return;
+    // A zero point entered or changed: a new entry with today's date, for
+    // the fitted burrs (or the grinder, while none are named).
     final store = context.read<GrinderStore>();
-    final existing = widget.grinder;
+    final zero = _parse(_zero);
+    if (zero != null) store.setZero(id, zero);
+    Navigator.of(context).pop(store.byId(id));
+  }
+
+  /// The grinder's ID — for a new one set once the photo saved it early.
+  late String? _id = widget.grinder?.id;
+
+  // A photo for a grinder that isn't saved yet: save it now, then choose.
+  void _photo() {
+    final id = _persist();
+    if (id == null) {
+      showNameFirst(context);
+      return;
+    }
+    setState(() => _id = id);
+    widget.onPhoto?.call(id);
+  }
+
+  String? _persist() {
+    final name = _name.text.trim();
+    if (name.isEmpty) return null;
+    final store = context.read<GrinderStore>();
+    final existing = _id == null ? null : store.byId(_id!);
     final id = existing?.id ?? store.add(name, _entered, brand: _brand.text).id;
     store.update(
       Grinder(
@@ -229,11 +255,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
         zeros: existing?.zeros ?? const {},
       ),
     );
-    // A zero point entered or changed: a new entry with today's date, for
-    // the fitted burrs (or the grinder, while none are named).
-    final zero = _parse(_zero);
-    if (zero != null) store.setZero(id, zero);
-    Navigator.of(context).pop(store.byId(id));
+    return id;
   }
 
   // Small heading of a part of the dialog, the explanation behind ⓘ.
@@ -284,18 +306,17 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     final store = context.watch<GrinderStore>();
     final burrTaken = {for (final b in _entered) b.toLowerCase()};
     final editing = widget.grinder != null;
-    final id = widget.grinder?.id;
     return SetupDialog(
       title: 'Grinder',
       heading: _name.text,
       subheading: _brand.text,
-      photo: id == null || widget.onPhoto == null
+      photo: widget.onPhoto == null
           ? null
           : GearThumb(
-              gearId: id,
+              gearId: _id ?? '',
               icon: GearType.grinder.iconAsset({if (_hand) 'shape': 'hand'}),
             ),
-      onPhoto: widget.onPhoto,
+      onPhoto: _photo,
       canSave: _name.text.trim().isNotEmpty,
       onSave: _save,
       onDelete: editing ? _delete : null,
@@ -590,7 +611,7 @@ class _WaterDialog extends StatefulWidget {
   const _WaterDialog({this.water, this.onPhoto});
 
   final Water? water;
-  final VoidCallback? onPhoto;
+  final void Function(String id)? onPhoto;
 
   @override
   State<_WaterDialog> createState() => _WaterDialogState();
@@ -667,26 +688,47 @@ class _WaterDialogState extends State<_WaterDialog> {
       setState(() => set.remove(m) || set.add(m));
 
   void _save() {
-    final recipe = _recipe.text.trim();
-    if (recipe.isEmpty) return;
-    context.read<WaterStore>().save(
-      Water(
-        id: widget.water?.id ?? '',
-        recipe: recipe,
-        gh: _parse(_gh),
-        ghMinerals: _ghMinerals,
-        kh: _parse(_kh),
-        khMinerals: _khMinerals,
-        amounts: {
-          for (final m in {..._ghMinerals, ..._khMinerals})
-            if (_gramsOf(m) != null) m: _gramsOf(m)!,
-        },
-        unit: _unit,
-        ppm: _parse(_ppm),
-        use: _use,
-      ),
-    );
+    if (_persist() == null) return;
     Navigator.of(context).pop();
+  }
+
+  /// The water's ID — for a new one set once the photo saved it early.
+  late String? _id = widget.water?.id;
+
+  // A photo for a water that isn't saved yet: save it now, then choose.
+  void _photo() {
+    final id = _persist();
+    if (id == null) {
+      showNameFirst(context);
+      return;
+    }
+    setState(() => _id = id);
+    widget.onPhoto?.call(id);
+  }
+
+  String? _persist() {
+    final recipe = _recipe.text.trim();
+    if (recipe.isEmpty) return null;
+    return context
+        .read<WaterStore>()
+        .save(
+          Water(
+            id: _id ?? '',
+            recipe: recipe,
+            gh: _parse(_gh),
+            ghMinerals: _ghMinerals,
+            kh: _parse(_kh),
+            khMinerals: _khMinerals,
+            amounts: {
+              for (final m in {..._ghMinerals, ..._khMinerals})
+                if (_gramsOf(m) != null) m: _gramsOf(m)!,
+            },
+            unit: _unit,
+            ppm: _parse(_ppm),
+            use: _use,
+          ),
+        )
+        .id;
   }
 
   Future<void> _delete() async {
@@ -725,14 +767,16 @@ class _WaterDialogState extends State<_WaterDialog> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.water != null;
-    final id = widget.water?.id;
     return SetupDialog(
       title: 'Water',
       heading: _recipe.text,
-      photo: id == null || widget.onPhoto == null
+      photo: widget.onPhoto == null
           ? null
-          : GearThumb(gearId: id, icon: GearType.water.iconAsset(const {})),
-      onPhoto: widget.onPhoto,
+          : GearThumb(
+              gearId: _id ?? '',
+              icon: GearType.water.iconAsset(const {}),
+            ),
+      onPhoto: _photo,
       canSave: _recipe.text.trim().isNotEmpty,
       onSave: _save,
       onDelete: editing ? _delete : null,
@@ -1097,6 +1141,12 @@ class SetupRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A new grinder or water needs its name before the photo can be kept.
+void showNameFirst(BuildContext context) {
+  ScaffoldMessenger.of(context)
+      .showSnackBar(const SnackBar(content: Text('Enter a name first')));
 }
 
 /// The head's thumbnail: the piece's photo (live, so a new one shows right

@@ -166,8 +166,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 title: 'Use your own AI key',
                 info:
                     "bean'd has no AI server of its own. You bring your own "
-                    'API key, the app talks to the provider directly, and '
-                    'nothing is sent anywhere else.',
+                    'API key and the app talks to the provider directly.',
                 value: settings.enabled,
                 onChanged: (value) {
                   settings.setEnabled(value);
