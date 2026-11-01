@@ -25,9 +25,15 @@ import '../../widgets/app_button.dart';
 // label-left/value-right like the Pre-Shot card). The pop result is the
 // saved Bean (null on cancel or delete).
 class BeanFormScreen extends StatefulWidget {
-  const BeanFormScreen({super.key, this.bean});
+  const BeanFormScreen({super.key, this.bean, this.newBagOf});
 
   final Bean? bean;
+
+  /// A new bag of this coffee: a new bean with everything that describes
+  /// the coffee (name, roastery, origin, taste, photo …) taken over, but
+  /// none of what belongs to one bag — roast date, weight, cost, frozen,
+  /// empty. The old bag stays as it is, with its shots.
+  final Bean? newBagOf;
 
   @override
   State<BeanFormScreen> createState() => _BeanFormScreenState();
@@ -92,23 +98,25 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   @override
   void initState() {
     super.initState();
-    final b = widget.bean;
+    final bag = widget.bean;
+    final b = bag ?? widget.newBagOf;
     _name = TextEditingController(text: b?.name)..addListener(_onNameChanged);
     _roaster = TextEditingController(text: b?.roaster);
     _country = TextEditingController(text: b?.country);
     _processing = TextEditingController(text: b?.processing);
     _variety = TextEditingController(text: b?.variety);
     _producer = TextEditingController(text: b?.producer);
-    _weight = TextEditingController(text: _formatNumber(b?.weightGrams));
-    _cost = TextEditingController(text: _formatNumber(b?.cost));
+    _weight = TextEditingController(text: _formatNumber(bag?.weightGrams));
+    _cost = TextEditingController(text: _formatNumber(bag?.cost));
     _taste = TextEditingController(text: b?.taste);
     _isBlend = b?.isBlend;
     _roastedFor = b?.roastedFor;
     _roastLevel = b?.roastLevel;
-    _roastDate = b?.roastDate;
-    _isFrozen = b?.isFrozen ?? false;
-    _thawedDate = b?.thawedDate;
-    _photoPath = b?.photoPath;
+    _roastDate = bag?.roastDate;
+    _isFrozen = bag?.isFrozen ?? false;
+    _thawedDate = bag?.thawedDate;
+    _photoPath = bag?.photoPath;
+    if (widget.newBagOf?.photoPath case final photo?) _copyPhoto(photo);
 
     // As soon as the user touches an imported field, it's theirs — the
     // marking disappears by itself without them having to confirm anything.
@@ -148,6 +156,33 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   }
 
   void _onNameChanged() => setState(() {});
+
+  // The new bag gets its own copy of the photo: deleting one bag must not
+  // take the other's picture along.
+  Future<void> _copyPhoto(String path) async {
+    try {
+      final source = File(path);
+      if (!source.existsSync()) return;
+      final target = p.join(
+        p.dirname(path),
+        'bean_${DateTime.now().microsecondsSinceEpoch}${p.extension(path)}',
+      );
+      await source.copy(target);
+      if (!mounted || _photoPath != null) {
+        _deleteFile(target);
+        return;
+      }
+      _addedPhotos.add(target);
+      setState(() => _photoPath = target);
+    } catch (_) {}
+  }
+
+  void _newBag() {
+    final bean = widget.bean!;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<Bean>(builder: (_) => BeanFormScreen(newBagOf: bean)),
+    );
+  }
 
   // Which key belongs to which text field. Name and Roastery are not in
   // BeanFormField (they can't be turned off), but need the same marking.
@@ -755,7 +790,13 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(editing ? 'Edit bean' : 'New bean'),
+        title: Text(
+          editing
+              ? 'Edit bean'
+              : widget.newBagOf != null
+              ? 'New bag'
+              : 'New bean',
+        ),
         actions: [
           TextButton(
             onPressed: _name.text.trim().isEmpty ? null : _save,
@@ -844,6 +885,16 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
                 ),
               ],
             ),
+            if (editing)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: AppButton(
+                  label: 'New bag',
+                  icon: Icons.add,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: _newBag,
+                ),
+              ),
             if (editing)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
