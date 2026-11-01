@@ -17,6 +17,16 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
+      // Every band is really drawn: three colored parts per roast, full
+      // height, together as wide as the band.
+      final parts = find.descendant(
+        of: find.byType(FreshnessLegend),
+        matching: find.byType(ColoredBox),
+      );
+      expect(parts, findsNWidgets(9));
+      for (final part in parts.evaluate()) {
+        expect(tester.getSize(find.byWidget(part.widget)).height, 10);
+      }
     });
   }
 }

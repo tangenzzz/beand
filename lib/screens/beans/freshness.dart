@@ -250,7 +250,9 @@ class _Band extends StatelessWidget {
       borderRadius: BorderRadius.circular(5),
       child: SizedBox(
         height: 10,
+        // Stretched: an empty ColoredBox is otherwise 0 px high.
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             part(window.from, freshnessColor(context, 0, level)),
             part(
