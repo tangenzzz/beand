@@ -18,7 +18,11 @@ import 'scale_driver.dart';
 ///   while the first still runs is ignored).
 /// - Heartbeat at least every 5 s, or the Half Decent drops the link. We
 ///   opt in to it (last data byte 01 in LED-on/tare) — older scales ignore
-///   both.
+///   both. Like Beanconqueror (graphefruit/Beanconqueror, decentScale.ts):
+///   every 2 s, the first right away, written with response; at 4 s
+///   without a first beat the scale dropped us every few seconds.
+/// - Byte 0 of a weight packet is the model byte (03 on the Decent
+///   Scale), so it is not checked.
 class DecentDriver extends ScaleDriver {
   static const notifyUuid = '0000fff4-0000-1000-8000-00805f9b34fb';
   static const writeUuid = '000036f5-0000-1000-8000-00805f9b34fb';
@@ -74,16 +78,21 @@ class DecentDriver extends ScaleDriver {
       await write(bytes);
       await Future<void>.delayed(repeatGap);
     }
+    // The 5 s run from the opt-in, the periodic beat only starts after us.
+    await write(heartbeatCommand);
   }
 
   @override
   Uint8List get heartbeat => heartbeatCommand;
 
   @override
-  Duration get heartbeatPeriod => const Duration(seconds: 4);
+  Duration get heartbeatPeriod => const Duration(seconds: 2);
 
   @override
-  Duration get packetTimeout => const Duration(seconds: 3);
+  Duration get packetTimeout => const Duration(seconds: 5);
+
+  @override
+  bool get writeWithResponse => true;
 
   @override
   Duration get repeatGap => const Duration(milliseconds: 250);
@@ -107,7 +116,7 @@ class DecentDriver extends ScaleDriver {
 
   /// Grams from a weight packet, null for anything else or a bad checksum.
   static double? parseWeight(List<int> p) {
-    if (p.length < 7 || p[0] != 0x03) return null;
+    if (p.length < 7) return null;
     if (p[1] != 0xCE && p[1] != 0xCA) return null;
     // The checksum is documented over the first six bytes (7-byte packets);
     // for the longer one either reading is accepted.

@@ -487,7 +487,12 @@ class BleScale extends BrewScale {
   Future<void> _write(Uint8List bytes) async {
     final c = _writeChar;
     if (c == null) return;
-    await c.write(bytes, withResponse: !c.isWritableWithoutResponse);
+    final confirmed =
+        (_driver?.writeWithResponse ?? false) && c.isWritableWithResponse;
+    await c.write(
+      bytes,
+      withResponse: confirmed || !c.isWritableWithoutResponse,
+    );
   }
 
   bool _recovering = false;

@@ -47,6 +47,10 @@ abstract class ScaleDriver {
   /// No packet for this long: the link is dead, reconnect.
   Duration get packetTimeout;
 
+  /// Write with response even where the characteristic also takes writes
+  /// without (a lost heartbeat costs the connection).
+  bool get writeWithResponse => false;
+
   /// Read the standard battery characteristic (0x2A19) now and then.
   bool get readsBatteryService => false;
 

@@ -57,6 +57,20 @@ void main() {
         isEmpty,
       );
     });
+
+    test('byte 0 is the model byte, any model is read', () {
+      expect(d.parse(withXor([0x04, 0xCE, 0x07, 0x94, 0x00, 0x00])).weights, [
+        194.0,
+      ]);
+    });
+
+    test('heartbeat well inside the 5 s, the first one right away', () async {
+      expect(d.heartbeatPeriod, const Duration(seconds: 2));
+      expect(d.writeWithResponse, isTrue);
+      final sent = <String>[];
+      await d.start((b) async => sent.add(hex(b)));
+      expect(sent, ['030A0101000108', '030A0101000108', '030A03FFFF000A']);
+    });
   });
 
   group('Bookoo', () {
