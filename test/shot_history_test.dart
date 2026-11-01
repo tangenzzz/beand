@@ -398,6 +398,11 @@ void main() {
       expect(dayGroupLabel(DateTime(2026, 9, 21, 8), now), 'TODAY');
       expect(dayGroupLabel(DateTime(2026, 9, 20, 23, 59), now), 'YESTERDAY');
       expect(dayGroupLabel(DateTime(2026, 9, 19, 9), now), 'SAT · 19 SEP');
+      // Spring forward: yesterday is only 23 h before today's midnight.
+      expect(
+        dayGroupLabel(DateTime(2026, 3, 29, 10), DateTime(2026, 3, 30, 8)),
+        'YESTERDAY',
+      );
       expect(dayGroupLabel(DateTime(2025, 12, 31), now), 'WED · 31 DEC 2025');
     });
 

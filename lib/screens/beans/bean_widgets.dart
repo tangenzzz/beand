@@ -88,17 +88,23 @@ String beanSubtitle(Bean bean) => [
   _clean(bean.processing),
 ].whereType<String>().join(' · ');
 
-// Days since the roast date (by calendar day), null without a roast date.
-int? daysSinceRoast(Bean bean, [DateTime? now]) {
-  final roast = bean.roastDate;
-  if (roast == null) return null;
+// Calendar days from [from] to [now] (never negative). Counted on UTC
+// dates: local midnights are 23 or 25 hours apart around a clock change,
+// and inDays would then lose a day in spring.
+int calendarDaysSince(DateTime from, [DateTime? now]) {
   final today = now ?? DateTime.now();
-  final days = DateTime(
+  final days = DateTime.utc(
     today.year,
     today.month,
     today.day,
-  ).difference(DateTime(roast.year, roast.month, roast.day)).inDays;
+  ).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
   return days < 0 ? 0 : days;
+}
+
+// Days since the roast date (by calendar day), null without a roast date.
+int? daysSinceRoast(Bean bean, [DateTime? now]) {
+  final roast = bean.roastDate;
+  return roast == null ? null : calendarDaysSince(roast, now);
 }
 
 // Days for the freshness ring: from the thaw date if the bean was thawed,
@@ -106,14 +112,7 @@ int? daysSinceRoast(Bean bean, [DateTime? now]) {
 // show the ice ring instead, see BeanRow.)
 int? daysSinceFreshnessStart(Bean bean, [DateTime? now]) {
   final start = bean.thawedDate ?? bean.roastDate;
-  if (start == null) return null;
-  final today = now ?? DateTime.now();
-  final days = DateTime(
-    today.year,
-    today.month,
-    today.day,
-  ).difference(DateTime(start.year, start.month, start.day)).inDays;
-  return days < 0 ? 0 : days;
+  return start == null ? null : calendarDaysSince(start, now);
 }
 
 class BeanGroupHeader extends StatelessWidget {

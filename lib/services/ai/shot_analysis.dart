@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../database/database.dart';
 import '../../models/profile_detail.dart';
+import '../../screens/beans/bean_widgets.dart' show calendarDaysSince;
 import '../../models/shot_facts.dart';
 import '../../models/shot_phases.dart';
 import '../../models/taste_profile.dart';
@@ -253,7 +254,7 @@ String shotAnalysisTask(ShotAnalysisInput input) {
     final roastDate = bean.thawedDate ?? bean.roastDate;
     final age = roastDate == null
         ? null
-        : input.shot.timestamp.difference(roastDate).inDays;
+        : calendarDaysSince(roastDate, input.shot.timestamp);
     for (final line in [
       'Name: ${bean.name}',
       if (_has(bean.roaster)) 'Roaster: ${bean.roaster}',

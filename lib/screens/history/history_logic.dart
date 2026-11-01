@@ -75,7 +75,12 @@ String dateTimeLabel(DateTime t, [DateTime? now]) =>
 // "SAT · 19 SEP".
 String dayGroupLabel(DateTime t, [DateTime? now]) {
   final today = _day(now ?? DateTime.now());
-  final days = today.difference(_day(t)).inDays;
+  // On UTC dates: around a clock change local midnights are 23/25 h apart.
+  final days = DateTime.utc(
+    today.year,
+    today.month,
+    today.day,
+  ).difference(DateTime.utc(t.year, t.month, t.day)).inDays;
   if (days == 0) return 'TODAY';
   if (days == 1) return 'YESTERDAY';
   final year = t.year == today.year ? '' : ' ${t.year}';

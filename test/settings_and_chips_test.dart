@@ -2,6 +2,7 @@ import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/database/database.dart';
 import 'package:beand/screens/beans/bean_form_screen.dart';
+import 'package:beand/screens/beans/bean_widgets.dart';
 import 'package:beand/screens/beans/beans_tab.dart';
 import 'package:beand/screens/beans/freshness.dart';
 import 'package:beand/screens/settings/settings_screen.dart';
@@ -227,7 +228,10 @@ void freshnessTests() {
 
       final settings = AppSettings();
       final db = AppDatabase(NativeDatabase.memory());
-      final roast = DateTime.now().subtract(const Duration(days: 12));
+      // Twelve calendar days back (not 12 × 24 h: across a clock change
+      // that lands on the neighbouring day late in the evening).
+      final now = DateTime.now();
+      final roast = DateTime(now.year, now.month, now.day - 12, 12);
       await tester.runAsync(
         () => db.insertBean(
           BeansCompanion.insert(name: 'Kiambu', roastDate: Value(roast)),
@@ -317,5 +321,16 @@ void freshnessTests() {
     expect(freshnessProgress(30), 0.5);
     expect(freshnessProgress(60), 1.0);
     expect(freshnessProgress(200), 1.0);
+  });
+
+  test('days since roast count calendar days across clock changes', () {
+    // Spring forward (29 Mar 2026): local midnights only 23 h apart.
+    expect(calendarDaysSince(DateTime(2026, 3, 20), DateTime(2026, 3, 30)), 10);
+    // Fall back (25 Oct 2026), late in the evening.
+    expect(
+      calendarDaysSince(DateTime(2026, 10, 20), DateTime(2026, 11, 1, 23, 30)),
+      12,
+    );
+    expect(calendarDaysSince(DateTime(2026, 11, 2), DateTime(2026, 11, 1)), 0);
   });
 }
