@@ -64,6 +64,43 @@ void main() {
       ]);
     });
 
+    test('LED answer: battery and firmware (read off a real scale)', () {
+      final d = DecentDriver();
+      // Half Decent: weight in bytes 2–3, version 3.1.12, no checksum.
+      expect(d.parse([0x03, 0x0A, 0x03, 0x10, 0x4F, 0x03, 0x1C]).battery, 79);
+      expect(d.details, 'firmware Half Decent 3.1.12');
+      // It carries out its buttons itself (if at all): nothing for the app.
+      expect(
+        d.parse(withXor([0x03, 0xAA, 0x01, 0x01, 0x00, 0x00])).button,
+        isNull,
+      );
+      d.reset();
+      // Decent Scale: firmware byte, XOR.
+      expect(
+        d.parse(withXor([0x03, 0x0A, 0x00, 0x00, 0x64, 0x03])).battery,
+        100,
+      );
+      expect(d.details, 'firmware 1.2');
+      // FF = on USB: no level.
+      expect(
+        d.parse(withXor([0x03, 0x0A, 0x00, 0x00, 0xFF, 0x03])).battery,
+        isNull,
+      );
+      expect(hex(d.batteryRequest), '030A0101000108');
+      d.reset();
+      expect(d.details, isNull);
+    });
+
+    test('buttons only report, the app carries them out', () {
+      ScaleButton? press(int button, int kind) =>
+          d.parse(withXor([0x03, 0xAA, button, kind, 0x00, 0x00])).button;
+      expect(press(0x01, 0x01), ScaleButton.tare);
+      expect(press(0x02, 0x01), ScaleButton.timer);
+      expect(press(0x02, 0x02), ScaleButton.timerReset);
+      // O long = power off on the scale itself, nothing for the app.
+      expect(press(0x01, 0x02), isNull);
+    });
+
     test('heartbeat well inside the 5 s, the first one right away', () async {
       expect(d.heartbeatPeriod, const Duration(seconds: 2));
       expect(d.writeWithResponse, isTrue);

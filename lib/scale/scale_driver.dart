@@ -14,9 +14,13 @@ class ScaleChannels {
   final Characteristic write;
 }
 
+/// A button on the scale that, while connected, only reports its press
+/// and leaves the action to the app (Decent).
+enum ScaleButton { tare, timer, timerReset }
+
 /// What one notification packet said.
 class ScalePacket {
-  const ScalePacket({this.weights = const [], this.battery});
+  const ScalePacket({this.weights = const [], this.battery, this.button});
   static const empty = ScalePacket();
 
   /// Grams, oldest first (a packet may carry none or several).
@@ -24,6 +28,9 @@ class ScalePacket {
 
   /// Battery in percent, if the packet tells.
   final int? battery;
+
+  /// A button pressed on the scale, for the app to carry out.
+  final ScaleButton? button;
 }
 
 abstract class ScaleDriver {
@@ -53,6 +60,10 @@ abstract class ScaleDriver {
 
   /// Read the standard battery characteristic (0x2A19) now and then.
   bool get readsBatteryService => false;
+
+  /// Sent once a minute so the scale reports its battery again (for
+  /// scales that only tell it in answer to a command).
+  Uint8List? get batteryRequest => null;
 
   /// New connection: drop half-read state.
   void reset() {}

@@ -252,14 +252,26 @@ class BleScale extends BrewScale {
   @override
   Future<void> tare() => _send(_driver?.tare);
 
-  @override
-  Future<void> startTimer() => _send(_driver?.startTimer);
+  // Whether the scale's timer runs, for its start/stop button.
+  bool _timerRunning = false;
 
   @override
-  Future<void> stopTimer() => _send(_driver?.stopTimer);
+  Future<void> startTimer() {
+    _timerRunning = true;
+    return _send(_driver?.startTimer);
+  }
 
   @override
-  Future<void> resetTimer() => _send(_driver?.resetTimer);
+  Future<void> stopTimer() {
+    _timerRunning = false;
+    return _send(_driver?.stopTimer);
+  }
+
+  @override
+  Future<void> resetTimer() {
+    _timerRunning = false;
+    return _send(_driver?.resetTimer);
+  }
 
   // One command may be several writes (see ScaleDriver.tare).
   Future<void> _send(List<Uint8List>? writes) async {
@@ -406,6 +418,7 @@ class BleScale extends BrewScale {
     final battery = driver.readsBatteryService
         ? find('00002a19-0000-1000-8000-00805f9b34fb')
         : null;
+    _timerRunning = false;
 
     driver.reset();
     _battery = null;
@@ -434,7 +447,13 @@ class BleScale extends BrewScale {
     // driver wants it — read only once weight data is flowing, and only
     // read, never subscribe (see AcaiaDriver.readsBatteryService).
     _batteryTimer?.cancel();
-    if (battery != null) {
+    if (driver.batteryRequest case final ask?) {
+      _batteryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+        _write(ask).catchError((Object e) {
+          debugPrint('BleScale: battery request failed $e');
+        });
+      });
+    } else if (battery != null) {
       Future<void> readBattery() async {
         try {
           final v = await battery.read();
@@ -473,15 +492,32 @@ class BleScale extends BrewScale {
     final hex = hexPacket(packet);
     _packets.add(hex);
     if (_packets.length > _keepPackets) _packets.removeAt(0);
-    if (_packetCount <= 40) debugPrint('BleScale: rx $hex');
-
     final parsed = _driver?.parse(packet) ?? ScalePacket.empty;
+    // The first 40, after that only what carried no weight (buttons,
+    // battery, unknown packets) — weight comes 10× a second.
+    if (_packetCount <= 40 || parsed.weights.isEmpty) {
+      debugPrint('BleScale: rx $hex');
+    }
     for (final g in parsed.weights) {
       _grams = g;
       _readings.add(ScaleReading(g, _lastPacket!));
     }
     if (parsed.battery case final b?) _battery = b;
+    if (parsed.button case final button?) _onButton(button);
     notifyListeners();
+  }
+
+  /// The scale's own buttons, carried out the way the scale does on its own.
+  void _onButton(ScaleButton button) {
+    debugPrint('BleScale: button ${button.name}');
+    final Future<void> done = switch (button) {
+      ScaleButton.tare => tare(),
+      ScaleButton.timer => _timerRunning ? stopTimer() : startTimer(),
+      ScaleButton.timerReset => resetTimer(),
+    };
+    done.catchError((Object e) {
+      debugPrint('BleScale: button ${button.name} failed $e');
+    });
   }
 
   Future<void> _write(Uint8List bytes) async {

@@ -23,6 +23,18 @@ import 'scale_driver.dart';
 ///   without a first beat the scale dropped us every few seconds.
 /// - Byte 0 of a weight packet is the model byte (03 on the Decent
 ///   Scale), so it is not checked.
+/// - LED on/off is answered with the battery in byte 4 (3–100 %, FF = on
+///   USB/charging); LED-on goes again once a minute for a fresh level.
+///   Decent Scale: `03 0A 00 00 battery firmware xor`, firmware FE = 1.0,
+///   02 = 1.1, 03 = 1.2. Half Decent (open firmware, decentespresso/
+///   openscale `buildLedResponsePacket`): bytes 2–3 the weight, 5–6 the
+///   version (BCD major, minor<<4 | patch), no checksum — that is how the
+///   two are told apart.
+/// - Buttons while connected (`03 AA button press …`, button 01 = O,
+///   02 = square; press 01 short, 02 long): the Decent Scale only reports
+///   and leaves tare/timer to the app. The Half Decent does nothing at all
+///   by default and with "BLE Buttons" on in its menu carries them out
+///   itself, so there the app does nothing.
 class DecentDriver extends ScaleDriver {
   static const notifyUuid = '0000fff4-0000-1000-8000-00805f9b34fb';
   static const writeUuid = '000036f5-0000-1000-8000-00805f9b34fb';
@@ -86,6 +98,21 @@ class DecentDriver extends ScaleDriver {
   Uint8List get heartbeat => heartbeatCommand;
 
   @override
+  Uint8List get batteryRequest => ledOnGrams;
+
+  String? _firmware;
+  bool _halfDecent = false;
+
+  @override
+  void reset() {
+    _firmware = null;
+    _halfDecent = false;
+  }
+
+  @override
+  String? get details => _firmware == null ? null : 'firmware $_firmware';
+
+  @override
   Duration get heartbeatPeriod => const Duration(seconds: 2);
 
   @override
@@ -111,7 +138,38 @@ class DecentDriver extends ScaleDriver {
   @override
   ScalePacket parse(List<int> p) {
     final grams = parseWeight(p);
-    return grams == null ? ScalePacket.empty : ScalePacket(weights: [grams]);
+    if (grams != null) return ScalePacket(weights: [grams]);
+    if (p.length < 7) return ScalePacket.empty;
+    switch (p[1]) {
+      case 0x0A:
+        if (xorOf(p, 0, 6) == p[6]) {
+          _firmware =
+              switch (p[5]) {
+                0xFE => '1.0',
+                0x02 => '1.1',
+                0x03 => '1.2',
+                _ => null,
+              } ??
+              _firmware;
+        } else {
+          _halfDecent = true;
+          final major = (p[5] >> 4) * 10 + (p[5] & 0x0F);
+          _firmware = 'Half Decent $major.${p[6] >> 4}.${p[6] & 0x0F}';
+        }
+        final level = p[4];
+        // FF = on USB, no level to show.
+        return ScalePacket(battery: level <= 100 ? level : null);
+      case 0xAA:
+        if (_halfDecent) return ScalePacket.empty;
+        final button = switch ((p[2], p[3])) {
+          (0x01, 0x01) => ScaleButton.tare,
+          (0x02, 0x01) => ScaleButton.timer,
+          (0x02, 0x02) => ScaleButton.timerReset,
+          _ => null,
+        };
+        return ScalePacket(button: button);
+    }
+    return ScalePacket.empty;
   }
 
   /// Grams from a weight packet, null for anything else or a bad checksum.
