@@ -268,9 +268,11 @@ void freshnessTests() {
       await tester.longPress(findInfo('Days since roast'));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(FreshnessLegend), findsOneWidget);
-      expect(find.textContaining('up to 7 d'), findsOneWidget);
-      expect(find.textContaining('8–28 d'), findsOneWidget);
-      expect(find.textContaining('29+ d'), findsOneWidget);
+      // One bar per roast with its window.
+      expect(find.text('1–3 wk'), findsOneWidget);
+      expect(find.text('10d–4 wk'), findsOneWidget);
+      expect(find.text('4–10 wk'), findsOneWidget);
+      expect(find.text('Still resting'), findsOneWidget);
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
       expect(settings.showFreshnessRing, false);
@@ -297,7 +299,7 @@ void freshnessTests() {
 
   // Since the theme rework the levels come from the tokens, no longer from
   // fixed values — the thresholds (7 / 28 days) stayed the same.
-  testWidgets('Freshness: levels follow the theme, ring fills over 60 days', (
+  testWidgets('Freshness: windows by roast level, ring fills over 12 weeks', (
     tester,
   ) async {
     late BuildContext ctx;
@@ -313,13 +315,28 @@ void freshnessTests() {
       ),
     );
     final colors = AppColors.of(ctx);
-    expect(freshnessColor(ctx, 5), colors.heroRingHeating);
-    expect(freshnessColor(ctx, 7), colors.heroRingHeating);
-    expect(freshnessColor(ctx, 8), colors.success);
+    // Dark 1–3 wk, Medium 10 d–4 wk, Light (and ultra light) 4–10 wk.
+    expect(freshnessColor(ctx, 6, 'dark'), colors.heroRingHeating);
+    expect(freshnessColor(ctx, 7, 'dark'), colors.success);
+    expect(freshnessColor(ctx, 21, 'dark'), colors.success);
+    expect(freshnessColor(ctx, 22, 'dark'), colors.textSecondary);
+    expect(freshnessColor(ctx, 9, 'medium'), colors.heroRingHeating);
+    expect(freshnessColor(ctx, 10, 'medium'), colors.success);
+    expect(freshnessColor(ctx, 28, 'medium'), colors.success);
+    expect(freshnessColor(ctx, 29, 'medium'), colors.textSecondary);
+    // 16 days: medium is in its window, light still rests.
+    expect(freshnessColor(ctx, 16, 'light'), colors.heroRingHeating);
+    expect(freshnessColor(ctx, 28, 'light'), colors.success);
+    expect(freshnessColor(ctx, 70, 'light'), colors.success);
+    expect(freshnessColor(ctx, 71, 'light'), colors.textSecondary);
+    expect(freshnessColor(ctx, 16, 'ultra-light'), colors.heroRingHeating);
+    expect(freshnessColor(ctx, 40, 'ultra-light'), colors.success);
+    // No roast level: like medium.
+    expect(freshnessColor(ctx, 9), colors.heroRingHeating);
     expect(freshnessColor(ctx, 28), colors.success);
     expect(freshnessColor(ctx, 29), colors.textSecondary);
-    expect(freshnessProgress(30), 0.5);
-    expect(freshnessProgress(60), 1.0);
+    expect(freshnessProgress(42), 0.5);
+    expect(freshnessProgress(84), 1.0);
     expect(freshnessProgress(200), 1.0);
   });
 

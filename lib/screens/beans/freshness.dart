@@ -4,18 +4,34 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
-// The ring fills over 2 months since roasting.
-const freshnessRingDays = 60;
-// Color stages: freshly roasted (still resting), best window, after that.
-const freshnessRestingMaxDays = 7;
-const freshnessPeakMaxDays = 28;
+// When a roast is usually at its best, in days off roast (or since
+// thawing). A guide, not an expiry date. Ultra light rests like light; a
+// bean without a roast level is read as medium.
+typedef FreshnessWindow = ({String label, int from, int to, String range});
 
-// The stages come from the theme: resting like the heating hero ring, best
-// window like "connected", after that muted.
-Color freshnessColor(BuildContext context, int days) {
+const freshnessWindows = <FreshnessWindow>[
+  (label: 'Dark', from: 7, to: 21, range: '1–3 wk'),
+  (label: 'Medium', from: 10, to: 28, range: '10d–4 wk'),
+  (label: 'Light', from: 28, to: 70, range: '4–10 wk'),
+];
+
+FreshnessWindow freshnessWindowOf(String? roastLevel) => switch (roastLevel) {
+  'dark' => freshnessWindows[0],
+  'light' || 'ultra-light' => freshnessWindows[2],
+  _ => freshnessWindows[1],
+};
+
+// The ring fills over 12 weeks, the span of the longest (light) window
+// plus a little.
+const freshnessRingDays = 84;
+
+// The stages come from the theme: still resting like the heating hero ring,
+// in its window like "connected", past it muted.
+Color freshnessColor(BuildContext context, int days, [String? roastLevel]) {
   final colors = context.colors;
-  if (days <= freshnessRestingMaxDays) return colors.heroRingHeating;
-  if (days <= freshnessPeakMaxDays) return colors.success;
+  final window = freshnessWindowOf(roastLevel);
+  if (days < window.from) return colors.heroRingHeating;
+  if (days <= window.to) return colors.success;
   return colors.textSecondary;
 }
 
@@ -23,9 +39,15 @@ double freshnessProgress(int days) =>
     (days / freshnessRingDays).clamp(0.0, 1.0);
 
 class FreshnessRing extends StatelessWidget {
-  const FreshnessRing({super.key, required this.days, this.size = 40});
+  const FreshnessRing({
+    super.key,
+    required this.days,
+    this.roastLevel,
+    this.size = 40,
+  });
 
   final int days;
+  final String? roastLevel;
   final double size;
 
   @override
@@ -39,7 +61,7 @@ class FreshnessRing extends StatelessWidget {
         child: CustomPaint(
           painter: _RingPainter(
             progress: freshnessProgress(days),
-            color: freshnessColor(context, days),
+            color: freshnessColor(context, days, roastLevel),
             track: context.colors.textPrimary.withValues(alpha: 0.1),
           ),
           child: Center(
@@ -153,34 +175,126 @@ class _RingPainter extends CustomPainter {
       old.progress != progress || old.color != color || old.track != track;
 }
 
-// Small color legend for the ring (in the form below the roast date).
+// The ⓘ explanation of the ring: when each roast is usually good, as bars
+// on a 0–12 week axis, plus what the colors and the ice ring mean.
 class FreshnessLegend extends StatelessWidget {
   const FreshnessLegend({super.key});
 
+  static const _weeks = 12;
+
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 14,
-      runSpacing: 6,
+    final colors = context.colors;
+    final small = TextStyle(color: colors.textSecondary, fontSize: 11);
+    final medium = freshnessWindowOf('medium');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _LegendItem(
-          freshnessColor(context, 0),
-          'Resting · up to $freshnessRestingMaxDays d',
+        Text('Usually good by roast', style: small),
+        const SizedBox(height: 8),
+        for (final w in freshnessWindows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                SizedBox(width: 52, child: Text(w.label, style: small)),
+                Expanded(
+                  child: _WindowBar(window: w, weeks: _weeks),
+                ),
+                SizedBox(
+                  width: 58,
+                  child: Text(w.range, textAlign: TextAlign.end, style: small),
+                ),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            const SizedBox(width: 52),
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  for (final week in [0, 4, 8, 12])
+                    Text(
+                      week == _weeks ? '$week wk' : '$week',
+                      style: TextStyle(
+                        color: colors.textTertiary,
+                        fontSize: 10,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 58),
+          ],
         ),
-        _LegendItem(
-          freshnessColor(context, freshnessRestingMaxDays + 1),
-          'Peak · ${freshnessRestingMaxDays + 1}–$freshnessPeakMaxDays d',
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 14,
+          runSpacing: 6,
+          children: [
+            _LegendItem(freshnessColor(context, 0), 'Still resting'),
+            _LegendItem(freshnessColor(context, medium.from), 'In its window'),
+            _LegendItem(
+              freshnessColor(context, medium.to + 1),
+              'Past its window',
+            ),
+            _LegendItem(colors.ice, 'Frozen · ring starts at thaw'),
+          ],
         ),
-        _LegendItem(
-          freshnessColor(context, freshnessPeakMaxDays + 1),
-          'Past peak · ${freshnessPeakMaxDays + 1}+ d',
-        ),
-        _LegendItem(context.colors.ice, 'Frozen · ring starts at thaw'),
+        const SizedBox(height: 8),
         Text(
-          'Full ring = 2 months',
-          style: TextStyle(color: context.colors.textTertiary, fontSize: 11),
+          'Ultra light counts as light, no roast level as medium. '
+          'Full ring = 12 weeks. A guide, not an expiry date; let taste '
+          'decide.',
+          style: TextStyle(color: colors.textTertiary, fontSize: 11),
         ),
       ],
+    );
+  }
+}
+
+class _WindowBar extends StatelessWidget {
+  const _WindowBar({required this.window, required this.weeks});
+
+  final FreshnessWindow window;
+  final int weeks;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final span = weeks * 7;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final w = box.maxWidth;
+        return SizedBox(
+          height: 8,
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.textPrimary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              Positioned(
+                left: w * window.from / span,
+                width: w * (window.to - window.from) / span,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: colors.success,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -202,9 +316,11 @@ class _LegendItem extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(color: context.colors.textSecondary, fontSize: 11),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(color: context.colors.textSecondary, fontSize: 11),
+          ),
         ),
       ],
     );

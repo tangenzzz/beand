@@ -257,7 +257,7 @@ class BeanRow extends StatelessWidget {
               _LongPress(
                 onLongPress: onFreshLongPress,
                 child: showRing
-                    ? FreshnessRing(days: days)
+                    ? FreshnessRing(days: days, roastLevel: bean.roastLevel)
                     : Text(
                         '$days d',
                         style: TextStyle(
