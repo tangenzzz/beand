@@ -268,11 +268,16 @@ void freshnessTests() {
       await tester.longPress(findInfo('Days since roast'));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.byType(FreshnessLegend), findsOneWidget);
-      // One bar per roast with its window.
-      expect(find.text('1–3 wk'), findsOneWidget);
-      expect(find.text('10d–4 wk'), findsOneWidget);
-      expect(find.text('4–10 wk'), findsOneWidget);
+      // One band per roast, the days where the color changes.
+      for (final days in ['7 d', '21 d', '10 d', '70 d']) {
+        expect(find.text(days), findsOneWidget);
+      }
+      expect(
+        find.text('28 d'),
+        findsNWidgets(2),
+      ); // medium's end, light's start
       expect(find.text('Still resting'), findsOneWidget);
+      expect(find.textContaining('Ultra light'), findsNothing);
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
       expect(settings.showFreshnessRing, false);

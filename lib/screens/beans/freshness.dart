@@ -6,13 +6,14 @@ import '../../theme/app_theme.dart';
 
 // When a roast is usually at its best, in days off roast (or since
 // thawing). A guide, not an expiry date. Ultra light rests like light; a
-// bean without a roast level is read as medium.
-typedef FreshnessWindow = ({String label, int from, int to, String range});
+// bean without a roast level is read as medium. Labels match
+// roastLevelOptions (lowercased = Beans.roastLevel).
+typedef FreshnessWindow = ({String label, int from, int to});
 
 const freshnessWindows = <FreshnessWindow>[
-  (label: 'Dark', from: 7, to: 21, range: '1–3 wk'),
-  (label: 'Medium', from: 10, to: 28, range: '10d–4 wk'),
-  (label: 'Light', from: 28, to: 70, range: '4–10 wk'),
+  (label: 'Dark', from: 7, to: 21),
+  (label: 'Medium', from: 10, to: 28),
+  (label: 'Light', from: 28, to: 70),
 ];
 
 FreshnessWindow freshnessWindowOf(String? roastLevel) => switch (roastLevel) {
@@ -175,80 +176,57 @@ class _RingPainter extends CustomPainter {
       old.progress != progress || old.color != color || old.track != track;
 }
 
-// The ⓘ explanation of the ring: when each roast is usually good, as bars
-// on a 0–12 week axis, plus what the colors and the ice ring mean.
+// The ⓘ explanation of the ring: per roast one band in the ring's own
+// colors — still resting, best time, past its best — on the ring's
+// 12 weeks, the days written where the color changes.
 class FreshnessLegend extends StatelessWidget {
   const FreshnessLegend({super.key});
 
-  static const _weeks = 12;
+  static const _nameWidth = 54.0;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final small = TextStyle(color: colors.textSecondary, fontSize: 11);
     final medium = freshnessWindowOf('medium');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Usually good by roast', style: small),
-        const SizedBox(height: 8),
-        for (final w in freshnessWindows)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              children: [
-                SizedBox(width: 52, child: Text(w.label, style: small)),
-                Expanded(
-                  child: _WindowBar(window: w, weeks: _weeks),
+        for (final w in freshnessWindows) ...[
+          Row(
+            children: [
+              SizedBox(
+                width: _nameWidth,
+                child: Text(
+                  w.label,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 11),
                 ),
-                SizedBox(
-                  width: 58,
-                  child: Text(w.range, textAlign: TextAlign.end, style: small),
-                ),
-              ],
-            ),
-          ),
-        Row(
-          children: [
-            const SizedBox(width: 52),
-            Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  for (final week in [0, 4, 8, 12])
-                    Text(
-                      week == _weeks ? '$week wk' : '$week',
-                      style: TextStyle(
-                        color: colors.textTertiary,
-                        fontSize: 10,
-                      ),
-                    ),
-                ],
               ),
-            ),
-            const SizedBox(width: 58),
-          ],
-        ),
-        const SizedBox(height: 10),
+              Expanded(child: _Band(window: w)),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: _nameWidth, bottom: 6),
+            child: _BandMarks(window: w),
+          ),
+        ],
+        const SizedBox(height: 4),
         Wrap(
           spacing: 14,
           runSpacing: 6,
           children: [
             _LegendItem(freshnessColor(context, 0), 'Still resting'),
-            _LegendItem(freshnessColor(context, medium.from), 'In its window'),
+            _LegendItem(freshnessColor(context, medium.from), 'Best time'),
             _LegendItem(
               freshnessColor(context, medium.to + 1),
-              'Past its window',
+              'Past its best',
             ),
             _LegendItem(colors.ice, 'Frozen · ring starts at thaw'),
           ],
         ),
         const SizedBox(height: 8),
         Text(
-          'Ultra light counts as light, no roast level as medium. '
-          'Full ring = 12 weeks. A guide, not an expiry date; let taste '
-          'decide.',
+          'No roast level counts as medium. A guide, not an expiry date.',
           style: TextStyle(color: colors.textTertiary, fontSize: 11),
         ),
       ],
@@ -256,43 +234,68 @@ class FreshnessLegend extends StatelessWidget {
   }
 }
 
-class _WindowBar extends StatelessWidget {
-  const _WindowBar({required this.window, required this.weeks});
+class _Band extends StatelessWidget {
+  const _Band({required this.window});
 
   final FreshnessWindow window;
-  final int weeks;
 
   @override
   Widget build(BuildContext context) {
-    final colors = context.colors;
-    final span = weeks * 7;
+    final level = window.label.toLowerCase();
+    Widget part(int days, Color color) => Expanded(
+      flex: days,
+      child: ColoredBox(color: color),
+    );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: SizedBox(
+        height: 10,
+        child: Row(
+          children: [
+            part(window.from, freshnessColor(context, 0, level)),
+            part(
+              window.to - window.from,
+              freshnessColor(context, window.from, level),
+            ),
+            part(
+              freshnessRingDays - window.to,
+              freshnessColor(context, window.to + 1, level),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// "7 d" and "21 d" under the band, centered on where the color changes
+// (kept inside the band's width).
+class _BandMarks extends StatelessWidget {
+  const _BandMarks({required this.window});
+
+  final FreshnessWindow window;
+
+  static const _labelWidth = 36.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(color: context.colors.textSecondary, fontSize: 10);
     return LayoutBuilder(
       builder: (context, box) {
         final w = box.maxWidth;
+        Widget mark(int days) {
+          final double left = (w * days / freshnessRingDays - _labelWidth / 2)
+              .clamp(0.0, math.max(0.0, w - _labelWidth));
+          return Positioned(
+            left: left,
+            width: _labelWidth,
+            child: Text('$days d', textAlign: TextAlign.center, style: style),
+          );
+        }
+
         return SizedBox(
-          height: 8,
-          child: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: colors.textPrimary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-              Positioned(
-                left: w * window.from / span,
-                width: w * (window.to - window.from) / span,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colors.success,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          height: 14,
+          child: Stack(children: [mark(window.from), mark(window.to)]),
         );
       },
     );
