@@ -278,6 +278,10 @@ void freshnessTests() {
       ); // medium's end, light's start
       expect(find.text('Still resting'), findsOneWidget);
       expect(find.textContaining('Ultra light'), findsNothing);
+      expect(
+        find.textContaining('your taste has the final say'),
+        findsOneWidget,
+      );
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
       expect(settings.showFreshnessRing, false);

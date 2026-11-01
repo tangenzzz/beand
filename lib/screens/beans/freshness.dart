@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
 // When a roast is usually at its best, in days off roast (or since
-// thawing). A guide, not an expiry date. Ultra light rests like light; a
+// thawing), roughly — taste has the final say. Ultra light rests like light; a
 // bean without a roast level is read as medium. Labels match
 // roastLevelOptions (lowercased = Beans.roastLevel).
 typedef FreshnessWindow = ({String label, int from, int to});
@@ -226,7 +226,8 @@ class FreshnessLegend extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'No roast level counts as medium. A guide, not an expiry date.',
+          'No roast level counts as medium. Rough timings – your taste has '
+          'the final say.',
           style: TextStyle(color: colors.textTertiary, fontSize: 11),
         ),
       ],
