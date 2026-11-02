@@ -187,6 +187,8 @@ ImportedShot _visualizer(Map<String, dynamic> map) {
     temp: _numbers(
       data['espresso_temperature_basket'] ?? data['espresso_temperature_mix'],
     ),
+    mix: _numbers(data['espresso_temperature_mix']),
+    goal: _numbers(data['espresso_temperature_goal']),
     timestamp: _time(map['start_time']),
     profileName: _text(map['profile_title']),
     doseGrams: _number(map['bean_weight']),
@@ -241,6 +243,8 @@ ImportedShot _visualizerCsv(String text) {
       'water_temperature_in',
       'water_temperature_boiler',
     ]),
+    mix: series(['water_temperature_mix']),
+    goal: series(['water_temperature_goal']),
     timestamp: _time(meta['Date']),
     profileName: _text(meta['Name']),
     finalWeight: _number(meta['Weight']),
@@ -276,6 +280,8 @@ ImportedShot _decentJson(Map<String, dynamic> map) {
     weight: _numbers(group('totals')['weight']),
     weightFlow: _numbers(group('flow')['by_weight']),
     temp: _numbers(temperature['basket'] ?? temperature['mix']),
+    mix: _numbers(temperature['mix']),
+    goal: _numbers(temperature['goal']),
     timestamp: _time(map['timestamp']),
     profileName: _text(profile['title']),
     doseGrams: _number(meta['in']),
@@ -312,6 +318,8 @@ ImportedShot _decentTcl(String text) {
     temp: list('espresso_temperature_basket').isNotEmpty
         ? list('espresso_temperature_basket')
         : list('espresso_temperature_mix'),
+    mix: list('espresso_temperature_mix'),
+    goal: list('espresso_temperature_goal'),
     timestamp: clock == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(clock * 1000),
@@ -330,6 +338,8 @@ ImportedShot _fromSeries({
   required List<double> weight,
   required List<double> weightFlow,
   required List<double> temp,
+  List<double> mix = const [],
+  List<double> goal = const [],
   DateTime? timestamp,
   String? profileName,
   double? doseGrams,
@@ -373,6 +383,8 @@ ImportedShot _fromSeries({
           // The boiler/basket sensor sits where the GaggiMate's does, so the
           // temperature curve of the shot detail works the same.
           barUp: Value(at(temp, i)),
+          tempMix: Value(at(mix, i)),
+          tempGoal: Value(at(goal, i)),
         ),
     ],
   );

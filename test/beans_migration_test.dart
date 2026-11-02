@@ -266,4 +266,35 @@ void main() {
     expect(after.grindMarker, 'Soup');
     await db.close();
   });
+
+  test(
+    'migration v24 -> v25: mix and goal temperature, readings stay',
+    () async {
+      final raw = sql.sqlite3.openInMemory();
+      final fresh = AppDatabase(
+        NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+      );
+      await fresh.insertShotWithReadings(
+        ShotsCompanion.insert(timestamp: DateTime(2026, 11, 1)),
+        [
+          (id) => ShotReadingsCompanion.insert(
+            shotId: id,
+            timeMs: 1000,
+            barUp: const Value(92),
+          ),
+        ],
+      );
+      await fresh.close();
+      raw.execute('ALTER TABLE shot_readings DROP COLUMN temp_mix');
+      raw.execute('ALTER TABLE shot_readings DROP COLUMN temp_goal');
+      raw.execute('PRAGMA user_version = 24');
+
+      final db = AppDatabase(NativeDatabase.opened(raw));
+      final reading = (await db.select(db.shotReadings).get()).single;
+      expect(reading.barUp, 92);
+      expect(reading.tempMix, isNull);
+      expect(reading.tempGoal, isNull);
+      await db.close();
+    },
+  );
 }

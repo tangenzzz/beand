@@ -4006,6 +4006,28 @@ class $ShotReadingsTable extends ShotReadings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tempMixMeta = const VerificationMeta(
+    'tempMix',
+  );
+  @override
+  late final GeneratedColumn<double> tempMix = GeneratedColumn<double>(
+    'temp_mix',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tempGoalMeta = const VerificationMeta(
+    'tempGoal',
+  );
+  @override
+  late final GeneratedColumn<double> tempGoal = GeneratedColumn<double>(
+    'temp_goal',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4035,6 +4057,8 @@ class $ShotReadingsTable extends ShotReadings
     waterStatus,
     weightPrediction,
     stage,
+    tempMix,
+    tempGoal,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4244,6 +4268,18 @@ class $ShotReadingsTable extends ShotReadings
         stage.isAcceptableOrUnknown(data['stage']!, _stageMeta),
       );
     }
+    if (data.containsKey('temp_mix')) {
+      context.handle(
+        _tempMixMeta,
+        tempMix.isAcceptableOrUnknown(data['temp_mix']!, _tempMixMeta),
+      );
+    }
+    if (data.containsKey('temp_goal')) {
+      context.handle(
+        _tempGoalMeta,
+        tempGoal.isAcceptableOrUnknown(data['temp_goal']!, _tempGoalMeta),
+      );
+    }
     return context;
   }
 
@@ -4361,6 +4397,14 @@ class $ShotReadingsTable extends ShotReadings
         DriftSqlType.string,
         data['${effectivePrefix}stage'],
       ),
+      tempMix: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}temp_mix'],
+      ),
+      tempGoal: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}temp_goal'],
+      ),
     );
   }
 
@@ -4398,6 +4442,8 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
   final bool? waterStatus;
   final double? weightPrediction;
   final String? stage;
+  final double? tempMix;
+  final double? tempGoal;
   const ShotReading({
     required this.id,
     required this.shotId,
@@ -4426,6 +4472,8 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
     this.waterStatus,
     this.weightPrediction,
     this.stage,
+    this.tempMix,
+    this.tempGoal,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4505,6 +4553,12 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
     if (!nullToAbsent || stage != null) {
       map['stage'] = Variable<String>(stage);
     }
+    if (!nullToAbsent || tempMix != null) {
+      map['temp_mix'] = Variable<double>(tempMix);
+    }
+    if (!nullToAbsent || tempGoal != null) {
+      map['temp_goal'] = Variable<double>(tempGoal);
+    }
     return map;
   }
 
@@ -4583,6 +4637,12 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
       stage: stage == null && nullToAbsent
           ? const Value.absent()
           : Value(stage),
+      tempMix: tempMix == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tempMix),
+      tempGoal: tempGoal == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tempGoal),
     );
   }
 
@@ -4623,6 +4683,8 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
       waterStatus: serializer.fromJson<bool?>(json['waterStatus']),
       weightPrediction: serializer.fromJson<double?>(json['weightPrediction']),
       stage: serializer.fromJson<String?>(json['stage']),
+      tempMix: serializer.fromJson<double?>(json['tempMix']),
+      tempGoal: serializer.fromJson<double?>(json['tempGoal']),
     );
   }
   @override
@@ -4656,6 +4718,8 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
       'waterStatus': serializer.toJson<bool?>(waterStatus),
       'weightPrediction': serializer.toJson<double?>(weightPrediction),
       'stage': serializer.toJson<String?>(stage),
+      'tempMix': serializer.toJson<double?>(tempMix),
+      'tempGoal': serializer.toJson<double?>(tempGoal),
     };
   }
 
@@ -4687,6 +4751,8 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
     Value<bool?> waterStatus = const Value.absent(),
     Value<double?> weightPrediction = const Value.absent(),
     Value<String?> stage = const Value.absent(),
+    Value<double?> tempMix = const Value.absent(),
+    Value<double?> tempGoal = const Value.absent(),
   }) => ShotReading(
     id: id ?? this.id,
     shotId: shotId ?? this.shotId,
@@ -4731,6 +4797,8 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
         ? weightPrediction.value
         : this.weightPrediction,
     stage: stage.present ? stage.value : this.stage,
+    tempMix: tempMix.present ? tempMix.value : this.tempMix,
+    tempGoal: tempGoal.present ? tempGoal.value : this.tempGoal,
   );
   ShotReading copyWithCompanion(ShotReadingsCompanion data) {
     return ShotReading(
@@ -4787,6 +4855,8 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
           ? data.weightPrediction.value
           : this.weightPrediction,
       stage: data.stage.present ? data.stage.value : this.stage,
+      tempMix: data.tempMix.present ? data.tempMix.value : this.tempMix,
+      tempGoal: data.tempGoal.present ? data.tempGoal.value : this.tempGoal,
     );
   }
 
@@ -4819,7 +4889,9 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
           ..write('pressureSensorRaw: $pressureSensorRaw, ')
           ..write('waterStatus: $waterStatus, ')
           ..write('weightPrediction: $weightPrediction, ')
-          ..write('stage: $stage')
+          ..write('stage: $stage, ')
+          ..write('tempMix: $tempMix, ')
+          ..write('tempGoal: $tempGoal')
           ..write(')'))
         .toString();
   }
@@ -4853,6 +4925,8 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
     waterStatus,
     weightPrediction,
     stage,
+    tempMix,
+    tempGoal,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -4884,7 +4958,9 @@ class ShotReading extends DataClass implements Insertable<ShotReading> {
           other.pressureSensorRaw == this.pressureSensorRaw &&
           other.waterStatus == this.waterStatus &&
           other.weightPrediction == this.weightPrediction &&
-          other.stage == this.stage);
+          other.stage == this.stage &&
+          other.tempMix == this.tempMix &&
+          other.tempGoal == this.tempGoal);
 }
 
 class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
@@ -4915,6 +4991,8 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
   final Value<bool?> waterStatus;
   final Value<double?> weightPrediction;
   final Value<String?> stage;
+  final Value<double?> tempMix;
+  final Value<double?> tempGoal;
   const ShotReadingsCompanion({
     this.id = const Value.absent(),
     this.shotId = const Value.absent(),
@@ -4943,6 +5021,8 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
     this.waterStatus = const Value.absent(),
     this.weightPrediction = const Value.absent(),
     this.stage = const Value.absent(),
+    this.tempMix = const Value.absent(),
+    this.tempGoal = const Value.absent(),
   });
   ShotReadingsCompanion.insert({
     this.id = const Value.absent(),
@@ -4972,6 +5052,8 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
     this.waterStatus = const Value.absent(),
     this.weightPrediction = const Value.absent(),
     this.stage = const Value.absent(),
+    this.tempMix = const Value.absent(),
+    this.tempGoal = const Value.absent(),
   }) : shotId = Value(shotId),
        timeMs = Value(timeMs);
   static Insertable<ShotReading> custom({
@@ -5002,6 +5084,8 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
     Expression<bool>? waterStatus,
     Expression<double>? weightPrediction,
     Expression<String>? stage,
+    Expression<double>? tempMix,
+    Expression<double>? tempGoal,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5031,6 +5115,8 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
       if (waterStatus != null) 'water_status': waterStatus,
       if (weightPrediction != null) 'weight_prediction': weightPrediction,
       if (stage != null) 'stage': stage,
+      if (tempMix != null) 'temp_mix': tempMix,
+      if (tempGoal != null) 'temp_goal': tempGoal,
     });
   }
 
@@ -5062,6 +5148,8 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
     Value<bool?>? waterStatus,
     Value<double?>? weightPrediction,
     Value<String?>? stage,
+    Value<double?>? tempMix,
+    Value<double?>? tempGoal,
   }) {
     return ShotReadingsCompanion(
       id: id ?? this.id,
@@ -5091,6 +5179,8 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
       waterStatus: waterStatus ?? this.waterStatus,
       weightPrediction: weightPrediction ?? this.weightPrediction,
       stage: stage ?? this.stage,
+      tempMix: tempMix ?? this.tempMix,
+      tempGoal: tempGoal ?? this.tempGoal,
     );
   }
 
@@ -5178,6 +5268,12 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
     if (stage.present) {
       map['stage'] = Variable<String>(stage.value);
     }
+    if (tempMix.present) {
+      map['temp_mix'] = Variable<double>(tempMix.value);
+    }
+    if (tempGoal.present) {
+      map['temp_goal'] = Variable<double>(tempGoal.value);
+    }
     return map;
   }
 
@@ -5210,7 +5306,9 @@ class ShotReadingsCompanion extends UpdateCompanion<ShotReading> {
           ..write('pressureSensorRaw: $pressureSensorRaw, ')
           ..write('waterStatus: $waterStatus, ')
           ..write('weightPrediction: $weightPrediction, ')
-          ..write('stage: $stage')
+          ..write('stage: $stage, ')
+          ..write('tempMix: $tempMix, ')
+          ..write('tempGoal: $tempGoal')
           ..write(')'))
         .toString();
   }
@@ -8403,6 +8501,8 @@ typedef $$ShotReadingsTableCreateCompanionBuilder =
       Value<bool?> waterStatus,
       Value<double?> weightPrediction,
       Value<String?> stage,
+      Value<double?> tempMix,
+      Value<double?> tempGoal,
     });
 typedef $$ShotReadingsTableUpdateCompanionBuilder =
     ShotReadingsCompanion Function({
@@ -8433,6 +8533,8 @@ typedef $$ShotReadingsTableUpdateCompanionBuilder =
       Value<bool?> waterStatus,
       Value<double?> weightPrediction,
       Value<String?> stage,
+      Value<double?> tempMix,
+      Value<double?> tempGoal,
     });
 
 final class $$ShotReadingsTableReferences
@@ -8593,6 +8695,16 @@ class $$ShotReadingsTableFilterComposer
 
   ColumnFilters<String> get stage => $composableBuilder(
     column: $table.stage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get tempMix => $composableBuilder(
+    column: $table.tempMix,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get tempGoal => $composableBuilder(
+    column: $table.tempGoal,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8759,6 +8871,16 @@ class $$ShotReadingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get tempMix => $composableBuilder(
+    column: $table.tempMix,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get tempGoal => $composableBuilder(
+    column: $table.tempGoal,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$ShotsTableOrderingComposer get shotId {
     final $$ShotsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -8896,6 +9018,12 @@ class $$ShotReadingsTableAnnotationComposer
   GeneratedColumn<String> get stage =>
       $composableBuilder(column: $table.stage, builder: (column) => column);
 
+  GeneratedColumn<double> get tempMix =>
+      $composableBuilder(column: $table.tempMix, builder: (column) => column);
+
+  GeneratedColumn<double> get tempGoal =>
+      $composableBuilder(column: $table.tempGoal, builder: (column) => column);
+
   $$ShotsTableAnnotationComposer get shotId {
     final $$ShotsTableAnnotationComposer composer = $composerBuilder(
       composer: this,
@@ -8975,6 +9103,8 @@ class $$ShotReadingsTableTableManager
                 Value<bool?> waterStatus = const Value.absent(),
                 Value<double?> weightPrediction = const Value.absent(),
                 Value<String?> stage = const Value.absent(),
+                Value<double?> tempMix = const Value.absent(),
+                Value<double?> tempGoal = const Value.absent(),
               }) => ShotReadingsCompanion(
                 id: id,
                 shotId: shotId,
@@ -9003,6 +9133,8 @@ class $$ShotReadingsTableTableManager
                 waterStatus: waterStatus,
                 weightPrediction: weightPrediction,
                 stage: stage,
+                tempMix: tempMix,
+                tempGoal: tempGoal,
               ),
           createCompanionCallback:
               ({
@@ -9033,6 +9165,8 @@ class $$ShotReadingsTableTableManager
                 Value<bool?> waterStatus = const Value.absent(),
                 Value<double?> weightPrediction = const Value.absent(),
                 Value<String?> stage = const Value.absent(),
+                Value<double?> tempMix = const Value.absent(),
+                Value<double?> tempGoal = const Value.absent(),
               }) => ShotReadingsCompanion.insert(
                 id: id,
                 shotId: shotId,
@@ -9061,6 +9195,8 @@ class $$ShotReadingsTableTableManager
                 waterStatus: waterStatus,
                 weightPrediction: weightPrediction,
                 stage: stage,
+                tempMix: tempMix,
+                tempGoal: tempGoal,
               ),
           withReferenceMapper: (p0) => p0
               .map(

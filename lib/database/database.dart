@@ -201,6 +201,11 @@ class ShotReadings extends Table {
   // Name of the profile stage at this point ("Percolation", ...; at the end
   // "retracting") — the phases in the chart are derived from it.
   TextColumn get stage => text().nullable()();
+  // Decent shot files (de1app, visualizer.coffee) also carry the mix
+  // temperature and the profile's goal next to the basket (stored in
+  // barUp): the shot detail's own temperature chart.
+  RealColumn get tempMix => real().nullable()();
+  RealColumn get tempGoal => real().nullable()();
 }
 
 // How often a profile was used in the app (for the profile view).
@@ -280,7 +285,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 24;
+  int get schemaVersion => 25;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -445,6 +450,22 @@ class AppDatabase extends _$AppDatabase {
       if (from >= 15 && from < 22) {
         // Roast level (below 15: rebuilt above).
         await m.addColumn(beans, beans.roastLevel);
+      }
+      if (from < 25) {
+        // Mix and goal temperature from Decent shot files. Only where
+        // missing: databases set up at an older version by the current
+        // table definition (tests) already have them.
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(shot_readings)',
+          ).get())
+            row.read<String>('name'),
+        };
+        for (final column in [shotReadings.tempMix, shotReadings.tempGoal]) {
+          if (!existing.contains(column.name)) {
+            await m.addColumn(shotReadings, column);
+          }
+        }
       }
     },
   );

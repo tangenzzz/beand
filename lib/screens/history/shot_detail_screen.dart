@@ -27,6 +27,7 @@ import '../settings/gear_dialogs.dart';
 import 'history_logic.dart';
 import 'history_widgets.dart';
 import 'new_shot_header.dart';
+import 'temperature_chart.dart';
 import 'shot_analysis_section.dart';
 import 'shot_facts_section.dart';
 import 'shot_chart.dart';
@@ -105,6 +106,8 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
   double? _yieldDraft;
   double? _tempDraft;
   Timer? _numbersDebounce;
+  // The temperature chart of Decent files: folded away by default.
+  bool _temperatureOpen = false;
 
   @override
   void initState() {
@@ -1018,6 +1021,78 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               cursorMs: effectiveCursor,
               showStage: showStage,
             ),
+        ],
+        // Decent files: basket, mix and goal temperature in their own chart,
+        // folded away until asked for, right above Compare.
+        if (readings != null && TemperatureChart.hasData(readings)) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Divider(height: 1, color: context.colors.divider),
+          ),
+          InkWell(
+            key: const ValueKey('temperature-toggle'),
+            onTap: () => setState(() => _temperatureOpen = !_temperatureOpen),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.thermostat_outlined,
+                    size: 18,
+                    color: context.colors.textSecondary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Temperature',
+                      style: TextStyle(
+                        color: context.colors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _temperatureOpen ? Icons.expand_less : Icons.expand_more,
+                    size: 22,
+                    color: context.colors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_temperatureOpen) ...[
+            Row(
+              children: [
+                _Stat(
+                  'Basket',
+                  cur(now?.barUp, 1),
+                  '°C',
+                  null,
+                  color: TemperatureChart.basketColor(context),
+                ),
+                _Stat(
+                  'Mix',
+                  cur(now?.tempMix, 1),
+                  '°C',
+                  null,
+                  color: TemperatureChart.mixColor(context),
+                ),
+                _Stat(
+                  'Goal',
+                  cur(now?.tempGoal, 1),
+                  '°C',
+                  null,
+                  color: TemperatureChart.goalColor(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            TemperatureChart(
+              readings: readings,
+              cursorMs: effectiveCursor,
+              onCursorChanged: (ms) => setState(() => _cursorMs = ms),
+            ),
+          ],
         ],
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),

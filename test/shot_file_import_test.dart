@@ -86,7 +86,8 @@ void main() {
  "pressure": {"pressure": [0, 3.0, 8.5]},
  "flow": {"flow": [0, 1.0, 2.1], "by_weight": [0, 0.2, 1.8]},
  "totals": {"weight": [0, 0.3, 36.0]},
- "temperature": {"basket": [91, 92, 92]},
+ "temperature": {"basket": [91, 92, 92], "mix": [93, 93.5, 93.2],
+                 "goal": [94, 94, 93]},
  "profile": {"title": "Default"},
  "meta": {"in": 18, "out": 36.5, "grinder": {"setting": "11"}}}
 '''),
@@ -98,6 +99,10 @@ void main() {
     expect(json.grind, '11');
     expect(json.durationMs, 28000);
     expect(json.readings, hasLength(3));
+    // Basket as the one temperature (barUp), mix and goal next to it.
+    expect(json.readings.last(1).barUp.value, 92);
+    expect(json.readings.last(1).tempMix.value, 93.2);
+    expect(json.readings.last(1).tempGoal.value, 93);
 
     final tcl = parseShotFile(
       text('''
@@ -108,6 +113,8 @@ espresso_weight {0.0 0.0 35.1}
 espresso_flow {0.0 1.0 2.0}
 espresso_flow_weight {0.0 0.0 1.7}
 espresso_temperature_basket {90.0 91.5 92.0}
+espresso_temperature_mix {92.0 92.5 92.8}
+espresso_temperature_goal {93.0 93.0 92.0}
 settings {
 \tprofile_title {Londinium}
 \tdrink_weight 36.0
@@ -124,6 +131,8 @@ settings {
     expect(tcl.durationMs, 27500);
     expect(tcl.timestamp, DateTime.fromMillisecondsSinceEpoch(1761811200000));
     expect(tcl.readings.last(1).pressure.value, 9.0);
+    expect(tcl.readings.last(1).tempMix.value, 92.8);
+    expect(tcl.readings.last(1).tempGoal.value, 92.0);
   });
 
   test('visualizer.coffee CSV export (a real one)', () {
