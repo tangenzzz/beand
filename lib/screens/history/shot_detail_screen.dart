@@ -26,6 +26,7 @@ import '../live/ruler_picker.dart';
 import '../settings/gear_dialogs.dart';
 import 'history_logic.dart';
 import 'history_widgets.dart';
+import 'new_shot_header.dart';
 import 'shot_analysis_section.dart';
 import 'shot_facts_section.dart';
 import 'shot_chart.dart';
@@ -33,7 +34,20 @@ import 'shot_share_screen.dart';
 
 // Expandable list below the card: Compare, Bean, Dose or Grind — never more
 // than one at a time (as in the pre-shot card).
-enum _Open { compare, bean, dose, grind, chain }
+enum _Open {
+  compare,
+  bean,
+  dose,
+  grind,
+  chain,
+  // Only for a shot added by hand (NewShotHeader and its numbers).
+  method,
+  profile,
+  time,
+  yield,
+  ratio,
+  temp,
+}
 
 // All stored data of a shot in one card: header with rating (tappable) and
 // bean (tappable, editable afterwards), metrics (dose/grind editable by tap,
@@ -44,9 +58,19 @@ class ShotDetailScreen extends StatefulWidget {
     super.key,
     required this.shotId,
     this.analyse = false,
+    this.isNew = false,
+    this.pickFile,
   });
 
   final int shotId;
+
+  /// A shot just added by hand ("+" in the History header): brew method,
+  /// date, profile and curve on top, time/yield/ratio/temp editable too;
+  /// "Save" keeps it, the cross discards it.
+  final bool isNew;
+
+  /// Tests hand in the shot file for [isNew]; otherwise the file picker.
+  final Future<Uint8List?> Function()? pickFile;
 
   /// Opened from the post-shot card: start the analysis right away (if there
   /// is none yet) and scroll the section into view.
@@ -76,6 +100,11 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
   double? _grindDraft;
   String? _markerDraft;
   Timer? _writeDebounce;
+  // Shot added by hand: the numbers an import would bring.
+  double? _secondsDraft;
+  double? _yieldDraft;
+  double? _tempDraft;
+  Timer? _numbersDebounce;
 
   @override
   void initState() {
@@ -84,16 +113,21 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
       if (!mounted) return;
       setState(() => _entry = entry);
     });
+    _loadReadings();
+    _beansSub = _db.watchBeans().listen((beans) {
+      if (!mounted) return;
+      setState(() => _beanList = beans);
+    });
+  }
+
+  void _loadReadings() {
     _db.readingsFor(widget.shotId).then((r) {
       if (!mounted) return;
       setState(() {
         _readings = _withScaleFlow(r);
         _phases = computePhases(r);
+        _cursorMs = null;
       });
-    });
-    _beansSub = _db.watchBeans().listen((beans) {
-      if (!mounted) return;
-      setState(() => _beanList = beans);
     });
   }
 
@@ -102,7 +136,41 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
     _sub.cancel();
     _beansSub.cancel();
     _writeDebounce?.cancel();
+    _numbersDebounce?.cancel();
     super.dispose();
+  }
+
+  // Cross on a shot added by hand: it goes again (it was stored right away,
+  // like every change in the detail).
+  Future<void> _discard() async {
+    await _db.deleteShots([widget.shotId]);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  // Time, yield, temp of a shot added by hand, debounced like dose/grind.
+  void _setNumbers({double? seconds, double? yieldGrams, double? temp}) {
+    setState(() {
+      _secondsDraft = seconds ?? _secondsDraft;
+      _yieldDraft = yieldGrams ?? _yieldDraft;
+      _tempDraft = temp ?? _tempDraft;
+    });
+    _numbersDebounce?.cancel();
+    _numbersDebounce = Timer(const Duration(milliseconds: 400), () {
+      _db.updateShotFields(
+        widget.shotId,
+        ShotsCompanion(
+          durationMs: _secondsDraft == null
+              ? const Value.absent()
+              : Value((_secondsDraft! * 1000).round()),
+          finalWeight: _yieldDraft == null
+              ? const Value.absent()
+              : Value(_yieldDraft),
+          profileTemp: _tempDraft == null
+              ? const Value.absent()
+              : Value(_tempDraft),
+        ),
+      );
+    });
   }
 
   void _toggle(_Open list) {
@@ -278,23 +346,49 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
   Widget build(BuildContext context) {
     final entry = _entry;
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Text(
-          entry == null ? '' : dateTimeLabel(entry.shot.timestamp),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Share',
-            icon: Icon(
-              Icons.share_outlined,
-              color: context.colors.textSecondary,
+      appBar: widget.isNew
+          ? AppBar(
+              leading: IconButton(
+                tooltip: 'Discard',
+                icon: const Icon(Icons.close),
+                onPressed: _discard,
+              ),
+              title: Text(
+                entry != null && _isPourOver(entry.shot)
+                    ? 'New brew'
+                    : 'New shot',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    foregroundColor: context.colors.accent,
+                  ),
+                  child: const Text('Save'),
+                ),
+                const SizedBox(width: 8),
+              ],
+            )
+          : AppBar(
+              titleSpacing: 0,
+              title: Text(
+                entry == null ? '' : dateTimeLabel(entry.shot.timestamp),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Share',
+                  icon: Icon(
+                    Icons.share_outlined,
+                    color: context.colors.textSecondary,
+                  ),
+                  onPressed: entry == null ? null : _share,
+                ),
+              ],
             ),
-            onPressed: entry == null ? null : _share,
-          ),
-        ],
-      ),
       body: entry == null
           ? const SizedBox.shrink()
           : SingleChildScrollView(
@@ -318,19 +412,20 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                   ),
                   // Delete at the very end, clearly separated from the
                   // content — the same button as in the profile (instead of
-                  // an icon in the title bar).
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 20, 10, 4),
-                    child: AppButton(
-                      label: _isPourOver(entry.shot)
-                          ? 'Delete brew'
-                          : 'Delete shot',
-                      icon: Icons.delete_outline,
-                      variant: AppButtonVariant.destructive,
-                      expand: true,
-                      onPressed: _delete,
+                  // an icon in the title bar). A new shot has the cross.
+                  if (!widget.isNew)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 20, 10, 4),
+                      child: AppButton(
+                        label: _isPourOver(entry.shot)
+                            ? 'Delete brew'
+                            : 'Delete shot',
+                        icon: Icons.delete_outline,
+                        variant: AppButtonVariant.destructive,
+                        expand: true,
+                        onPressed: _delete,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -354,6 +449,28 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           ? r.copyWith(flow: Value(r.gravimetricFlow))
           : r,
   ];
+
+  Widget _ruler(
+    String key, {
+    required double value,
+    required double min,
+    required double max,
+    required double step,
+    required String unit,
+    required ValueChanged<double> onChanged,
+  }) => Padding(
+    padding: const EdgeInsets.only(top: 10),
+    child: RulerPicker(
+      key: ValueKey(key),
+      value: value.clamp(min, max),
+      min: min,
+      max: max,
+      step: step,
+      unit: unit,
+      showLabels: false,
+      onChanged: onChanged,
+    ),
+  );
 
   // Brewed with (or, for older shots, the grinder) — tappable when there are
   // chains to pick from.
@@ -519,9 +636,43 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
 
     final grindNote = fromZeroNote();
 
+    // Shot added by hand: its numbers can be set like dose and grind.
+    final editable = widget.isNew;
+    final secs =
+        _secondsDraft ??
+        (shot.durationMs == null ? null : shot.durationMs! / 1000);
+    final yieldGrams = _yieldDraft ?? shot.finalWeight;
+    final profileTemp = _tempDraft ?? shot.profileTemp;
+    VoidCallback? tapIf(_Open list) => editable ? () => _toggle(list) : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (editable) ...[
+          NewShotHeader(
+            shot: shot,
+            pickFile: widget.pickFile,
+            openList: switch (_open) {
+              _Open.method => 'method',
+              _Open.profile => 'profile',
+              _ => null,
+            },
+            onToggle: (list) =>
+                _toggle(list == 'method' ? _Open.method : _Open.profile),
+            onClose: _close,
+            onCurveLoaded: () {
+              setState(() {
+                _secondsDraft = null;
+                _yieldDraft = null;
+                _tempDraft = null;
+                _doseDraft = null;
+                _grindDraft = null;
+              });
+              _loadReadings();
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
         InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: () => _toggle(_Open.bean),
@@ -642,21 +793,27 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           children: [
             _Stat(
               'Time',
-              t(shot.durationMs),
+              secs == null ? null : t((secs * 1000).round()),
               's',
               otherOf(t(other?.durationMs)),
+              onTap: tapIf(_Open.time),
+              active: _open == _Open.time,
             ),
             _Stat(
-              'Yield',
-              g(shot.finalWeight),
+              isPourOver ? 'Water' : 'Yield',
+              g(yieldGrams),
               'g',
               otherOf(g(other?.finalWeight)),
+              onTap: tapIf(_Open.yield),
+              active: _open == _Open.yield,
             ),
             _Stat(
               'Temp',
-              temp(shot.profileTemp),
+              temp(profileTemp),
               '°C',
               otherOf(temp(other?.profileTemp)),
+              onTap: tapIf(_Open.temp),
+              active: _open == _Open.temp,
             ),
           ],
         ),
@@ -673,9 +830,11 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             ),
             _Stat(
               'Ratio',
-              '1:${(dose > 0 ? (shot.finalWeight ?? 0) / dose : 0).toStringAsFixed(1)}',
+              '1:${(dose > 0 ? (yieldGrams ?? 0) / dose : 0).toStringAsFixed(1)}',
               '',
               otherOf(other == null ? null : ratio(other)),
+              onTap: tapIf(_Open.ratio),
+              active: _open == _Open.ratio,
             ),
             _Stat(
               'Grind',
@@ -708,6 +867,50 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               showLabels: false,
               onChanged: _setDose,
             ),
+          ),
+        // Rulers for a shot added by hand, like dose and grind.
+        if (_open == _Open.time)
+          _ruler(
+            'time',
+            value: secs ?? (isPourOver ? 180 : 30),
+            min: 0,
+            max: isPourOver ? 600 : 120,
+            step: isPourOver ? 5 : 0.5,
+            unit: 's',
+            onChanged: (v) => _setNumbers(seconds: v),
+          ),
+        if (_open == _Open.yield)
+          _ruler(
+            'yield',
+            value: yieldGrams ?? (isPourOver ? 250 : 36),
+            min: 0,
+            max: isPourOver ? 600 : 100,
+            step: isPourOver ? 1 : 0.1,
+            unit: 'g',
+            onChanged: (v) => _setNumbers(yieldGrams: v),
+          ),
+        // Ratio sets the yield from the dose.
+        if (_open == _Open.ratio)
+          _ruler(
+            'ratio',
+            value: dose > 0 && yieldGrams != null
+                ? yieldGrams / dose
+                : (isPourOver ? 16 : 2),
+            min: 1,
+            max: isPourOver ? 20 : 5,
+            step: 0.1,
+            unit: '',
+            onChanged: (v) => _setNumbers(yieldGrams: v * dose),
+          ),
+        if (_open == _Open.temp)
+          _ruler(
+            'temp',
+            value: profileTemp ?? 93,
+            min: 75,
+            max: 100,
+            step: 0.5,
+            unit: '°C',
+            onChanged: (v) => _setNumbers(temp: v),
           ),
         if (_open == _Open.grind)
           Padding(

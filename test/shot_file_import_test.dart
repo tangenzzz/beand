@@ -4,11 +4,12 @@ import 'dart:typed_data';
 
 import 'package:beand/database/database.dart';
 import 'package:beand/models/shot_file_import.dart';
-import 'package:beand/screens/history/new_shot_screen.dart';
+import 'package:beand/screens/history/shot_detail_screen.dart';
 import 'package:beand/services/ai/ai_key_store.dart';
 import 'package:beand/services/ai/ai_settings.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -136,7 +137,7 @@ settings {
     );
   });
 
-  testWidgets('New shot: a file fills the form, Save stores shot and curve', (
+  testWidgets('New shot = the shot detail with method, profile, curve on top', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(800, 2400);
@@ -144,7 +145,27 @@ settings {
     addTearDown(tester.view.reset);
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(() => tester.runAsync(db.close));
-    int? savedId;
+    late int id;
+    await tester.runAsync(() async {
+      await db.upsertStoredProfile(
+        StoredProfilesCompanion.insert(
+          id: 'p1',
+          machine: const Value('gaggimate'),
+          name: 'Turbo',
+          json: '{"temperature": 94}',
+          fetchedAt: DateTime(2026, 10, 1),
+        ),
+      );
+      await db.insertBean(BeansCompanion.insert(name: 'Guji'));
+      id = await db.insertManualShot('meticulous');
+    });
+    Future<void> settle() async {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 200)),
+      );
+      await tester.pump();
+    }
+
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -156,13 +177,17 @@ settings {
         ],
         child: MaterialApp(
           theme: buildAppTheme(),
-          home: NewShotScreen(
+          home: ShotDetailScreen(
+            shotId: id,
+            isNew: true,
             pickFile: () async => text(visualizerShot),
-            onSaved: (_, id) => savedId = id,
           ),
         ),
       ),
     );
+    await settle();
+    expect(find.text('New shot'), findsOneWidget);
+    expect(find.text('Delete shot'), findsNothing); // the cross discards
 
     // Every brew method is on offer.
     await tester.tap(find.text('Brew method'));
@@ -171,35 +196,80 @@ settings {
       expect(find.text(label), findsWidgets);
     }
     await tester.tap(find.text('GaggiMate').last);
-    await tester.pumpAndSettle();
+    await settle();
 
-    await tester.tap(find.text('Load shot file'));
+    // The profiles of that method.
+    await tester.tap(find.text('Profile'));
+    await settle();
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Turbo'));
+    await settle();
+
+    // Yield by its ruler, the stats like in every shot.
+    expect(find.text('YIELD'), findsWidgets);
+    expect(find.text('RATIO'), findsOneWidget);
+
+    await tester.tap(find.text('Curve'));
+    await settle();
+    await settle();
     expect(find.text('visualizer.coffee shot · 4 points'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Blooming Espresso'), findsOneWidget);
-    expect(find.widgetWithText(TextField, '40.2'), findsOneWidget);
-    expect(find.widgetWithText(TextField, '30.1'), findsOneWidget);
-
-    await tester.tap(find.text('Save'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 200)),
-    );
-    await tester.pump();
+    // Save just closes: everything is already stored, like every change in
+    // the shot detail. Unmount before reading the database, so its watchers
+    // don't leave timers behind.
+    expect(find.text('Save'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
 
     final shot = (await tester.runAsync(() => db.select(db.shots).get()))!
         .single;
     expect(shot.machine, 'gaggimate'); // the file didn't say, the choice stays
-    expect(shot.profileName, 'Blooming Espresso');
+    expect(shot.profileName, 'Blooming Espresso'); // the file's wins
+    expect(shot.profileTemp, 94); // from the picked profile
     expect(shot.doseGrams, 18.0);
     expect(shot.finalWeight, 40.2);
     expect(shot.durationMs, 30100);
     expect(shot.grindSize, '2.4');
-    expect(shot.externalId, isNull);
-    final readings = (await tester.runAsync(
-      () => db.select(db.shotReadings).get(),
-    ))!;
+    final readings = (await tester.runAsync(() => db.readingsFor(shot.id)))!;
     expect(readings, hasLength(4));
-    // Then on to the shot (detail) with the new ID.
-    expect(savedId, shot.id);
+
+    expect(shot.deletedAt, isNull);
+  });
+
+  testWidgets('New shot: the cross discards the shot again', (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(() => tester.runAsync(db.close));
+    final id = (await tester.runAsync(() => db.insertManualShot('pourover')))!;
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(value: AppSettings()),
+          ChangeNotifierProvider<AiSettings>.value(
+            value: AiSettings(keyStore: InMemoryAiKeyStore()),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: ShotDetailScreen(shotId: id, isNew: true),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+    expect(find.text('New brew'), findsOneWidget);
+    expect(find.text('Recipe'), findsOneWidget);
+    expect(find.text('WATER'), findsOneWidget);
+    await tester.tap(find.byTooltip('Discard'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    // Unmount before reading the database (see above).
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    final shot = (await tester.runAsync(() => db.select(db.shots).get()))!
+        .single;
+    expect(shot.deletedAt, isNotNull);
   });
 }

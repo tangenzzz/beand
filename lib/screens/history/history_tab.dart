@@ -7,13 +7,13 @@ import '../root_scaffold.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
+import '../../services/app_settings.dart';
 import '../../services/shot_sync_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/header_icon_button.dart';
 import 'history_filter_sheet.dart';
 import 'history_logic.dart';
 import 'history_widgets.dart';
-import 'new_shot_screen.dart';
 import 'shot_detail_screen.dart';
 
 // List of all shots, grouped by day (design follows the bean list: search +
@@ -107,6 +107,22 @@ class _HistoryTabState extends State<HistoryTab> {
     if (!confirmed || !mounted) return;
     await context.read<AppDatabase>().deleteShots(ids);
     if (mounted) setState(_selected.clear);
+  }
+
+  // Starts as an empty shot of the first brew method on Home; the shot
+  // detail (in its "new" mode) fills it, its cross discards it again.
+  Future<void> _addShot() async {
+    final modes = context.read<AppSettings>().enabledHomeModes;
+    final machine = modes.isEmpty
+        ? ShotMachine.values.first
+        : shotMachineForHomeMode(modes.first);
+    final id = await context.read<AppDatabase>().insertManualShot(machine.key);
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ShotDetailScreen(shotId: id, isNew: true),
+      ),
+    );
   }
 
   void _openShot(ShotEntry entry) {
@@ -214,9 +230,7 @@ class _HistoryTabState extends State<HistoryTab> {
         HeaderIconButton(
           tooltip: 'Add shot',
           icon: Icon(Icons.add, color: context.colors.textSecondary),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const NewShotScreen()),
-          ),
+          onPressed: _addShot,
         ),
         HeaderIconButton(
           tooltip: 'Settings',

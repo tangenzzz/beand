@@ -990,6 +990,29 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// Any fields of a shot at once (a shot added by hand: brew method, time,
+  /// profile, numbers, values from a shot file).
+  Future<void> updateShotFields(int id, ShotsCompanion c) => _writeShot(id, c);
+
+  /// A shot added by hand starts empty, on [machine], now; the user fills
+  /// it in the shot detail (or discards it again).
+  Future<int> insertManualShot(String machine) => insertShotWithReadings(
+    ShotsCompanion.insert(timestamp: DateTime.now(), machine: Value(machine)),
+    const [],
+  );
+
+  /// The curve of a shot replaced (shot file loaded for a shot added by
+  /// hand).
+  Future<void> replaceShotReadings(
+    int shotId,
+    List<ShotReadingsCompanion Function(int shotId)> readings,
+  ) => transaction(() async {
+    await (delete(shotReadings)..where((r) => r.shotId.equals(shotId))).go();
+    await batch((b) {
+      b.insertAll(shotReadings, [for (final r in readings) r(shotId)]);
+    });
+  });
+
   Future<void> setShotDose(int id, double? dose) =>
       _writeShot(id, ShotsCompanion(doseGrams: Value(dose)));
 
@@ -998,9 +1021,7 @@ class AppDatabase extends _$AppDatabase {
         id,
         ShotsCompanion(
           grindSize: Value(grind),
-          grindMarker: marker == null
-              ? const Value.absent()
-              : Value(marker),
+          grindMarker: marker == null ? const Value.absent() : Value(marker),
         ),
       );
 
