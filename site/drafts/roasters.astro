@@ -1,0 +1,35 @@
+---
+import Base from '../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../i18n/ui';
+---
+<Base lang="en" route="roasters" title="For roasters" description="How bean'd lists specialty coffees in its catalog, what we use, and how you control your listing.">
+  <section class="wrap prose" style="padding:4rem 0 0">
+    <h1>Your coffees, properly linked.</h1>
+    <p class="muted" style="font-size:1.2rem">bean'd helps people log their beans and shots. The roaster catalog makes sure your coffee shows up in the app with the right details, and every bean links back to your shop.</p>
+
+    <h2>What we use</h2>
+    <ul>
+      <li>Facts from your shop: name, origin, process, variety, producer, roast level, tasting notes, bag sizes and prices</li>
+      <li>Whether a coffee is currently available</li>
+      <li>A link to the product page in your shop</li>
+    </ul>
+
+    <h2>What we don't use</h2>
+    <ul>
+      <li>No description texts</li>
+      <li>No product photos or logo unless you explicitly allow it. If you do, we host them ourselves, resized and credited to you.</li>
+      <li>We don't sell anything and don't take money from roasters.</li>
+    </ul>
+
+    <h2>How it works</h2>
+    <p>Once a night a script reads the public product data of listed shops. Only new or changed products are processed. The result is an open catalog file the app downloads. The app itself never contacts your shop.</p>
+
+    <h2>You're in control</h2>
+    <ul>
+      <li><strong>Get listed:</strong> email us or suggest your roastery on GitHub.</li>
+      <li><strong>Allow images & logo:</strong> a short email is enough.</li>
+      <li><strong>Corrections or opt-out:</strong> email us and your shop is gone with the next run.</li>
+    </ul>
+    <p><a class="btn primary" href={`mailto:${CONTACT_EMAIL}?subject=Roaster%20catalog`}>{CONTACT_EMAIL}</a></p>
+  </section>
+</Base>

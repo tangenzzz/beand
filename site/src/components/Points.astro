@@ -1,0 +1,12 @@
+---
+// A section's points: bold keyword (`t`) over a grey half-sentence (`d`).
+// `fn` adds the footnote mark ¹ (AI features need your own API key).
+export interface Point { t: string; d: string; fn?: boolean }
+interface Props { items: Point[] }
+const { items } = Astro.props;
+---
+<ul class="points">
+  {items.map((p) => (
+    <li><b>{p.t}</b><span>{p.d}{p.fn && <sup class="fn-mark">1</sup>}</span></li>
+  ))}
+</ul>

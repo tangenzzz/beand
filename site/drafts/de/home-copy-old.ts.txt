@@ -1,0 +1,105 @@
+// Old German home-page copy, kept for reference. Outdated: rewrite from the English texts before use.
+
+const de: HomeCopy = {
+  hero: {
+    eyebrow: 'Shot-Tracking für Specialty Coffee',
+    title: 'Das Logbuch für deine Espresso­maschine.',
+    lead: 'bean’d spricht mit deiner Meticulous oder GaggiMate, begleitet jeden Shot vom Einstellen bis zum Verkosten und behält jede Kurve, Bohne und Notiz auf deinem Handy, auch wenn die Maschine sie längst vergessen hat.',
+    cta: 'Auf GitHub ansehen',
+    cta2: 'Rundgang',
+    note: 'Kostenlos und Open Source. Zuerst Android, iOS ist im Test.',
+  },
+  stories: [
+    {
+      id: 'cycle',
+      eyebrow: 'Pre · Live · Post',
+      title: 'Eine Kachel, die den ganzen Shot begleitet.',
+      body: 'Vor dem Shot stellst du Profil, Bohne, Dosis und Mahlgrad ein. Während des Shots wird die Kachel zur Live-Kurve. Danach fragt sie nach Sternen, Geschmack und Notiz und speichert alles zusammen. Die Kachel springt von selbst weiter, auch wenn du den Shot an der Maschine oder in einer anderen App startest.',
+      points: ['Pre-Shot-Setup mit Autostart, sobald die Maschine stabil ist', 'Live-Kurven während des Bezugs', 'Bewertung und Notiz nach dem Shot, als ein Eintrag gespeichert', 'Mahlgrad als Abstand zum Nullpunkt der Scheiben'],
+      images: [{ src: '/screens/home-preshot.webp', alt: 'Pre-Shot-Kachel mit Profil, Bohne, Dosis und Mahlgrad, darunter die Profile' }],
+    },
+    {
+      id: 'chart',
+      eyebrow: 'Shot-Analyse',
+      title: 'Sieh, was in der Tasse wirklich passiert ist.',
+      body: 'Gewicht, Flow und Druck in einem Chart, darunter die Phasen des Profils. bean’d prüft jede Phase einzeln (Stocken, Channeling, Abweichung vom Ziel), ganz ohne KI. Zwei Shots nebeneinander vergleichen und den Geschmack auf einer Skala nach Vorbild des Coffee Compass bewerten.',
+      points: ['Befunde pro Phase, ohne KI', 'Vergleich zweier Shots', 'Geschmack nach Säure, Süße, Körper und Abgang', 'Optional KI-Analyse mit eigenem Schlüssel'],
+      images: [{ src: '/screens/shot.webp', alt: 'Shot-Detail mit Gewicht, Flow und Druck, Phasen, Befunden und Geschmacksbewertung' }],
+    },
+    {
+      id: 'machine',
+      eyebrow: 'Tiefe Maschinen-Integration',
+      title: 'Deine Maschine, komplett in der Hand.',
+      body: 'Alle Temperatursensoren mit Aufheizkurve und Restzeit, Start, Stopp, Spülen und Anheben direkt vom Handy. Profile Phase für Phase ansehen, umsortieren, hochladen und für beide Maschinen bauen, mit Prüfungen, damit die Maschine nicht hängen bleibt.',
+      points: ['Meticulous und GaggiMate per WLAN, automatisch gefunden', 'Aufheiz-Restzeit und alle Sensoren live', 'Profil-Ansicht und -Editor mit Phasen', 'Shots werden von der Maschine importiert und bleiben für immer'],
+      images: [
+        { src: '/screens/home-machine.webp', alt: 'Startbildschirm mit Temperaturring, vier Sensoren und Aufheizkurve' },
+        { src: '/screens/profile.webp', alt: 'Profil-Detail mit Phasen' },
+      ],
+    },
+    {
+      id: 'pourover',
+      eyebrow: 'Pour-over',
+      title: 'Filterkaffee bekommt die gleiche Sorgfalt.',
+      body: 'Bluetooth-Waage verbinden und mit Live-Flow-Anzeige, Timer und Gewicht brühen. Rezept wählen, Ratio fixieren, und jeder Brew landet in derselben Historie wie dein Espresso.',
+      points: ['Live-Flow in g/s mit Zielbereich', 'Mitgelieferte oder eigene Rezepte', 'Pre, Live und Post Brew, wie beim Espresso'],
+      images: [{ src: '/screens/pour-over.webp', alt: 'Pour-over-Bildschirm mit Flow-Anzeige, Pre-Brew-Kachel und Rezepten' }],
+    },
+    {
+      id: 'beans',
+      eyebrow: 'Bohnen & Historie',
+      title: 'Kenne jede Packung im Regal.',
+      body: 'Röster, Herkunft, Aufbereitung, Varietät, Röstdatum und was noch in der Packung ist. Frische auf einen Blick, eingefrorene Bohnen inklusive. Packung fotografieren oder Shop-Link einfügen, und das Formular füllt sich selbst. Jeder Shot bleibt mit seiner Bohne verknüpft, nach Tagen sortiert.',
+      points: ['Restmenge und Tage seit Röstung', 'Eingefrorene Bohnen extra geführt', 'Formular aus Foto oder Shop-Seite befüllen', 'Historie mit Filtern, die keinen Shot verliert'],
+      images: [
+        { src: '/screens/beans.webp', alt: 'Bohnenliste mit Fotos, Restmenge und Frische' },
+        { src: '/screens/history.webp', alt: 'Shot-Historie nach Tagen gruppiert' },
+      ],
+    },
+  ],
+  desk: {
+    eyebrow: 'My Coffee Desk',
+    title: 'Dein ganzes Equipment an einem Ort.',
+    body: 'Maschinen, Mühlen, Brüher, Siebe, Filter, Wasser, Waagen, Tamper und Kessel, jedes mit eigenem Foto, direkt am Handy freigestellt. Mühlen kennen ihren Nullpunkt, Wasser kennt seine Härte.',
+    chainsTitle: 'Brew Chains',
+    chainsBody: 'Fass das Equipment, mit dem du brühst, zu einer Chain zusammen, etwa Meticulous, Mühle, 18-g-Sieb und dein Wasser. Vor dem Shot die Chain wählen, und sie wird mitgespeichert. So weißt du genau, womit diese Tasse entstanden ist.',
+    gear: ['Maschinen', 'Brüher', 'Mühlen', 'Siebe', 'Filter', 'Wasser', 'Waagen', 'Tamper', 'Kessel'],
+  },
+  data: {
+    eyebrow: 'Deine Daten',
+    title: 'Deine Daten, auf deinen Geräten.',
+    items: [
+      { t: 'Kein Konto', d: 'Alles liegt in einer lokalen Datenbank auf deinem Handy. Keine Registrierung, kein Tracking.' },
+      { t: 'Sync zwischen deinen Geräten', d: 'Ende-zu-Ende-verschlüsselt (NIP-44) über Nostr-Relays, öffentliche oder dein eigener Server.' },
+      { t: 'Geplante Backups', d: 'Ein Zip mit allem, automatisch zu deinen Zeiten geschrieben, auf Wunsch verschlüsselt.' },
+      { t: 'KI nur, wenn du willst', d: 'Eigener Schlüssel: Anthropic, OpenAI, Gemini, OpenRouter oder ein eigener Endpunkt. Standardmäßig aus.' },
+    ],
+  },
+  machines: {
+    title: 'Passt zu deinem Setup',
+    lead: 'Smarte Maschinen liefern Live-Daten. Alles andere trägst du von Hand ein.',
+    live: 'Verfügbar',
+    soon: 'Geplant',
+    list: [
+      { name: 'Meticulous', note: 'WLAN, Live-Daten', live: true },
+      { name: 'GaggiMate', note: 'WLAN, Live-Daten', live: true },
+      { name: 'Bluetooth-Waagen', note: 'Bluetooth LE', live: true },
+      { name: 'Gaggiuino Gen 3', note: 'WLAN, Live-Daten', live: false },
+      { name: 'DiFluid R2', note: 'Bluetooth, TDS', live: false },
+    ],
+  },
+  soon: {
+    title: 'Was als Nächstes kommt',
+    items: [
+      { t: 'TDS & Extraktion', d: 'TDS von Hand oder vom DiFluid R2 erfassen und jeden Brew in der Control Chart sehen.' },
+      { t: 'Röster-Katalog', d: 'Kaffees von Specialty-Röstern auswählen und bei neuen Releases benachrichtigt werden.' },
+      { t: 'Shot-Links', d: 'Einen Shot als Link teilen, mit Kurve, Bohne und Rezept, ansehbar ohne App.' },
+    ],
+  },
+  download: {
+    title: 'bean’d holen',
+    lead: 'Android ist die Hauptplattform, iOS baut aus demselben Code und ist im Test. Store-Releases kommen, bis dahin aus dem Quellcode bauen oder auf GitHub mitverfolgen.',
+  },
+};
+
+export const home: Record<Lang, HomeCopy> = { en, de };

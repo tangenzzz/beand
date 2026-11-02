@@ -1,0 +1,29 @@
+---
+// Shared shot page — rendered on the server for every request, so link previews
+// (WhatsApp, Signal, iMessage, Mastodon …) get real meta tags without JavaScript.
+//
+// Not implemented yet. Plan:
+//   1. `id` is a NIP-19 identifier (nevent/naddr) of the shared shot event.
+//   2. Fetch the event from the relays in its hint list (fallback: our own relay), with a short timeout.
+//   3. Verify the signature, parse the shot payload.
+//   4. Render curve + bean + recipe here; /s/[id]/og.png renders the preview image (satori + resvg).
+//   5. Cache the result (events are immutable) so repeated opens don't hit relays.
+import Base from '../../layouts/Base.astro';
+
+export const prerender = false;
+
+const { id = '' } = Astro.params;
+const valid = /^(nevent|naddr|note)1[02-9ac-hj-np-z]{20,}$/.test(id);
+if (!valid) {
+  return new Response('Not found', { status: 404 });
+}
+Astro.response.headers.set('Cache-Control', 'public, max-age=300');
+---
+<Base lang="en" route="home" title="Shared shot" description="An espresso shot shared from bean'd." noindex>
+  <section class="wrap" style="padding:6rem 0">
+    <p class="kicker">Shared shot</p>
+    <h1>Shot sharing is coming soon.</h1>
+    <p class="muted">This link will show the full shot curve, bean and recipe once sharing launches.</p>
+    <p><a class="btn" href="/">What is bean'd?</a></p>
+  </section>
+</Base>

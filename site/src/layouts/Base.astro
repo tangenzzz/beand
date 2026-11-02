@@ -1,0 +1,97 @@
+---
+import '../styles/global.css';
+import Wordmark from '../components/Wordmark.astro';
+import { t as tr, path, routes, REPO_URL, type Lang, type RouteKey } from '../i18n/ui';
+
+interface Props {
+  lang: Lang;
+  route: RouteKey;
+  title?: string;
+  description?: string;
+  noindex?: boolean;
+}
+const { lang, route, title, description, noindex = false } = Astro.props;
+const t = tr(lang);
+const pageTitle = title ? `${title} · bean'd` : "bean'd — from bag to cup";
+const desc = description ?? t('meta.description');
+const site = Astro.site!;
+const canonical = new URL(path(lang, route), site);
+const deUrl = routes[route].de;
+const home = path(lang, 'home');
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={desc} />
+    <meta name="theme-color" content="#1b1917" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="canonical" href={canonical} />
+    {deUrl && <link rel="alternate" hreflang="en" href={new URL(routes[route].en, site)} />}
+    {deUrl && <link rel="alternate" hreflang="de" href={new URL(deUrl, site)} />}
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={desc} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={new URL('/og.png', site)} />
+    <meta name="twitter:card" content="summary_large_image" />
+    {noindex && <meta name="robots" content="noindex" />}
+    <slot name="head" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap bar">
+        <a href={home} class="home" aria-label="bean'd"><Wordmark size="1.55rem" /></a>
+        <nav aria-label="Main">
+          <a href={`${home}#tour`}>{t('nav.features')}</a>
+          <a href={`${home}#equipment`}>{t('nav.machines')}</a>
+        </nav>
+      </div>
+    </header>
+
+    <main><slot /></main>
+
+    <footer class="site-footer">
+      <div class="wrap cols">
+        <div>
+          <Wordmark size="1.35rem" />
+          <p class="muted" style="margin-top:.6rem">{t('footer.tagline')}</p>
+          <a class="notrack" href={path(lang, 'privacy')}>{t('footer.notrack')}</a>
+        </div>
+        <div>
+          <p class="head">{t('footer.legal')}</p>
+          <a href={path(lang, 'imprint')}>{t('footer.imprint')}</a>
+          <a href={path(lang, 'privacy')}>{t('footer.privacy')}</a>
+        </div>
+        <div>
+          <p class="head">bean'd</p>
+          <a href={REPO_URL} rel="noopener">{t('footer.source')}</a>
+        </div>
+      </div>
+      <div class="wrap fine muted">{t('footer.trademarks')}</div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .site-header { position: sticky; top: 0; z-index: 10; background: rgb(22 22 23 / 0.8); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 3.25rem; }
+  .home { text-decoration: none; }
+  nav { display: flex; gap: 2rem; align-items: center; font-size: 0.8rem; letter-spacing: -0.01em; }
+  nav a { color: var(--text-soft); text-decoration: none; }
+  nav a:hover { color: var(--text); }
+  nav .lang { color: var(--text); }
+  @media (max-width: 720px) { .hide-sm { display: none; } }
+
+  .site-footer { border-top: 1px solid var(--line); margin-top: 6rem; padding: 3rem 0 2rem; font-size: 0.8rem; color: var(--text-faint); }
+  .cols { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 2rem; }
+  .cols a { display: block; color: var(--text-muted); text-decoration: none; margin-bottom: 0.35rem; }
+  .cols a:hover { color: var(--text); }
+  .head { font-weight: 600; color: var(--text-soft); margin-bottom: 0.6rem; }
+  .fine { font-size: 0.8rem; margin-top: 2.5rem; }
+  .cols a.notrack { display: inline-block; margin-top: 0.1rem; }
+  @media (max-width: 720px) { .cols { grid-template-columns: 1fr 1fr; } .cols > :first-child { grid-column: 1 / -1; } }
+</style>

@@ -1,0 +1,23 @@
+---
+import Base from '../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../i18n/ui';
+---
+<Base lang="en" route="imprint" title="Imprint">
+  <section class="wrap prose" style="padding:4rem 0 0">
+    <h1>Imprint</h1>
+    <p class="muted">Information pursuant to § 5 ECG and § 25 MedienG (Austria). The <a href="/de/impressum/">German version</a> is authoritative.</p>
+
+    <h2>Owner and operator</h2>
+    <p>
+      Matthias Krisa<br />
+      Klosterneuburg, Austria
+    </p>
+    <p>Email: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
+
+    <h2>Purpose</h2>
+    <p>Information about bean'd, an open-source app for logging coffee, espresso and pour-over brews.</p>
+
+    <h2>Trademarks</h2>
+    <p>Machine and device names (e.g. Meticulous, GaggiMate) are trademarks of their respective owners and are used only to describe compatibility. bean'd is not affiliated with these manufacturers.</p>
+  </section>
+</Base>

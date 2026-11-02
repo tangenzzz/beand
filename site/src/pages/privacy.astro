@@ -1,0 +1,54 @@
+---
+import Base from '../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../i18n/ui';
+// Draft. Keep in sync with the German version, which is authoritative.
+---
+<Base lang="en" route="privacy" title="Privacy">
+  <section class="wrap prose" style="padding:4rem 0 0">
+    <h1>Privacy policy</h1>
+    <p class="muted">Last updated: November 2026. The <a href="/de/datenschutz/">German version</a> is authoritative.</p>
+
+    <h2>Controller</h2>
+    <p>Matthias Krisa, Klosterneuburg, Austria · <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
+
+    <h2>In short</h2>
+    <ul>
+      <li>No cookies, no tracking, no analytics, no ads.</li>
+      <li>Fonts and all files are served from our own server. No third-party services (such as Google Fonts) are loaded.</li>
+      <li>The server keeps technically necessary access logs for a short time.</li>
+      <li>The connection to the website is encrypted with HTTPS.</li>
+    </ul>
+
+    <h2>Hosting</h2>
+    <p>This website runs on a server operated by Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, Germany, in an EU data centre, under a data processing agreement (Art. 28 GDPR).</p>
+
+    <h2>Server logs</h2>
+    <p>Each request processes: IP address, date and time, requested URL, status code, bytes transferred, referrer and user agent. This is necessary to deliver the site and protect it from abuse (Art. 6(1)(f) GDPR). Logs are deleted automatically after 14 days. Without this data the website cannot be delivered.</p>
+
+
+    <h2>Email</h2>
+    <p>If you email us, we only use your details to answer you (Art. 6(1)(b) or (f) GDPR) and delete them when no longer needed. The mailbox is hosted by Proton AG, Route de la Galaise 32, 1228 Plan-les-Ouates, Switzerland. The European Commission has found that Switzerland ensures an adequate level of data protection (adequacy decision).</p>
+
+    <h2>Links to GitHub</h2>
+    <p>The “Download on GitHub” and “Source code” links lead to GitHub (GitHub, Inc., USA). Your browser only connects to GitHub when you click one of them. GitHub’s privacy policy then applies.</p>
+
+    <h2>The app</h2>
+    <ul>
+      <li><strong>No analytics, no ads, no automatic crash reports.</strong> The app contains no tracking or advertising libraries. The connection log in the settings stays on your phone. It only leaves it if you share it yourself, with the app you choose.</li>
+      <li><strong>Your data stays on your phone.</strong> Beans, brews, profiles, gear and photos are stored locally. We have no server that receives them.</li>
+      <li><strong>No account with us.</strong> The app works without signing up. If you turn on sync, the app creates a sync key on your phone (a Nostr key pair). It is your identity for syncing your own devices and is not linked to your name or email address.</li>
+      <li><strong>Sync is optional and end-to-end encrypted.</strong> Your data is encrypted on your phone before it is sent to Nostr relays (by default relay.damus.io, nos.lol and relay.primal.net, changeable in the settings). Photos are encrypted the same way and stored on photo servers (by default nostr.download and blossom.yakihonne.com). These servers cannot read the content, but they do see your IP address, the time and your public sync key. They are run by third parties under their own privacy policies.</li>
+      <li><strong>AI features are optional.</strong> They only work with your own API key. The data needed for an analysis is then sent directly from your phone to the provider you chose (for example Anthropic, OpenAI, Google Gemini or OpenRouter), under that provider's terms. It does not pass through us.</li>
+      <li><strong>Pour-over recipes.</strong> When you update the pour-over recipe collection, the app downloads it from GitHub. GitHub sees your IP address.</li>
+      <li><strong>Servers outside the EU.</strong> GitHub, the AI providers and some Nostr servers may be located outside the EU, for example in the USA. If you use these features, the data concerned goes directly from your phone to them.</li>
+      <li><strong>Machines and scales.</strong> The app connects to your espresso machine over your local network and to scales over Bluetooth. On iPhone it only asks for Bluetooth and local network access. On Android 11 and older, Android also requires the location permission for Bluetooth scanning. The app does not use your location.</li>
+    </ul>
+
+    <h2>No automated decisions</h2>
+    <p>There is no automated decision-making and no profiling (Art. 22 GDPR).</p>
+
+    <h2>Your rights</h2>
+    <p>You have the right to access, rectification, erasure, restriction and data portability. Contact us at the address above. You may also lodge a complaint with the Austrian Data Protection Authority (dsb.gv.at).</p>
+    <p><strong>Right to object:</strong> Where we process data on the basis of our legitimate interest (Art. 6(1)(f) GDPR, for example the server logs), you can object to this processing at any time on grounds relating to your particular situation (Art. 21 GDPR).</p>
+  </section>
+</Base>

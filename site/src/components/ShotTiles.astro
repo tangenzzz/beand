@@ -1,0 +1,319 @@
+---
+// Pre → Live → Post, playable like the app:
+// Pre: "Start Shot" pulses → tap → Live. Live: a real shot (MetOx Soup, 13 g → 99.9 g in 22.7 s, traced from
+// the app) plays in ~5 s, the button reads "Stop" while it runs, then turns into a pulsing "Purge" → tap → Post.
+// Post: "Save" pulses → tap → back to Pre.
+// Pre and Post are screenshots with a button laid over the real one; Live is rebuilt as SVG (804 × 943,
+// the size of the tile screenshots, same layout as the app's live tile) so the chart can run.
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import shot from '../data-live-shot.json';
+
+const W = 804, H = 943; // same size as the Pre and Post screenshots
+// Chart geometry measured on the app screenshot: 20.8 px per second, 25.9 px per unit (flow) / 10 g (weight)
+const X0 = 86, PX_S = 20.8, YT = 304.5, YB = 563.5;
+const X = (t: number) => X0 + t * PX_S;
+const Y = (v: number, max: number) => YB - (v / max) * (YB - YT);
+const X30 = X(30);
+
+type Pt = [number, number];
+const smooth = (pts: Pt[], n = 2): Pt[] =>
+  pts.map(([t], i) => {
+    const s = pts.slice(Math.max(0, i - n), i + n + 1);
+    return [t, s.reduce((a, [, v]) => a + v, 0) / s.length];
+  });
+const series = {
+  flow: smooth(shot.flow as Pt[]),
+  weight: smooth(shot.weight as Pt[]),
+  pressure: shot.pressure as Pt[],
+};
+const path = (pts: Pt[], max: number) => pts.map(([t, v], i) => `${i ? 'L' : 'M'}${X(t).toFixed(1)} ${Y(v, max).toFixed(1)}`).join(' ');
+// Every other stage is shaded in the chart, like in the app
+const bands = shot.stages.map((st, i) => ({ from: i ? shot.stages[i - 1].end : 0, to: st.end, shade: i % 2 === 0 }));
+
+const tiles = [
+  { n: 'Pre', d: 'Pick profile, bean, dose, grind and brew chain. Start from the phone, or let it start once the machine is stable.' },
+  { n: 'Live', d: 'The live chart and all live data: flow, pressure, yield, time and stages.' },
+  { n: 'Post', d: 'Taste it, rate it, describe it, analyse it.' },
+];
+---
+<section id="tour" class="cycle" data-tiles data-state="pre">
+  <div class="wrap cycle-head">
+    <p class="eyebrow">Workflow</p>
+    <h2>A simple workflow: set up, pull, taste.</h2>
+  </div>
+
+  <ol class="track" data-track>
+    <li class="tile">
+      <p class="tile-text"><strong>{tiles[0].n}.</strong> {tiles[0].d}</p>
+      <div class="card">
+        <img src="/screens/card-pre.webp" width="804" height="943" alt="Pre-shot tile with profile, bean, dose, grind, brew chain and auto start" loading="lazy" />
+        <button type="button" class="act pulse" data-act="start" style="left:4%;width:92%;top:84%;height:11%">
+          <span class="sr">Start Shot</span>
+        </button>
+      </div>
+    </li>
+
+    <li class="tile">
+      <p class="tile-text"><strong>{tiles[1].n}.</strong> {tiles[1].d}</p>
+      <div class="card live">
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Live shot tile: target, dose, ratio, grind, time, yield, flow and pressure with the live chart">
+          <rect width={W} height={H} rx="46" fill="#232326" />
+          <text x="32" y="46" class="lbl-live">LIVE</text>
+          <text x="86" y="71" class="title">Shot</text>
+
+          {[['TARGET', 124, '82', '°C', '#f2f2f2'], ['DOSE', 310, '13', 'g', '#f2f2f2'], ['RATIO', 495, '1:0.0', '', '#f2f2f2'], ['GRIND', 680, '4.4', '', '#f2f2f2']].map(([l, x, val, u, c]) => (
+            <g>
+              <text x={x} y="128" class="stat-l">{l}</text>
+              <text x={x} y="177" class="stat-v"><tspan fill={c as string} data-v={l === 'RATIO' ? 'ratio' : undefined}>{val}</tspan>{u && <tspan class="unit" dx="6">{u}</tspan>}</text>
+            </g>
+          ))}
+          {[['TIME', 124, 'time', 's', '#f2f2f2'], ['YIELD', 310, 'yield', 'g', '#f2c94c'], ['FLOW', 495, 'flow', 'ml/s', '#4fb3f0'], ['PRESSURE', 680, 'pressure', 'bar', '#5bd68a']].map(([l, x, k, u, c]) => (
+            <g>
+              <text x={x} y="227" class="stat-l">{l}</text>
+              <text x={x} y="276" class="stat-v"><tspan fill={c as string} data-v={k}>0.0</tspan><tspan class="unit" dx="6">{u}</tspan></text>
+            </g>
+          ))}
+
+          <defs><clipPath id="live-clip"><rect x={X0} y={YT - 10} width="0" height={YB - YT + 20} data-clip /></clipPath></defs>
+          <g clip-path="url(#live-clip)">
+            {bands.filter((b) => b.shade).map((b) => <rect x={X(b.from)} y={YT} width={X(b.to) - X(b.from)} height={YB - YT} fill="#29292b" />)}
+          </g>
+          <line x1={X0} x2={X30} y1={(YT + YB) / 2} y2={(YT + YB) / 2} class="dots" />
+          {[[10, YT], [5, (YT + YB) / 2], [0, YB]].map(([v, y]) => <text x="67" y={(y as number) + 8} class="tick" text-anchor="end">{v}</text>)}
+          {[[100, YT], [50, (YT + YB) / 2], [0, YB]].map(([v, y]) => <text x="728" y={(y as number) + 8} class="tick y">{v}</text>)}
+          {[0, 10, 20, 30].map((s) => <text x={X(s)} y="608" class="tick" text-anchor="middle">{s}s</text>)}
+
+          <g clip-path="url(#live-clip)">
+            <path d={path(series.pressure, 10)} class="c" stroke="#5bd68a" />
+            <path d={path(series.flow, 10)} class="c" stroke="#4fb3f0" />
+            <path d={path(series.weight, 100)} class="c" stroke="#f2c94c" />
+          </g>
+          <line x1={X0} x2={X0} y1={YT} y2={YB} class="cursor" data-cursor />
+
+          <g data-segs>
+            {shot.stages.map(() => <rect x="32" y="634" width="0" height="9" rx="4.5" />)}
+          </g>
+          <text x="32" y="693" class="stage" data-stage>{shot.stages[0].name}</text>
+          <text x="772" y="693" class="stage-t" text-anchor="end"><tspan data-stage-t>0.0</tspan> s / <tspan data-stage-t2>0.0</tspan> s</text>
+        </svg>
+        <button type="button" class="act live-btn" data-act="purge" style="left:4%;width:92%;top:84%;height:11%" disabled>
+          <span data-btn>Stop</span>
+        </button>
+      </div>
+    </li>
+
+    <li class="tile">
+      <p class="tile-text"><strong>{tiles[2].n}.</strong> {tiles[2].d}</p>
+      <div class="card">
+        <img src="/screens/card-post.webp" width="804" height="943" alt="Post-shot tile with the brew, star rating, taste and note" loading="lazy" />
+        <button type="button" class="act" data-act="save" style="left:4%;width:92%;top:84%;height:11%">
+          <span class="sr">Save</span>
+        </button>
+      </div>
+    </li>
+  </ol>
+
+  <nav class="dots-nav" aria-label="Shot tiles">
+    {tiles.map((t, i) => <button type="button" data-dot={i} aria-label={t.n} aria-current={i === 0 ? 'true' : undefined}></button>)}
+  </nav>
+</section>
+
+<style>
+  .cycle { padding-top: 8rem; }
+  .cycle-head h2 { max-width: 20ch; }
+  .try { margin: 0; }
+  .try b { color: var(--text); font-weight: 600; }
+
+  .cycle { --tile: min(400px, 80vw); }
+  .track {
+    position: relative; list-style: none; margin: 2.5rem 0 0; padding: 0 calc(50% - var(--tile) / 2) 0.5rem;
+    display: flex; gap: 1.5rem; align-items: flex-start;
+    overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  .track::-webkit-scrollbar { display: none; }
+  .tile { flex: 0 0 var(--tile); scroll-snap-align: center; }
+  .tile .card, .tile .tile-text { transition: opacity 0.3s; }
+  .tile:not([data-active]) { cursor: pointer; }
+  .tile:not([data-active]) .card { opacity: 0.45; }
+  .tile:not([data-active]) .tile-text { opacity: 0.8; } /* still readable (contrast ≥ 4.5:1) */
+  .tile-text { min-height: 4.8em; margin: 0 0 1rem; color: var(--text-muted); font-size: 1rem; line-height: 1.42; }
+  .tile-text strong { display: block; color: var(--text); font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.2rem; }
+
+  .card { position: relative; border-radius: 6% / 5.2%; overflow: hidden; }
+  .card img, .card svg { display: block; width: 100%; height: auto; }
+
+  /* Buttons laid over the app's own buttons */
+  .act {
+    position: absolute; padding: 0; margin: 0; background: transparent; cursor: pointer;
+    border: 0; border-radius: 999px; color: #29c7b0; font: 500 clamp(0.8rem, 3.6cqw, 1.05rem) 'Roboto', sans-serif;
+  }
+  .act:disabled { cursor: default; }
+  .act:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(41 199 176 / 0.0), inset 0 0 0 1.5px rgb(41 199 176 / 0.35); }
+    50% { box-shadow: 0 0 22px 4px rgb(41 199 176 / 0.45), inset 0 0 0 1.5px rgb(41 199 176 / 0.9); }
+  }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* Live tile (SVG, 804 wide) */
+  .live { container-type: inline-size; }
+  .live text { font-family: 'Roboto', sans-serif; }
+  .lbl-live { fill: #29c7b0; font-size: 19px; font-weight: 500; letter-spacing: 2px; }
+  .title { fill: #ececec; font-size: 34px; font-weight: 500; }
+  .stat-l { fill: #8e8e93; font-size: 20px; letter-spacing: 2px; text-anchor: middle; }
+  .stat-v { font-size: 32px; font-weight: 500; text-anchor: middle; font-variant-numeric: tabular-nums; }
+  .unit { fill: #b5b5b9; font-size: 21px; font-weight: 400; }
+  .cursor { stroke: #e8e8e8; stroke-width: 1.5; }
+  [data-segs] rect { fill: #434344; }
+  [data-segs] rect.now { fill: #92908e; }
+  .dots { stroke: #55555a; stroke-width: 1.5; stroke-dasharray: 3 7; }
+  .tick { fill: #8e8e93; font-size: 20px; }
+  .tick.y { fill: #f2c94c; }
+  .c { fill: none; stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
+  .stage { fill: #ececec; font-size: 25px; font-weight: 500; }
+  .stage-t { fill: #a9a9ad; font-size: 24px; font-variant-numeric: tabular-nums; }
+  .live-btn { border: 1.5px solid #4a4a4e; background: transparent; }
+  .live-btn span { font-size: clamp(0.85rem, 4cqw, 1.15rem); }
+  [data-state='done'] .live-btn { border-color: rgb(41 199 176 / 0.6); }
+
+  .dots-nav { display: flex; justify-content: center; margin-top: 0.75rem; }
+  /* 24 px tap target, 9 px dot */
+  .dots-nav button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
+  .dots-nav button::after { content: ''; width: 9px; height: 9px; border-radius: 50%; background: #55504a; }
+  .dots-nav button[aria-current]::after { background: var(--accent); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tile .card, .tile .tile-text { transition: none; }
+    .pulse { animation: none; box-shadow: inset 0 0 0 2px rgb(41 199 176 / 0.9); }
+  }
+</style>
+
+<script>
+  import shot from '../data-live-shot.json';
+
+  type Pt = [number, number];
+  const PLAY_MS = 5000;
+  const stages = shot.stages as { name: string; end: number }[];
+  const T_END = stages[stages.length - 1].end;
+  const X0 = 86, PX_S = 20.8;
+  const X = (t: number) => X0 + t * PX_S;
+  const DOSE = 13;
+  const at = (pts: Pt[], t: number) => {
+    if (!pts.length || t < pts[0][0]) return 0;
+    for (let i = 1; i < pts.length; i++) {
+      if (pts[i][0] >= t) {
+        const [t0, v0] = pts[i - 1], [t1, v1] = pts[i];
+        return v0 + ((v1 - v0) * (t - t0)) / (t1 - t0 || 1);
+      }
+    }
+    return pts[pts.length - 1][1];
+  };
+  const stageIndex = (t: number) => { const i = stages.findIndex((s) => t < s.end); return i < 0 ? stages.length - 1 : i; };
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-tiles]')) {
+    const track = root.querySelector<HTMLElement>('[data-track]')!;
+    const tiles = [...track.children] as HTMLElement[];
+    const dots = [...root.querySelectorAll<HTMLButtonElement>('[data-dot]')];
+    const q = <T extends Element = Element>(s: string) => root.querySelector<T>(s)!;
+    const v = { time: q('[data-v="time"]'), yield: q('[data-v="yield"]'), flow: q('[data-v="flow"]'), pressure: q('[data-v="pressure"]'), ratio: q('[data-v="ratio"]') };
+    const clip = q<SVGRectElement>('[data-clip]'), cursor = q<SVGLineElement>('[data-cursor]');
+    const segs = [...root.querySelectorAll<SVGRectElement>('[data-segs] rect')];
+    const stage = q('[data-stage]'), stageT = q('[data-stage-t]'), stageT2 = q('[data-stage-t2]');
+    const startBtn = q<HTMLButtonElement>('[data-act="start"]');
+    const liveBtn = q<HTMLButtonElement>('[data-act="purge"]');
+    const liveLabel = q('[data-btn]');
+    const saveBtn = q<HTMLButtonElement>('[data-act="save"]');
+    let raf = 0;
+    let active = 0;
+
+    const go = (i: number) => track.scrollTo({ left: tiles[i].offsetLeft - tiles[0].offsetLeft, behavior: reduce ? 'auto' : 'smooth' });
+
+    const setState = (s: 'pre' | 'running' | 'done' | 'post') => {
+      root.dataset.state = s;
+      startBtn.classList.toggle('pulse', s === 'pre');
+      liveBtn.classList.toggle('pulse', s === 'done');
+      liveBtn.disabled = s !== 'done';
+      liveLabel.textContent = s === 'done' ? 'Purge' : 'Stop';
+      saveBtn.classList.toggle('pulse', s === 'post');
+    };
+
+    // Progress bar like the app: finished stages get a width by their share of the time so far,
+    // the running stage takes the rest. Then the chart, the numbers and the stage name.
+    const SEG_X = 32, SEG_W = 740, GAP = 7;
+    const frame = (t: number) => {
+      const yld = at(shot.weight as Pt[], t);
+      v.yield.textContent = yld.toFixed(1);
+      v.time.textContent = t.toFixed(1);
+      v.flow.textContent = at(shot.flow as Pt[], t).toFixed(1);
+      v.pressure.textContent = at(shot.pressure as Pt[], t).toFixed(1);
+      v.ratio.textContent = `1:${(yld / DOSE).toFixed(1)}`;
+      clip.setAttribute('width', String(X(t) - X0 + 4));
+      cursor.setAttribute('x1', String(X(t))); cursor.setAttribute('x2', String(X(t)));
+      const cur = stageIndex(t);
+      const done = stages.slice(0, cur).map((s, i) => s.end - (i ? stages[i - 1].end : 0));
+      const free = SEG_W - GAP * cur;
+      let x = SEG_X;
+      segs.forEach((r, i) => {
+        const width = i < cur ? (free * done[i]) / Math.max(t, 0.001) : i === cur ? SEG_X + SEG_W - x : 0;
+        r.setAttribute('x', String(x)); r.setAttribute('width', String(Math.max(0, width)));
+        r.classList.toggle('now', i === cur);
+        if (i <= cur) x += width + GAP;
+      });
+      stage.textContent = stages[cur].name;
+      stageT.textContent = t.toFixed(1); stageT2.textContent = t.toFixed(1);
+    };
+
+    const startShot = () => {
+      cancelAnimationFrame(raf);
+      setState('running');
+      if (reduce) { frame(T_END); setState('done'); return; }
+      const t0 = performance.now();
+      const tick = (now: number) => {
+        const p = Math.min(1, (now - t0) / PLAY_MS);
+        frame(p * T_END);
+        if (p < 1) raf = requestAnimationFrame(tick);
+        else setState('done');
+      };
+      raf = requestAnimationFrame(tick);
+    };
+
+    const reset = () => { cancelAnimationFrame(raf); frame(0); setState('pre'); };
+
+    // Which tile is centred → dots, dimming; arriving at Live while idle starts the shot.
+    const mark = () => {
+      const mid = track.scrollLeft + track.clientWidth / 2;
+      let best = 0;
+      tiles.forEach((t, j) => {
+        if (Math.abs(t.offsetLeft + t.offsetWidth / 2 - mid) < Math.abs(tiles[best].offsetLeft + tiles[best].offsetWidth / 2 - mid)) best = j;
+      });
+      active = best;
+      dots.forEach((d, j) => d.toggleAttribute('aria-current', j === best));
+      tiles.forEach((t, j) => t.toggleAttribute('data-active', j === best));
+    };
+    // Once scrolling has settled: arriving at Live while idle starts the shot (swiping works like tapping).
+    let settled = 0;
+    const settle = () => {
+      if (active === 1 && root.dataset.state === 'pre') startShot();
+      if (active === 2 && root.dataset.state === 'done') setState('post');
+      if (active === 0 && root.dataset.state === 'post') reset();
+    };
+    let pending = 0;
+    track.addEventListener('scroll', () => {
+      cancelAnimationFrame(pending); pending = requestAnimationFrame(mark);
+      clearTimeout(settled); settled = window.setTimeout(settle, 140);
+    }, { passive: true });
+
+    startBtn.addEventListener('click', (e) => { e.stopPropagation(); if (active === 0) go(1); });
+    liveBtn.addEventListener('click', (e) => { e.stopPropagation(); if (root.dataset.state === 'done') { setState('post'); go(2); } });
+    saveBtn.addEventListener('click', (e) => { e.stopPropagation(); if (active === 2) { reset(); go(0); } });
+    tiles.forEach((t, i) => t.addEventListener('click', () => { if (i !== active) go(i); }));
+    dots.forEach((d, i) => d.addEventListener('click', () => go(i)));
+
+    frame(0);
+    setState('pre');
+    mark();
+  }
+</script>
