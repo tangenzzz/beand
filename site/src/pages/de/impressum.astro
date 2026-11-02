@@ -1,0 +1,26 @@
+---
+import Base from '../../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../../i18n/ui';
+---
+<Base lang="de" route="imprint" title="Impressum">
+  <section class="wrap prose" style="padding:4rem 0 0">
+    <h1>Impressum</h1>
+    <p class="muted">Informationen gemäß § 5 ECG und Offenlegung gemäß § 25 MedienG</p>
+
+    <h2>Medieninhaber und Betreiber</h2>
+    <p>
+      Matthias Krisa<br />
+      Klosterneuburg, Österreich
+    </p>
+    <p>E-Mail: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
+
+    <h2>Grundlegende Richtung</h2>
+    <p>Informationen über die App bean'd, eine Open-Source-App zum Dokumentieren von Kaffee-, Espresso- und Pour-over-Zubereitungen.</p>
+
+    <h2>Haftung für Links</h2>
+    <p>Diese Website enthält Links zu externen Websites, auf deren Inhalte wir keinen Einfluss haben. Für diese Inhalte ist der jeweilige Anbieter verantwortlich.</p>
+
+    <h2>Marken</h2>
+    <p>Genannte Maschinen- und Gerätenamen (z. B. Meticulous, GaggiMate) sind Marken ihrer jeweiligen Inhaber und werden nur zur Beschreibung der Kompatibilität verwendet. bean'd steht in keiner Verbindung zu diesen Herstellern.</p>
+  </section>
+</Base>

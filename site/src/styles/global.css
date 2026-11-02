@@ -1,0 +1,75 @@
+@import '@fontsource-variable/inter';
+
+/* Colours from the logo; chart colours from the app. */
+:root {
+  --bg: #1b1917;          /* espresso, logo background */
+  --surface: #25221f;
+  --line: #38332e;
+  --text: #f3eee4;        /* crema, logo text */
+  --text-soft: #d2d2d7;   /* text under headlines */
+  --text-muted: #a1a1a6;
+  --text-faint: #86868b;
+  --accent: #29c7b0;      /* the bean */
+  --accent-ink: #0d2a25;
+  --weight: #f2c94c;
+  --flow: #4fb3f0;
+  --pressure: #5bd68a;
+
+  /* System font on Apple devices, self-hosted Inter everywhere else */
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter Variable', 'Helvetica Neue', Arial, sans-serif;
+  --max: 1160px;
+  color-scheme: dark;
+  font-feature-settings: 'ss01', 'cv11';
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1.0625rem;
+  line-height: 1.47;
+  letter-spacing: -0.012em;
+  -webkit-font-smoothing: antialiased;
+}
+img, svg { display: block; max-width: 100%; }
+a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { color: var(--text); }
+
+/* Headlines: heavy, tight tracking */
+h1, h2, h3 { margin: 0 0 0.5em; letter-spacing: -0.028em; }
+h1 { font-size: clamp(2.6rem, 7.5vw, 6rem); font-weight: 700; line-height: 1.02; letter-spacing: -0.035em; }
+h2 { font-size: clamp(2.2rem, 4.6vw, 3.5rem); font-weight: 700; line-height: 1.06; }
+h3 { font-size: 1.15rem; font-weight: 600; line-height: 1.3; letter-spacing: -0.015em; }
+p { margin: 0 0 1em; }
+
+.wrap { width: min(100% - 2.5rem, var(--max)); margin-inline: auto; }
+.muted { color: var(--text-muted); }
+
+/* Small coloured line above each section headline */
+.eyebrow { display: block; margin: 0 0 0.6rem; color: var(--accent); font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; }
+
+/* Text under every headline, like the hero's lead: larger, lighter grey, tight lines.
+   That sets it apart from the points below it. */
+.body, .lead { font-size: 1.4rem; line-height: 1.3; color: var(--text-soft); font-weight: 400; letter-spacing: -0.018em; max-width: 34ch; }
+
+/* Section points (Points.astro): a small grid, bold keyword over a grey half-sentence */
+.points { list-style: none; padding: 0; margin: 2rem 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; max-width: 34rem; }
+.points b { display: block; font-size: 1.1rem; font-weight: 600; letter-spacing: -0.015em; color: var(--text); margin-bottom: 0.2rem; }
+.points span { display: block; font-size: 0.95rem; line-height: 1.4; color: var(--text-muted); }
+@media (max-width: 480px) { .points { gap: 1.25rem; } }
+
+/* Footnote mark (¹) */
+.fn-mark { font-size: 0.5em; line-height: 0; vertical-align: 0.9em; margin-left: 0.15em; color: var(--accent); font-weight: 600; }
+
+.prose { max-width: 68ch; }
+.prose h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); }
+.prose h2 { font-size: 1.4rem; margin-top: 2.2rem; }
+.prose ul { padding-left: 1.2rem; }
+.prose li { margin-bottom: 0.35rem; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }

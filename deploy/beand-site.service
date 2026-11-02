@@ -1,0 +1,32 @@
+# /etc/systemd/system/beand-site.service
+# Astro Node server — only handles on-demand routes (/s/*); static pages are served by Caddy.
+[Unit]
+Description=bean'd website (Astro SSR)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=beand
+Group=beand
+WorkingDirectory=/srv/beand/site/current
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=4321
+ExecStart=/usr/bin/node --max-old-space-size=256 server/entry.mjs
+Restart=on-failure
+RestartSec=3
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/srv/beand
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

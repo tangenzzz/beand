@@ -1,0 +1,128 @@
+---
+// My Coffee Desk: the shelf, with the brew-chains screen laid over its upper right part.
+// When the section comes into view the chains card slides in, then the gear "stickers" are
+// dragged from the shelf into their chains, several at once, slow at first, then fast, soft landing.
+// Positions are measured on the 960 px wide screenshots (src/data-desk.json).
+import desk from '../data-desk.json';
+import Points from './Points.astro';
+
+const SHELF = { w: 960, h: 1457 };
+const CHAINS = { w: 960, h: 842 };
+const pct = (b: number[], size: { w: number; h: number }) =>
+  `left:${(b[0] / size.w) * 100}%;top:${(b[1] / size.h) * 100}%;width:${((b[2] - b[0]) / size.w) * 100}%;height:${((b[3] - b[1]) / size.h) * 100}%`;
+
+// Which shelf sticker goes into which chain slot
+const flights = [
+  { slot: 'p-dripper', from: 'dripper' },
+  { slot: 'p-grinder', from: 'grinder' },
+  { slot: 'm-machine', from: 'machine' },
+  { slot: 'm-grinder', from: 'grinder' },
+  { slot: 'm-basket', from: 'basket' },
+  { slot: 'm-filter', from: 'filter' },
+] as const;
+const water = ['p-water', 'm-water'] as const;
+const chains = desk.chains as Record<string, number[]>;
+const shelf = desk.shelf as Record<string, number[]>;
+---
+<section id="desk" class="wrap desk">
+  <div class="text">
+    <p class="eyebrow">My Coffee Desk</p>
+    <h2>Proud of your coffee gear?</h2>
+    <p class="body">Put it on your shelf, with each piece cut out from a photo like a sticker. Then build brew chains, so every brew knows exactly which gear made it.</p>
+    <Points items={[
+      { t: 'All your gear', d: 'Machines, brewers, grinders, baskets, filters, water, scales, tampers and kettles' },
+      { t: 'Brew chains', d: 'Pick one before you brew and it’s saved with the brew' },
+    ]} />
+  </div>
+
+  <figure class="stack" data-stack>
+    <div class="shelf-wrap">
+      <img class="shelf" src="/screens/desk-shelf.webp" width="960" height="1457" alt="My Coffee Desk shelf with machines, brewers, grinders, baskets and filters, each cut out like a sticker" loading="lazy" />
+      {Object.entries(shelf).map(([k, b]) => <span class="src" data-src={k} style={pct(b, SHELF)}></span>)}
+    </div>
+    <div class="chains" data-chains>
+      <img src="/screens/desk-chains.webp" width="960" height="842" alt="Brew chains: a pour-over chain and a Meticulous chain, each with its gear and water" loading="lazy" />
+      {[...flights.map((f) => f.slot), ...water].map((k) => <span class="mask" data-mask={k} style={pct(chains[k], CHAINS)}></span>)}
+      {flights.map((f) => (
+        <img class="fly" data-fly={f.slot} data-from={f.from} src={`/screens/chain-${f.slot}.webp`} alt="" aria-hidden="true" style={pct(chains[f.slot], CHAINS)} loading="lazy" />
+      ))}
+    </div>
+  </figure>
+</section>
+
+<style>
+  .desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; padding-top: 8rem; }
+  .desk h2 { max-width: 14ch; }
+
+  /* Shelf behind, chains in front over the lower right corner */
+  .stack { position: relative; margin: 0; justify-self: start; width: min(340px, 72%); }
+  .shelf-wrap { position: relative; }
+  .shelf, .chains > img:first-child { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 20px; background: #1b1b1d; }
+  .src { position: absolute; pointer-events: none; }
+  .chains { position: absolute; width: 92%; left: 52%; top: 9%; }
+  .chains > img:first-child { box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.75); }
+
+  /* Slots stay empty until the stickers arrive; stickers only exist during the flight */
+  .mask, .fly { position: absolute; display: none; }
+  .mask { background: #232326; }
+  .fly { object-fit: cover; transform-origin: 0 0; will-change: transform; }
+  :global(.js) .chains:not(.done) .mask { display: block; }
+  :global(.js) .chains.flying .fly { display: block; }
+  .mask.gone { opacity: 0; transition: opacity 0.4s ease; }
+
+  /* The chains card slides onto the shelf first */
+  :global(.js) .chains { opacity: 0; transform: translate(14%, 10%) rotate(5deg); transition: opacity 0.5s ease, transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  :global(.js) [data-stack].in .chains { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.js) .chains { opacity: 1; transform: none; transition: none; }
+    :global(.js) .chains .mask { display: none; }
+  }
+  @media (max-width: 820px) {
+    .desk { grid-template-columns: 1fr; gap: 2.5rem; padding-top: 5rem; }
+    .stack { width: 62%; }
+    .chains { width: 86%; left: 40%; top: 7%; }
+  }
+</style>
+
+<script>
+  document.documentElement.classList.add('js');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const flyAll = (stack: HTMLElement) => {
+    const chains = stack.querySelector<HTMLElement>('[data-chains]')!;
+    const flyers = [...chains.querySelectorAll<HTMLImageElement>('[data-fly]')];
+    chains.classList.add('flying');
+    const anims = flyers.map((el, i) => {
+      const src = stack.querySelector<HTMLElement>(`[data-src="${el.dataset.from}"]`)!.getBoundingClientRect();
+      const to = el.getBoundingClientRect();
+      const s = src.width / to.width;
+      const dx = src.left - to.left, dy = src.top - to.top;
+      // Lifted off the shelf, carried over, set down: slow start, fast middle, soft landing.
+      return el.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px) scale(${s})`, filter: 'drop-shadow(0 0 0 rgb(0 0 0 / 0))' },
+          { transform: `translate(${dx}px, ${dy - 14}px) scale(${s * 1.12})`, filter: 'drop-shadow(0 18px 18px rgb(0 0 0 / 0.55))', offset: 0.18 },
+          { transform: 'translate(0, -6px) scale(1.06)', filter: 'drop-shadow(0 14px 14px rgb(0 0 0 / 0.45))', offset: 0.86 },
+          { transform: 'none', filter: 'drop-shadow(0 0 0 rgb(0 0 0 / 0))' },
+        ],
+        { duration: 2100, delay: (i % 3) * 110, easing: 'cubic-bezier(0.7, 0, 0.2, 1)', fill: 'both' },
+      ).finished;
+    });
+    Promise.all(anims).then(() => {
+      // Water is not on the shelf: it just appears.
+      chains.querySelectorAll('[data-mask$="water"]').forEach((m) => m.classList.add('gone'));
+      setTimeout(() => { chains.classList.add('done'); chains.classList.remove('flying'); }, 450);
+    });
+  };
+
+  for (const stack of document.querySelectorAll<HTMLElement>('[data-stack]')) {
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      io.disconnect();
+      stack.classList.add('in');
+      if (reduce) { stack.querySelector('[data-chains]')!.classList.add('done'); return; }
+      setTimeout(() => flyAll(stack), 900);
+    }, { threshold: 0.5 });
+    io.observe(stack);
+  }
+</script>

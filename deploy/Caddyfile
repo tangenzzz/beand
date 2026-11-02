@@ -1,0 +1,63 @@
+# /etc/caddy/Caddyfile — beand.app on Hetzner
+#
+# Layout on the server:
+#   /srv/beand/site/current  -> symlink to the active release (dist/ from site/)
+#   /srv/beand/api/v1/       -> catalog output (catalog.json …), deployed separately
+#                               so a website deploy can never touch the API.
+# Caddy fetches and renews TLS certificates automatically.
+
+{
+	email {$ACME_EMAIL}
+}
+
+www.beand.app {
+	redir https://beand.app{uri} permanent
+}
+
+beand.app {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Static catalog API — the stable contract with the app. ETag / If-None-Match handled by file_server.
+	handle /api/* {
+		root * /srv/beand
+		header Access-Control-Allow-Origin "*"
+		header Cache-Control "public, max-age=300"
+		file_server
+	}
+
+	# Shared shots — rendered on demand by the Astro Node server.
+	handle /s/* {
+		reverse_proxy 127.0.0.1:4321
+	}
+
+	# Everything else is prebuilt static HTML.
+	handle {
+		root * /srv/beand/site/current/client
+		@hashed path /_astro/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} {path}/index.html
+		file_server
+	}
+
+	handle_errors 404 {
+		root * /srv/beand/site/current/client
+		rewrite * /404.html
+		file_server
+	}
+
+	# Access logs: kept 14 days (must match the privacy policy).
+	log {
+		output file /var/log/caddy/beand.log {
+			roll_size 50MiB
+			roll_keep_for 336h
+		}
+	}
+}

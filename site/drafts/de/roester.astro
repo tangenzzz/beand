@@ -1,0 +1,35 @@
+---
+import Base from '../../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../../i18n/ui';
+---
+<Base lang="de" route="roasters" title="Für Röster" description="Wie bean'd Kaffees von Specialty-Röstern im Katalog listet, was übernommen wird und wie du dein Listing steuerst.">
+  <section class="wrap prose" style="padding:4rem 0 0">
+    <h1>Deine Kaffees, richtig verlinkt.</h1>
+    <p class="muted" style="font-size:1.2rem">bean'd hilft Leuten, ihre Bohnen und Shots zu dokumentieren. Der Röster-Katalog sorgt dafür, dass dein Kaffee mit korrekten Angaben in der App landet und jede Bohne zurück auf deinen Shop verlinkt.</p>
+
+    <h2>Was wir übernehmen</h2>
+    <ul>
+      <li>Fakten aus deinem Shop: Name, Herkunft, Aufbereitung, Varietät, Produzent, Röstgrad, Geschmacksnoten, Packungsgrößen und Preise</li>
+      <li>Ob ein Kaffee gerade verfügbar ist</li>
+      <li>Einen Link auf die Produktseite in deinem Shop</li>
+    </ul>
+
+    <h2>Was wir nicht übernehmen</h2>
+    <ul>
+      <li>Keine Beschreibungstexte</li>
+      <li>Keine Produktfotos und kein Logo, außer du gibst sie ausdrücklich frei. Dann hosten wir sie selbst, verkleinert und mit „© Röster“ gekennzeichnet.</li>
+      <li>Wir verkaufen nichts und nehmen kein Geld von Röstern.</li>
+    </ul>
+
+    <h2>So funktioniert es</h2>
+    <p>Einmal pro Nacht liest ein Skript die öffentlichen Produktdaten der gelisteten Shops. Nur neue oder geänderte Produkte werden verarbeitet. Daraus entsteht eine offene Katalog-Datei, die die App herunterlädt. Die App selbst greift nie direkt auf deinen Shop zu.</p>
+
+    <h2>Du entscheidest</h2>
+    <ul>
+      <li><strong>Aufnehmen lassen:</strong> Schreib uns oder schlag deine Rösterei auf GitHub vor.</li>
+      <li><strong>Bilder & Logo freigeben:</strong> Ein kurzes Mail reicht.</li>
+      <li><strong>Korrektur oder Opt-out:</strong> Schreib uns, dann ist dein Shop beim nächsten Lauf draußen.</li>
+    </ul>
+    <p><a class="btn primary" href={`mailto:${CONTACT_EMAIL}?subject=Röster-Katalog`}>{CONTACT_EMAIL}</a></p>
+  </section>
+</Base>

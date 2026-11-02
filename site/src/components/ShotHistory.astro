@@ -1,0 +1,226 @@
+---
+import Points from './Points.astro';
+// History, brew detail and beans as three swipeable screens, like the tiles above:
+// swipe or use the dots; inside the screenshots you can also tap a brew (→ detail),
+// the back arrow (→ history) and the bottom bar (history / beans). The text on the left follows.
+const views = [
+  {
+    id: 'history',
+    tab: 'History',
+    title: 'Every brew, kept on your device.',
+    body: 'Every shot and pour-over lands in your history, grouped by day, with bean, profile, grind, dose and yield at a glance.',
+    points: [
+      { t: 'Local', d: 'Every brew stays on your device' },
+      { t: 'Sync', d: 'End-to-end encrypted between your own devices, over Nostr' },
+      { t: 'Backups', d: 'Automatic, on a schedule you choose' },
+    ],
+    img: '/screens/history.webp', h: 1990, alt: 'Brew history grouped by day',
+  },
+  {
+    id: 'detail',
+    tab: 'Brew detail',
+    title: 'Manage, compare, analyse and share.',
+    body: 'Open any brew to see the full chart and every number behind it, including the gear it was brewed with.',
+    points: [
+      { t: 'Analysis', d: 'Local and AI analysis', fn: true },
+      { t: 'Compare', d: 'Two brews on one chart' },
+      { t: 'Taste', d: 'Rate it and add notes' },
+      { t: 'Share', d: 'Send a brew to anyone' },
+    ],
+    img: '/screens/brew-detail.webp', h: 1972, alt: 'Brew detail with chart, numbers, gear and taste',
+  },
+  {
+    id: 'beans',
+    tab: 'Beans',
+    title: 'Know every bag on the shelf.',
+    body: 'Roaster, origin, process and roast date, with what’s left in the bag and how fresh it is. Snap the bag or paste a shop link and the form fills itself.',
+    footnote: true,
+    points: [
+      { t: 'What’s in the bag', d: 'Grams left' },
+      { t: 'Freshness', d: 'Days since roast' },
+      { t: 'Status', d: 'Open, frozen and finished at a glance' },
+    ],
+    img: '/screens/beans-tab.webp', h: 1975, alt: 'Bean list by roaster with remaining grams, freshness and frozen beans',
+  },
+  {
+    id: 'profiles',
+    tab: 'Profiles',
+    title: 'Go deep with your profiles.',
+    body: 'Shape every stage of a shot: pressure, flow, temperature and when to move on. Then send it straight to your machine.',
+    points: [
+      { t: 'Create', d: 'From scratch, stage by stage' },
+      { t: 'Upload', d: 'Straight to your machine' },
+      { t: 'Edit', d: 'Any profile you already have' },
+    ],
+    img: '/screens/profile-new.webp', h: 1992, alt: 'New profile editor with temperature, target weight, variables and stages',
+  },
+];
+---
+<section id="history" class="wrap hist" data-hist>
+  <ol class="panels" data-texts aria-label="What each screen does">
+    {views.map((v) => (
+      <li class="panel" id={`panel-${v.id}`}>
+        <p class="eyebrow">{v.tab}</p>
+        <h2>{v.title}</h2>
+        <p class="body">{v.body}{v.footnote && <sup class="fn-mark">1</sup>}</p>
+        <Points items={v.points} />
+      </li>
+    ))}
+  </ol>
+
+  <div class="viewer">
+    <div class="dots" role="group" aria-label="Choose a screen">
+      {views.map((v, i) => (
+        <button type="button" data-dot={i} aria-label={v.tab} aria-current={i === 0 ? 'true' : undefined}><i></i><span>{v.tab}</span></button>
+      ))}
+    </div>
+    <ol class="strip" data-strip aria-label="App screens">
+      {views.map((v) => (
+        <li class="slide" aria-label={v.tab}>
+          <div class="phone">
+            <img src={v.img} width="960" height={v.h} alt={v.alt} loading="lazy" />
+            {v.id === 'history' && <>
+              <button type="button" class="hot open" data-go="1" aria-label="Open the brew detail"></button>
+              <button type="button" class="hot nav-beans" data-go="2" aria-label="Beans"></button>
+            </>}
+            {v.id === 'detail' && <button type="button" class="hot back" data-go="0" aria-label="Back to history"></button>}
+            {v.id === 'beans' && <button type="button" class="hot nav-history" data-go="0" aria-label="History"></button>}
+          </div>
+        </li>
+      ))}
+    </ol>
+    <p class="fn"><sup>1</sup> AI features need your own API key (Anthropic, OpenAI, Gemini, OpenRouter or a custom endpoint).</p>
+  </div>
+</section>
+
+<style>
+  .hist { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; padding-top: 8rem; }
+  .hist h2 { max-width: 16ch; }
+
+  /* Text panels swipe too, in step with the phones */
+  .panels {
+    position: relative; list-style: none; margin: 0; padding: 0; min-width: 0;
+    display: flex; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  .panels::-webkit-scrollbar { display: none; }
+  .panel { flex: 0 0 100%; scroll-snap-align: start; padding-right: 1.5rem; box-sizing: border-box; }
+  sup { font-size: 0.5em; line-height: 0; margin-left: 0.15em; vertical-align: 0.8em; }
+  sup a { text-decoration: none; }
+  .fn { font-size: 0.68rem; line-height: 1.4; margin: 1rem auto 0; max-width: 46ch; text-align: center; color: var(--text-faint); }
+  .fn sup { color: var(--accent); }
+
+  /* Three screens side by side; the neighbours peek in so it is clear there is more */
+  .viewer { --slide: min(300px, 70%); min-width: 0; }
+  .strip {
+    position: relative; list-style: none; margin: 0; padding: 0 calc(50% - var(--slide) / 2);
+    display: flex; gap: 1rem; overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  .strip::-webkit-scrollbar { display: none; }
+  .slide { flex: 0 0 var(--slide); scroll-snap-align: center; }
+  .slide:not([data-active]) { cursor: pointer; }
+  .phone { position: relative; aspect-ratio: 960 / 1990; border: 1px solid var(--line); border-radius: 26px; overflow: hidden; background: #1b1b1d; }
+  .phone img { display: block; width: 100%; height: auto; }
+
+  .hot { position: absolute; padding: 0; border: 0; background: none; cursor: pointer; }
+  .hot:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 8px; }
+  .slide:not([data-active]) .hot { pointer-events: none; }
+  .open { left: 0; right: 0; top: 0; bottom: 10%; }
+  .nav-beans { right: 0; width: 33.3%; bottom: 0; height: 10%; }
+  .nav-history { left: 33.3%; width: 33.3%; bottom: 0; height: 10%; }
+  .back { left: 0; top: 0; width: 14%; height: 5%; }
+
+  .dots { display: flex; justify-content: center; gap: 0.75rem; margin-bottom: 1rem; }
+  .dots button { display: inline-flex; align-items: center; gap: 0.45rem; padding: 7.5px; border: 0; background: none; cursor: pointer; font: 500 0.8rem var(--font); letter-spacing: -0.005em; color: var(--text-muted); }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: #55504a; }
+  .dots button[aria-current] { color: var(--text); }
+  .dots button[aria-current] i { background: var(--accent); }
+
+  @media (max-width: 820px) {
+    .hist { grid-template-columns: 1fr; gap: 2.5rem; padding-top: 5rem; }
+    .viewer { --slide: min(270px, 64vw); margin-inline: -1.25rem; }
+    .dots span { display: none; }
+  }
+</style>
+
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>('[data-hist]')) {
+    const strip = root.querySelector<HTMLElement>('[data-strip]')!;
+    const texts = root.querySelector<HTMLElement>('[data-texts]')!;
+    const slides = [...strip.children] as HTMLElement[];
+    const panels = [...texts.children] as HTMLElement[];
+    const dots = [...root.querySelectorAll<HTMLButtonElement>('[data-dot]')];
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const behavior: ScrollBehavior = reduce ? 'auto' : 'smooth';
+    let active = -1;
+
+    // Position of slide i inside each track
+    const stripX = (i: number) => slides[i].offsetLeft - slides[0].offsetLeft;
+    const textX = (i: number) => panels[i].offsetLeft - panels[0].offsetLeft;
+    const go = (i: number) => {
+      strip.scrollTo({ left: stripX(i), behavior });
+      texts.scrollTo({ left: textX(i), behavior });
+    };
+
+    // Whichever track the user touches leads, the other follows proportionally.
+    let lead: HTMLElement | null = null;
+    let leadUntil = 0;
+    const take = (el: HTMLElement) => () => { lead = el; leadUntil = performance.now() + 900; };
+    for (const el of [strip, texts]) {
+      el.addEventListener('pointerdown', take(el), { passive: true });
+      el.addEventListener('touchstart', take(el), { passive: true });
+      el.addEventListener('wheel', take(el), { passive: true });
+    }
+    const progress = (el: HTMLElement) => {
+      const step = el === strip ? stripX(1) : textX(1);
+      return step ? el.scrollLeft / step : 0;
+    };
+    let release = 0;
+    const follow = (from: HTMLElement) => {
+      if (lead !== from || performance.now() > leadUntil) return;
+      leadUntil = performance.now() + 900;
+      const other = from === strip ? texts : strip;
+      const step = other === strip ? stripX(1) : textX(1);
+      const p = progress(from);
+      other.style.scrollSnapType = 'none'; // snapping would make the follower jump
+      other.scrollLeft = p * step;
+      clearTimeout(release);
+      release = window.setTimeout(() => {
+        other.scrollLeft = Math.round(progress(from)) * step;
+        other.style.scrollSnapType = '';
+      }, 160);
+    };
+
+    // Neighbours fade and shrink with their distance from the centre: the same look
+    // whether the phones, the text or a dot moved them.
+    const paint = () => {
+      const step = stripX(1) || 1;
+      const p = strip.scrollLeft / step;
+      slides.forEach((s, j) => {
+        const d = Math.min(1, Math.abs(j - p));
+        s.style.opacity = String(1 - 0.6 * d);
+        s.style.transform = `scale(${1 - 0.06 * d})`;
+      });
+    };
+
+    const mark = () => {
+      const i = Math.max(0, Math.min(slides.length - 1, Math.round(progress(strip))));
+      if (i === active) return;
+      active = i;
+      slides.forEach((s, j) => {
+        s.toggleAttribute('data-active', j === i);
+        s.querySelectorAll('button').forEach((b) => (b.tabIndex = j === i ? 0 : -1));
+      });
+      panels.forEach((p, j) => p.setAttribute('aria-hidden', String(j !== i)));
+      dots.forEach((d, j) => d.toggleAttribute('aria-current', j === i));
+    };
+
+    let raf = 0;
+    strip.addEventListener('scroll', () => { follow(strip); paint(); cancelAnimationFrame(raf); raf = requestAnimationFrame(mark); }, { passive: true });
+    texts.addEventListener('scroll', () => follow(texts), { passive: true });
+    root.querySelectorAll<HTMLElement>('[data-go]').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); lead = null; go(Number(b.dataset.go)); }));
+    slides.forEach((s, i) => s.addEventListener('click', () => { if (i !== active) { lead = null; go(i); } }));
+    dots.forEach((d, i) => d.addEventListener('click', () => { lead = null; go(i); }));
+    paint();
+    mark();
+  }
+</script>

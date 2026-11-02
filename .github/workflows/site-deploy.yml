@@ -1,0 +1,67 @@
+name: Website deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/site-deploy.yml']
+  release:
+    types: [published]   # rebuild so the site shows the new version
+  workflow_dispatch:
+
+concurrency:
+  group: site-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # for the latest-release lookup (src/release.ts)
+        run: |
+          npm ci
+          npm run build
+
+      - name: Bundle release (dist + production deps)
+        run: |
+          mkdir -p ../release
+          cp -r dist/client dist/server package.json package-lock.json ../release/
+          (cd ../release && npm ci --omit=dev --ignore-scripts)
+
+      - name: Upload and activate
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519
+          REL=/srv/beand/site/releases/$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}
+          rsync -az --delete ../release/ "$USER@$HOST:$REL/"
+          ssh "$USER@$HOST" "
+            set -e
+            ln -sfn '$REL' /srv/beand/site/current.tmp
+            mv -T /srv/beand/site/current.tmp /srv/beand/site/current
+            sudo /usr/bin/systemctl restart beand-site
+            ls -1dt /srv/beand/site/releases/* | tail -n +6 | xargs -r rm -rf
+          "
+
+      - name: Smoke test
+        run: |
+          sleep 3
+          curl -fsS -o /dev/null https://beand.app/
+          curl -fsS -o /dev/null https://beand.app/de/
+          test "$(curl -s -o /dev/null -w '%{http_code}' https://beand.app/s/nevent1qqsxxxxxxxxxxxxxxxxxxxxxxxx)" = 200

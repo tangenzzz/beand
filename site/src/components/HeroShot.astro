@@ -1,0 +1,70 @@
+---
+// A real shot, traced from the app's shot-detail screenshot (docs/screenshots/shot.png):
+// Fermented Peach (C Sol), profile MetOx Soup, 13 g in, 99.1 g out, 21.6 s.
+// Colours are the app's chart colours.
+import raw from '../data-shot.json';
+
+interface Props { labels: { weight: string; flow: string; pressure: string; caption: string; seconds: string; decimal: string } }
+const { labels } = Astro.props;
+
+type Pt = [number, number];
+const smooth = (pts: Pt[], n = 2): Pt[] =>
+  pts.map(([t], i) => {
+    const s = pts.slice(Math.max(0, i - n), i + n + 1);
+    return [t, s.reduce((a, [, v]) => a + v, 0) / s.length];
+  });
+
+const W = 1120, H = 340, P = { l: 4, r: 150, t: 24, b: 40 };
+const T = 27;
+const x = (t: number) => P.l + (t / T) * (W - P.l - P.r);
+const y = (v: number, max: number) => H - P.b - (v / max) * (H - P.t - P.b);
+const path = (pts: Pt[], max: number) =>
+  pts.filter(([t]) => t <= T).map(([t, v], i) => `${i ? 'L' : 'M'}${x(t).toFixed(1)} ${y(v, max).toFixed(1)}`).join(' ');
+
+const weight = smooth(raw.weight as Pt[]);
+const flow = smooth((raw.flow as Pt[]).filter(([t]) => t < 21.5));
+const pressure = smooth(raw.pressure as Pt[]);
+const end = (pts: Pt[]) => pts.filter(([t]) => t <= T).at(-1)!;
+const wEnd = end(weight), fEnd = flow.at(-1)!, pEnd = end(pressure);
+const stop = 21.6;
+---
+<figure class="hero-shot">
+  <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={labels.caption}>
+    <line x1={P.l} x2={W - P.r} y1={H - P.b} y2={H - P.b} stroke="#3b3631" />
+    {[0, 5, 10, 15, 20, 25].map((s) => (
+      <text x={x(s)} y={H - 14} class="tick">{s}{s === 0 ? ` ${labels.seconds}` : ''}</text>
+    ))}
+    <line x1={x(stop)} x2={x(stop)} y1={P.t - 10} y2={H - P.b} stroke="#5a544c" stroke-dasharray="3 5" />
+    <text x={x(stop) + 8} y={P.t} class="tick">21{labels.decimal}6 s</text>
+
+    <path d={path(pressure, 10)} class="c" stroke="#5bd68a" />
+    <path d={path(flow, 10)} class="c" stroke="#4fb3f0" />
+    <path d={path(weight, 100)} class="c w" stroke="#f2c94c" />
+
+    <text x={x(wEnd[0]) + 12} y={y(wEnd[1], 100) + 5} class="lbl" fill="#f2c94c">{labels.weight} 99{labels.decimal}1 g</text>
+    <text x={x(fEnd[0]) + 10} y={y(fEnd[1], 10) + 5} class="lbl" fill="#4fb3f0">{labels.flow}</text>
+    <text x={x(pEnd[0]) + 12} y={y(pEnd[1], 10) - 6} class="lbl" fill="#5bd68a">{labels.pressure}</text>
+  </svg>
+  <p class="legend" aria-hidden="true">
+    <span style="color:#f2c94c">{labels.weight}</span>
+    <span style="color:#4fb3f0">{labels.flow}</span>
+    <span style="color:#5bd68a">{labels.pressure}</span>
+  </p>
+  <figcaption>{labels.caption}</figcaption>
+</figure>
+
+<style>
+  .hero-shot { margin: 0; }
+  svg { width: 100%; height: auto; overflow: visible; }
+  .c { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .c.w { stroke-width: 4; }
+  .tick { fill: #8f877c; font: 500 13px var(--font); }
+  .lbl { font: 650 15px var(--font); }
+  figcaption { color: var(--text-muted); font-size: 0.95rem; margin-top: 0.75rem; max-width: 60ch; }
+  .legend { display: none; gap: 1rem; margin: 0.6rem 0 0; font-weight: 650; font-size: 0.95rem; }
+  @media (max-width: 640px) {
+    .lbl { display: none; }
+    .tick { font-size: 34px; }
+    .legend { display: flex; }
+  }
+</style>
