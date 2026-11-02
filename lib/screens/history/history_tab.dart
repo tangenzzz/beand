@@ -13,6 +13,7 @@ import '../../widgets/header_icon_button.dart';
 import 'history_filter_sheet.dart';
 import 'history_logic.dart';
 import 'history_widgets.dart';
+import 'new_shot_screen.dart';
 import 'shot_detail_screen.dart';
 
 // List of all shots, grouped by day (design follows the bean list: search +
@@ -209,6 +210,14 @@ class _HistoryTabState extends State<HistoryTab> {
         ),
         _filterButton(),
         const Spacer(),
+        // A shot by hand, with or without a shot file.
+        HeaderIconButton(
+          tooltip: 'Add shot',
+          icon: Icon(Icons.add, color: context.colors.textSecondary),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const NewShotScreen()),
+          ),
+        ),
         HeaderIconButton(
           tooltip: 'Settings',
           icon: Icon(
