@@ -63,5 +63,5 @@ jobs:
         run: |
           sleep 3
           curl -fsS -o /dev/null https://beand.app/
-          curl -fsS -o /dev/null https://beand.app/de/
+          curl -fsS -o /dev/null https://beand.app/de/impressum/
           test "$(curl -s -o /dev/null -w '%{http_code}' https://beand.app/s/nevent1qqsxxxxxxxxxxxxxxxxxxxxxxxx)" = 200
