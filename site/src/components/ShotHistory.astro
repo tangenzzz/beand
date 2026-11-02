@@ -197,6 +197,13 @@ const views = [
       const p = strip.scrollLeft / step;
       slides.forEach((s, j) => {
         const d = Math.min(1, Math.abs(j - p));
+        // The centred phone gets no transform/opacity at all: even scale(0.9998) makes
+        // desktop browsers composite it as a resampled layer and the screenshot text turns soft.
+        if (d < 0.02) {
+          s.style.opacity = '';
+          s.style.transform = '';
+          return;
+        }
         s.style.opacity = String(1 - 0.6 * d);
         s.style.transform = `scale(${1 - 0.06 * d})`;
       });
