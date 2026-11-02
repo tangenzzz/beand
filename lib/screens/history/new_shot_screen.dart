@@ -353,6 +353,8 @@ class _NewShotScreenState extends State<NewShotScreen> {
                 ),
               ),
             ),
+            // Same gap as the Brew method dropdown, so the values line up.
+            const SizedBox(width: 12),
             Expanded(child: child),
             ?trailing,
           ],
