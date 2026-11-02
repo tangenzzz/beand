@@ -85,7 +85,28 @@ systemctl daemon-reload && systemctl enable beand-site
 # first start happens with the first deploy
 ```
 
-## 6. GitHub secrets
+## 6. Visitor statistics (GoAccess)
+
+No script on the page, no cookies: GoAccess reads Caddy's access log once a night and writes an HTML report. IP addresses are anonymised (last octet / last 80 bits zeroed) before they are stored; the aggregated numbers are kept beyond the 14-day log retention.
+
+```bash
+apt install -y goaccess
+mkdir -p /srv/beand/stats /var/lib/goaccess && chmod 755 /srv/beand/stats
+cat > /etc/cron.d/beand-stats <<'CRON'
+15 3 * * * root goaccess /var/log/caddy/beand.log --log-format=CADDY --anonymize-ip --persist --restore --db-path=/var/lib/goaccess --ignore-crawlers --exclude-ip=127.0.0.1 -o /srv/beand/stats/index.html >/dev/null 2>&1
+CRON
+
+# Password for https://beand.app/stats/ (user `matthias`). Set it BEFORE installing the new Caddyfile,
+# Caddy refuses to start with an empty hash.
+caddy hash-password                                  # type the password twice, copy the $2a$… hash
+echo 'STATS_HASH=<hash>' >> /etc/default/caddy        # keep the single quotes, the hash contains $
+cp deploy/Caddyfile /etc/caddy/Caddyfile && caddy validate --config /etc/caddy/Caddyfile
+chown -R caddy:caddy /var/log/caddy && systemctl restart caddy
+```
+
+Run the cron line once by hand to get the first report immediately. `/stats/` is excluded in `robots.txt`.
+
+## 7. GitHub secrets
 
 Repository → Settings → Secrets and variables → Actions:
 

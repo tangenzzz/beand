@@ -25,6 +25,16 @@ beand.app {
 		-Server
 	}
 
+	# Visitor statistics (GoAccess report built nightly from the access log, IPs anonymised).
+	# Password: `caddy hash-password` → STATS_HASH in /etc/default/caddy (see deploy/README.md).
+	handle /stats/* {
+		basic_auth {
+			{$STATS_USER:matthias} {$STATS_HASH}
+		}
+		root * /srv/beand
+		file_server
+	}
+
 	# Static catalog API — the stable contract with the app. ETag / If-None-Match handled by file_server.
 	handle /api/* {
 		root * /srv/beand
