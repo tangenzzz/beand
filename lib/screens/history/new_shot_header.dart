@@ -225,7 +225,10 @@ class _NewShotHeaderState extends State<NewShotHeader> {
       return;
     }
     final machine = file.machine ?? _shot.machine;
-    await _db.replaceShotReadings(_shot.id, file.readings);
+    // A profile file has no curve: an already loaded one stays.
+    if (file.readings.isNotEmpty) {
+      await _db.replaceShotReadings(_shot.id, file.readings);
+    }
     // What the file knows replaces what is set; what it doesn't stays.
     await _db.updateShotFields(
       _shot.id,
@@ -247,13 +250,20 @@ class _NewShotHeaderState extends State<NewShotHeader> {
         finalWeight: _keep(file.finalWeight),
         durationMs: _keep(file.durationMs),
         grindSize: _keep(file.grind),
-        profileTemp: _keep(file.profileTemp),
+        // Without a target in the file, the measured mean stands in — but
+        // only where nothing is set yet (a picked profile's stays).
+        profileTemp: _keep(
+          file.profileTemp ??
+              (_shot.profileTemp == null ? file.brewTemp : null),
+        ),
         brewTemp: _keep(file.brewTemp),
       ),
     );
     if (!mounted) return;
     setState(
-      () => _fileNote = '${file.format} · ${file.readings.length} points',
+      () => _fileNote = file.readings.isEmpty
+          ? file.format
+          : '${file.format} · ${file.readings.length} points',
     );
     widget.onCurveLoaded();
   }
@@ -280,7 +290,7 @@ class _NewShotHeaderState extends State<NewShotHeader> {
         // Every brew method bean'd knows — a new one shows up by itself.
         ValueSelectRow<ShotMachine>(
           icon: Icons.local_cafe_outlined,
-          label: 'Brew method',
+          label: 'Method',
           listIndent: 0,
           value: machine,
           open: widget.openList == 'method',
@@ -391,6 +401,7 @@ class _NewShotHeaderState extends State<NewShotHeader> {
       placeholder: placeholder,
       isLast: isLast,
       trailing: trailing,
+      showChevron: false,
       open: false,
       onToggle: onTap,
       onClose: () {},

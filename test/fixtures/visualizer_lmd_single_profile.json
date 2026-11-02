@@ -1,0 +1,79 @@
+{
+  "id": 13,
+  "name": "LMD Single v1.1 (community)",
+  "phases": [
+    {
+      "skip": false,
+      "type": "FLOW",
+      "target": {
+        "end": 3,
+        "curve": "INSTANT",
+        "start": 3
+      },
+      "restriction": 1.2,
+      "stopConditions": {
+        "time": 2000
+      }
+    },
+    {
+      "skip": false,
+      "type": "FLOW",
+      "target": {
+        "end": 3,
+        "time": 5000,
+        "curve": "LINEAR",
+        "start": 3
+      },
+      "restriction": 1.2,
+      "stopConditions": {
+        "time": 18000,
+        "weight": 1,
+        "pressureAbove": 1.2
+      }
+    },
+    {
+      "skip": false,
+      "type": "PRESSURE",
+      "target": {
+        "end": 7,
+        "time": 4000,
+        "curve": "EASE_IN_OUT"
+      },
+      "restriction": 3.5,
+      "stopConditions": {
+        "time": 4000
+      }
+    },
+    {
+      "skip": false,
+      "type": "PRESSURE",
+      "target": {
+        "end": 6,
+        "time": 3000,
+        "curve": "EASE_IN_OUT",
+        "start": 7
+      },
+      "restriction": 2,
+      "stopConditions": {
+        "time": 3000
+      }
+    },
+    {
+      "skip": false,
+      "type": "FLOW",
+      "target": {
+        "end": 1.3,
+        "time": 8000,
+        "curve": "EASE_IN_OUT",
+        "start": 2
+      },
+      "restriction": 6,
+      "stopConditions": {}
+    }
+  ],
+  "recipe": {},
+  "waterTemperature": 93,
+  "globalStopConditions": {
+    "weight": 20
+  }
+}

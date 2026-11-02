@@ -122,6 +122,7 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.labelColor,
     this.labelSize = 13,
     this.labelSuffix,
+    this.showChevron = true,
   }) : panel = null;
 
   /// The same closed row with an own [panel] (e.g. the ruler for numbers).
@@ -146,6 +147,7 @@ class ValueSelectRow<T> extends StatefulWidget {
     this.labelColor,
     this.labelSize = 13,
     this.labelSuffix,
+    this.showChevron = true,
   }) : options = null,
        value = null,
        onChanged = null,
@@ -210,6 +212,10 @@ class ValueSelectRow<T> extends StatefulWidget {
 
   /// Right after the label inside its column, e.g. an ⓘ bubble.
   final Widget? labelSuffix;
+
+  /// False for a row whose tap does something else than folding out (a date
+  /// picker, a file): no arrow, the space stays so values line up.
+  final bool showChevron;
 
   static const defaultLabelWidth = 64.0;
   static const minHeight = 50.0;
@@ -351,7 +357,7 @@ class _ValueSelectRowState<T> extends State<ValueSelectRow<T>>
     );
     final chevron = SizedBox(
       width: 22,
-      child: widget.enabled
+      child: widget.enabled && widget.showChevron
           ? AnimatedRotation(
               turns: open ? 0.5 : 0,
               duration: ValueSelectRow._duration,

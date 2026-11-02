@@ -688,17 +688,24 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
+                        // A new shot asks for its bean here until one is
+                        // picked (the profile has its own line below).
                         Flexible(
                           child: Text(
                             bean?.name ??
-                                (profile.isEmpty
+                                (editable
+                                    ? 'Select bean'
+                                    : profile.isEmpty
                                     ? (isPourOver ? 'Brew' : 'Shot')
                                     : profile),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
+                              color: bean == null && editable
+                                  ? context.colors.textTertiary
+                                  : null,
                             ),
                           ),
                         ),
@@ -720,7 +727,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                         ],
                       ],
                     ),
-                    if (bean != null && profile.isNotEmpty) ...[
+                    if ((bean != null || editable) && profile.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         profile,

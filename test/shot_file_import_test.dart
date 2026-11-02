@@ -126,6 +126,35 @@ settings {
     expect(tcl.readings.last(1).pressure.value, 9.0);
   });
 
+  test('visualizer.coffee CSV export (a real one)', () {
+    final shot = parseShotFile(
+      File('test/fixtures/visualizer_lmd_single.csv').readAsBytesSync(),
+    );
+    expect(shot.format, 'visualizer.coffee shot');
+    expect(shot.profileName, 'LMD Single v1.1 (community)');
+    expect(shot.finalWeight, 20.6);
+    expect(shot.timestamp, DateTime.utc(2026, 11, 2, 17, 11, 37).toLocal());
+    expect(shot.readings, hasLength(134));
+    expect(shot.durationMs, 20500);
+    final last = shot.readings.last(1);
+    expect(last.pressure.value, 2.0);
+    expect(last.weight.value, 20.6);
+    expect(last.flow.value, 2.0);
+    expect(last.gravimetricFlow.value, 2.3);
+    expect(last.barUp.value, 93.0); // basket empty → water in
+  });
+
+  test('a profile without a curve (phases, from visualizer.coffee)', () {
+    final shot = parseShotFile(
+      File('test/fixtures/visualizer_lmd_single_profile.json')
+          .readAsBytesSync(),
+    );
+    expect(shot.format, 'Profile, no curve');
+    expect(shot.profileName, 'LMD Single v1.1 (community)');
+    expect(shot.profileTemp, 93);
+    expect(shot.readings, isEmpty);
+  });
+
   test('anything else is refused with a readable message', () {
     expect(
       () => parseShotFile(text('hello')),
@@ -187,10 +216,12 @@ settings {
     );
     await settle();
     expect(find.text('New shot'), findsOneWidget);
+    // Bean asked for in the title line until one is picked.
+    expect(find.text('Select bean'), findsOneWidget);
     expect(find.text('Delete shot'), findsNothing); // the cross discards
 
     // Every brew method is on offer.
-    await tester.tap(find.text('Brew method'));
+    await tester.tap(find.text('Method'));
     await tester.pumpAndSettle();
     for (final label in ['Meticulous', 'Pour Over', 'GaggiMate']) {
       expect(find.text(label), findsWidgets);
@@ -204,6 +235,9 @@ settings {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Turbo'));
     await settle();
+    // The profile goes to the second line, the bean stays asked for.
+    expect(find.text('Select bean'), findsOneWidget);
+    expect(find.text('Turbo'), findsWidgets);
 
     // Yield by its ruler, the stats like in every shot.
     expect(find.text('YIELD'), findsWidgets);

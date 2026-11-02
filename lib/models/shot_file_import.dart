@@ -14,8 +14,12 @@ import 'history_import.dart';
 //
 // - GaggiMate `.slog` (binary, magic 'SHOT'), from its web UI
 // - Meticulous history entry (JSON with `data` points), from its web UI
-// - visualizer.coffee shot JSON (`timeframe` + `data` series)
+// - visualizer.coffee shot JSON (`timeframe` + `data` series) and its CSV
+//   export (`information_type,elapsed,…`: meta rows, then one row per
+//   moment)
 // - Decent: de1app JSON v2 (`elapsed` + series) or the Tcl `.shot` file
+// - a profile without a curve (Gaggiuino-style JSON with `phases`, as
+//   visualizer.coffee hands it out): name and temperature only
 
 class ShotFileException implements Exception {
   const ShotFileException(this.message);
@@ -87,13 +91,16 @@ ImportedShot parseShotFile(Uint8List bytes) {
         return _visualizer(map);
       }
       if (map['elapsed'] is List) return _decentJson(map);
+      if (map['phases'] is List) return _phasesProfile(map);
     }
+  } else if (text.startsWith('information_type,')) {
+    return _visualizerCsv(text);
   } else if (text.contains('espresso_elapsed')) {
     return _decentTcl(text);
   }
   throw const ShotFileException(
     'Unknown file. Supported: GaggiMate .slog, Meticulous, '
-    'visualizer.coffee and Decent shot files.',
+    'visualizer.coffee (JSON, CSV) and Decent shot files.',
   );
 }
 
@@ -187,6 +194,68 @@ ImportedShot _visualizer(Map<String, dynamic> map) {
     grind: _text(map['grinder_setting']),
   );
 }
+
+// visualizer.coffee CSV export: `meta` rows (Name, Date, Weight = the drink
+// weight) and `moment` rows with the series, columns named in the header.
+ImportedShot _visualizerCsv(String text) {
+  final lines = const LineSplitter().convert(text);
+  final header = lines.first.split(',');
+  int col(String name) => header.indexOf(name);
+  final type = col('information_type');
+  final metaKey = col('metatype');
+  final metaValue = col('metadata');
+  final meta = <String, String>{};
+  final rows = <List<String>>[];
+  for (final line in lines.skip(1)) {
+    final cells = line.split(',');
+    String cell(int i) => i >= 0 && i < cells.length ? cells[i].trim() : '';
+    switch (cell(type)) {
+      case 'meta':
+        meta[cell(metaKey)] = cell(metaValue);
+      case 'moment':
+        rows.add(cells);
+    }
+  }
+  List<double> series(List<String> names) {
+    for (final name in names) {
+      final i = col(name);
+      if (i < 0) continue;
+      final values = [
+        for (final r in rows)
+          i < r.length ? double.tryParse(r[i].trim()) : null,
+      ];
+      if (values.any((v) => v != null)) return [for (final v in values) v ?? 0];
+    }
+    return const [];
+  }
+
+  return _fromSeries(
+    format: 'visualizer.coffee shot',
+    seconds: series(['elapsed']),
+    pressure: series(['pressure']),
+    flow: series(['flow_in']),
+    weight: series(['current_total_shot_weight']),
+    weightFlow: series(['flow_out']),
+    temp: series([
+      'water_temperature_basket',
+      'water_temperature_in',
+      'water_temperature_boiler',
+    ]),
+    timestamp: _time(meta['Date']),
+    profileName: _text(meta['Name']),
+    finalWeight: _number(meta['Weight']),
+  );
+}
+
+// A profile only (`phases`, Gaggiuino-style, also from visualizer.coffee):
+// no curve, but its name and water temperature.
+ImportedShot _phasesProfile(Map<String, dynamic> map) => ImportedShot(
+  format: 'Profile, no curve',
+  profileName: _text(map['name']),
+  profileTemp: _number(map['waterTemperature']),
+  profileJson: jsonEncode(map),
+  readings: const [],
+);
 
 // de1app JSON v2: `elapsed` in seconds, series grouped by kind.
 ImportedShot _decentJson(Map<String, dynamic> map) {
