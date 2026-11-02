@@ -17,7 +17,7 @@ Internet ──▶ Caddy :443 ─┬─ /api/*  → /srv/beand/api/          (ca
 
 ## 2. DNS
 
-At the registrar (or Hetzner DNS):
+At the registrar (or Hetzner DNS). On Cloudflare set every record to **DNS only** (grey cloud) — Caddy terminates TLS itself:
 
 | Name | Type | Value |
 |---|---|---|
@@ -35,7 +35,9 @@ apt install -y unattended-upgrades rsync debian-keyring debian-archive-keyring a
 dpkg-reconfigure -plow unattended-upgrades
 
 # SSH: keys only
-sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config && systemctl reload ssh
+# (Ubuntu's 50-cloud-init.conf re-enables passwords, so use a drop-in that sorts first)
+printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin prohibit-password\n' > /etc/ssh/sshd_config.d/00-keys-only.conf
+sshd -t && systemctl reload ssh
 
 # Swap: the CPX02 has only 1 GB RAM
 fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
@@ -71,9 +73,12 @@ chown -R deploy:deploy /home/deploy/.ssh && chmod 700 /home/deploy/.ssh && chmod
 
 ```bash
 cp deploy/Caddyfile /etc/caddy/Caddyfile
-echo 'ACME_EMAIL=you@example.com' >> /etc/default/caddy        # contact for Let's Encrypt
-mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
-systemctl reload caddy
+echo 'ACME_EMAIL=you@example.com' > /etc/default/caddy         # contact for Let's Encrypt
+# the packaged caddy.service does not read /etc/default/caddy by itself
+mkdir -p /etc/systemd/system/caddy.service.d
+printf '[Service]\nEnvironmentFile=/etc/default/caddy\n' > /etc/systemd/system/caddy.service.d/env.conf
+mkdir -p /var/log/caddy && chown -R caddy:caddy /var/log/caddy   # re-run after `caddy validate` as root
+systemctl daemon-reload && systemctl restart caddy
 
 cp deploy/beand-site.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable beand-site
