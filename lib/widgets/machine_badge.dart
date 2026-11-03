@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // The badge that assigns a shot in the History to its machine.
 //
@@ -7,11 +8,12 @@ import 'package:flutter/material.dart';
 // more room for the letter at the same width.
 //
 // It is shown at 17 px, the glyph inside about 11 px. At that size little
-// works: Meticulous and GaggiMate therefore get their initial, Pour Over a
-// V60 dripper — a letter would be arbitrary there, and of the motifs tried
-// (kettle, ribbed cone, cone with foot) only the plain dripper with a rim
-// survived 17 px.
-enum MachineGlyph { letterM, letterG, v60 }
+// works: Meticulous therefore gets its initial, GaggiMate "GM" cut from its
+// wordmark (bold G of GAGGI, thin M of MATE, as in the Home pill; used with
+// permission), Pour Over a V60 dripper — a letter would be arbitrary there,
+// and of the motifs tried (kettle, ribbed cone, cone with foot) only the
+// plain dripper with a rim survived 17 px.
+enum MachineGlyph { letterM, gaggiMate, v60 }
 
 class MachineBadge extends StatelessWidget {
   const MachineBadge({
@@ -44,20 +46,28 @@ class MachineBadge extends StatelessWidget {
         border: ring == null ? null : Border.all(color: ring, width: 2),
       ),
       alignment: Alignment.center,
-      child: glyph == MachineGlyph.v60
-          ? CustomPaint(
-              size: Size.square(size * 0.62),
-              painter: const _V60Painter(_glyphColor),
-            )
-          : Text(
-              glyph == MachineGlyph.letterM ? 'M' : 'G',
-              style: TextStyle(
-                color: _glyphColor,
-                fontSize: size * 0.66,
-                fontWeight: FontWeight.w800,
-                height: 1.0,
-              ),
-            ),
+      child: switch (glyph) {
+        MachineGlyph.v60 => CustomPaint(
+          size: Size.square(size * 0.62),
+          painter: const _V60Painter(_glyphColor),
+        ),
+        // Two letters side by side: as wide as the inner area allows.
+        MachineGlyph.gaggiMate => SvgPicture.asset(
+          'assets/gaggimate/badge_gm.svg',
+          width: size * 0.66,
+          semanticsLabel: 'GaggiMate',
+          colorFilter: const ColorFilter.mode(_glyphColor, BlendMode.srcIn),
+        ),
+        MachineGlyph.letterM => Text(
+          'M',
+          style: TextStyle(
+            color: _glyphColor,
+            fontSize: size * 0.66,
+            fontWeight: FontWeight.w800,
+            height: 1.0,
+          ),
+        ),
+      },
     );
   }
 }

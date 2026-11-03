@@ -16,7 +16,12 @@ enum ShotMachine {
     MachineGlyph.letterM,
   ),
   pourOver('pourover', 'Pour Over', Color(0xFFF2C94C), MachineGlyph.v60),
-  gaggiMate('gaggimate', 'GaggiMate', Color(0xFFA78DE0), MachineGlyph.letterG);
+  gaggiMate(
+    'gaggimate',
+    'GaggiMate',
+    Color(0xFFA78DE0),
+    MachineGlyph.gaggiMate,
+  );
 
   const ShotMachine(this.key, this.label, this.color, this.glyph);
   final String key;
