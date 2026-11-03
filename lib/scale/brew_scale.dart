@@ -63,6 +63,11 @@ abstract class BrewScale extends ChangeNotifier {
   /// Every new reading (scales deliver ~5–10 per second).
   Stream<ScaleReading> get readings;
 
+  /// Tares done on the device itself, not by the app (the Meticulous' dial
+  /// in its own Pour Over mode): the weight that stood on the scale just
+  /// before. Scales that can't tell stay silent.
+  Stream<double> get deviceTares => const Stream.empty();
+
   /// Readable reason why the last connection failed.
   String? get error;
 

@@ -58,14 +58,23 @@ class ScaleSelector extends BrewScale {
   }
 
   final _readings = StreamController<ScaleReading>.broadcast();
+  final _deviceTares = StreamController<double>.broadcast();
   StreamSubscription<ScaleReading>? _sub;
+  StreamSubscription<double>? _tareSub;
 
   void _subscribe() {
     _sub?.cancel();
+    _tareSub?.cancel();
     _sub = active.readings.listen((r) {
       if (!_readings.isClosed) _readings.add(r);
     });
+    _tareSub = active.deviceTares.listen((g) {
+      if (!_deviceTares.isClosed) _deviceTares.add(g);
+    });
   }
+
+  @override
+  Stream<double> get deviceTares => _deviceTares.stream;
 
   // Only the chosen scale's changes matter — the Meticulous ticks ~9×/s
   // even while a Bluetooth scale is in use.
@@ -131,7 +140,9 @@ class ScaleSelector extends BrewScale {
     bluetooth.removeListener(_onBluetooth);
     meticulous.removeListener(_onMeticulous);
     _sub?.cancel();
+    _tareSub?.cancel();
     _readings.close();
+    _deviceTares.close();
     super.dispose();
   }
 }

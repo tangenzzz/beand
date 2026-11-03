@@ -25,14 +25,24 @@ enum SetupStatus {
 /// weight is steady with the expected load; Tare (command row) records the
 /// current step right away (e.g. a brewer built into the server adds
 /// nothing).
+///
+/// With the Meticulous ([followDevice]) the machine's dial leads: the app
+/// does not tare by itself (the dial only accepts the coffee step with
+/// 5–40 g on the scale and would hang), it follows the dial's tares
+/// ([deviceTared]) and records the weight that stood there before.
 class PourOverSetup extends ChangeNotifier {
-  PourOverSetup({required this.tare, this.targetDose});
+  PourOverSetup({required this.tare, this.targetDose, this.followDevice});
 
   /// Tares the scale; throws if it failed.
   final Future<void> Function() tare;
 
   /// Dose of the plan — the coffee step records from 80 % of it.
   double? Function()? targetDose;
+
+  /// True: no own taring, follow the device's tares.
+  bool Function()? followDevice;
+
+  bool get following => followDevice?.call() ?? false;
 
   /// Steady = the readings of the last [steadyWindow] stay within
   /// [steadyBand] (Meticulous noise idle: ±0.03 g).
@@ -126,24 +136,32 @@ class PourOverSetup extends ChangeNotifier {
           _baseline = g;
           return;
         }
-        if (g - base >= serverMinLoad) unawaited(confirm());
+        if (!following && g - base >= serverMinLoad) unawaited(confirm());
       case SetupStep.brewer:
-        if (g >= brewerMinLoad) unawaited(confirm());
+        if (!following && g >= brewerMinLoad) unawaited(confirm());
       case SetupStep.coffee:
         final target = targetDose?.call();
         final from = target == null
             ? coffeeMin
             : math.max(coffeeMin, target * 0.8);
-        if (g >= from && g <= coffeeMax) unawaited(confirm());
+        if (!following && g >= from && g <= coffeeMax) unawaited(confirm());
       case SetupStep.done:
         break;
     }
   }
 
-  /// Records the current step with the current weight and tares.
-  Future<void> confirm() async {
+  /// The device was tared (dial press): the step is done with the weight
+  /// that stood there before — no tare from the app.
+  void deviceTared(double before) {
     if (done || _status == SetupStatus.taring) return;
-    final g = _last ?? 0;
+    _record(before);
+    _status = SetupStatus.waiting;
+    _window.clear();
+    _step = SetupStep.values[_step.index + 1];
+    notifyListeners();
+  }
+
+  void _record(double g) {
     switch (_step) {
       case SetupStep.server:
         serverG = math.max(0, g - (_baseline ?? 0));
@@ -152,8 +170,18 @@ class PourOverSetup extends ChangeNotifier {
       case SetupStep.coffee:
         coffeeG = math.max(0, g);
       case SetupStep.done:
-        return;
+        break;
     }
+  }
+
+  /// Weight on the scale that belongs to the setup (brewer + coffee) — the
+  /// zero after the last step sits on top of it.
+  double get setupG => (brewerG ?? 0) + (coffeeG ?? 0);
+
+  /// Records the current step with the current weight and tares.
+  Future<void> confirm() async {
+    if (done || _status == SetupStatus.taring) return;
+    _record(_last ?? 0);
     _status = SetupStatus.taring;
     notifyListeners();
     try {

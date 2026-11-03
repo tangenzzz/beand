@@ -29,6 +29,11 @@ enum BrewState {
 
   /// Last pour reached, drawdown.
   drawdown,
+
+  /// Brewer lifted off (Meticulous, like its own Pour Over mode): the
+  /// timer has stopped, waiting for the server with the coffee to stand
+  /// still on the scale to weigh the beverage.
+  measuring,
 }
 
 // Pour over on the shared card base (LiveShotService): carousel jumps, the
@@ -157,13 +162,28 @@ class PourOverBrewService extends LiveShotService {
   // Pour Over mode. Only while the Pour Over view is on screen
   // ([setPrepVisible]) — otherwise putting a cup on the tray for an
   // espresso would tare the machine. Start Brew works at any step.
+  //
+  // With the Meticulous the machine's dial leads (user wish 2026-11-03):
+  // the app follows its tares instead of taring itself, then starts the
+  // brew by itself with the first water — like the machine does.
   late final PourOverSetup prep = PourOverSetup(
     tare: () => scale.tare(),
     targetDose: () => setup.doseGrams ?? recipe?.doseG,
+    followDevice: () => scale.isMachineScale,
   )..addListener(_onPrep);
 
   bool _prepVisible = false;
   StreamSubscription<ScaleReading>? _prepSub;
+  StreamSubscription<double>? _deviceTareSub;
+  StreamSubscription<ScaleReading>? _armSub;
+
+  /// Grams of water that start the brew by themselves after the steps.
+  static const autoStartGrams = 2.0;
+
+  /// The steps went through to the coffee: the scale stands at zero with
+  /// everything on it, the next weight is water.
+  bool get prepComplete =>
+      scale.isMachineScale && prep.done && prep.coffeeG != null;
   double? _prepCoffeeTaken;
 
   /// Steps are shown/running.
@@ -212,10 +232,32 @@ class PourOverBrewService extends LiveShotService {
     final listen = prepActive && _prepVisible;
     if (listen && _prepSub == null) {
       _prepSub = scale.readings.listen(prep.feed);
+      _deviceTareSub = scale.deviceTares.listen(prep.deviceTared);
     } else if (!listen && _prepSub != null) {
       _prepSub!.cancel();
       _prepSub = null;
+      _deviceTareSub?.cancel();
+      _deviceTareSub = null;
     }
+    // After the steps: the first water starts the brew (timer, ring, Live
+    // card) — like the machine's own Pour Over mode.
+    final arm = prepComplete && stage == ShotStage.idle && scale.isConnected;
+    if (arm && _armSub == null) {
+      _armSub = scale.readings.listen((r) {
+        if (r.grams >= autoStartGrams && stage == ShotStage.idle) {
+          _armSub?.cancel();
+          _armSub = null;
+          unawaited(_autoStart(r));
+        }
+      });
+    } else if (!arm && _armSub != null) {
+      _armSub!.cancel();
+      _armSub = null;
+    }
+  }
+
+  Future<void> _autoStart(ScaleReading first) async {
+    if (await startShot()) _onReading(first);
   }
 
   void _onPrep() {
@@ -312,6 +354,10 @@ class PourOverBrewService extends LiveShotService {
   int get elapsedMs {
     final start = _startedAt;
     if (start == null) return 0;
+    // Stopped at the lift of the brewer.
+    if (_phase == BrewState.measuring && liveReadings.isNotEmpty) {
+      return liveReadings.last.timeMs;
+    }
     return clock.now().difference(start).inMilliseconds;
   }
 
@@ -334,7 +380,7 @@ class PourOverBrewService extends LiveShotService {
       ),
       // During the pause _stepIndex already points at the next pour.
       BrewState.waiting => waitLeftSeconds + p.remainingSeconds(_stepIndex),
-      BrewState.drawdown => 0,
+      BrewState.drawdown || BrewState.measuring => 0,
     };
   }
 
@@ -374,13 +420,20 @@ class PourOverBrewService extends LiveShotService {
     // Keep what the setup steps weighed (also when started before the
     // last step).
     _runningPrep = scale.isMachineScale ? prep.toJson() : null;
+    // After the dial's steps the scale is already at zero with everything
+    // on it (a tare now would also hit the first water when started by
+    // the water itself).
+    final tareFirst = !prepComplete;
+    _setupG = prepComplete ? prep.setupG : null;
     if (scale.isMachineScale && !prep.done) prep.skip();
-    try {
-      await scale.tare();
-    } catch (e) {
-      _lastError = 'Could not tare the scale.';
-      notifyListeners();
-      return false;
+    if (tareFirst) {
+      try {
+        await scale.tare();
+      } catch (e) {
+        _lastError = 'Could not tare the scale.';
+        notifyListeners();
+        return false;
+      }
     }
     _scaleTimer(scale.resetTimer);
     _runningPlan = p;
@@ -394,7 +447,12 @@ class PourOverBrewService extends LiveShotService {
     resetReadings();
     // The first packets after the tare command often still carry the old
     // weight — only count from a value close to 0.
-    var tared = false;
+    var tared = !tareFirst;
+    _peakWater = 0;
+    _liftSince = null;
+    _serverMissing = false;
+    _beverageG = null;
+    _measureWindow.clear();
     _readingSub = scale.readings.listen((r) {
       if (!tared) {
         if (r.grams.abs() > startThreshold) return;
@@ -411,6 +469,11 @@ class PourOverBrewService extends LiveShotService {
   void _onReading(ScaleReading r) {
     final p = _runningPlan;
     if (p == null) return;
+    if (_phase == BrewState.measuring) {
+      _measure(r);
+      return;
+    }
+    if (_phase != BrewState.armed && _watchLift(r)) return;
     if (_phase == BrewState.armed) {
       if (r.grams < startThreshold) return;
       _startedAt = r.at;
@@ -451,6 +514,103 @@ class PourOverBrewService extends LiveShotService {
     notifyListeners();
   }
 
+  // ---- End by lifting the brewer (Meticulous, after the steps) ----
+  //
+  // Like the machine's own Pour Over mode (meticulous-dial,
+  // brewWeightFilter.ts): lifting the brewer takes brewer, grounds and
+  // retained water away — the weight falls by more than
+  // max(28 g, 55 % of brewer + coffee) below the most water poured and
+  // stays there for 3 s. The time stops at the lift. Then the server with
+  // the coffee has to stand still on the scale: beverage = weight + brewer
+  // + coffee (the zero was set with all of them on it).
+  static const liftConfirm = Duration(seconds: 3);
+  static const measureSteady = Duration(milliseconds: 700);
+  static const measureBand = 1.5;
+
+  double? _setupG;
+  double _peakWater = 0;
+  DateTime? _liftSince;
+  bool _serverMissing = false;
+  double? _beverageG;
+  final _measureWindow = <ScaleReading>[];
+
+  /// After the lift nothing usable stands on the scale (everything taken
+  /// off) — the server with the coffee has to go back.
+  bool get serverMissing => _serverMissing;
+
+  /// Weighed beverage (null until measured).
+  double? get beverageG => _beverageG;
+
+  bool get _autoEnd => _setupG != null;
+
+  double get _liftThreshold => math.max(28, (_setupG ?? 0) * 0.55);
+
+  /// True while a lift is being confirmed (the reading is held back).
+  bool _watchLift(ScaleReading r) {
+    if (!_autoEnd) return false;
+    final g = r.grams;
+    if (_liftSince == null) _peakWater = math.max(_peakWater, g);
+    final below = _peakWater >= 20 && g <= _peakWater - _liftThreshold;
+    if (!below) {
+      _liftSince = null;
+      return false;
+    }
+    final since = _liftSince ??= r.at;
+    if (r.at.difference(since) >= liftConfirm) _beginMeasuring();
+    return true;
+  }
+
+  void _beginMeasuring() {
+    _phase = BrewState.measuring;
+    markExtracting(false);
+    if (_startedAt != null) _scaleTimer(scale.stopTimer);
+    _flow = 0;
+    _measureWindow.clear();
+    notifyListeners();
+  }
+
+  void _measure(ScaleReading r) {
+    _measureWindow.add(r);
+    while (_measureWindow.length > 2 &&
+        r.at.difference(_measureWindow.first.at) > measureSteady) {
+      _measureWindow.removeAt(0);
+    }
+    if (_measureWindow.length < 3 ||
+        r.at.difference(_measureWindow.first.at) <
+            measureSteady - const Duration(milliseconds: 150)) {
+      return;
+    }
+    var lo = double.infinity, hi = -double.infinity;
+    for (final m in _measureWindow) {
+      lo = math.min(lo, m.grams);
+      hi = math.max(hi, m.grams);
+    }
+    if (hi - lo > measureBand) return;
+    final water = _grams;
+    final beverage = r.grams + (_setupG ?? 0);
+    if (beverage > water + 8) {
+      // Everything is still on the scale — it was a wobble, not a lift.
+      _phase = _stepIndex >= (_runningPlan?.steps.length ?? 0)
+          ? BrewState.drawdown
+          : BrewState.pouring;
+      _peakWater = math.max(0, r.grams);
+      _liftSince = null;
+      markExtracting(true);
+      notifyListeners();
+      return;
+    }
+    if (beverage < math.max(8, water * 0.2)) {
+      if (!_serverMissing) {
+        _serverMissing = true;
+        notifyListeners();
+      }
+      return;
+    }
+    _beverageG = (beverage * 10).roundToDouble() / 10;
+    _serverMissing = false;
+    unawaited(stopShot());
+  }
+
   void _tick() {
     final now = clock.now();
     if (_phase == BrewState.waiting) {
@@ -464,7 +624,7 @@ class PourOverBrewService extends LiveShotService {
     }
     // Without new packets (scale gone) the flow would otherwise never drop
     // to 0.
-    if (_startedAt != null) {
+    if (_startedAt != null && _phase != BrewState.measuring) {
       _flowEstimator.add(now.difference(_startedAt!).inMilliseconds, _grams);
       _flow = _flowEstimator.gramsPerSecond;
     }
@@ -540,6 +700,7 @@ class PourOverBrewService extends LiveShotService {
         brewedWith: Value(snap.brewedWith),
         brewChainId: Value(snap.brewChainId),
         finalWeight: Value(_grams),
+        beverageGrams: Value(_beverageG),
         durationMs: Value(readings.isEmpty ? elapsedMs : readings.last.timeMs),
         profileTemp: Value(temperature),
         // Server and brewer weights from the setup steps (Meticulous) —
@@ -580,6 +741,8 @@ class PourOverBrewService extends LiveShotService {
   void dispose() {
     _stopListening();
     _prepSub?.cancel();
+    _deviceTareSub?.cancel();
+    _armSub?.cancel();
     prep.removeListener(_onPrep);
     scale.removeListener(_onScale);
     setup.removeListener(_onScale);

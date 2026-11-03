@@ -48,7 +48,8 @@ class PourOverHero extends StatelessWidget {
       label = 'NO SCALE';
       stepLine = null;
     } else if (!running) {
-      label = 'READY';
+      // After the steps on the Meticulous the first water starts the brew.
+      label = brew.prepComplete ? 'START POURING' : 'READY';
       stepLine = step == null
           ? null
           : '${step.label} · ${formatGrams(step.waterG)} g';
@@ -68,6 +69,12 @@ class PourOverHero extends StatelessWidget {
         case BrewState.drawdown:
           label = 'DRAWDOWN';
           stepLine = null;
+        // Brewer lifted (Meticulous): time stopped, weighing the coffee.
+        case BrewState.measuring:
+          label = 'DONE';
+          stepLine = brew.serverMissing
+              ? 'Put the server with the coffee back'
+              : 'Weighing the coffee…';
       }
     }
     final needleActive =
@@ -375,7 +382,12 @@ class _PrepLines extends StatelessWidget {
         ? (colors.danger, 'Tare not confirmed · tap Tare')
         : weighed.isNotEmpty
         ? (colors.success, weighed)
-        : (colors.divider, 'Records itself once steady · Tare to confirm');
+        : (
+            colors.divider,
+            prep.following
+                ? 'Press the dial on the machine · or Tare here'
+                : 'Records itself once steady · Tare to confirm',
+          );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

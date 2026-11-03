@@ -297,4 +297,28 @@ void main() {
       await db.close();
     },
   );
+
+  test('migration v25 -> v26: beverage weight, shots stay', () async {
+    final raw = sql.sqlite3.openInMemory();
+    final fresh = AppDatabase(
+      NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+    );
+    await fresh.insertShotWithReadings(
+      ShotsCompanion.insert(
+        timestamp: DateTime(2026, 11, 3),
+        machine: const Value('pourover'),
+        finalWeight: const Value(225),
+      ),
+      const [],
+    );
+    await fresh.close();
+    raw.execute('ALTER TABLE shots DROP COLUMN beverage_grams');
+    raw.execute('PRAGMA user_version = 25');
+
+    final db = AppDatabase(NativeDatabase.opened(raw));
+    final shot = (await db.select(db.shots).get()).single;
+    expect(shot.finalWeight, 225);
+    expect(shot.beverageGrams, isNull);
+    await db.close();
+  });
 }
