@@ -304,6 +304,8 @@ settings {
     expect(find.text('New brew'), findsOneWidget);
     expect(find.text('Recipe'), findsOneWidget);
     expect(find.text('WATER'), findsOneWidget);
+    // Nothing to compare with in a blank new shot.
+    expect(find.text('Compare'), findsNothing);
     await tester.tap(find.byTooltip('Discard'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 200)),

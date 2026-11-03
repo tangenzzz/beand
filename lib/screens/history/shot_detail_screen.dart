@@ -1098,57 +1098,60 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Divider(height: 1, color: context.colors.divider),
         ),
-        _CompareRow(
-          other: compare ? other : null,
-          noun: noun,
-          otherIsOlder: otherIsOlder,
-          open: _open == _Open.compare,
-          onTap: _toggleCompare,
-          onClear: _clearCompare,
-        ),
-        if (_open == _Open.compare)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Builder(
-              builder: (context) {
-                final candidates = _compareCandidates(entry);
-                return ValueSelectList<int>(
-                  options: [
-                    for (final e in candidates)
-                      ValueOption(
-                        value: e.shot.id,
-                        title:
-                            e.bean?.name ??
-                            (e.shot.profileName ??
-                                (isPourOver ? 'Brew' : 'Shot')),
-                        subtitle: dateTimeLabel(e.shot.timestamp),
-                        leading: ShotAvatar(
-                          shot: e.shot,
-                          bean: e.bean,
-                          size: 36,
-                          badge: 14,
-                          ringColor: context.colors.card,
-                        ),
-                      ),
-                  ],
-                  selected: _other?.shot.id,
-                  onSelected: (id) {
-                    final picked = candidates
-                        .where((e) => e.shot.id == id)
-                        .firstOrNull;
-                    if (picked == null) return;
-                    HapticFeedback.selectionClick();
-                    _selectCompare(picked);
-                  },
-                  emptyText: 'No other ${noun}s yet.',
-                );
-              },
-            ),
+        // A blank new shot has nothing to compare with yet.
+        if (!widget.isNew) ...[
+          _CompareRow(
+            other: compare ? other : null,
+            noun: noun,
+            otherIsOlder: otherIsOlder,
+            open: _open == _Open.compare,
+            onTap: _toggleCompare,
+            onClear: _clearCompare,
           ),
-        Padding(
-          padding: const EdgeInsets.only(top: 16, bottom: 12),
-          child: Divider(height: 1, color: context.colors.divider),
-        ),
+          if (_open == _Open.compare)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Builder(
+                builder: (context) {
+                  final candidates = _compareCandidates(entry);
+                  return ValueSelectList<int>(
+                    options: [
+                      for (final e in candidates)
+                        ValueOption(
+                          value: e.shot.id,
+                          title:
+                              e.bean?.name ??
+                              (e.shot.profileName ??
+                                  (isPourOver ? 'Brew' : 'Shot')),
+                          subtitle: dateTimeLabel(e.shot.timestamp),
+                          leading: ShotAvatar(
+                            shot: e.shot,
+                            bean: e.bean,
+                            size: 36,
+                            badge: 14,
+                            ringColor: context.colors.card,
+                          ),
+                        ),
+                    ],
+                    selected: _other?.shot.id,
+                    onSelected: (id) {
+                      final picked = candidates
+                          .where((e) => e.shot.id == id)
+                          .firstOrNull;
+                      if (picked == null) return;
+                      HapticFeedback.selectionClick();
+                      _selectCompare(picked);
+                    },
+                    emptyText: 'No other ${noun}s yet.',
+                  );
+                },
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.only(top: 16, bottom: 12),
+            child: Divider(height: 1, color: context.colors.divider),
+          ),
+        ],
         // Rating before the note: you tap the chips first and only then
         // write something, if at all.
         Row(
