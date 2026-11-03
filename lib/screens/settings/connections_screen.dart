@@ -30,8 +30,8 @@ class ConnectionsScreen extends StatelessWidget {
                 builder: (_) => const GaggiMateSettingsScreen(),
               ),
               SettingsEntry(
-                icon: Icons.bluetooth,
-                title: 'Bluetooth Scale',
+                icon: Icons.scale_outlined,
+                title: 'Scale',
                 builder: (_) => const ScaleSettingsScreen(),
               ),
               SettingsEntry(

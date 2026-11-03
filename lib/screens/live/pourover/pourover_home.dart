@@ -47,11 +47,13 @@ class _BodyState extends State<_Body> {
   static const _manualExtra = 0.0;
 
   late final BrewScale _scale;
+  late final PourOverBrewService _brew;
 
   @override
   void initState() {
     super.initState();
     _scale = context.read<BrewScale>();
+    _brew = context.read<PourOverBrewService>();
     // After the first frame: connect() reports a new state immediately, and
     // providers must not rebuild in the middle of a build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,7 +62,15 @@ class _BodyState extends State<_Body> {
           _scale.error == null) {
         _scale.connect();
       }
+      // Setup steps on the Meticulous only run while this view is shown.
+      if (mounted) _brew.setPrepVisible(true);
     });
+  }
+
+  @override
+  void dispose() {
+    _brew.setPrepVisible(false);
+    super.dispose();
   }
 
   @override

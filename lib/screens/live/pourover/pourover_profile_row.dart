@@ -58,11 +58,27 @@ class PourOverProfileRow extends StatelessWidget {
                   ),
                 ),
               ),
-              HeaderIconButton(
-                icon: Icon(Icons.add, color: context.colors.textSecondary),
-                tooltip: 'Choose profiles',
-                onPressed: () => openSettings(context),
-              ),
+              // Machine profiles are made on the Meticulous — here only a
+              // reload; brew-recipes are picked in the settings.
+              if (store.useMachine)
+                HeaderIconButton(
+                  icon: Icon(
+                    Icons.refresh,
+                    color: store.machineLoading
+                        ? context.colors.textTertiary
+                        : context.colors.textSecondary,
+                  ),
+                  tooltip: 'Reload from the Meticulous',
+                  onPressed: store.machineLoading
+                      ? null
+                      : () => store.refreshMachine(),
+                )
+              else
+                HeaderIconButton(
+                  icon: Icon(Icons.add, color: context.colors.textSecondary),
+                  tooltip: 'Choose profiles',
+                  onPressed: () => openSettings(context),
+                ),
             ],
           ),
         ),
@@ -72,7 +88,12 @@ class PourOverProfileRow extends StatelessWidget {
           child: recipes.isEmpty
               ? Center(
                   child: Text(
-                    'No profiles selected. Tap + to choose some.',
+                    !store.useMachine
+                        ? 'No profiles selected. Tap + to choose some.'
+                        : store.machineError ??
+                              (store.machineLoading || !store.machineLoaded
+                                  ? 'Loading profiles from the Meticulous…'
+                                  : 'No Pour Over profiles on the Meticulous.'),
                     style: TextStyle(
                       color: context.colors.textTertiary,
                       fontSize: 12,

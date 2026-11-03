@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/brew_recipe.dart';
 import 'brew_recipes_source.dart';
+import 'meticulous_pourover_profiles.dart';
 
 const brewRecipesAsset = 'assets/brew_recipes.json';
 
@@ -62,12 +64,103 @@ class BrewRecipeStore extends ChangeNotifier {
 
   bool isEnabled(String id) => _enabled?.contains(id) ?? false;
 
+  // ---- Meticulous filter profiles ----
+  //
+  // With the Meticulous as the scale, Pour Over uses the machine's own
+  // Pour Over profiles INSTEAD of the brew-recipes list (user wish
+  // 2026-11-03): the profile row and the picker show only those.
+
+  /// Loads the machine's profiles; set in main.dart.
+  MeticulousPourOverProfiles? machineSource;
+
+  bool _useMachine = false;
+  bool get useMachine => _useMachine;
+
+  List<BrewRecipe> _machineRecipes = const [];
+  List<BrewRecipe> get machineRecipes => _machineRecipes;
+
+  bool _machineLoading = false;
+  bool get machineLoading => _machineLoading;
+
+  /// Whether the list was fetched at least once (empty list ≠ not loaded).
+  bool _machineLoaded = false;
+  bool get machineLoaded => _machineLoaded;
+
+  String? _machineError;
+  String? get machineError => _machineError;
+
+  final Map<String, File> _machinePhotos = {};
+
+  void setUseMachine(bool value) {
+    if (value == _useMachine) return;
+    _useMachine = value;
+    notifyListeners();
+    if (value) unawaited(refreshMachine());
+  }
+
+  Future<void>? _machineFetch;
+
+  /// Fetches the machine's Pour Over profiles (and their images). A call
+  /// while a fetch runs waits for that one.
+  Future<void> refreshMachine() {
+    if (machineSource == null) return Future.value();
+    final running = _machineFetch;
+    if (running != null) return running;
+    // Set before anything notifies: listeners may call this again.
+    _machineLoading = true;
+    final fetch = _machineFetch = _fetchMachine();
+    notifyListeners();
+    return fetch;
+  }
+
+  Future<void> _fetchMachine() async {
+    final source = machineSource!;
+    // Let refreshMachine store the future first.
+    await Future<void>.value();
+    try {
+      setMachineRecipes(await source.fetch());
+      _machineError = null;
+    } catch (e) {
+      _machineError = 'Could not load the profiles from the Meticulous.';
+      debugPrint('BrewRecipeStore: machine profiles failed: $e');
+    } finally {
+      _machineLoading = false;
+      _machineFetch = null;
+      notifyListeners();
+    }
+    for (final r in _machineRecipes) {
+      final file = await source.fetchPhoto(r.id);
+      if (file != null && _machinePhotos[r.id]?.path != file.path) {
+        _machinePhotos[r.id] = file;
+        notifyListeners();
+      }
+    }
+  }
+
+  void setMachineRecipes(List<BrewRecipe> recipes) {
+    _machineRecipes = List.unmodifiable(recipes);
+    _machineLoaded = true;
+    notifyListeners();
+  }
+
   /// Checked profiles: first in custom order, then the rest in list order.
+  /// With the Meticulous as the scale: the machine's profiles.
   List<BrewRecipe> get enabledRecipes {
-    final enabled = [
-      for (final r in _recipes)
-        if (isEnabled(r.id)) r,
-    ];
+    if (_useMachine) return _sorted(_machineRecipes);
+    return _sorted(_githubEnabled);
+  }
+
+  /// Checked brew-recipes (Settings → Pour Over → Profiles), whatever scale
+  /// is in use.
+  List<BrewRecipe> get checkedRecipes => _sorted(_githubEnabled);
+
+  List<BrewRecipe> get _githubEnabled => [
+    for (final r in _recipes)
+      if (isEnabled(r.id)) r,
+  ];
+
+  List<BrewRecipe> _sorted(List<BrewRecipe> list) {
+    final enabled = List.of(list);
     final rank = {for (var i = 0; i < _order.length; i++) _order[i]: i};
     final listIndex = {
       for (var i = 0; i < enabled.length; i++) enabled[i].id: i,
@@ -116,9 +209,12 @@ class BrewRecipeStore extends ChangeNotifier {
   File? photoFor(String id) {
     final name = _photos[id];
     final dir = _photoDir;
-    if (name == null || dir == null) return null;
-    final f = File(p.join(dir, name));
-    return f.existsSync() ? f : null;
+    if (name != null && dir != null) {
+      final f = File(p.join(dir, name));
+      if (f.existsSync()) return f;
+    }
+    // Machine profiles bring their own image.
+    return _machinePhotos[id];
   }
 
   /// Sets (or clears with null) the photo; [path] is already in the photo
@@ -202,14 +298,16 @@ class BrewRecipeStore extends ChangeNotifier {
   /// the name (`Shots.profileName`), not the recipe ID.
   File? photoForName(String? name) {
     if (name == null || name.isEmpty) return null;
-    for (final r in _recipes) {
+    for (final r in [..._recipes, ..._machineRecipes]) {
       if (r.name == name) return photoFor(r.id);
     }
     return null;
   }
 
+  /// Recipe from the list in use (machine profiles with the Meticulous as
+  /// the scale, brew-recipes otherwise).
   BrewRecipe? byId(String id) {
-    for (final r in _recipes) {
+    for (final r in _useMachine ? _machineRecipes : _recipes) {
       if (r.id == id) return r;
     }
     return null;

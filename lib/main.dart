@@ -15,6 +15,8 @@ import 'machines/gaggimate/gaggimate_profile_sync_service.dart';
 import 'machines/gaggimate/gaggimate_shot_sync_service.dart';
 import 'scale/ble_scale.dart';
 import 'scale/brew_scale.dart';
+import 'scale/meticulous_scale.dart';
+import 'scale/scale_selector.dart';
 import 'scale/simulated_scale.dart';
 import 'screens/root_scaffold.dart';
 import 'screens/settings/gaggimate_settings_screen.dart';
@@ -29,6 +31,7 @@ import 'services/gear_store.dart';
 import 'services/grinder_store.dart';
 import 'services/water_store.dart';
 import 'services/brew_recipe_store.dart';
+import 'services/meticulous_pourover_profiles.dart';
 import 'services/heating_estimator.dart';
 import 'services/live_shot_service.dart';
 import 'services/machine_notifications.dart';
@@ -227,13 +230,32 @@ Future<void> main() async {
     cacheFile: File(p.join(docs.path, 'brew_recipes_cache.json')),
   );
   await recipeStore.load();
+  // The Meticulous' own Pour Over profiles (used with its built-in scale).
+  recipeStore.machineSource = MeticulousPourOverProfiles(
+    host: () => socketService.hostname,
+    photoDir: () => Directory(p.join(docs.path, BrewRecipeStore.photoFolder)),
+  );
+  late final PourOverBrewService pourOver;
+  // Pour Over scale: Bluetooth or the Meticulous' built-in one (command
+  // row → scale button).
+  final scale = ScaleSelector(
+    bluetooth: const bool.fromEnvironment('BEAND_SIM_SCALE')
+        ? SimulatedScale(speed: 3, autoPour: () => pourOver.plan)
+        : BleScale(),
+    meticulous: MeticulousScale(socketService),
+  );
+  await scale.load();
+  recipeStore.setUseMachine(scale.isMachineScale);
   final pourOverSetup = await ShotSetup.load(machineKey: 'pourover');
   pourOverSetup.gear = gear;
   // The brew chain last used for pour over (as for both machines above).
   await pourOverSetup.restoreChainFromLastShot(database);
   shotSetups.pourOver = pourOverSetup;
-  if (pourOverSetup.profileId == null ||
-      recipeStore.byId(pourOverSetup.profileId!) == null) {
+  // (Machine profiles arrive later over the network — PourOverBrewService
+  // picks one once they are there.)
+  if (!recipeStore.useMachine &&
+      (pourOverSetup.profileId == null ||
+          recipeStore.byId(pourOverSetup.profileId!) == null)) {
     final first =
         recipeStore.byId(_defaultRecipeId) ??
         (recipeStore.recipes.isEmpty ? null : recipeStore.recipes.first);
@@ -242,10 +264,6 @@ Future<void> main() async {
       pourOverSetup.setDose(first.doseG);
     }
   }
-  late final PourOverBrewService pourOver;
-  final BrewScale scale = const bool.fromEnvironment('BEAND_SIM_SCALE')
-      ? SimulatedScale(speed: 3, autoPour: () => pourOver.plan)
-      : BleScale();
   pourOver = PourOverBrewService(
     scale: scale,
     recipes: recipeStore,

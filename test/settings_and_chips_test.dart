@@ -87,7 +87,7 @@ void main() {
     );
   });
 
-  testWidgets('Settings: Connections > Meticulous / Bluetooth Scale, Beans', (
+  testWidgets('Settings: Connections > Meticulous / Scale, Beans', (
     tester,
   ) async {
     final db = AppDatabase(NativeDatabase.memory());
@@ -99,7 +99,7 @@ void main() {
     await tester.tap(find.text('Connections'));
     await tester.pumpAndSettle();
     expect(find.text('Meticulous'), findsOneWidget);
-    expect(find.text('Bluetooth Scale'), findsOneWidget);
+    expect(find.text('Scale'), findsOneWidget);
 
     await tester.tap(find.text('Meticulous'));
     await tester.pumpAndSettle();

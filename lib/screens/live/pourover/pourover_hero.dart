@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../models/brew_plan.dart';
 import '../../../scale/brew_scale.dart';
+import '../../../services/pourover_setup.dart';
 import '../../../services/live_shot_service.dart';
 import '../../../services/pourover_brew_service.dart';
 import '../../../theme/app_theme.dart';
@@ -134,34 +135,38 @@ class PourOverHero extends StatelessWidget {
             ],
           ),
           // Pour info below the ring instead of inside — inside the ring it
-          // was too large.
+          // was too large. During the setup steps (Meticulous) the steps
+          // instead, as narrow lines like the GaggiMate warnings.
           const SizedBox(height: 10),
-          Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: label,
-                  style: TextStyle(
-                    color: context.colors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                if (stepLine != null)
+          if (brew.prepActive)
+            _PrepLines(brew: brew)
+          else
+            Text.rich(
+              TextSpan(
+                children: [
                   TextSpan(
-                    text: '  ·  $stepLine',
+                    text: label,
                     style: TextStyle(
-                      color: context.colors.textPrimary,
-                      fontSize: 12.5,
+                      color: context.colors.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.2,
                     ),
                   ),
-              ],
+                  if (stepLine != null)
+                    TextSpan(
+                      text: '  ·  $stepLine',
+                      style: TextStyle(
+                        color: context.colors.textPrimary,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
         ],
       ),
     );
@@ -331,4 +336,104 @@ class _HeroPainter extends CustomPainter {
       old.track != track ||
       old.progressColor != progressColor ||
       old.needle != needle;
+}
+
+// Setup steps on the Meticulous' scale: the current step (accent dot) and
+// what is already weighed (green dot). Two lines at most, small like the
+// GaggiMate warnings under its hero.
+class _PrepLines extends StatelessWidget {
+  const _PrepLines({required this.brew});
+
+  final PourOverBrewService brew;
+
+  @override
+  Widget build(BuildContext context) {
+    final prep = brew.prep;
+    final colors = context.colors;
+    final (String task, String? extra) = switch (prep.step) {
+      SetupStep.server => ('Put the server on the scale', null),
+      SetupStep.brewer => ('Put the brewer on', null),
+      SetupStep.coffee => (
+        'Add the coffee',
+        brew.recipe == null && !brew.manual
+            ? null
+            : 'target ${formatGrams(brew.setup.doseGrams ?? brew.recipe?.doseG ?? 15)} g',
+      ),
+      SetupStep.done => ('', null),
+    };
+    final status = switch (prep.status) {
+      SetupStatus.taring => 'taring…',
+      SetupStatus.tareFailed => null,
+      SetupStatus.waiting => extra,
+    };
+    final weighed = [
+      if (prep.serverG != null) 'Server ${formatGrams(_one(prep.serverG!))} g',
+      if (prep.brewerG != null) 'Brewer ${formatGrams(_one(prep.brewerG!))} g',
+    ].join(' · ');
+
+    final (Color dot2, String line2) = prep.status == SetupStatus.tareFailed
+        ? (colors.danger, 'Tare not confirmed · tap Tare')
+        : weighed.isNotEmpty
+        ? (colors.success, weighed)
+        : (colors.divider, 'Records itself once steady · Tare to confirm');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _line(
+          context,
+          colors.accent,
+          '${prep.stepNumber}/${PourOverSetup.stepCount} $task',
+          primary: true,
+          trailing: status,
+        ),
+        const SizedBox(height: 4),
+        _line(context, dot2, line2),
+      ],
+    );
+  }
+
+  static double _one(double g) => (g * 10).roundToDouble() / 10;
+
+  Widget _line(
+    BuildContext context,
+    Color dot,
+    String text, {
+    bool primary = false,
+    String? trailing,
+  }) {
+    final colors = context.colors;
+    return Row(
+      children: [
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 7),
+        Flexible(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: text,
+                  style: TextStyle(
+                    color: primary ? colors.textPrimary : colors.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+                if (trailing != null)
+                  TextSpan(
+                    text: ' · $trailing',
+                    style: TextStyle(color: colors.textTertiary, fontSize: 11),
+                  ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../scale/brew_scale.dart';
+import '../../../scale/meticulous_scale.dart';
+import '../../../scale/scale_selector.dart';
 import '../../../services/pourover_brew_service.dart';
 import '../../../theme/app_theme.dart';
 import '../../root_scaffold.dart';
@@ -11,10 +15,11 @@ import '../../settings/scale_settings_screen.dart';
 // (CommandButtonsRow/GaggiMateCommandRow): neutral row without a card, thin
 // dividers above and below, fixed-width buttons.
 //
-// Contents, in order: Profile ↔ Manual toggle, Tare, the connected scale
-// (Bluetooth icon neutral like the other buttons — the colored status is in
-// the pill at the top; a tap connects or opens Settings → Bluetooth Scale)
-// and the scale's battery level.
+// Contents, in order: Profile ↔ Manual toggle, Tare, the scale (icon
+// neutral like the other buttons — the colored status is in the pill at the
+// top; a tap chooses Meticulous or Bluetooth scale, a long press opens
+// Settings → Scale) and the battery level — or, with the Meticulous'
+// built-in scale (mains powered), the setup steps.
 class PourOverCommandRow extends StatelessWidget {
   const PourOverCommandRow({super.key});
 
@@ -24,19 +29,24 @@ class PourOverCommandRow extends StatelessWidget {
     final brew = context.watch<PourOverBrewService>();
     final connected = scale.isConnected;
     final battery = scale.batteryPercent;
+    final machine = scale.isMachineScale;
 
-    final (IconData scaleIcon, String scaleLabel) = switch (scale.connection) {
-      ScaleConnection.connected => (
-        Icons.bluetooth_connected,
-        scaleShortName(scale.deviceName),
-      ),
-      ScaleConnection.scanning ||
-      ScaleConnection.connecting => (Icons.bluetooth_searching, 'Searching'),
-      ScaleConnection.disconnected =>
-        scale.error != null
-            ? (Icons.bluetooth_disabled, 'No scale')
-            : (Icons.bluetooth, 'Connect'),
-    };
+    final (IconData scaleIcon, String scaleLabel) = machine
+        ? (Icons.coffee_maker_outlined, MeticulousScale.name)
+        : switch (scale.connection) {
+            ScaleConnection.connected => (
+              Icons.bluetooth_connected,
+              scaleShortName(scale.deviceName),
+            ),
+            ScaleConnection.scanning || ScaleConnection.connecting => (
+              Icons.bluetooth_searching,
+              'Searching',
+            ),
+            ScaleConnection.disconnected =>
+              scale.error != null
+                  ? (Icons.bluetooth_disabled, 'No scale')
+                  : (Icons.bluetooth, 'Connect'),
+          };
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -61,26 +71,48 @@ class PourOverCommandRow extends StatelessWidget {
                 _CommandButton(
                   // Same icon as Tare on the Meticulous, but with "Tare"
                   // instead of the weight below — that is in the hero.
+                  // During the setup steps it records the current step.
                   icon: Icons.balance,
                   label: 'Tare',
-                  onTap: connected ? scale.tare : null,
+                  onTap: connected ? brew.tare : null,
                 ),
                 _CommandButton(
                   icon: scaleIcon,
                   label: scaleLabel,
-                  onTap: scale.connection == ScaleConnection.disconnected
+                  // Tap: choose the scale (Meticulous / Bluetooth); long
+                  // press: the scale settings.
+                  onTap: brew.profileLocked
+                      ? null
+                      : scale is ScaleSelector
+                      ? () => _chooseScale(context, scale)
+                      : scale.connection == ScaleConnection.disconnected
                       ? scale.connect
                       : () => _openScaleSettings(context),
                   onLongPress: () => _openScaleSettings(context),
                 ),
-                _CommandButton(
-                  icon: _batteryIcon(battery),
-                  iconColor: battery != null && battery <= 15
-                      ? context.colors.danger
-                      : null,
-                  label: battery == null ? '—' : '$battery %',
-                  onTap: null,
-                ),
+                // Bluetooth: battery level. Meticulous (mains powered):
+                // the setup steps — tap starts them again, long press skips
+                // them.
+                if (machine)
+                  _CommandButton(
+                    icon: Icons.checklist,
+                    label: 'Setup',
+                    onTap: connected && !brew.profileLocked
+                        ? brew.restartPrep
+                        : null,
+                    onLongPress: connected && !brew.profileLocked
+                        ? brew.skipPrep
+                        : null,
+                  )
+                else
+                  _CommandButton(
+                    icon: _batteryIcon(battery),
+                    iconColor: battery != null && battery <= 15
+                        ? context.colors.danger
+                        : null,
+                    label: battery == null ? '—' : '$battery %',
+                    onTap: null,
+                  ),
               ],
             ),
           ),
@@ -88,6 +120,95 @@ class PourOverCommandRow extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  static Future<void> _chooseScale(
+    BuildContext context,
+    ScaleSelector scale,
+  ) async {
+    final colors = context.colors;
+    final btName = scale.bluetooth.deviceName;
+    final choice = await showModalBottomSheet<Object>(
+      context: context,
+      backgroundColor: colors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.tile),
+        ),
+      ),
+      builder: (context) {
+        Widget option(
+          ScaleSource source,
+          IconData icon,
+          String title,
+          String subtitle,
+        ) => ListTile(
+          leading: Icon(icon, color: colors.textSecondary),
+          title: Text(title, style: TextStyle(color: colors.textPrimary)),
+          subtitle: Text(
+            subtitle,
+            style: TextStyle(color: colors.textTertiary, fontSize: 12),
+          ),
+          trailing: scale.source == source
+              ? Icon(Icons.check, color: colors.success)
+              : null,
+          onTap: () => Navigator.pop(context, source),
+        );
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                child: Text(
+                  'SCALE',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              option(
+                ScaleSource.meticulous,
+                Icons.coffee_maker_outlined,
+                MeticulousScale.name,
+                'Built-in scale · filter profiles',
+              ),
+              option(
+                ScaleSource.bluetooth,
+                Icons.bluetooth,
+                'Bluetooth scale',
+                '${btName == null ? 'Acaia, Decent, Bookoo' : scaleShortName(btName)} · recipes',
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context, 'settings'),
+                  child: Text(
+                    'Scale settings ›',
+                    style: TextStyle(color: colors.accent, fontSize: 13),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!context.mounted) return;
+    if (choice == 'settings') {
+      _openScaleSettings(context);
+    } else if (choice is ScaleSource) {
+      scale.setSource(choice);
+      // A Bluetooth scale that is not connected yet connects right away.
+      if (choice == ScaleSource.bluetooth &&
+          scale.connection == ScaleConnection.disconnected &&
+          scale.bluetooth.rememberedId != null) {
+        unawaited(scale.connect());
+      }
+    }
   }
 
   static void _openScaleSettings(BuildContext context) {

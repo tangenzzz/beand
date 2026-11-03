@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:clock/clock.dart';
@@ -12,6 +13,7 @@ import '../models/brew_recipe.dart';
 import '../scale/brew_scale.dart';
 import 'brew_recipe_store.dart';
 import 'live_shot_service.dart';
+import 'pourover_setup.dart';
 import 'shot_setup.dart';
 
 /// Where the running brew currently is.
@@ -149,6 +151,109 @@ class PourOverBrewService extends LiveShotService {
     return id == null ? null : recipes.byId(id);
   }
 
+  // ---- Setup steps on the Meticulous' scale ----
+  //
+  // Server → tare → brewer → tare → coffee → tare, like the machine's own
+  // Pour Over mode. Only while the Pour Over view is on screen
+  // ([setPrepVisible]) — otherwise putting a cup on the tray for an
+  // espresso would tare the machine. Start Brew works at any step.
+  late final PourOverSetup prep = PourOverSetup(
+    tare: () => scale.tare(),
+    targetDose: () => setup.doseGrams ?? recipe?.doseG,
+  )..addListener(_onPrep);
+
+  bool _prepVisible = false;
+  StreamSubscription<ScaleReading>? _prepSub;
+  double? _prepCoffeeTaken;
+
+  /// Steps are shown/running.
+  bool get prepActive =>
+      scale.isMachineScale &&
+      scale.isConnected &&
+      stage == ShotStage.idle &&
+      !prep.done;
+
+  void setPrepVisible(bool visible) {
+    if (visible == _prepVisible) return;
+    _prepVisible = visible;
+    if (visible) {
+      prep.resume();
+      // Profiles may have been added on the machine in the meantime.
+      if (recipes.useMachine && scale.isConnected) {
+        unawaited(recipes.refreshMachine());
+      }
+    }
+    _syncPrep();
+  }
+
+  /// "Setup" button: start the steps again.
+  void restartPrep() {
+    if (stage != ShotStage.idle) return;
+    prep.restart();
+    _syncPrep();
+  }
+
+  /// Long press on "Setup": everything is already in place and tared.
+  void skipPrep() => prep.skip();
+
+  /// Tare in the command row: during the steps it records the current step
+  /// (and tares), otherwise a plain tare.
+  Future<void> tare() async {
+    if (prepActive) return prep.confirm();
+    try {
+      await scale.tare();
+    } catch (_) {
+      _lastError = 'Could not tare the scale.';
+      notifyListeners();
+    }
+  }
+
+  void _syncPrep() {
+    final listen = prepActive && _prepVisible;
+    if (listen && _prepSub == null) {
+      _prepSub = scale.readings.listen(prep.feed);
+    } else if (!listen && _prepSub != null) {
+      _prepSub!.cancel();
+      _prepSub = null;
+    }
+  }
+
+  void _onPrep() {
+    // Weighed coffee becomes the dose of this brew.
+    final coffee = prep.coffeeG;
+    if (coffee != null &&
+        coffee != _prepCoffeeTaken &&
+        prep.step.index > SetupStep.coffee.index) {
+      _prepCoffeeTaken = coffee;
+      setup.setDose((coffee * 10).roundToDouble() / 10);
+    }
+    _syncPrep();
+    notifyListeners();
+  }
+
+  bool? _wasMachineScale;
+
+  // Switching to the Meticulous: its profiles instead of brew-recipes, and
+  // the steps from the start.
+  void _onSourceChange() {
+    final machine = scale.isMachineScale;
+    if (machine == _wasMachineScale) return;
+    final first = _wasMachineScale == null;
+    _wasMachineScale = machine;
+    recipes.setUseMachine(machine);
+    if (machine && !first) prep.restart();
+  }
+
+  // The chosen profile belongs to the other list (scale switched) or is
+  // gone: take the first one of the list in use.
+  void _ensureRecipe() {
+    if (profileLocked || _manual || recipe != null) return;
+    if (recipes.useMachine && !recipes.machineLoaded) return;
+    final list = recipes.enabledRecipes;
+    if (list.isEmpty) return;
+    selectRecipe(list.first);
+  }
+
   /// Plan from recipe + configured dose. Frozen during the brew.
   BrewPlan? get plan => _runningPlan ?? _currentPlan();
 
@@ -173,6 +278,7 @@ class PourOverBrewService extends LiveShotService {
 
   // ---- Running brew ----
   BrewPlan? _runningPlan;
+  Map<String, Object?>? _runningPrep;
   BrewState _phase = BrewState.armed;
   BrewState get phase => _phase;
   int _stepIndex = 0;
@@ -241,8 +347,20 @@ class PourOverBrewService extends LiveShotService {
     _onScale();
   }
 
+  bool _wasConnected = false;
+
   void _onScale() {
+    _onSourceChange();
+    // Machine (re)connected: fetch its profiles again (e.g. app started
+    // before the machine was reachable).
+    final connectedNow = scale.isConnected && !_wasConnected;
+    _wasConnected = scale.isConnected;
+    if (connectedNow && recipes.useMachine) {
+      unawaited(recipes.refreshMachine());
+    }
+    _ensureRecipe();
     stabilized = scale.isConnected && plan != null;
+    _syncPrep();
     notifyListeners();
   }
 
@@ -253,6 +371,10 @@ class PourOverBrewService extends LiveShotService {
       return false;
     }
     _lastError = null;
+    // Keep what the setup steps weighed (also when started before the
+    // last step).
+    _runningPrep = scale.isMachineScale ? prep.toJson() : null;
+    if (scale.isMachineScale && !prep.done) prep.skip();
     try {
       await scale.tare();
     } catch (e) {
@@ -390,7 +512,12 @@ class PourOverBrewService extends LiveShotService {
     super.confirmPostShot();
     // Only end the finished brew — a new one may already be running when
     // the old one is saved late.
-    if (stage == ShotStage.purging) applyStage(ShotStage.idle);
+    if (stage == ShotStage.purging) {
+      applyStage(ShotStage.idle);
+      // Next brew on the Meticulous: the steps again.
+      if (scale.isMachineScale) prep.restart();
+    }
+    _syncPrep();
     notifyListeners();
   }
 
@@ -415,6 +542,13 @@ class PourOverBrewService extends LiveShotService {
         finalWeight: Value(_grams),
         durationMs: Value(readings.isEmpty ? elapsedMs : readings.last.timeMs),
         profileTemp: Value(temperature),
+        // Server and brewer weights from the setup steps (Meticulous) —
+        // local only, kept for a later beverage-weight calculation.
+        rawDebugJson: Value(
+          _runningPrep == null
+              ? null
+              : jsonEncode({'pourOverSetup': _runningPrep}),
+        ),
       ),
       [
         for (final r in readings)
@@ -445,6 +579,8 @@ class PourOverBrewService extends LiveShotService {
   @override
   void dispose() {
     _stopListening();
+    _prepSub?.cancel();
+    prep.removeListener(_onPrep);
     scale.removeListener(_onScale);
     setup.removeListener(_onScale);
     recipes.removeListener(_onScale);

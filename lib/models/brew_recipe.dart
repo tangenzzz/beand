@@ -112,6 +112,7 @@ class BrewRecipe {
     this.sourceUrl,
     this.competition,
     this.tags = const [],
+    this.fromMachine = false,
   });
 
   final String id;
@@ -131,6 +132,10 @@ class BrewRecipe {
   final String? sourceUrl;
   final String? competition;
   final List<String> tags;
+
+  /// A Pour Over profile stored on the Meticulous (not a brew-recipes
+  /// recipe): read-only, can't be removed from the app.
+  final bool fromMachine;
 
   /// Ratio as a number (1:15 → 15). If missing in the recipe, from water/dose.
   double get ratioValue {

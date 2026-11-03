@@ -102,7 +102,7 @@ class _PourOverProfilesScreenState extends State<PourOverProfilesScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${store.enabledRecipes.length} of ${store.recipes.length} selected',
+                              '${store.checkedRecipes.length} of ${store.recipes.length} selected',
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontSize: 15,

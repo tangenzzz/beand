@@ -52,6 +52,11 @@ abstract class BrewScale extends ChangeNotifier {
   /// Technical extra info for the settings (e.g. firmware generation).
   String? get details => null;
 
+  /// The scale built into an espresso machine (Meticulous): mains powered,
+  /// no Bluetooth, and Pour Over runs with the machine's own filter
+  /// profiles plus the setup steps (server, brewer, coffee).
+  bool get isMachineScale => false;
+
   /// Last reading in grams, null before the first packet.
   double? get grams;
 

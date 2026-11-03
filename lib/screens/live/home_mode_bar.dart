@@ -134,7 +134,10 @@ class _StatusIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _statusColor(context, _stateFor(context, mode));
-    if (mode == HomeMode.pourOver) {
+    // Pour Over with a Bluetooth scale: the Bluetooth sign; with the
+    // Meticulous' built-in scale a dot like the machines.
+    if (mode == HomeMode.pourOver &&
+        !context.select<BrewScale, bool>((s) => s.isMachineScale)) {
       return Icon(Icons.bluetooth, size: 13, color: color);
     }
     return Container(

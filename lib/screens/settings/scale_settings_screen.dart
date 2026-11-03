@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../scale/brew_scale.dart';
+import '../../scale/meticulous_scale.dart';
+import '../../scale/scale_selector.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
+import '../../widgets/underline_select.dart';
 import 'settings_widgets.dart';
 
 // Connection page of the Bluetooth scale (Settings → Connections), built
@@ -21,7 +24,7 @@ class ScaleSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Bluetooth Scale')),
+      appBar: AppBar(title: const Text('Scale')),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: const [ScaleConnectionCard()],
@@ -51,7 +54,11 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
     // Android does not like two scans at the same time.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final scale = context.read<BrewScale>();
-      if (mounted && scale.connection == ScaleConnection.disconnected) _scan();
+      if (mounted &&
+          !scale.isMachineScale &&
+          scale.connection == ScaleConnection.disconnected) {
+        _scan();
+      }
     });
   }
 
@@ -136,6 +143,25 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ---- Which scale Pour Over uses ----
+          if (scale is ScaleSelector) ...[
+            UnderlineSelect<ScaleSource>(
+              options: const [
+                UnderlineOption(ScaleSource.bluetooth, 'Bluetooth'),
+                UnderlineOption(ScaleSource.meticulous, MeticulousScale.name),
+              ],
+              value: scale.source,
+              onChanged: (v) {
+                if (v == null) return;
+                scale.setSource(v);
+                if (v == ScaleSource.bluetooth &&
+                    scale.connection == ScaleConnection.disconnected) {
+                  _scan();
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
           // ---- Header: what the app is connected to ----
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,7 +174,9 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
                   borderRadius: BorderRadius.circular(34 * 0.3),
                 ),
                 child: Icon(
-                  Icons.scale_outlined,
+                  scale.isMachineScale
+                      ? Icons.coffee_maker_outlined
+                      : Icons.scale_outlined,
                   size: 20,
                   color: colors.accent,
                 ),
@@ -239,7 +267,7 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
                   label: 'Tare',
                   expand: false,
                   height: 40,
-                  onPressed: scale.tare,
+                  onPressed: () => scale.tare().catchError((Object _) {}),
                 ),
               ],
             ),
@@ -252,96 +280,105 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
                 ),
               ),
           ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              if (scale.isConnected || busy)
-                AppButton(
-                  label: 'Disconnect',
-                  variant: AppButtonVariant.secondary,
-                  expand: false,
-                  height: 36,
-                  onPressed: scale.disconnect,
-                )
-              else if (scale.rememberedId != null)
-                AppButton(
-                  label: 'Connect',
-                  expand: false,
-                  height: 36,
-                  onPressed: scale.connect,
-                ),
-              const Spacer(),
-              if (scale.rememberedId != null)
-                AppButton(
-                  label: 'Forget',
-                  variant: AppButtonVariant.secondary,
-                  expand: false,
-                  height: 36,
-                  onPressed: () {
-                    scale.forget();
-                    _scan();
-                  },
-                ),
-            ],
-          ),
-          Divider(height: 24, color: colors.divider),
-          // ---- Found scales ----
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Scales nearby'.toUpperCase(),
-                  style: settingsGroupLabelStyle(context),
-                ),
-              ),
-              InkWell(
-                onTap: _scanning || busy ? null : _scan,
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
+          if (scale.isMachineScale) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Weighs with the scale built into the Meticulous. Pour Over '
+              'then uses the filter profiles stored on the machine.',
+              style: TextStyle(color: colors.textTertiary, fontSize: 12),
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (scale.isConnected || busy)
+                  AppButton(
+                    label: 'Disconnect',
+                    variant: AppButtonVariant.secondary,
+                    expand: false,
+                    height: 36,
+                    onPressed: scale.disconnect,
+                  )
+                else if (scale.rememberedId != null)
+                  AppButton(
+                    label: 'Connect',
+                    expand: false,
+                    height: 36,
+                    onPressed: scale.connect,
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.refresh,
-                        size: 14,
-                        color: _scanning || busy
-                            ? colors.textTertiary
-                            : colors.accent,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Scan',
-                        style: TextStyle(
+                const Spacer(),
+                if (scale.rememberedId != null)
+                  AppButton(
+                    label: 'Forget',
+                    variant: AppButtonVariant.secondary,
+                    expand: false,
+                    height: 36,
+                    onPressed: () {
+                      scale.forget();
+                      _scan();
+                    },
+                  ),
+              ],
+            ),
+            Divider(height: 24, color: colors.divider),
+            // ---- Found scales ----
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Scales nearby'.toUpperCase(),
+                    style: settingsGroupLabelStyle(context),
+                  ),
+                ),
+                InkWell(
+                  onTap: _scanning || busy ? null : _scan,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.refresh,
+                          size: 14,
                           color: _scanning || busy
                               ? colors.textTertiary
                               : colors.accent,
-                          fontSize: 13,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          'Scan',
+                          style: TextStyle(
+                            color: _scanning || busy
+                                ? colors.textTertiary
+                                : colors.accent,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          for (final c in _found)
-            _ScaleRow(
-              candidate: c,
-              inUse: c.id == scale.rememberedId,
-              connected: c.id == scale.rememberedId && scale.isConnected,
-              onTap: busy ? null : () => _use(c),
+              ],
             ),
-          if (_found.isEmpty) _hint(context),
-          const SizedBox(height: 4),
-          Text(
-            'Supported: Acaia, Decent and Bookoo scales. Close other apps '
-            'that use the scale first.',
-            style: TextStyle(color: colors.textTertiary, fontSize: 12),
-          ),
+            const SizedBox(height: 8),
+            for (final c in _found)
+              _ScaleRow(
+                candidate: c,
+                inUse: c.id == scale.rememberedId,
+                connected: c.id == scale.rememberedId && scale.isConnected,
+                onTap: busy ? null : () => _use(c),
+              ),
+            if (_found.isEmpty) _hint(context),
+            const SizedBox(height: 4),
+            Text(
+              'Supported: Acaia, Decent and Bookoo scales. Close other apps '
+              'that use the scale first.',
+              style: TextStyle(color: colors.textTertiary, fontSize: 12),
+            ),
+          ],
         ],
       ),
     );

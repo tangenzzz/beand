@@ -238,17 +238,19 @@ class _PourOverProfileDetailScreenState
               ],
             ),
           ),
-          // Delete at the very end, like on the Meticulous.
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 20, 10, 4),
-            child: AppButton(
-              label: 'Delete profile',
-              icon: Icons.delete_outline,
-              variant: AppButtonVariant.destructive,
-              expand: true,
-              onPressed: _deleteProfile,
+          // Delete at the very end, like on the Meticulous. Not for the
+          // machine's own profiles — those are managed on the Meticulous.
+          if (!r.fromMachine)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 20, 10, 4),
+              child: AppButton(
+                label: 'Delete profile',
+                icon: Icons.delete_outline,
+                variant: AppButtonVariant.destructive,
+                expand: true,
+                onPressed: _deleteProfile,
+              ),
             ),
-          ),
         ],
       ),
     );

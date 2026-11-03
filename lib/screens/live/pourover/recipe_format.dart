@@ -16,8 +16,12 @@ String formatClock(double seconds) {
   return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
 }
 
-String grindLabel(String grind) =>
-    grind.split('-').map((w) => w[0].toUpperCase() + w.substring(1)).join('-');
+// Machine profiles bring free text (or nothing) — empty parts stay as they
+// are.
+String grindLabel(String grind) => grind
+    .split('-')
+    .map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1))
+    .join('-');
 
 String brewTemperatureLabel(String t) => switch (t) {
   'cold' => 'Cold',

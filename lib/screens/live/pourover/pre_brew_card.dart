@@ -283,7 +283,7 @@ class _PreBrewCardState extends State<PreBrewCard> {
                       // number on your own grinder.
                       valueText: grind != null
                           ? grindScale.format(grind)
-                          : (recipe == null
+                          : (recipe == null || recipe.grindSize.isEmpty
                                 ? null
                                 : grindLabel(recipe.grindSize)),
                       dimValue: grind == null || locked,

@@ -37,7 +37,7 @@ class PourOverSettingsScreen extends StatelessWidget {
                     icon: Icons.tune,
                     title: 'Profiles',
                     subtitle:
-                        '${store.enabledRecipes.length} of '
+                        '${store.checkedRecipes.length} of '
                         '${store.recipes.length} selected'
                         '${fresh > 0 ? ' · $fresh new' : ''}',
                     onTap: () => Navigator.of(context).push(
