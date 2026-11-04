@@ -176,6 +176,30 @@ void main() {
     expect(recipe.phases[0].waitSeconds, 35);
   });
 
+  test('moving the flow moves the pour time, the water stays', () {
+    final d = PourOverDraft.empty()..name = 'x';
+    final pour = d.pours.first; // 45 g in 10 s
+    pour.setFlow(3);
+    expect(pour.durationS, 15);
+    expect(pour.waterG, 45);
+    // Reads back as set, so the ruler doesn't fight the finger.
+    for (var tenths = 5; tenths <= 200; tenths++) {
+      pour.setFlow(tenths / 10);
+      expect((pour.flowGps * 10).round(), tenths);
+    }
+    pour.waterG = 7;
+    for (var tenths = 5; tenths <= 200; tenths++) {
+      pour.setFlow(tenths / 10);
+      expect((pour.flowGps * 10).round(), tenths);
+    }
+    // Later pours shift, the rules still hold.
+    expect(machineRules(toMachineJson(d.toJson())), isEmpty);
+    // More water at the same time: the flow follows.
+    final other = d.pours.last..durationS = 10;
+    other.waterG = 60;
+    expect(other.flowGps, 6);
+  });
+
   test('what keeps it from being saved', () {
     final d = PourOverDraft.empty();
     expect(d.problems, ['Enter a name']);

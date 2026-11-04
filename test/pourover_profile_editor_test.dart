@@ -171,6 +171,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('pour-flow-0')), findsNothing);
     expect(find.byKey(const ValueKey('pour-flow-1')), findsOneWidget);
+    // The bar under the chart opens pours too.
+    await tester.tap(find.byKey(const ValueKey('pour-bar-0')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pour-flow-0')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('pour-bar-1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('pour-flow-1')), findsOneWidget);
+
     // The last pour's wait is the drawdown.
     expect(find.text('Drawdown'), findsOneWidget);
 

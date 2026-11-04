@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'profile_draft.dart' show newUuid;
 
 // A Pour Over profile being written: bean'd keeps own profiles in the
@@ -20,6 +22,8 @@ const maxTotalWaterG = 2000.0;
 const maxNameLength = 120;
 const maxDescriptionLength = 500;
 const maxNoteLength = 300;
+const minFlowGps = 0.5;
+const maxFlowGps = 20.0;
 
 const pourPatterns = {
   'center': 'Center',
@@ -68,6 +72,13 @@ class DraftPour {
   final Map<String, dynamic> _rawPour;
 
   double get flowGps => durationS > 0 ? waterG / durationS : 0;
+
+  /// Flow and pour time are two sides of one thing: the water stays, the
+  /// time follows. Kept in thousandths, so the flow reads back as set.
+  void setFlow(double gPerS) {
+    if (gPerS <= 0) return;
+    durationS = math.max(0.001, (waterG / gPerS * 1000).roundToDouble() / 1000);
+  }
 
   DraftPour copyAs(String newKey, String newName) => DraftPour(
     key: newKey,

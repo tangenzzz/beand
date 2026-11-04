@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/foundation.dart' show compute, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -714,25 +715,11 @@ class _PourOverProfileEditorState extends State<PourOverProfileEditor> {
                             ],
                           ),
                         ),
-                        SizedBox(
-                          height: 72,
-                          child: CustomPaint(
-                            key: const ValueKey('profile-chart'),
-                            painter: _WaterPainter(
-                              starts: draft.startsS,
-                              pours: [
-                                for (final p in draft.pours)
-                                  (p.waterG, p.durationS),
-                              ],
-                              endS: math.max(
-                                draft.timeMaxS ?? 0,
-                                draft.timeFromS,
-                              ),
-                              open: _openPour,
-                              water: colors.sensorMid,
-                              band: colors.textPrimary.withValues(alpha: 0.06),
-                              axis: colors.divider,
-                            ),
+                        _PlanChart(
+                          draft: draft,
+                          open: _openPour,
+                          onPour: (i) => setState(
+                            () => _openPour = _openPour == i ? null : i,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -846,37 +833,21 @@ class _PourFieldsState extends State<_PourFields> {
             min: 1,
             max: maxTimeS,
             unit: 's',
+            text:
+                '${p.durationS.toStringAsFixed(p.durationS % 1 == 0 ? 0 : 1)} s',
             onChanged: (v) => edit(() => p.durationS = v),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 13),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: colors.divider, width: 0.5),
-              ),
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: _plainLabelWidth,
-                  child: Text(
-                    'Flow',
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: _labelSize,
-                    ),
-                  ),
-                ),
-                Text(
-                  '${p.flowGps.toStringAsFixed(1)} g/s',
-                  key: ValueKey('pour-flow-$i'),
-                  style: TextStyle(
-                    color: colors.sensorDown,
-                    fontSize: _labelSize,
-                  ),
-                ),
-              ],
-            ),
+          // Moves the pour time above, the water stays.
+          widget.ruler(
+            label: 'Flow',
+            key: ValueKey('pour-flow-$i'),
+            value: p.flowGps,
+            min: minFlowGps,
+            max: maxFlowGps,
+            step: 0.1,
+            unit: 'g/s',
+            text: '${p.flowGps.toStringAsFixed(1)} g/s',
+            onChanged: (v) => edit(() => p.setFlow(v)),
           ),
           if (widget.last)
             widget.ruler(
@@ -1043,71 +1014,170 @@ class _PhotoButton extends StatelessWidget {
   }
 }
 
-// The water on the clock: rising while pouring, flat while waiting. The
-// open pour stands out. Water is yellow everywhere in the app.
-class _WaterPainter extends CustomPainter {
-  _WaterPainter({
-    required this.starts,
-    required this.pours,
-    required this.endS,
+// The water on the clock like the live chart: rising while pouring, flat
+// while waiting, the pours as bands behind it, the open one tinted. Below it
+// the gray bar of the shot chart, one piece per pour; tapping one opens it.
+class _PlanChart extends StatelessWidget {
+  const _PlanChart({
+    required this.draft,
     required this.open,
-    required this.water,
-    required this.band,
-    required this.axis,
+    required this.onPour,
   });
 
-  final List<double> starts;
-  final List<(double, double)> pours;
-  final double endS;
+  final PourOverDraft draft;
   final int? open;
-  final Color water;
-  final Color band;
-  final Color axis;
+  final ValueChanged<int> onPour;
+
+  static const _axisWidth = 28.0;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final total = pours.fold(0.0, (s, p) => s + p.$1);
-    if (total <= 0 || endS <= 0) return;
-    const top = 4.0;
-    final base = size.height - 2;
-    double x(double t) => size.width * (t / endS).clamp(0.0, 1.0);
-    double y(double g) => base - (base - top) * (g / total);
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final starts = draft.startsS;
+    final pours = draft.pours;
+    final endS = math.max(math.max(draft.timeMaxS ?? 0, draft.timeFromS), 1.0);
+    final total = draft.totalWaterG;
+    // Never 0: the chart's grid needs a height.
+    final maxY = math.max(10.0, (total * 1.1).ceilToDouble());
+    double bandEnd(int i) => i + 1 < starts.length ? starts[i + 1] : endS;
 
-    final o = open;
-    if (o != null && o < pours.length) {
-      final to = o + 1 < starts.length ? starts[o + 1] : endS;
-      canvas.drawRect(
-        Rect.fromLTRB(x(starts[o]), 0, x(to), size.height),
-        Paint()..color = band,
-      );
-    }
-    canvas.drawLine(
-      Offset(0, base),
-      Offset(size.width, base),
-      Paint()
-        ..color = axis
-        ..strokeWidth = 0.5,
-    );
-    final path = Path()..moveTo(0, base);
     var cumulative = 0.0;
+    final spots = <FlSpot>[const FlSpot(0, 0)];
     for (var i = 0; i < pours.length; i++) {
-      path.lineTo(x(starts[i]), y(cumulative));
-      cumulative += pours[i].$1;
-      path.lineTo(x(starts[i] + pours[i].$2), y(cumulative));
+      spots.add(FlSpot(starts[i], cumulative));
+      cumulative += pours[i].waterG;
+      spots.add(FlSpot(starts[i] + pours[i].durationS, cumulative));
     }
-    path.lineTo(size.width, y(cumulative));
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = water
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..strokeJoin = StrokeJoin.round,
+    spots.add(FlSpot(endS, cumulative));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 130,
+          child: LineChart(
+            key: const ValueKey('profile-chart'),
+            duration: Duration.zero,
+            LineChartData(
+              minX: 0,
+              maxX: endS,
+              minY: 0,
+              maxY: maxY,
+              clipData: const FlClipData.all(),
+              borderData: FlBorderData(show: false),
+              gridData: FlGridData(
+                drawVerticalLine: false,
+                horizontalInterval: maxY / 2,
+                getDrawingHorizontalLine: (v) => FlLine(
+                  color: colors.divider,
+                  strokeWidth: 1,
+                  dashArray: v == 0 ? null : const [2, 4],
+                ),
+              ),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(),
+                rightTitles: const AxisTitles(),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: _axisWidth,
+                    interval: maxY / 2,
+                    getTitlesWidget: (v, meta) => SideTitleWidget(
+                      axisSide: meta.axisSide,
+                      child: Text(
+                        v.toStringAsFixed(0),
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 24,
+                    interval: endS <= 120 ? 30 : 60,
+                    getTitlesWidget: (v, meta) => SideTitleWidget(
+                      axisSide: meta.axisSide,
+                      child: Text(
+                        _clock(v),
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              rangeAnnotations: RangeAnnotations(
+                verticalRangeAnnotations: [
+                  for (var i = 0; i < pours.length; i++)
+                    VerticalRangeAnnotation(
+                      x1: starts[i],
+                      x2: bandEnd(i),
+                      color: i == open
+                          ? colors.accent.withValues(alpha: 0.10)
+                          : (i.isEven
+                                ? colors.textPrimary.withValues(alpha: 0.028)
+                                : Colors.transparent),
+                    ),
+                ],
+              ),
+              lineTouchData: const LineTouchData(enabled: false),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  color: colors.sensorMid,
+                  barWidth: 2.4,
+                  isStrokeCapRound: true,
+                  dotData: const FlDotData(show: false),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Lined up with the plot, not the axis numbers.
+        Padding(
+          padding: const EdgeInsets.only(left: _axisWidth),
+          child: Row(
+            children: [
+              for (var i = 0; i < pours.length; i++) ...[
+                if (i > 0) const SizedBox(width: 3),
+                Expanded(
+                  flex: math.max(
+                    1,
+                    ((bandEnd(i) - starts[i]) * 1000 / endS).round(),
+                  ),
+                  child: GestureDetector(
+                    key: ValueKey('pour-bar-$i'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onPour(i),
+                    child: Padding(
+                      // Easier to hit than the thin bar itself.
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Container(
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: colors.textPrimary.withValues(
+                            alpha: i == open ? 0.55 : 0.16,
+                          ),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
-
-  @override
-  bool shouldRepaint(_WaterPainter old) => true;
 }
 
 String _clock(double seconds) {
