@@ -51,13 +51,16 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
   @override
   void initState() {
     super.initState();
-    // Don't scan while the scale is already connected or scanning itself —
-    // Android does not like two scans at the same time.
+    // Look for scales also while one is connected, so another one can be
+    // tapped to switch over (user 2026-11-04). Not while the scale is
+    // scanning or connecting itself — Android does not like two scans at
+    // the same time.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final scale = context.read<BrewScale>();
       if (mounted &&
           !scale.isMachineScale &&
-          scale.connection == ScaleConnection.disconnected) {
+          (scale.connection == ScaleConnection.disconnected ||
+              scale.connection == ScaleConnection.connected)) {
         _scan();
       }
     });

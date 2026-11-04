@@ -98,6 +98,17 @@ class BleScale extends BrewScale {
   int _reconnects = 0;
   Completer<void>? _connecting;
 
+  // Every disconnect / switch to another scale starts a new session. A
+  // reconnect loop or connection attempt of an older session stops instead
+  // of reaching for the new scale (bug 2026-11-04: Decent off, Acaia on —
+  // the Decent's loop kept running and nothing connected any more).
+  int _session = 0;
+
+  // The pending "connected and set up" of _open(); _teardown() ends it, so
+  // a cancelled attempt never hangs (it used to block every later connect
+  // until the app restarted).
+  Completer<void>? _ready;
+
   Future<void> _loadRemembered() async {
     final prefs = await SharedPreferences.getInstance();
     _rememberedId = prefs.getString(scaleLastDeviceIdPrefKey);
@@ -156,9 +167,16 @@ class BleScale extends BrewScale {
   @override
   Future<void> connect() => _connectWith(null);
 
+  /// Tapping another scale while one is connected switches right over.
   @override
   Future<void> connectTo(ScaleCandidate candidate) async {
-    if (_deviceId != candidate.id) await disconnect();
+    if (_deviceId == candidate.id && _connection == ScaleConnection.connected) {
+      return;
+    }
+    await disconnect();
+    // A connect still hanging from the old scale must not swallow this
+    // one.
+    _connecting = null;
     return _connectWith(candidate);
   }
 
@@ -233,6 +251,7 @@ class BleScale extends BrewScale {
   @override
   Future<void> disconnect() async {
     _wantConnected = false;
+    _session++;
     await _teardown();
     _set(ScaleConnection.disconnected);
   }
@@ -335,7 +354,7 @@ class BleScale extends BrewScale {
   Future<void> _open() async {
     final id = _deviceId!;
     _set(ScaleConnection.connecting);
-    final ready = Completer<void>();
+    final ready = _ready = Completer<void>();
     await _connSub?.cancel();
     _connSub = _ble
         .connectToDevice(id: id, connectionTimeout: _connectTimeout)
@@ -372,7 +391,12 @@ class BleScale extends BrewScale {
             }
           },
         );
-    await ready.future;
+    // Never wait forever: the connect timeout plus room for setting up.
+    try {
+      await ready.future.timeout(_connectTimeout + const Duration(seconds: 15));
+    } finally {
+      if (identical(_ready, ready)) _ready = null;
+    }
   }
 
   Future<void> _setUp(String id) async {
@@ -544,8 +568,10 @@ class BleScale extends BrewScale {
       }
       // First reconnect blindly (short radio dropout), after that only
       // when the scale is sending again – it can be off for minutes.
+      final session = _session;
+      bool current() => _wantConnected && session == _session;
       final deadline = DateTime.now().add(_reconnectWindow);
-      while (_wantConnected && DateTime.now().isBefore(deadline)) {
+      while (current() && DateTime.now().isBefore(deadline)) {
         _reconnects++;
         debugPrint('BleScale: reconnect $_reconnects');
         try {
@@ -554,16 +580,22 @@ class BleScale extends BrewScale {
             final id = _deviceId!;
             final back = await scan(timeout: _scanTimeout)
                 .any((c) => c.id == id);
-            if (!back || !_wantConnected) continue;
+            if (!back || !current()) continue;
           }
+          if (!current()) break;
           await _open();
           return;
         } catch (e) {
           debugPrint('BleScale: reconnect failed $e');
+          // Only clean up our own attempt — after a switch the connection
+          // belongs to the new scale.
+          if (!current()) return;
           await _teardown();
           await Future<void>.delayed(const Duration(seconds: 2));
         }
       }
+      // Switched to another scale meanwhile: leave its connection alone.
+      if (session != _session) return;
       if (!_wantConnected) {
         _set(ScaleConnection.disconnected);
         return;
@@ -575,6 +607,11 @@ class BleScale extends BrewScale {
   }
 
   Future<void> _teardown() async {
+    final ready = _ready;
+    _ready = null;
+    if (ready != null && !ready.isCompleted) {
+      ready.completeError(const _ScaleException('Connection cancelled.'));
+    }
     _heartbeat?.cancel();
     _watchdog?.cancel();
     _heartbeat = null;
