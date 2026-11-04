@@ -15,12 +15,13 @@ import '../../settings/scale_settings_screen.dart';
 // (CommandButtonsRow/GaggiMateCommandRow): neutral row without a card, thin
 // dividers above and below, fixed-width buttons.
 //
-// Contents, in order: Profile ↔ Manual toggle, Tare, the scale (icon
+// Contents, in order: Profile ↔ Free Pour toggle, Tare, the scale (icon
 // neutral like the other buttons — the colored status is in the pill at the
-// top; battery next to the name; a tap chooses Meticulous Machine / Scale
+// top; a Bluetooth scale shows its name and battery, the Meticulous its
+// mode "Machine" / "Scale only"; a tap chooses Meticulous Machine / Scale
 // only or a Bluetooth scale, a long press opens Settings → Scale) and Auto.
-// The same for every scale the app leads with. In Machine mode only three:
-// Machine (→ Scale only), the scale, Last brew.
+// The same for every scale the app leads with. In Machine mode only two:
+// the scale button and Last brew.
 class PourOverCommandRow extends StatelessWidget {
   const PourOverCommandRow({super.key});
 
@@ -32,8 +33,13 @@ class PourOverCommandRow extends StatelessWidget {
     final battery = scale.batteryPercent;
     final machine = scale.isMachineScale;
 
+    // The Meticulous button says which way it runs (user 2026-11-04):
+    // "Machine" (the dial leads) or "Scale only" (the app leads) — the
+    // same icons as in the scale picker.
     final (IconData scaleIcon, String scaleLabel) = machine
-        ? (Icons.coffee_maker_outlined, MeticulousScale.name)
+        ? (brew.dialLeads
+              ? (Icons.touch_app_outlined, 'Machine')
+              : (Icons.coffee_maker_outlined, 'Scale only'))
         : switch (scale.connection) {
             // The battery level next to the name (the fourth button is
             // Auto now); red icon when low.
@@ -72,18 +78,12 @@ class PourOverCommandRow extends StatelessWidget {
       onLongPress: () => _openScaleSettings(context),
     );
 
-    // Machine mode (the dial leads) needs only three: the mode, the scale
-    // and fetching the last brew. No Profile (the dial picks it) and no
-    // Tare (a tare from the app would confuse the dial's steps).
+    // Machine mode (the dial leads) needs only two: the scale button (it
+    // switches to Scale only too) and fetching the last brew. No Profile
+    // (the dial picks it) and no Tare (a tare from the app would confuse
+    // the dial's steps).
     final List<Widget> buttons = dial
         ? [
-            _CommandButton(
-              icon: Icons.touch_app_outlined,
-              label: 'Machine',
-              onTap: brew.profileLocked
-                  ? null
-                  : () => brew.setMeticulousMode(MeticulousPourMode.scaleOnly),
-            ),
             scaleButton,
             _CommandButton(
               icon: Icons.download_outlined,

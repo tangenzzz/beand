@@ -132,10 +132,10 @@ void main() {
     );
     await tester.pump();
 
-    // Machine mode (default): the dial leads.
-    expect(find.text('Meticulous'), findsOneWidget);
-    expect(find.text('Last brew'), findsOneWidget);
+    // Machine mode (default): the dial leads. Two buttons: the scale
+    // button names the mode, and Last brew.
     expect(find.text('Machine'), findsOneWidget);
+    expect(find.text('Last brew'), findsOneWidget);
     // No Tare and no Profile button while the dial leads.
     expect(find.text('Tare'), findsNothing);
     expect(find.byIcon(Icons.back_hand_outlined), findsNothing);
@@ -143,10 +143,15 @@ void main() {
     expect(find.text('On the machine'), findsNWidgets(3));
     expect(find.textContaining('Put the server'), findsNothing);
 
-    // Scale only: the app leads with its own steps.
+    // Scale only via the scale button: the app leads with its own steps.
     await tester.tap(find.text('Machine'));
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Meticulous · Scale only'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
     expect(brew.meticulousMode, MeticulousPourMode.scaleOnly);
+    expect(find.text('Scale only'), findsOneWidget);
     expect(find.text('Tare'), findsOneWidget);
     // Auto off: no steps, enter everything by hand.
     expect(find.text('Auto off'), findsOneWidget);
@@ -160,7 +165,7 @@ void main() {
     expect(find.byTooltip('Add profile'), findsOneWidget);
 
     // Scale button → choose Bluetooth.
-    await tester.tap(find.text('Meticulous'));
+    await tester.tap(find.text('Scale only'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Bluetooth scale'), findsOneWidget);
