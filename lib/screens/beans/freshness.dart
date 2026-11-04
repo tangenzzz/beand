@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
-// When a roast is usually at its best, in days off roast (or since
-// thawing), roughly — taste has the final say. Ultra light rests like light; a
+// When a roast is usually at its best, in days off roast (days in the
+// freezer don't count), roughly — taste has the final say. Ultra light rests like light; a
 // bean without a roast level is read as medium. Labels match
 // roastLevelOptions (lowercased = Beans.roastLevel).
 typedef FreshnessWindow = ({String label, int from, int to});
@@ -82,7 +82,7 @@ class FreshnessRing extends StatelessWidget {
 }
 
 // Ring of a frozen bean: closed, gradient light blue ↔ white, a snowflake in
-// the middle. The freshness ring only starts on thawing.
+// the middle. The freshness ring goes on after thawing.
 class FrozenRing extends StatelessWidget {
   const FrozenRing({super.key, this.size = 40});
 
@@ -221,7 +221,7 @@ class FreshnessLegend extends StatelessWidget {
               freshnessColor(context, medium.to + 1),
               'Past its best',
             ),
-            _LegendItem(colors.ice, 'Frozen · ring starts at thaw'),
+            _LegendItem(colors.ice, 'Frozen · ring paused'),
           ],
         ),
         const SizedBox(height: 8),

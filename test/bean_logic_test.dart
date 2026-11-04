@@ -15,6 +15,7 @@ Bean bean(
   bool frozen = false,
   DateTime? thawedDate,
 }) => Bean(
+  frozenDays: 0,
   syncId: 'test',
   updatedAt: 0,
   syncState: SyncState.pending,
@@ -108,6 +109,7 @@ Bean full(
   double? cost,
   DateTime? roastDate,
 }) => Bean(
+  frozenDays: 0,
   syncId: 'test',
   updatedAt: 0,
   syncState: SyncState.pending,

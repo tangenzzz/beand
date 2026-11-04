@@ -45,6 +45,7 @@ ShotEntry _entry(
 );
 
 Bean _bean(int id, String name, String roaster) => Bean(
+  frozenDays: 0,
   syncId: 'test',
   updatedAt: 0,
   syncState: SyncState.pending,

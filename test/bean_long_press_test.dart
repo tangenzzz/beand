@@ -156,13 +156,17 @@ void main() {
 
     await tester.longPress(find.byType(FreshnessRing));
     await settle(tester);
-    expect((await beanNamed(tester, 'Guji')).isFrozen, isTrue);
+    final frozen = await beanNamed(tester, 'Guji');
+    expect(frozen.isFrozen, isTrue);
+    expect(frozen.frozenDate, isNotNull);
     expect(find.byIcon(Icons.ac_unit), findsOneWidget);
     expect(find.text('Frozen – freshness ring paused'), findsOneWidget);
 
     await tester.tap(find.text('Undo'));
     await settle(tester);
-    expect((await beanNamed(tester, 'Guji')).isFrozen, isFalse);
+    final undone = await beanNamed(tester, 'Guji');
+    expect(undone.isFrozen, isFalse);
+    expect(undone.frozenDate, isNull);
     expect(find.byType(FreshnessRing), findsOneWidget);
     await dispose(tester);
   });

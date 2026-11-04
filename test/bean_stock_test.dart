@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 Bean _bean({int id = 1, double? weight, bool frozen = false}) => Bean(
+  frozenDays: 0,
   syncId: 'test',
   updatedAt: 0,
   syncState: SyncState.pending,

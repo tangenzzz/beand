@@ -255,6 +255,29 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _frozenDateMeta = const VerificationMeta(
+    'frozenDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> frozenDate = GeneratedColumn<DateTime>(
+    'frozen_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _frozenDaysMeta = const VerificationMeta(
+    'frozenDays',
+  );
+  @override
+  late final GeneratedColumn<int> frozenDays = GeneratedColumn<int>(
+    'frozen_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _emptiedAtMeta = const VerificationMeta(
     'emptiedAt',
   );
@@ -317,6 +340,8 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
     photoBlob,
     isFrozen,
     thawedDate,
+    frozenDate,
+    frozenDays,
     emptiedAt,
     createdAt,
     deleted,
@@ -467,6 +492,18 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
         thawedDate.isAcceptableOrUnknown(data['thawed_date']!, _thawedDateMeta),
       );
     }
+    if (data.containsKey('frozen_date')) {
+      context.handle(
+        _frozenDateMeta,
+        frozenDate.isAcceptableOrUnknown(data['frozen_date']!, _frozenDateMeta),
+      );
+    }
+    if (data.containsKey('frozen_days')) {
+      context.handle(
+        _frozenDaysMeta,
+        frozenDays.isAcceptableOrUnknown(data['frozen_days']!, _frozenDaysMeta),
+      );
+    }
     if (data.containsKey('emptied_at')) {
       context.handle(
         _emptiedAtMeta,
@@ -582,6 +619,14 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}thawed_date'],
       ),
+      frozenDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}frozen_date'],
+      ),
+      frozenDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}frozen_days'],
+      )!,
       emptiedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}emptied_at'],
@@ -626,6 +671,8 @@ class Bean extends DataClass implements Insertable<Bean> {
   final String? photoBlob;
   final bool isFrozen;
   final DateTime? thawedDate;
+  final DateTime? frozenDate;
+  final int frozenDays;
   final DateTime? emptiedAt;
   final DateTime createdAt;
   final bool deleted;
@@ -652,6 +699,8 @@ class Bean extends DataClass implements Insertable<Bean> {
     this.photoBlob,
     required this.isFrozen,
     this.thawedDate,
+    this.frozenDate,
+    required this.frozenDays,
     this.emptiedAt,
     required this.createdAt,
     required this.deleted,
@@ -713,6 +762,10 @@ class Bean extends DataClass implements Insertable<Bean> {
     if (!nullToAbsent || thawedDate != null) {
       map['thawed_date'] = Variable<DateTime>(thawedDate);
     }
+    if (!nullToAbsent || frozenDate != null) {
+      map['frozen_date'] = Variable<DateTime>(frozenDate);
+    }
+    map['frozen_days'] = Variable<int>(frozenDays);
     if (!nullToAbsent || emptiedAt != null) {
       map['emptied_at'] = Variable<DateTime>(emptiedAt);
     }
@@ -775,6 +828,10 @@ class Bean extends DataClass implements Insertable<Bean> {
       thawedDate: thawedDate == null && nullToAbsent
           ? const Value.absent()
           : Value(thawedDate),
+      frozenDate: frozenDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(frozenDate),
+      frozenDays: Value(frozenDays),
       emptiedAt: emptiedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(emptiedAt),
@@ -811,6 +868,8 @@ class Bean extends DataClass implements Insertable<Bean> {
       photoBlob: serializer.fromJson<String?>(json['photoBlob']),
       isFrozen: serializer.fromJson<bool>(json['isFrozen']),
       thawedDate: serializer.fromJson<DateTime?>(json['thawedDate']),
+      frozenDate: serializer.fromJson<DateTime?>(json['frozenDate']),
+      frozenDays: serializer.fromJson<int>(json['frozenDays']),
       emptiedAt: serializer.fromJson<DateTime?>(json['emptiedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       deleted: serializer.fromJson<bool>(json['deleted']),
@@ -842,6 +901,8 @@ class Bean extends DataClass implements Insertable<Bean> {
       'photoBlob': serializer.toJson<String?>(photoBlob),
       'isFrozen': serializer.toJson<bool>(isFrozen),
       'thawedDate': serializer.toJson<DateTime?>(thawedDate),
+      'frozenDate': serializer.toJson<DateTime?>(frozenDate),
+      'frozenDays': serializer.toJson<int>(frozenDays),
       'emptiedAt': serializer.toJson<DateTime?>(emptiedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'deleted': serializer.toJson<bool>(deleted),
@@ -871,6 +932,8 @@ class Bean extends DataClass implements Insertable<Bean> {
     Value<String?> photoBlob = const Value.absent(),
     bool? isFrozen,
     Value<DateTime?> thawedDate = const Value.absent(),
+    Value<DateTime?> frozenDate = const Value.absent(),
+    int? frozenDays,
     Value<DateTime?> emptiedAt = const Value.absent(),
     DateTime? createdAt,
     bool? deleted,
@@ -897,6 +960,8 @@ class Bean extends DataClass implements Insertable<Bean> {
     photoBlob: photoBlob.present ? photoBlob.value : this.photoBlob,
     isFrozen: isFrozen ?? this.isFrozen,
     thawedDate: thawedDate.present ? thawedDate.value : this.thawedDate,
+    frozenDate: frozenDate.present ? frozenDate.value : this.frozenDate,
+    frozenDays: frozenDays ?? this.frozenDays,
     emptiedAt: emptiedAt.present ? emptiedAt.value : this.emptiedAt,
     createdAt: createdAt ?? this.createdAt,
     deleted: deleted ?? this.deleted,
@@ -935,6 +1000,12 @@ class Bean extends DataClass implements Insertable<Bean> {
       thawedDate: data.thawedDate.present
           ? data.thawedDate.value
           : this.thawedDate,
+      frozenDate: data.frozenDate.present
+          ? data.frozenDate.value
+          : this.frozenDate,
+      frozenDays: data.frozenDays.present
+          ? data.frozenDays.value
+          : this.frozenDays,
       emptiedAt: data.emptiedAt.present ? data.emptiedAt.value : this.emptiedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       deleted: data.deleted.present ? data.deleted.value : this.deleted,
@@ -966,6 +1037,8 @@ class Bean extends DataClass implements Insertable<Bean> {
           ..write('photoBlob: $photoBlob, ')
           ..write('isFrozen: $isFrozen, ')
           ..write('thawedDate: $thawedDate, ')
+          ..write('frozenDate: $frozenDate, ')
+          ..write('frozenDays: $frozenDays, ')
           ..write('emptiedAt: $emptiedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('deleted: $deleted')
@@ -997,6 +1070,8 @@ class Bean extends DataClass implements Insertable<Bean> {
     photoBlob,
     isFrozen,
     thawedDate,
+    frozenDate,
+    frozenDays,
     emptiedAt,
     createdAt,
     deleted,
@@ -1027,6 +1102,8 @@ class Bean extends DataClass implements Insertable<Bean> {
           other.photoBlob == this.photoBlob &&
           other.isFrozen == this.isFrozen &&
           other.thawedDate == this.thawedDate &&
+          other.frozenDate == this.frozenDate &&
+          other.frozenDays == this.frozenDays &&
           other.emptiedAt == this.emptiedAt &&
           other.createdAt == this.createdAt &&
           other.deleted == this.deleted);
@@ -1055,6 +1132,8 @@ class BeansCompanion extends UpdateCompanion<Bean> {
   final Value<String?> photoBlob;
   final Value<bool> isFrozen;
   final Value<DateTime?> thawedDate;
+  final Value<DateTime?> frozenDate;
+  final Value<int> frozenDays;
   final Value<DateTime?> emptiedAt;
   final Value<DateTime> createdAt;
   final Value<bool> deleted;
@@ -1081,6 +1160,8 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     this.photoBlob = const Value.absent(),
     this.isFrozen = const Value.absent(),
     this.thawedDate = const Value.absent(),
+    this.frozenDate = const Value.absent(),
+    this.frozenDays = const Value.absent(),
     this.emptiedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.deleted = const Value.absent(),
@@ -1108,6 +1189,8 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     this.photoBlob = const Value.absent(),
     this.isFrozen = const Value.absent(),
     this.thawedDate = const Value.absent(),
+    this.frozenDate = const Value.absent(),
+    this.frozenDays = const Value.absent(),
     this.emptiedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.deleted = const Value.absent(),
@@ -1135,6 +1218,8 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     Expression<String>? photoBlob,
     Expression<bool>? isFrozen,
     Expression<DateTime>? thawedDate,
+    Expression<DateTime>? frozenDate,
+    Expression<int>? frozenDays,
     Expression<DateTime>? emptiedAt,
     Expression<DateTime>? createdAt,
     Expression<bool>? deleted,
@@ -1162,6 +1247,8 @@ class BeansCompanion extends UpdateCompanion<Bean> {
       if (photoBlob != null) 'photo_blob': photoBlob,
       if (isFrozen != null) 'is_frozen': isFrozen,
       if (thawedDate != null) 'thawed_date': thawedDate,
+      if (frozenDate != null) 'frozen_date': frozenDate,
+      if (frozenDays != null) 'frozen_days': frozenDays,
       if (emptiedAt != null) 'emptied_at': emptiedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (deleted != null) 'deleted': deleted,
@@ -1191,6 +1278,8 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     Value<String?>? photoBlob,
     Value<bool>? isFrozen,
     Value<DateTime?>? thawedDate,
+    Value<DateTime?>? frozenDate,
+    Value<int>? frozenDays,
     Value<DateTime?>? emptiedAt,
     Value<DateTime>? createdAt,
     Value<bool>? deleted,
@@ -1218,6 +1307,8 @@ class BeansCompanion extends UpdateCompanion<Bean> {
       photoBlob: photoBlob ?? this.photoBlob,
       isFrozen: isFrozen ?? this.isFrozen,
       thawedDate: thawedDate ?? this.thawedDate,
+      frozenDate: frozenDate ?? this.frozenDate,
+      frozenDays: frozenDays ?? this.frozenDays,
       emptiedAt: emptiedAt ?? this.emptiedAt,
       createdAt: createdAt ?? this.createdAt,
       deleted: deleted ?? this.deleted,
@@ -1293,6 +1384,12 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     if (thawedDate.present) {
       map['thawed_date'] = Variable<DateTime>(thawedDate.value);
     }
+    if (frozenDate.present) {
+      map['frozen_date'] = Variable<DateTime>(frozenDate.value);
+    }
+    if (frozenDays.present) {
+      map['frozen_days'] = Variable<int>(frozenDays.value);
+    }
     if (emptiedAt.present) {
       map['emptied_at'] = Variable<DateTime>(emptiedAt.value);
     }
@@ -1330,6 +1427,8 @@ class BeansCompanion extends UpdateCompanion<Bean> {
           ..write('photoBlob: $photoBlob, ')
           ..write('isFrozen: $isFrozen, ')
           ..write('thawedDate: $thawedDate, ')
+          ..write('frozenDate: $frozenDate, ')
+          ..write('frozenDays: $frozenDays, ')
           ..write('emptiedAt: $emptiedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('deleted: $deleted')
@@ -6694,6 +6793,8 @@ typedef $$BeansTableCreateCompanionBuilder = BeansCompanion Function({
   Value<String?> photoBlob,
   Value<bool> isFrozen,
   Value<DateTime?> thawedDate,
+  Value<DateTime?> frozenDate,
+  Value<int> frozenDays,
   Value<DateTime?> emptiedAt,
   Value<DateTime> createdAt,
   Value<bool> deleted,
@@ -6721,6 +6822,8 @@ typedef $$BeansTableUpdateCompanionBuilder = BeansCompanion Function({
   Value<String?> photoBlob,
   Value<bool> isFrozen,
   Value<DateTime?> thawedDate,
+  Value<DateTime?> frozenDate,
+  Value<int> frozenDays,
   Value<DateTime?> emptiedAt,
   Value<DateTime> createdAt,
   Value<bool> deleted,
@@ -6865,6 +6968,16 @@ class $$BeansTableFilterComposer extends Composer<_$AppDatabase, $BeansTable> {
 
   ColumnFilters<DateTime> get thawedDate => $composableBuilder(
     column: $table.thawedDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get frozenDate => $composableBuilder(
+    column: $table.frozenDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get frozenDays => $composableBuilder(
+    column: $table.frozenDays,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7028,6 +7141,16 @@ class $$BeansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get frozenDate => $composableBuilder(
+    column: $table.frozenDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get frozenDays => $composableBuilder(
+    column: $table.frozenDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get emptiedAt => $composableBuilder(
     column: $table.emptiedAt,
     builder: (column) => ColumnOrderings(column),
@@ -7129,6 +7252,16 @@ class $$BeansTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<DateTime> get frozenDate => $composableBuilder(
+    column: $table.frozenDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get frozenDays => $composableBuilder(
+    column: $table.frozenDays,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get emptiedAt =>
       $composableBuilder(column: $table.emptiedAt, builder: (column) => column);
 
@@ -7214,6 +7347,8 @@ class $$BeansTableTableManager
                 Value<String?> photoBlob = const Value.absent(),
                 Value<bool> isFrozen = const Value.absent(),
                 Value<DateTime?> thawedDate = const Value.absent(),
+                Value<DateTime?> frozenDate = const Value.absent(),
+                Value<int> frozenDays = const Value.absent(),
                 Value<DateTime?> emptiedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
@@ -7240,6 +7375,8 @@ class $$BeansTableTableManager
                 photoBlob: photoBlob,
                 isFrozen: isFrozen,
                 thawedDate: thawedDate,
+                frozenDate: frozenDate,
+                frozenDays: frozenDays,
                 emptiedAt: emptiedAt,
                 createdAt: createdAt,
                 deleted: deleted,
@@ -7268,6 +7405,8 @@ class $$BeansTableTableManager
                 Value<String?> photoBlob = const Value.absent(),
                 Value<bool> isFrozen = const Value.absent(),
                 Value<DateTime?> thawedDate = const Value.absent(),
+                Value<DateTime?> frozenDate = const Value.absent(),
+                Value<int> frozenDays = const Value.absent(),
                 Value<DateTime?> emptiedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> deleted = const Value.absent(),
@@ -7294,6 +7433,8 @@ class $$BeansTableTableManager
                 photoBlob: photoBlob,
                 isFrozen: isFrozen,
                 thawedDate: thawedDate,
+                frozenDate: frozenDate,
+                frozenDays: frozenDays,
                 emptiedAt: emptiedAt,
                 createdAt: createdAt,
                 deleted: deleted,

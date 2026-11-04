@@ -1,4 +1,5 @@
 import 'package:beand/database/database.dart';
+import 'package:beand/screens/beans/bean_widgets.dart';
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -321,4 +322,33 @@ void main() {
     expect(shot.beverageGrams, isNull);
     await db.close();
   });
+
+  test(
+    'migration v26 -> v27: freezer days, a thawed bean counts as before',
+    () async {
+      final raw = sql.sqlite3.openInMemory();
+      final fresh = AppDatabase(
+        NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
+      );
+      final thawedAt = DateTime(2026, 11, 1);
+      await fresh.insertBean(
+        BeansCompanion.insert(
+          name: 'Guji',
+          roastDate: Value(DateTime(2026, 9, 1)),
+          thawedDate: Value(thawedAt),
+        ),
+      );
+      await fresh.close();
+      raw.execute('ALTER TABLE beans DROP COLUMN frozen_date');
+      raw.execute('ALTER TABLE beans DROP COLUMN frozen_days');
+      raw.execute('PRAGMA user_version = 26');
+
+      final db = AppDatabase(NativeDatabase.opened(raw));
+      final bean = (await db.select(db.beans).get()).single;
+      expect(bean.frozenDate, isNull);
+      expect(bean.frozenDays, 0);
+      expect(daysSinceFreshnessStart(bean, DateTime(2026, 11, 4)), 3);
+      await db.close();
+    },
+  );
 }

@@ -45,6 +45,7 @@ void main() {
   );
 
   Bean bean({String name = 'Ethiopia', String? photoPath}) => Bean(
+    frozenDays: 0,
     syncId: 'test',
     updatedAt: 0,
     syncState: SyncState.pending,

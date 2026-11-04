@@ -236,8 +236,8 @@ class _BeansTabState extends State<BeansTab> {
     );
   }
 
-  // Long press on the snowflake: thaw, the freshness ring starts today (like
-  // switching off "Frozen" in the bean form).
+  // Long press on the snowflake: thaw, the freshness ring goes on where it
+  // stopped (like switching off "Frozen" in the bean form).
   Future<void> _thaw(Bean bean) async {
     final db = context.read<AppDatabase>();
     await db.updateBean(
@@ -245,29 +245,44 @@ class _BeansTabState extends State<BeansTab> {
       BeansCompanion(
         isFrozen: const Value(false),
         thawedDate: Value(DateTime.now()),
+        frozenDays: Value(frozenDaysWhenThawing(bean)),
       ),
     );
     _undoable(
-      'Thawed – freshness ring starts today',
+      'Thawed – freshness ring goes on',
       () => db.updateBean(
         bean.id,
         BeansCompanion(
           isFrozen: const Value(true),
           thawedDate: Value(bean.thawedDate),
+          frozenDays: Value(bean.frozenDays),
         ),
       ),
     );
   }
 
   // Long press on the freshness ring: freeze, the ring pauses (counterpart
-  // to thawing; the thaw date stays as in the form).
+  // to thawing).
   Future<void> _freeze(Bean bean) async {
     final db = context.read<AppDatabase>();
-    await db.updateBean(bean.id, const BeansCompanion(isFrozen: Value(true)));
+    await db.updateBean(
+      bean.id,
+      BeansCompanion(
+        isFrozen: const Value(true),
+        frozenDate: Value(DateTime.now()),
+        frozenDays: Value(frozenDaysWhenFreezing(bean)),
+      ),
+    );
     _undoable(
       'Frozen – freshness ring paused',
-      () =>
-          db.updateBean(bean.id, const BeansCompanion(isFrozen: Value(false))),
+      () => db.updateBean(
+        bean.id,
+        BeansCompanion(
+          isFrozen: const Value(false),
+          frozenDate: Value(bean.frozenDate),
+          frozenDays: Value(bean.frozenDays),
+        ),
+      ),
     );
   }
 

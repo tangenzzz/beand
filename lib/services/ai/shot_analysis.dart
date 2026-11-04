@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import '../../database/database.dart';
 import '../../models/profile_detail.dart';
-import '../../screens/beans/bean_widgets.dart' show calendarDaysSince;
+import '../../screens/beans/bean_widgets.dart'
+    show calendarDaysSince, daysSinceFreshnessStart;
 import '../../models/shot_facts.dart';
 import '../../models/shot_phases.dart';
 import '../../models/taste_profile.dart';
@@ -251,10 +252,8 @@ String shotAnalysisTask(ShotAnalysisInput input) {
     b
       ..writeln()
       ..writeln('## Bean');
-    final roastDate = bean.thawedDate ?? bean.roastDate;
-    final age = roastDate == null
-        ? null
-        : calendarDaysSince(roastDate, input.shot.timestamp);
+    final age = daysSinceFreshnessStart(bean, input.shot.timestamp);
+    final thawed = bean.thawedDate;
     for (final line in [
       'Name: ${bean.name}',
       if (_has(bean.roaster)) 'Roaster: ${bean.roaster}',
@@ -266,8 +265,10 @@ String shotAnalysisTask(ShotAnalysisInput input) {
       if (_has(bean.variety)) 'Variety: ${bean.variety}',
       if (_has(bean.taste)) 'Roaster\'s tasting notes: ${bean.taste}',
       if (age != null)
-        bean.thawedDate != null
-            ? 'Thawed $age days before this shot'
+        thawed != null
+            ? bean.frozenDate != null
+                  ? 'Thawed ${calendarDaysSince(thawed, input.shot.timestamp)} days before this shot, $age days off roast not counting the freezer'
+                  : 'Thawed $age days before this shot'
             : 'Roasted $age days before this shot',
     ]) {
       b.writeln('- $line');

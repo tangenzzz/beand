@@ -210,6 +210,7 @@ void main() {
 
   test('filter and list: Roasted for', () {
     Bean bean(String name, String? roastedFor) => Bean(
+      frozenDays: 0,
       syncId: 'test',
       updatedAt: 0,
       syncState: SyncState.pending,

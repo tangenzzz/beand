@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -107,12 +108,39 @@ int? daysSinceRoast(Bean bean, [DateTime? now]) {
   return roast == null ? null : calendarDaysSince(roast, now);
 }
 
-// Days for the freshness ring: from the thaw date if the bean was thawed,
-// otherwise from the roast date. null without a start date. (Frozen beans
-// show the ice ring instead, see BeanRow.)
+// Days for the freshness ring: since roast, without the days in the freezer.
+// Thawed without a roast date or without a known freeze date (from before it
+// was recorded): since thawing. null without a start date. (Frozen beans show
+// the ice ring instead, see BeanRow.)
 int? daysSinceFreshnessStart(Bean bean, [DateTime? now]) {
-  final start = bean.thawedDate ?? bean.roastDate;
-  return start == null ? null : calendarDaysSince(start, now);
+  final roast = bean.roastDate;
+  final thawed = bean.thawedDate;
+  if (thawed != null && (roast == null || bean.frozenDate == null)) {
+    return calendarDaysSince(thawed, now);
+  }
+  if (roast == null) return null;
+  return math.max(0, calendarDaysSince(roast, now) - bean.frozenDays);
+}
+
+// Freezer days to keep when freezing now: a bean thawed before freeze dates
+// were recorded counts from its thaw date, so everything up to then is taken
+// off to go on with the same number.
+int frozenDaysWhenFreezing(Bean? bean) {
+  final roast = bean?.roastDate;
+  final thawed = bean?.thawedDate;
+  if (roast != null && thawed != null && bean?.frozenDate == null) {
+    return math.max(0, calendarDaysSince(roast, thawed));
+  }
+  return bean?.frozenDays ?? 0;
+}
+
+// Freezer days after thawing now. Frozen on day 10, thawed later: the thaw
+// day is day 11, so the two days themselves don't count as paused; frozen and
+// thawed the same day nothing changes. No known freeze date: as before.
+int frozenDaysWhenThawing(Bean bean, [DateTime? now]) {
+  final frozen = bean.frozenDate;
+  if (frozen == null) return bean.frozenDays;
+  return bean.frozenDays + math.max(0, calendarDaysSince(frozen, now) - 1);
 }
 
 class BeanGroupHeader extends StatelessWidget {

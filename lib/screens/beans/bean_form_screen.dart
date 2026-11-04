@@ -74,6 +74,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   DateTime? _roastDate;
   late bool _isFrozen;
   DateTime? _thawedDate;
+  DateTime? _frozenDate;
+  int _frozenDays = 0;
   String? _photoPath;
   // Photos newly added in this session — deleted again on cancel.
   final _addedPhotos = <String>{};
@@ -115,6 +117,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     _roastDate = bag?.roastDate;
     _isFrozen = bag?.isFrozen ?? false;
     _thawedDate = bag?.thawedDate;
+    _frozenDate = bag?.frozenDate;
+    _frozenDays = bag?.frozenDays ?? 0;
     _photoPath = bag?.photoPath;
     if (widget.newBagOf?.photoPath case final photo?) _copyPhoto(photo);
 
@@ -641,17 +645,27 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   }
 
   // Freezing pauses the freshness ring. When thawing a bean saved as frozen,
-  // the ring starts today (thaw day = roast day); if only toggled back and
-  // forth, the saved state is kept.
+  // it goes on where it stopped; if only toggled back and forth, the saved
+  // state is kept.
   void _toggleFrozen() {
     final saved = widget.bean;
     final freezing = !_isFrozen;
     setState(() {
       _isFrozen = freezing;
-      if (!freezing) {
-        _thawedDate = (saved != null && saved.isFrozen)
-            ? DateTime.now()
-            : saved?.thawedDate;
+      if (saved != null && saved.isFrozen == freezing) {
+        // Back to what is saved.
+        _thawedDate = saved.thawedDate;
+        _frozenDate = saved.frozenDate;
+        _frozenDays = saved.frozenDays;
+      } else if (freezing) {
+        _frozenDate = DateTime.now();
+        _frozenDays = frozenDaysWhenFreezing(saved);
+      } else if (saved != null) {
+        _thawedDate = DateTime.now();
+        _frozenDays = frozenDaysWhenThawing(saved);
+      } else {
+        // New bean, only toggled: never really frozen.
+        _frozenDate = null;
       }
     });
     ScaffoldMessenger.of(context)
@@ -662,7 +676,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
             freezing
                 ? 'Frozen – freshness ring paused'
                 : (saved != null && saved.isFrozen)
-                ? 'Thawed – freshness ring starts today'
+                ? 'Thawed – freshness ring goes on'
                 : 'Not frozen',
           ),
           duration: const Duration(seconds: 2),
@@ -704,6 +718,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       producer: Value(_nullIfEmpty(_producer.text)),
       isFrozen: Value(_isFrozen),
       thawedDate: Value(_thawedDate),
+      frozenDate: Value(_frozenDate),
+      frozenDays: Value(_frozenDays),
       weightGrams: Value(_parseNumber(_weight.text)),
       taste: Value(taste.isEmpty ? null : taste.join(', ')),
       cost: Value(_parseNumber(_cost.text)),

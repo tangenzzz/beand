@@ -153,7 +153,7 @@ void main() {
     await db.close();
   });
 
-  testWidgets('snowflake: freezing, then thawing starts the ring today', (
+  testWidgets('snowflake: freezing, then thawing goes on where it stopped', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(800, 2400);
@@ -228,10 +228,12 @@ void main() {
       ),
       DateTime(today.year, today.month, today.day),
     );
+    // Frozen and thawed the same day: the ring just goes on.
+    expect(saved.frozenDays, 0);
     expect(
       daysSinceFreshnessStart(saved),
-      0,
-      reason: 'ring starts on the thaw day',
+      daysSinceRoast(saved),
+      reason: 'no day in the freezer',
     );
     await db.close();
   });
@@ -241,6 +243,7 @@ void main() {
     (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       final frozen = Bean(
+        frozenDays: 0,
         syncId: 'test',
         updatedAt: 0,
         syncState: SyncState.pending,
@@ -268,8 +271,10 @@ void main() {
       expect(find.byType(FrozenRing), findsNothing);
       expect(find.byIcon(Icons.ac_unit), findsOneWidget);
 
-      // Thawed 5 days ago: normal ring from thaw date, not from roast date.
+      // Thawed 5 days ago, freeze date unknown (from before it was
+      // recorded): normal ring from thaw date, not from roast date.
       final thawed = Bean(
+        frozenDays: 0,
         syncId: 'test',
         updatedAt: 0,
         syncState: SyncState.pending,

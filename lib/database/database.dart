@@ -68,10 +68,15 @@ class Beans extends Table with SyncColumns {
   // Null = not uploaded yet or no photo; cleared on every new photo. The
   // path above stays local.
   TextColumn get photoBlob => text().nullable()();
-  // Frozen: freshness ring paused. On thawing, [thawedDate] is set and
-  // replaces the roast date as the start of the ring from then on.
+  // Frozen: freshness ring paused. On thawing it goes on where it stopped:
+  // [frozenDays] adds up the days in the freezer, the ring counts from the
+  // roast date without them (see daysSinceFreshnessStart).
   BoolColumn get isFrozen => boolean().withDefault(const Constant(false))();
   DateTimeColumn get thawedDate => dateTime().nullable()();
+  // When it was last frozen. Null with a [thawedDate]: thawed before this
+  // was recorded, the ring counts from the thaw date.
+  DateTimeColumn get frozenDate => dateTime().nullable()();
+  IntColumn get frozenDays => integer().withDefault(const Constant(0))();
   // Manually marked as empty (long press on the photo) — independent of the
   // computed remaining amount. Null = not empty.
   DateTimeColumn get emptiedAt => dateTime().nullable()();
@@ -289,7 +294,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 26;
+  int get schemaVersion => 27;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -427,6 +432,22 @@ class AppDatabase extends _$AppDatabase {
         // Index mark per shot — before the rebuild of schema 15 as well.
         await m.addColumn(shots, shots.grindMarker);
       }
+      if (from < 27) {
+        // Freezing pauses the ring instead of restarting it. Only where
+        // missing (tests create current tables).
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(beans)',
+          ).get())
+            row.read<String>('name'),
+        };
+        if (!existing.contains(beans.frozenDate.name)) {
+          await m.addColumn(beans, beans.frozenDate);
+        }
+        if (!existing.contains(beans.frozenDays.name)) {
+          await m.addColumn(beans, beans.frozenDays);
+        }
+      }
       if (from < 26) {
         // Beverage weight of Pour Over brews — before the rebuild of schema
         // 15 as well; only where missing (tests create current tables).
@@ -509,6 +530,8 @@ class AppDatabase extends _$AppDatabase {
       beans.photoBlob,
       beans.emptiedAt,
       beans.roastLevel,
+      beans.frozenDate,
+      beans.frozenDays,
     ],
     columnTransformer: _syncTransformer(beans.syncId, beans.updatedAt),
   );
@@ -638,6 +661,8 @@ class AppDatabase extends _$AppDatabase {
     photoBlob: Value(null),
     isFrozen: Value(false),
     thawedDate: Value(null),
+    frozenDate: Value(null),
+    frozenDays: Value(0),
     emptiedAt: Value(null),
   );
 

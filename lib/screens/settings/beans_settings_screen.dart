@@ -33,7 +33,7 @@ class BeansSettingsScreen extends StatelessWidget {
                   SettingsSwitchRow(
                     title: 'Freshness ring',
                     // The color legend is part of the ⓘ bubble.
-                    info: 'Days since roast, or since thawing.',
+                    info: 'Days since roast, without time in the freezer.',
                     infoExtra: const FreshnessLegend(),
                     value: settings.showFreshnessRing,
                     onChanged: settings.setShowFreshnessRing,

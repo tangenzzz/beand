@@ -33,6 +33,8 @@ Map<String, Object?> beanToSyncData(Bean b, {bool includePhoto = true}) => {
   'cost': b.cost,
   'isFrozen': b.isFrozen,
   'thawedDate': b.thawedDate?.millisecondsSinceEpoch,
+  'frozenDate': b.frozenDate?.millisecondsSinceEpoch,
+  'frozenDays': b.frozenDays,
   'emptiedAt': b.emptiedAt?.millisecondsSinceEpoch,
   'createdAt': b.createdAt.millisecondsSinceEpoch,
   if (includePhoto)
@@ -96,6 +98,10 @@ BeansCompanion beanFromSyncData(Map<String, Object?> d) {
         ? Value(d['isFrozen'] as bool)
         : const Value.absent(),
     thawedDate: date('thawedDate'),
+    frozenDate: date('frozenDate'),
+    frozenDays: d['frozenDays'] is int
+        ? Value(d['frozenDays'] as int)
+        : const Value.absent(),
     emptiedAt: date('emptiedAt'),
     photoBlob: photoFromSyncData(d, 'photo'),
     createdAt: created.present && created.value != null
