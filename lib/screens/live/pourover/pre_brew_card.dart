@@ -19,6 +19,7 @@ import '../../beans/bean_stock.dart';
 import '../../beans/bean_widgets.dart';
 import '../ruler_picker.dart';
 import '../tile_title.dart';
+import 'add_pourover_profile.dart';
 import 'pourover_profile_row.dart';
 import 'recipe_format.dart';
 import '../../../models/grind_scale.dart';
@@ -248,12 +249,12 @@ class _PreBrewCardState extends State<PreBrewCard> {
                               .firstOrNull;
                           if (r != null) brew.selectRecipe(r);
                         },
-                        // Fetches more profiles from the settings.
+                        // The same "+" as on the profile row.
                         action: ValueSelectAction(
-                          'Choose profiles',
-                          () => PourOverProfileRow.openSettings(context),
+                          'Add profile',
+                          () => showAddPourOverProfile(context),
                         ),
-                        emptyText: 'No profiles selected.',
+                        emptyText: 'No profiles yet.',
                       ),
                     ValueSelectRow<int>(
                       // Nearly the full card width, like Compare.

@@ -365,7 +365,7 @@ void main() {
       });
 
       return db.select(db.shots).get().then((shots) {
-        expect(shots.single.profileName, 'Manual');
+        expect(shots.single.profileName, 'Free Pour');
         expect(shots.single.finalWeight, 200);
       });
     });

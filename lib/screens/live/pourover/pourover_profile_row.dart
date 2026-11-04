@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'add_pourover_profile.dart';
+
 import '../../../models/brew_recipe.dart';
 import '../../../models/machine_profile.dart' show profilePlaceholderColor;
 import '../../../widgets/machine_badge.dart';
@@ -58,27 +60,13 @@ class PourOverProfileRow extends StatelessWidget {
                   ),
                 ),
               ),
-              // Machine profiles are made on the Meticulous — here only a
-              // reload; brew-recipes are picked in the settings.
-              if (store.useMachine)
-                HeaderIconButton(
-                  icon: Icon(
-                    Icons.refresh,
-                    color: store.machineLoading
-                        ? context.colors.textTertiary
-                        : context.colors.textSecondary,
-                  ),
-                  tooltip: 'Reload from the Meticulous',
-                  onPressed: store.machineLoading
-                      ? null
-                      : () => store.refreshMachine(),
-                )
-              else
-                HeaderIconButton(
-                  icon: Icon(Icons.add, color: context.colors.textSecondary),
-                  tooltip: 'Choose profiles',
-                  onPressed: () => openSettings(context),
-                ),
+              // "+" everywhere: upload a .json, brew-recipes, sites to
+              // download from (and reloading the machine's list).
+              HeaderIconButton(
+                icon: Icon(Icons.add, color: context.colors.textSecondary),
+                tooltip: 'Add profile',
+                onPressed: () => showAddPourOverProfile(context),
+              ),
             ],
           ),
         ),
@@ -89,7 +77,7 @@ class PourOverProfileRow extends StatelessWidget {
               ? Center(
                   child: Text(
                     !store.useMachine
-                        ? 'No profiles selected. Tap + to choose some.'
+                        ? 'No profiles yet. Tap + to add some.'
                         : store.machineError ??
                               (store.machineLoading || !store.machineLoaded
                                   ? 'Loading profiles from the Meticulous…'

@@ -156,8 +156,8 @@ void main() {
     expect(find.text('Auto on'), findsOneWidget);
     expect(find.text('1/3 Put the server on the scale'), findsOneWidget);
     expect(find.text('One and Done'), findsWidgets);
-    // Machine profiles: reload instead of "+".
-    expect(find.byIcon(Icons.refresh), findsOneWidget);
+    // "+" on the profile row in every mode.
+    expect(find.byTooltip('Add profile'), findsOneWidget);
 
     // Scale button → choose Bluetooth.
     await tester.tap(find.text('Meticulous'));

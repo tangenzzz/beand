@@ -142,6 +142,56 @@ BrewRecipe brewRecipeFromMeticulous(Map<String, dynamic> j) {
   );
 }
 
+/// Parses machine profiles; unreadable ones are skipped.
+List<BrewRecipe> parseMachineProfiles(List<Map<String, dynamic>> raw) {
+  final out = <BrewRecipe>[];
+  for (final r in raw) {
+    try {
+      out.add(brewRecipeFromMeticulous(r));
+    } on BrewRecipeFormatException catch (e) {
+      debugPrint('Meticulous pour over profile skipped: ${e.message}');
+    }
+  }
+  return out;
+}
+
+/// A profile from a .json file: the Meticulous' Pour Over format
+/// (`brew_type: pour_over`) or a brew-recipes recipe. Throws
+/// [BrewRecipeFormatException] when it is neither.
+BrewRecipe parsePourOverProfile(Map<String, dynamic> json) {
+  if (json['brew_type'] == 'pour_over') {
+    // Kept in the app, not on the machine.
+    return brewRecipeFromMeticulous(json).withFromMachine(false);
+  }
+  if (json.containsKey('phases')) return BrewRecipe.fromJson(json);
+  if (json.containsKey('stages')) {
+    throw BrewRecipeFormatException(
+      'an espresso profile — add it on the Meticulous or GaggiMate pill',
+    );
+  }
+  throw BrewRecipeFormatException('not a pour over profile');
+}
+
+/// [json] without the embedded base64 image (`display.image`).
+Map<String, dynamic> withoutImage(Map<String, dynamic> json) {
+  final display = json['display'];
+  if (display is! Map || !display.containsKey('image')) return json;
+  return {...json, 'display': Map.of(display)..remove('image')};
+}
+
+/// The embedded JPEG of a Meticulous profile, null without one.
+List<int>? embeddedImage(Map<String, dynamic> json) {
+  final display = json['display'];
+  final image = display is Map ? display['image'] : null;
+  if (image is! String) return null;
+  final comma = image.indexOf(',');
+  try {
+    return base64Decode(comma < 0 ? image : image.substring(comma + 1));
+  } catch (_) {
+    return null;
+  }
+}
+
 String _brewerKey(String? name) {
   if (name == null || name.trim().isEmpty) return 'Other';
   final lower = name.toLowerCase();
@@ -172,7 +222,12 @@ class MeticulousPourOverProfiles {
 
   /// Fetches the list; throws on network/HTTP errors. Profiles the app can't
   /// read are skipped.
-  Future<List<BrewRecipe>> fetch() async {
+  Future<List<BrewRecipe>> fetch() async =>
+      parseMachineProfiles(await fetchRaw());
+
+  /// The profiles as the machine sends them, without embedded images (the
+  /// app keeps those as files) — small enough to cache in the settings.
+  Future<List<Map<String, dynamic>>> fetchRaw() async {
     final response = await _client
         .get(Uri.parse('http://${host()}/api/v1/pour-over/profile/list'))
         .timeout(const Duration(seconds: 6));
@@ -182,16 +237,29 @@ class MeticulousPourOverProfiles {
     final json = jsonDecode(response.body);
     final list = json is Map ? json['profiles'] : null;
     if (list is! List) return const [];
-    final out = <BrewRecipe>[];
-    for (final raw in list) {
-      if (raw is! Map) continue;
+    return [
+      for (final raw in list)
+        if (raw is Map) withoutImage(Map<String, dynamic>.from(raw)),
+    ];
+  }
+
+  /// Saves a Pour Over profile on the machine (Machine mode): the backend
+  /// files a `brew_type: pour_over` profile with its filter profiles.
+  Future<void> upload(Map<String, dynamic> profile) async {
+    final response = await _client
+        .post(
+          Uri.parse('http://${host()}/api/v1/profile/save'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(profile),
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      String? reason;
       try {
-        out.add(brewRecipeFromMeticulous(Map<String, dynamic>.from(raw)));
-      } on BrewRecipeFormatException catch (e) {
-        debugPrint('Meticulous pour over profile skipped: ${e.message}');
-      }
+        reason = (jsonDecode(response.body) as Map)['error']?.toString();
+      } catch (_) {}
+      throw HttpException(reason ?? 'HTTP ${response.statusCode}');
     }
-    return out;
   }
 
   /// Downloads the profile image if there is none yet; returns the file or

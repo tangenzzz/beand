@@ -77,7 +77,7 @@ class _PourOverProfilesScreenState extends State<PourOverProfilesScreen> {
     final fetched = store.fetchedAt;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profiles')),
+      appBar: AppBar(title: const Text('Brew-recipes')),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [

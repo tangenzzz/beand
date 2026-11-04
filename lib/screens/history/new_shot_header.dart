@@ -96,7 +96,8 @@ class _NewShotHeaderState extends State<NewShotHeader> {
 
   List<BrewRecipe> get _recipes {
     try {
-      return context.watch<BrewRecipeStore>().recipes;
+      // Only the own profiles (as in Pre Brew), not the whole collection.
+      return context.watch<BrewRecipeStore>().ownRecipes;
     } on ProviderNotFoundException {
       return const [];
     }

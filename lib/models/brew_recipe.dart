@@ -137,6 +137,28 @@ class BrewRecipe {
   /// recipe): read-only, can't be removed from the app.
   final bool fromMachine;
 
+  /// The same recipe, marked as on the machine or not.
+  BrewRecipe withFromMachine(bool value) => BrewRecipe(
+    id: id,
+    name: name,
+    brewer: brewer,
+    doseG: doseG,
+    waterMl: waterMl,
+    ratio: ratio,
+    variant: variant,
+    paperFilter: paperFilter,
+    waterTempC: waterTempC,
+    brewTemperature: brewTemperature,
+    grindSize: grindSize,
+    description: description,
+    phases: phases,
+    sourceName: sourceName,
+    sourceUrl: sourceUrl,
+    competition: competition,
+    tags: tags,
+    fromMachine: value,
+  );
+
   /// Ratio as a number (1:15 → 15). If missing in the recipe, from water/dose.
   double get ratioValue {
     final r = ratio;

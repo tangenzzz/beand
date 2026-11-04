@@ -251,8 +251,13 @@ void main() {
       expect(store.enabledRecipes.map((r) => r.name), ['One and Done']);
       expect(store.byId('two-pours'), isNull);
       expect(store.checkedRecipes.map((r) => r.id), ['two-pours']);
+      // Without Machine mode: the machine's profiles stay, next to the
+      // own ones (same list for Scale only and a Bluetooth scale).
       store.setUseMachine(false);
-      expect(store.enabledRecipes.map((r) => r.id), ['two-pours']);
+      expect(store.enabledRecipes.map((r) => r.id), [
+        _machineProfile['id'],
+        'two-pours',
+      ]);
     });
   });
 
@@ -510,6 +515,55 @@ void main() {
     expect(clockTime(223483), '3:43');
     expect(clockTime(59600), '1:00');
     expect(clockTime(5000), '0:05');
+  });
+
+  group('Own profiles', () {
+    test('a .json file: Meticulous or brew-recipes format, not espresso', () {
+      final store = _store(const []);
+      final fromMachine = store.importProfile({
+        ..._machineProfile,
+        'id': '11111111-2222-3333-4444-555555555555',
+        'name': 'From a file',
+      });
+      expect(fromMachine.fromMachine, isFalse);
+      final recipe = store.importProfile(_github.toJson());
+      expect(recipe.id, 'two-pours');
+      expect(store.ownRecipes.map((r) => r.name), ['From a file', 'Two Pours']);
+      expect(
+        () => store.importProfile({'name': 'Espresso', 'stages': []}),
+        throwsA(isA<BrewRecipeFormatException>()),
+      );
+      // Deleting an imported one drops it.
+      store.remove('two-pours');
+      expect(store.ownRecipes.map((r) => r.name), ['From a file']);
+    });
+
+    test('imported and machine profiles survive a restart (cached)', () async {
+      final first = _store(const []);
+      await first.load();
+      first.importProfile(_github.toJson());
+      first.machineSource = MeticulousPourOverProfiles(
+        host: () => 'm.local',
+        client: MockClient(
+          (req) async => req.url.path.contains('/image/')
+              ? http.Response('', 404)
+              : http.Response(
+                  jsonEncode({
+                    'profiles': [_machineProfile],
+                  }),
+                  200,
+                ),
+        ),
+      );
+      await first.refreshMachine();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      // Next start, machine out of reach (Bluetooth scale).
+      final next = _store(const []);
+      await next.load();
+      expect(next.ownRecipes.map((r) => r.name), ['One and Done', 'Two Pours']);
+      expect(next.byId(_machineProfile['id'] as String)?.fromMachine, isTrue);
+    });
   });
 
   group('Dial brews', () {

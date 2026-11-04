@@ -98,7 +98,7 @@ class PourOverCommandRow extends StatelessWidget {
             // mode. Disabled during the brew.
             _CommandButton(
               icon: brew.manual ? Icons.back_hand_outlined : Icons.tune,
-              label: brew.manual ? 'Manual' : 'Profile',
+              label: brew.manual ? 'Free Pour' : 'Profile',
               onTap: brew.profileLocked
                   ? null
                   : () => brew.setManual(!brew.manual),

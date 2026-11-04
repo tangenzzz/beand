@@ -161,7 +161,8 @@ class PourOverBrewService extends LiveShotService {
     final water = manualWaterG;
     return BrewRecipe(
       id: 'manual',
-      name: 'Manual',
+      // Same name as the machine's dial uses.
+      name: 'Free Pour',
       brewer: '',
       doseG: dose,
       waterMl: water,
@@ -237,12 +238,9 @@ class PourOverBrewService extends LiveShotService {
   }
 
   // Machine mode: only the machine's profiles (the dial picks one anyway);
-  // Scale only: the machine's profiles AND the checked recipes.
+  // otherwise — Scale only or a Bluetooth scale — all own profiles.
   void _applyMode() {
-    recipes.setUseMachine(
-      scale.isMachineScale,
-      alsoRecipes: _meticulousMode == MeticulousPourMode.scaleOnly,
-    );
+    recipes.setUseMachine(dialLeads);
     _syncPrep();
     _syncDial();
   }
@@ -293,10 +291,10 @@ class PourOverBrewService extends LiveShotService {
       if (dialLeads && stage == ShotStage.idle) {
         unawaited(importLastDialBrew());
       }
-      // Profiles may have been added on the machine in the meantime.
-      if (recipes.useMachine && scale.isConnected) {
-        unawaited(recipes.refreshMachine());
-      }
+      // Profiles may have been added on the machine in the meantime —
+      // also with a Bluetooth scale (its list is cached for when the
+      // machine is out of reach).
+      unawaited(recipes.refreshMachine());
     }
     _syncPrep();
   }
