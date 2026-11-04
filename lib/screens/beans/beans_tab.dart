@@ -37,7 +37,6 @@ class _BeansTabState extends State<BeansTab> {
   Map<int, double> _usage = const {};
   bool _searching = false;
   BeanFilter _filter = BeanFilter.empty;
-  BeanStatus _status = BeanStatus.all;
   final _scroll = ScrollController();
 
   @override
@@ -190,11 +189,13 @@ class _BeansTabState extends State<BeansTab> {
     if (beans.isEmpty) {
       return const _EmptyMessage('No beans added yet.\nTap + to add one.');
     }
-    final stock = context.watch<AppSettings>().showBeanStock;
+    final settings = context.watch<AppSettings>();
+    final stock = settings.showBeanStock;
+    final status = settings.beanStatus;
     final matching = filterBeans(beans, query: _search.text, filter: _filter);
     final visible = [
       for (final b in matching)
-        if (beanHasStatus(b, _status, _usage, stock: stock)) b,
+        if (beanHasStatus(b, status, _usage, stock: stock)) b,
     ];
     if (matching.isEmpty) {
       return _EmptyMessage(
@@ -208,8 +209,8 @@ class _BeansTabState extends State<BeansTab> {
       );
     }
     return _BeanListTile(
-      status: _status,
-      onStatus: (s) => setState(() => _status = s),
+      status: status,
+      onStatus: settings.setBeanStatus,
       beans: visible,
       usage: _usage,
       onTap: _openForm,

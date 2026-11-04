@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
+import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import 'bean_widgets.dart';
 
@@ -26,17 +27,6 @@ bool beanIsEmpty(Bean bean, Map<int, double> usage) {
 // amount [stock] enabled — empty by calculation.
 bool beanUsedUp(Bean bean, Map<int, double> usage, {required bool stock}) =>
     bean.emptiedAt != null || (stock && beanIsEmpty(bean, usage));
-
-/// Which beans the list shows (Beans tab, above the list).
-enum BeanStatus {
-  all('All'),
-  open('Open'),
-  frozen('Frozen'),
-  finished('Finished');
-
-  const BeanStatus(this.label);
-  final String label;
-}
 
 /// Finished = used up (see [beanUsedUp]); frozen = in the freezer and not
 /// finished; open = neither.

@@ -46,6 +46,17 @@ enum HistoryAvatar {
 }
 
 // App-wide settings (Settings menu), stored locally in shared_preferences.
+/// Which beans the list shows (Beans tab, above the list).
+enum BeanStatus {
+  all('All'),
+  open('Open'),
+  frozen('Frozen'),
+  finished('Finished');
+
+  const BeanStatus(this.label);
+  final String label;
+}
+
 class AppSettings extends ChangeNotifier {
   AppSettings({
     bool showFreshnessRing = true,
@@ -56,6 +67,7 @@ class AppSettings extends ChangeNotifier {
     List<BeanFormField> beanFormOrder = BeanFormField.values,
     Set<BeanFormField> hiddenBeanFormFields = const {},
     HistoryAvatar historyAvatar = HistoryAvatar.profile,
+    BeanStatus beanStatus = BeanStatus.all,
     AppThemeMode themeMode = AppThemeMode.system,
     AppAccent accent = AppAccent.teal,
     bool showStageDetails = true,
@@ -75,6 +87,7 @@ class AppSettings extends ChangeNotifier {
     _beanFormOrder = normalizeBeanFormOrder(beanFormOrder);
     _hiddenBeanFormFields = {...hiddenBeanFormFields};
     _historyAvatar = historyAvatar;
+    _beanStatus = beanStatus;
     _themeMode = themeMode;
     _accent = accent;
   }
@@ -90,6 +103,8 @@ class AppSettings extends ChangeNotifier {
   static const beanFormOrderPrefKey = 'beans_form_order';
   static const beanFormHiddenPrefKey = 'beans_form_hidden';
   static const historyAvatarPrefKey = 'history_avatar';
+  // Per device, not synced: what this device looks at right now.
+  static const beanStatusPrefKey = 'beans_status';
   static const themeModePrefKey = 'appearance_theme_mode';
   static const accentPrefKey = 'appearance_accent';
   static String homeModeEnabledPrefKey(HomeMode mode) =>
@@ -118,6 +133,9 @@ class AppSettings extends ChangeNotifier {
               defaultEnabledHomeModes.contains(mode))
             mode,
       },
+      beanStatus:
+          BeanStatus.values.asNameMap()[prefs.getString(beanStatusPrefKey)] ??
+          BeanStatus.all,
       homeMode:
           HomeMode.values.asNameMap()[prefs.getString(homeModePrefKey)] ??
           HomeMode.meticulous,
@@ -209,6 +227,7 @@ class AppSettings extends ChangeNotifier {
     _beanFormOrder = fresh._beanFormOrder;
     _hiddenBeanFormFields = fresh._hiddenBeanFormFields;
     _historyAvatar = fresh._historyAvatar;
+    _beanStatus = fresh._beanStatus;
     _themeMode = fresh._themeMode;
     _accent = fresh._accent;
     fresh.dispose();
@@ -227,6 +246,7 @@ class AppSettings extends ChangeNotifier {
   late List<BeanFormField> _beanFormOrder;
   late Set<BeanFormField> _hiddenBeanFormFields;
   late HistoryAvatar _historyAvatar;
+  late BeanStatus _beanStatus;
   late AppThemeMode _themeMode;
   late AppAccent _accent;
 
@@ -421,6 +441,17 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(historyAvatarPrefKey, value.name);
+  }
+
+  // The Beans tab stays on the view last chosen, also after a restart.
+  BeanStatus get beanStatus => _beanStatus;
+
+  Future<void> setBeanStatus(BeanStatus value) async {
+    if (value == _beanStatus) return;
+    _beanStatus = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(beanStatusPrefKey, value.name);
   }
 
   // Appearance (Settings → Appearance). Both are loaded at app start before

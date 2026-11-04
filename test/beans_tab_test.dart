@@ -9,6 +9,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 import 'support/offline_gaggimate.dart';
@@ -178,6 +179,20 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(Duration.zero);
     await db.close();
+  });
+
+  test('Beans tab: the chosen view survives a restart', () async {
+    SharedPreferences.setMockInitialValues({});
+    final settings = await AppSettings.load();
+    expect(settings.beanStatus, BeanStatus.all);
+    await settings.setBeanStatus(BeanStatus.frozen);
+    final restarted = await AppSettings.load();
+    expect(restarted.beanStatus, BeanStatus.frozen);
+    // Unknown value, e.g. from a newer version: back to All.
+    SharedPreferences.setMockInitialValues({
+      AppSettings.beanStatusPrefKey: 'somethingNew',
+    });
+    expect((await AppSettings.load()).beanStatus, BeanStatus.all);
   });
 
   testWidgets('Beans tab: All, Open, Frozen, Finished', (tester) async {
