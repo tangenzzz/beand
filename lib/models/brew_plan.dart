@@ -5,19 +5,24 @@ import 'brew_recipe.dart';
 // The sequence of a pour-over brew from recipe + chosen dose.
 //
 // Times in the recipe: we read `wait_seconds` as the pause AFTER the pour
-// (fits most recipes in the repo, e.g. "Bloom 40 s, then 15 s each"). The
-// pouring duration itself is not given anywhere — we assume the ideal flow
-// for it. Live, however, what happens on the scale counts: a pour is done
-// when its target weight is reached, then its pause runs (see BrewProgress).
+// (fits most recipes in the repo, e.g. "Bloom 40 s, then 15 s each"). A
+// profile says how long each pour takes; the collection's recipes don't, for
+// those we assume the ideal flow. Live, however, what happens on the scale
+// counts: a pour is done when its target weight is reached, then its pause
+// runs (see BrewProgress).
 
-/// Ideal flow while pouring (g/s) — middle of the green zone on the gauge.
+/// Flow without a target from a profile (g/s).
 const idealPourFlow = 5.0;
 
-/// Green up to ±1.5 g/s around the ideal, yellow up to ±3 g/s, red beyond.
-const flowGreenBand = 1.5;
-const flowYellowBand = 3.0;
+/// Green up to ±30 % around the target, yellow up to ±60 %, red beyond. At
+/// the 5 g/s default that is ±1.5 and ±3 g/s.
+const flowGreenShare = 0.3;
+const flowYellowShare = 0.6;
 
-/// Gauge scale: 0 … 2× ideal so the ideal sits at the top (12 o'clock).
+/// Gauge scale for a target: 0 … 2× so the target sits at the top.
+double flowDialMaxFor(double target) => target * 2;
+
+/// Flow axis of the live chart, the same for every brew.
 const flowDialMax = idealPourFlow * 2;
 
 /// Grams of tolerance at which a pour counts as reached.
@@ -25,11 +30,25 @@ const stepTolerance = 1.5;
 
 enum FlowZone { green, yellow, red }
 
-FlowZone flowZone(double gPerS) {
-  final d = (gPerS - idealPourFlow).abs();
-  if (d <= flowGreenBand) return FlowZone.green;
-  if (d <= flowYellowBand) return FlowZone.yellow;
+FlowZone flowZone(double gPerS, {double target = idealPourFlow}) {
+  final d = (gPerS - target).abs();
+  if (d <= target * flowGreenShare) return FlowZone.green;
+  if (d <= target * flowYellowShare) return FlowZone.yellow;
   return FlowZone.red;
+}
+
+extension BrewStepTiming on BrewStep {
+  /// The profile's pour time, else at the ideal flow.
+  double get plannedPourSeconds {
+    final s = pourSeconds;
+    return s != null && s > 0 ? s : waterG / idealPourFlow;
+  }
+
+  /// What the gauge aims for during this pour.
+  double get targetFlow {
+    final t = plannedPourSeconds;
+    return t > 0 && waterG > 0 ? waterG / t : idealPourFlow;
+  }
 }
 
 class BrewPlan {
@@ -66,14 +85,14 @@ class BrewPlan {
   /// Planned total duration until the end of the last pour (s).
   double get plannedSeconds => _secondsFrom(0, 0);
 
-  /// Target weight after [seconds] according to the plan (pour at ideal
-  /// flow, then pause) — the dashed line in the chart.
+  /// Target weight after [seconds] according to the plan (pour, then pause)
+  /// — the dashed line in the chart.
   double targetAt(double seconds) {
     var t = 0.0;
     for (final s in steps) {
-      final pour = s.waterG / idealPourFlow;
+      final pour = s.plannedPourSeconds;
       if (seconds < t + pour) {
-        return s.startTotalG + (seconds - t) * idealPourFlow;
+        return s.startTotalG + (seconds - t) * s.targetFlow;
       }
       t += pour;
       final wait = s.waitSeconds ?? 0;
@@ -90,7 +109,7 @@ class BrewPlan {
     var t = 0.0;
     for (final s in steps) {
       out.add(t);
-      t += s.waterG / idealPourFlow + (s.waitSeconds ?? 0);
+      t += s.plannedPourSeconds + (s.waitSeconds ?? 0);
     }
     return out;
   }
@@ -110,11 +129,11 @@ class BrewPlan {
       final s = steps[i];
       if (i == index) {
         final left = math.max(0.0, s.waterG - pouredInStep);
-        t += left / idealPourFlow;
+        t += left / s.targetFlow;
         // Last pour: the pause after it is drawdown time, it doesn't count.
         if (i < steps.length - 1) t += waitLeft ?? (s.waitSeconds ?? 0);
       } else {
-        t += s.waterG / idealPourFlow;
+        t += s.plannedPourSeconds;
         if (i < steps.length - 1) t += s.waitSeconds ?? 0;
       }
     }
@@ -129,6 +148,8 @@ class BrewPlan {
         targetTotalG: _round(s.targetTotalG * factor),
         waitSeconds: s.waitSeconds,
         note: s.note,
+        // More coffee means more water at the same flow.
+        pourSeconds: s.pourSeconds == null ? null : s.pourSeconds! * factor,
       ),
   ];
 

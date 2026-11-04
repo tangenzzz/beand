@@ -114,6 +114,7 @@ BrewRecipe brewRecipeFromMeticulous(Map<String, dynamic> j) {
         label: parsed[i].phase.label,
         waterG: parsed[i].phase.waterG,
         note: parsed[i].phase.note,
+        pourSeconds: parsed[i].duration > 0 ? parsed[i].duration : null,
         waitSeconds: i + 1 < parsed.length
             ? (parsed[i + 1].start - parsed[i].start - parsed[i].duration)
                   .clamp(0, 86400)

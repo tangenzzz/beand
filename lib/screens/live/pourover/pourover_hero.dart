@@ -135,6 +135,9 @@ class PourOverHero extends StatelessWidget {
                     painter: _HeroPainter(
                       progress: stepProgress,
                       flow: flow,
+                      target: brew.dialLeads
+                          ? idealPourFlow
+                          : step?.targetFlow ?? idealPourFlow,
                       needleActive: needleActive,
                       track: context.colors.divider,
                       progressColor: context.colors.accent,
@@ -260,6 +263,7 @@ class _HeroPainter extends CustomPainter {
   _HeroPainter({
     required this.progress,
     required this.flow,
+    required this.target,
     required this.needleActive,
     required this.track,
     required this.progressColor,
@@ -271,6 +275,9 @@ class _HeroPainter extends CustomPainter {
 
   final double progress;
   final double flow;
+
+  /// The pour's flow from the profile — always at the top of the gauge.
+  final double target;
   final bool needleActive;
   final Color track;
   final Color progressColor;
@@ -288,7 +295,7 @@ class _HeroPainter extends CustomPainter {
   static const _start = -math.pi / 2 - _sweep / 2;
 
   double _angleFor(double gPerS) =>
-      _start + _sweep * (gPerS / flowDialMax).clamp(0.0, 1.0);
+      _start + _sweep * (gPerS / flowDialMaxFor(target)).clamp(0.0, 1.0);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -315,11 +322,11 @@ class _HeroPainter extends CustomPainter {
     final dr = r * 0.72;
     final rect = Rect.fromCircle(center: c, radius: dr);
     final zones = <(double, double, Color)>[
-      (0, idealPourFlow - flowYellowBand, red),
-      (idealPourFlow - flowYellowBand, idealPourFlow - flowGreenBand, yellow),
-      (idealPourFlow - flowGreenBand, idealPourFlow + flowGreenBand, green),
-      (idealPourFlow + flowGreenBand, idealPourFlow + flowYellowBand, yellow),
-      (idealPourFlow + flowYellowBand, flowDialMax, red),
+      (0, target * (1 - flowYellowShare), red),
+      (target * (1 - flowYellowShare), target * (1 - flowGreenShare), yellow),
+      (target * (1 - flowGreenShare), target * (1 + flowGreenShare), green),
+      (target * (1 + flowGreenShare), target * (1 + flowYellowShare), yellow),
+      (target * (1 + flowYellowShare), flowDialMaxFor(target), red),
     ];
     const gap = 0.03; // small gap between the zones (rad)
     final dial = Paint()
@@ -356,6 +363,7 @@ class _HeroPainter extends CustomPainter {
   bool shouldRepaint(covariant _HeroPainter old) =>
       old.progress != progress ||
       old.flow != flow ||
+      old.target != target ||
       old.needleActive != needleActive ||
       old.track != track ||
       old.progressColor != progressColor ||

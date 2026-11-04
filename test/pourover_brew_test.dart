@@ -193,6 +193,55 @@ void main() {
       expect(flowZone(0), FlowZone.red);
     });
 
+    test('flow zones follow the target of the pour', () {
+      expect(flowZone(3, target: 3), FlowZone.green);
+      expect(flowZone(5, target: 3), FlowZone.red);
+      expect(flowZone(4.5, target: 3), FlowZone.yellow);
+      expect(flowDialMaxFor(3), 6);
+    });
+
+    test('a profile sets pour times, flow and the plan', () {
+      const recipe = BrewRecipe(
+        id: 'x',
+        name: 'x',
+        brewer: 'V60',
+        doseG: 15,
+        waterMl: 240,
+        grindSize: '',
+        sourceName: 'x',
+        phases: [
+          BrewPhase(
+            label: 'Bloom',
+            waterG: 45,
+            pourSeconds: 15,
+            waitSeconds: 30,
+          ),
+          BrewPhase(label: 'Main', waterG: 195, pourSeconds: 60),
+        ],
+      );
+      final plan = BrewPlan(recipe);
+      expect(plan.steps[0].targetFlow, 3);
+      expect(plan.steps[1].targetFlow, 3.25);
+      expect(plan.plannedSeconds, 15 + 30 + 60);
+      expect(plan.plannedStepStarts, [0, 45]);
+      expect(plan.targetAt(5), 15);
+      expect(plan.targetAt(20), 45);
+      expect(plan.targetAt(45 + 20), 45 + 65);
+      expect(plan.remainingSeconds(1, pouredInStep: 65), closeTo(40, 0.01));
+
+      // Twice the coffee: twice the water at the same flow.
+      final double_ = BrewPlan(recipe, doseG: 30);
+      expect(double_.steps[0].waterG, 90);
+      expect(double_.steps[0].targetFlow, 3);
+      expect(double_.plannedSeconds, 30 + 30 + 120);
+    });
+
+    test('a recipe without pour times keeps the ideal flow', () {
+      const step = BrewStep(label: 'x', waterG: 50, targetTotalG: 50);
+      expect(step.targetFlow, idealPourFlow);
+      expect(step.plannedPourSeconds, 10);
+    });
+
     test('flow estimator follows a steady pour', () {
       final f = FlowEstimator();
       for (var ms = 0; ms <= 2000; ms += 100) {

@@ -54,6 +54,7 @@ class BrewPhase {
     this.waitSeconds,
     this.pours,
     this.note,
+    this.pourSeconds,
   });
 
   final String label;
@@ -61,6 +62,10 @@ class BrewPhase {
   final double? waitSeconds;
   final int? pours;
   final String? note;
+
+  /// How long pouring takes, null when the recipe doesn't say (the
+  /// brew-recipes collection): then the ideal flow counts.
+  final double? pourSeconds;
 
   double get totalWaterG => waterG * (pours ?? 1);
 
@@ -70,6 +75,7 @@ class BrewPhase {
     if (waitSeconds != null) 'wait_seconds': waitSeconds,
     if (pours != null) 'pours': pours,
     if (note != null) 'note': note,
+    if (pourSeconds != null) 'pour_seconds': pourSeconds,
   };
 }
 
@@ -82,6 +88,7 @@ class BrewStep {
     required this.targetTotalG,
     this.waitSeconds,
     this.note,
+    this.pourSeconds,
   });
 
   final String label;
@@ -89,6 +96,9 @@ class BrewStep {
   final double targetTotalG;
   final double? waitSeconds;
   final String? note;
+
+  /// From the profile; null = at the ideal flow.
+  final double? pourSeconds;
 
   double get startTotalG => targetTotalG - waterG;
 }
@@ -186,6 +196,7 @@ class BrewRecipe {
             targetTotalG: total,
             waitSeconds: p.waitSeconds,
             note: p.note,
+            pourSeconds: p.pourSeconds,
           ),
         );
       }
@@ -264,6 +275,7 @@ class BrewRecipe {
           'wait_seconds',
           'pours',
           'note',
+          'pour_seconds',
         }.contains(k)) {
           throw BrewRecipeFormatException('unknown phase field $k');
         }
@@ -285,6 +297,13 @@ class BrewRecipe {
           ),
           pours: pours as int?,
           note: _optStr(m, 'note'),
+          pourSeconds: _num(
+            m,
+            'pour_seconds',
+            min: 0,
+            max: 86400,
+            optional: true,
+          ),
         ),
       );
     }

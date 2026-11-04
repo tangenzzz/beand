@@ -169,6 +169,13 @@ void main() {
     expect(machineRules(changed), isEmpty);
   });
 
+  test('the pour time reaches the recipe, also after storing it', () {
+    final d = PourOverDraft.empty()..name = 'x';
+    final recipe = brewRecipeFromMeticulous(d.toJson());
+    expect([for (final p in recipe.phases) p.pourSeconds], [10, 45]);
+    expect(recipe.phases[0].waitSeconds, 35);
+  });
+
   test('what keeps it from being saved', () {
     final d = PourOverDraft.empty();
     expect(d.problems, ['Enter a name']);
