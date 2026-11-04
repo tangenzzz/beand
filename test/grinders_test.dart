@@ -24,6 +24,8 @@ import 'package:beand/services/water_store.dart';
 import 'package:beand/sync/records/setting_codec.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:beand/widgets/underline_select.dart';
+import 'package:beand/scale/brew_scale.dart';
+import 'package:beand/scale/simulated_scale.dart';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -425,6 +427,33 @@ void main() {
       'BREWED WITH  Niche Zero (SSP)  ·  Meticulous  ·  IMS 18',
     );
     expect(text.maxLines, 2);
+  });
+
+  testWidgets('My Coffee Desk: a brewer keeps its weight, taken from the '
+      'connected scale', (tester) async {
+    tester.view.physicalSize = const Size(800, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final gear = GearStore.inMemory();
+    final scale = SimulatedScale();
+    await scale.connect();
+    await tester.pumpWidget(
+      ChangeNotifierProvider<BrewScale>.value(
+        value: scale,
+        child: mySetup(gear),
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('new-brewer')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('with the paper filter'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('gear-model')), 'V60 02');
+    // The scale shows 0.0 g: take it, then type the real one.
+    expect(find.text('Use 0.0 g'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('gear-weight')), '30,6');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(gear.ofType(GearType.brewer).single.specs['weight'], 30.6);
+    await scale.disconnect();
   });
 
   testWidgets('My Setup: add a water recipe', (tester) async {

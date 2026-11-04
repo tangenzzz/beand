@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database.dart';
 import '../models/brew_plan.dart';
 import '../models/brew_recipe.dart';
+import '../models/gear.dart';
 import '../scale/brew_scale.dart';
 import 'brew_recipe_store.dart';
 import 'live_shot_service.dart';
@@ -348,7 +349,29 @@ class PourOverBrewService extends LiveShotService {
     if (await startShot()) _onReading(first);
   }
 
+  /// The brewer recognised by its weight in the setup steps (My Coffee
+  /// Desk → brewer → Weight), null if none matched.
+  Gear? _detectedBrewer;
+  Gear? get detectedBrewer => _detectedBrewer;
+  double? _prepBrewerTaken;
+
   void _onPrep() {
+    // Weighed brewer: which one is it? Its chain goes into Pre Brew (user
+    // 2026-11-04).
+    final brewer = prep.brewerG;
+    if (brewer == null) {
+      _detectedBrewer = null;
+      _prepBrewerTaken = null;
+    } else if (brewer != _prepBrewerTaken) {
+      _prepBrewerTaken = brewer;
+      final store = setup.gear;
+      final found = store?.brewerByWeight(brewer);
+      _detectedBrewer = found;
+      if (found != null) {
+        final chain = store!.chainForBrewer(found, currentId: setup.chain?.id);
+        if (chain != null) setup.setChain(chain.id);
+      }
+    }
     // Weighed coffee becomes the dose of this brew.
     final coffee = prep.coffeeG;
     if (coffee != null &&

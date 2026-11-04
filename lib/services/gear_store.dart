@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -131,6 +132,38 @@ class GearStore extends ChangeNotifier implements SettingsPhotos {
       for (final g in ofType(type))
         if (chain.gearIds.contains(g.id)) g,
   ];
+
+  /// The brewer whose stored weight (spec `weight`, with filter as brewed)
+  /// matches [grams] — within 3 g or 3 %, the closest one. Null if none
+  /// fits or two fit equally well.
+  Gear? brewerByWeight(double grams) {
+    Gear? best;
+    double? bestDiff;
+    var tie = false;
+    for (final g in ofType(GearType.brewer)) {
+      final w = g.specs['weight'];
+      if (w is! num) continue;
+      final diff = (w - grams).abs();
+      final tolerance = math.max(3.0, w * 0.03);
+      if (diff > tolerance) continue;
+      if (bestDiff == null || diff < bestDiff - 0.05) {
+        best = g;
+        bestDiff = diff;
+        tie = false;
+      } else if ((diff - bestDiff).abs() <= 0.05) {
+        tie = true;
+      }
+    }
+    return tie ? null : best;
+  }
+
+  /// The chain to brew with [brewer]: [currentId] if it already holds it,
+  /// else the first chain that does (null: in none).
+  BrewChain? chainForBrewer(Gear brewer, {String? currentId}) {
+    final chains = chainsOf(brewer.id);
+    return chains.where((c) => c.id == currentId).firstOrNull ??
+        chains.firstOrNull;
+  }
 
   /// Chains [gearId] belongs to.
   List<BrewChain> chainsOf(String gearId) => [

@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:beand/database/database.dart';
 import 'package:beand/models/brew_recipe.dart';
 import 'package:beand/models/machine_status.dart';
+import 'package:beand/services/gear_store.dart';
+import 'package:beand/models/gear.dart';
 import 'package:beand/scale/brew_scale.dart';
 import 'package:beand/scale/meticulous_scale.dart';
 import 'package:beand/scale/scale_selector.dart';
@@ -837,6 +839,89 @@ void main() {
       expect(shot.doseGrams, 16);
       expect(shot.beverageGrams, closeTo(250.5 - 45, 0.5));
       service.dispose();
+    });
+  });
+
+  group('Brewer by weight', () {
+    Gear brewer(String id, String model, double? weight) => Gear(
+      id: id,
+      type: GearType.brewer,
+      model: model,
+      brewModes: const {BrewMode.pourOver},
+      specs: {'weight': ?weight},
+    );
+
+    test('finds the closest brewer within 3 g / 3 %', () {
+      final store = GearStore.inMemory(
+        gear: [
+          brewer('v60', 'V60 02', 30.6),
+          brewer('april', 'April', 115.5),
+          brewer('none', 'Kalita', null),
+        ],
+      );
+      expect(store.brewerByWeight(31.9)?.id, 'v60');
+      expect(store.brewerByWeight(118.4)?.id, 'april'); // 3 % of 115.5
+      expect(store.brewerByWeight(50), isNull);
+    });
+
+    test('two brewers that weigh the same: no guess', () {
+      final store = GearStore.inMemory(
+        gear: [brewer('a', 'A', 30), brewer('b', 'B', 30)],
+      );
+      expect(store.brewerByWeight(30.2), isNull);
+    });
+
+    test('Auto picks the chain the recognised brewer is in', () async {
+      SharedPreferences.setMockInitialValues({
+        PourOverBrewService.autoPrefKey: true,
+      });
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      var now = DateTime(2026, 11, 4, 10);
+      await withClock(Clock(() => now), () async {
+        final gear = GearStore.inMemory(
+          gear: [
+            brewer('v60', 'V60 02', 30.6),
+            brewer('april', 'April', 115.5),
+          ],
+          chains: const [
+            BrewChain(id: 'c-v60', name: 'V60', gearIds: ['v60']),
+            BrewChain(id: 'c-april', name: 'April', gearIds: ['april']),
+          ],
+        );
+        final setup = ShotSetup.inMemory(machineKey: 'pourover')
+          ..gear = gear
+          ..setChain('c-v60');
+        final scale = _BtScale();
+        final store = _store([_github]);
+        await store.load();
+        final service = PourOverBrewService(
+          scale: scale,
+          recipes: store,
+          setup: setup,
+          database: db,
+        )..start();
+        service.selectRecipe(_github);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        service.setPrepVisible(true);
+
+        Future<void> hold(int ticks) async {
+          for (var i = 0; i < ticks; i++) {
+            now = now.add(const Duration(milliseconds: 100));
+            scale.tick();
+          }
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        await hold(12);
+        scale.gross += 300;
+        await hold(15);
+        scale.gross += 116; // the April with a wet filter
+        await hold(15);
+        expect(service.detectedBrewer?.id, 'april');
+        expect(setup.chain?.id, 'c-april');
+        service.dispose();
+      });
     });
   });
 }

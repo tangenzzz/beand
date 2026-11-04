@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/gear.dart';
+import '../../scale/brew_scale.dart';
 import '../../services/gear_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
@@ -197,6 +198,9 @@ class _GearDialogState extends State<_GearDialog> {
                 ? const []
                 : store.specSuggestions(type, f.key),
           ),
+        // Brewer: weigh it on the connected scale (for Auto in Pour Over).
+        if (type == GearType.brewer && _specs['weight'] != null)
+          _WeighRow(controller: _specs['weight']!),
         if (hasStock(type))
           SetupField(
             key: const ValueKey('gear-stock'),
@@ -353,6 +357,69 @@ class _ChainDialogState extends State<_ChainDialog> {
             ),
           ],
       ],
+    );
+  }
+}
+
+// Below the brewer's weight: what to put on the scale, and taking the
+// weight from the connected Pour Over scale (Tare first, then put it on).
+class _WeighRow extends StatelessWidget {
+  const _WeighRow({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    // Not every place that opens the dialog has a scale (tests).
+    final scale = context.watch<BrewScale?>();
+    final grams = scale != null && scale.isConnected ? scale.grams : null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Weigh it as you brew: with the paper filter, wet or dry.',
+            style: TextStyle(color: colors.textTertiary, fontSize: 12),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (grams == null)
+                Text(
+                  'Connect a scale to weigh it here',
+                  style: TextStyle(color: colors.textTertiary, fontSize: 12),
+                )
+              else ...[
+                TextButton(
+                  onPressed: () => scale!.tare().catchError((Object _) {}),
+                  child: Text(
+                    'Tare',
+                    style: TextStyle(color: colors.accent, fontSize: 13),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final g = (grams * 10).roundToDouble() / 10;
+                    final text = g % 1 == 0
+                        ? g.toStringAsFixed(0)
+                        : g.toStringAsFixed(1);
+                    controller.value = TextEditingValue(
+                      text: text,
+                      selection: TextSelection.collapsed(offset: text.length),
+                    );
+                  },
+                  child: Text(
+                    'Use ${grams.toStringAsFixed(1)} g',
+                    style: TextStyle(color: colors.accent, fontSize: 13),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

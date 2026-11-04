@@ -28,7 +28,12 @@ const specFields = <GearType, List<SpecField>>{
     SpecField('size', 'Size'),
   ],
   GearType.tamper: [SpecField('size', 'Size')],
-  GearType.brewer: [SpecField('material', 'Material')],
+  // Weight with the filter as brewed: lets Auto in Pour Over tell which
+  // brewer stands on the scale (and pick its chain).
+  GearType.brewer: [
+    SpecField('material', 'Material'),
+    SpecField('weight', 'Weight', unit: 'g', numeric: true),
+  ],
   GearType.filter: [SpecField('flow', 'Flow'), SpecField('size', 'Size')],
   GearType.puckScreen: [
     SpecField('size', 'Size'),

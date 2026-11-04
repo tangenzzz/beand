@@ -387,7 +387,10 @@ class _PrepLines extends StatelessWidget {
     };
     final weighed = [
       if (prep.serverG != null) 'Server ${formatGrams(_one(prep.serverG!))} g',
-      if (prep.brewerG != null) 'Brewer ${formatGrams(_one(prep.brewerG!))} g',
+      if (prep.brewerG != null)
+        brew.detectedBrewer == null
+            ? 'Brewer ${formatGrams(_one(prep.brewerG!))} g'
+            : '${brew.detectedBrewer!.displayName} ${formatGrams(_one(prep.brewerG!))} g',
     ].join(' · ');
 
     final (Color dot2, String line2) = prep.status == SetupStatus.tareFailed
