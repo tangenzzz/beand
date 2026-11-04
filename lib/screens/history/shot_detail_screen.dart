@@ -579,7 +579,9 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
       return v?.toStringAsFixed(1) ?? raw;
     }
 
-    String? t(int? ms) => ms == null ? null : seconds(ms);
+    // Pour over in minutes (m:ss), espresso in seconds.
+    String? t(int? ms) =>
+        ms == null ? null : (isPourOver ? clockTime(ms) : seconds(ms));
     String? g(double? v) => v == null ? null : grams(v);
     String? temp(double? v) => v == null ? null : grams(v);
 
@@ -804,7 +806,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             _Stat(
               'Time',
               secs == null ? null : t((secs * 1000).round()),
-              's',
+              isPourOver ? '' : 's',
               otherOf(t(other?.durationMs)),
               onTap: tapIf(_Open.time),
               active: _open == _Open.time,
@@ -814,18 +816,19 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               g(yieldGrams),
               'g',
               otherOf(g(other?.finalWeight)),
-              // Pour Over: the yield — the coffee weighed in the server
-              // after the brewer came off — small below the water.
-              // Every pour over brew shows it, "—" where nothing was
-              // weighed (no Auto, older brews).
-              note: !isPourOver
-                  ? null
-                  : shot.beverageGrams != null
-                  ? 'Yield ${g(shot.beverageGrams)} g'
-                  : 'Yield —',
               onTap: tapIf(_Open.yield),
               active: _open == _Open.yield,
             ),
+            // Pour over: the yield — the coffee weighed in the server after
+            // the brewer came off — as a fourth column next to the water
+            // (user 2026-11-04); "—" where nothing was weighed.
+            if (isPourOver)
+              _Stat(
+                'Yield',
+                g(shot.beverageGrams),
+                'g',
+                otherOf(g(other?.beverageGrams)),
+              ),
             _Stat(
               'Temp',
               temp(profileTemp),

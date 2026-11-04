@@ -185,7 +185,10 @@ class _Body extends StatelessWidget {
         shot.doseGrams != null
             ? '${grams(shot.doseGrams!)} → ${grams(shot.finalWeight!)} g'
             : '${grams(shot.finalWeight!)} g',
-      if (shot.durationMs != null) '${seconds(shot.durationMs!)} s',
+      if (shot.durationMs != null)
+        shot.machine == 'pourover'
+            ? clockTime(shot.durationMs!)
+            : '${seconds(shot.durationMs!)} s',
     ].join(' · ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

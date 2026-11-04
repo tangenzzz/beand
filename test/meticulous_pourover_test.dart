@@ -8,6 +8,7 @@ import 'package:beand/models/machine_status.dart';
 import 'package:beand/services/gear_store.dart';
 import 'package:beand/models/gear.dart';
 import 'package:beand/scale/brew_scale.dart';
+import 'package:beand/screens/history/history_logic.dart';
 import 'package:beand/scale/meticulous_scale.dart';
 import 'package:beand/scale/scale_selector.dart';
 import 'package:beand/scale/simulated_scale.dart';
@@ -492,6 +493,12 @@ void main() {
       });
       expect(tares.map((t) => t.$2), [87.53, 30.64]);
     });
+  });
+
+  test('pour over time reads m:ss', () {
+    expect(clockTime(223483), '3:43');
+    expect(clockTime(59600), '1:00');
+    expect(clockTime(5000), '0:05');
   });
 
   group('Dial brews', () {

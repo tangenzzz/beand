@@ -305,6 +305,8 @@ settings {
     expect(find.text('Recipe'), findsOneWidget);
     // The total and, like Yield for espresso, the value at the cursor.
     expect(find.text('WATER'), findsNWidgets(2));
+    // Pour over: Yield as its own column next to the water.
+    expect(find.text('YIELD'), findsOneWidget);
     // Nothing to compare with in a blank new shot.
     expect(find.text('Compare'), findsNothing);
     await tester.tap(find.byTooltip('Discard'));

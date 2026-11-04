@@ -454,7 +454,18 @@ class _Numbers extends StatelessWidget {
     final s = shot;
     final rows = [
       [
-        ('Time', s.durationMs == null ? null : seconds(s.durationMs!), 's'),
+        // Pour over in minutes (m:ss), espresso in seconds.
+        s.machine == 'pourover'
+            ? (
+                'Time',
+                s.durationMs == null ? null : clockTime(s.durationMs!),
+                '',
+              )
+            : (
+                'Time',
+                s.durationMs == null ? null : seconds(s.durationMs!),
+                's',
+              ),
         // Pour over: the scale curve is the water poured.
         (
           s.machine == 'pourover' ? 'Water' : 'Yield',

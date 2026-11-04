@@ -103,6 +103,12 @@ String grams(double g) {
 
 String seconds(int ms) => (ms / 1000).toStringAsFixed(1);
 
+/// Pour over brews take minutes: "3:43" (m:ss).
+String clockTime(int ms) {
+  final s = (ms / 1000).round();
+  return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+}
+
 // Brew ratio "1 : 2.1" (output / dose).
 String? ratioLabel(Shot s) {
   final dose = s.doseGrams;
