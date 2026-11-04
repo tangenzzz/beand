@@ -960,6 +960,36 @@ void main() {
         expect(service.detectedBrewer?.id, 'v60');
         expect(setup.chain?.id, 'c-v60');
         expect(service.prep.step, SetupStep.coffee);
+
+        // On to the end: coffee, water, everything off, only the server
+        // with the coffee back — the beverage still adds up with the V60's
+        // weight (not the April's).
+        scale.gross += 15;
+        await hold(15);
+        expect(service.prep.done, isTrue);
+        scale.gross += 3;
+        await hold(1);
+        await Future<void>.delayed(Duration.zero);
+        expect(service.stage, ShotStage.running);
+        for (var w = 3.0; w < 250; w += 7.5) {
+          scale.gross += 7.5;
+          await hold(1);
+        }
+        await hold(20);
+        final water = service.grams;
+        // Everything off the scale (server 300 g + V60 + coffee + water).
+        scale.gross = 0;
+        await hold(35);
+        expect(service.phase, BrewState.measuring);
+        await hold(12);
+        expect(service.serverMissing, isTrue);
+        // Only the server with 200 g of coffee back on.
+        scale.gross = 300 + 200;
+        await hold(12);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final shot = (await db.select(db.shots).get()).single;
+        expect(shot.beverageGrams, closeTo(200, 0.1));
+        expect(shot.finalWeight, closeTo(water, 1e-9));
         service.dispose();
       });
     });
