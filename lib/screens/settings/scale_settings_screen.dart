@@ -8,6 +8,7 @@ import '../../scale/meticulous_scale.dart';
 import '../../scale/scale_selector.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
+import '../../widgets/meticulous_mark.dart';
 import '../../widgets/underline_select.dart';
 import 'settings_widgets.dart';
 
@@ -173,13 +174,13 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
                   color: colors.accent.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(34 * 0.3),
                 ),
-                child: Icon(
-                  scale.isMachineScale
-                      ? Icons.coffee_maker_outlined
-                      : Icons.scale_outlined,
-                  size: 20,
-                  color: colors.accent,
-                ),
+                child: scale.isMachineScale
+                    ? MeticulousMark(size: 20, color: colors.accent)
+                    : Icon(
+                        Icons.scale_outlined,
+                        size: 20,
+                        color: colors.accent,
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(

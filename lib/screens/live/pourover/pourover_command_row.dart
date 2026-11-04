@@ -8,6 +8,7 @@ import '../../../scale/meticulous_scale.dart';
 import '../../../scale/scale_selector.dart';
 import '../../../services/pourover_brew_service.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/meticulous_mark.dart';
 import '../../root_scaffold.dart';
 import '../../settings/scale_settings_screen.dart';
 
@@ -37,9 +38,7 @@ class PourOverCommandRow extends StatelessWidget {
     // "Machine" (the dial leads) or "Scale only" (the app leads) — the
     // same icons as in the scale picker.
     final (IconData scaleIcon, String scaleLabel) = machine
-        ? (brew.dialLeads
-              ? (Icons.touch_app_outlined, 'Machine')
-              : (Icons.coffee_maker_outlined, 'Scale only'))
+        ? (Icons.scale_outlined, brew.dialLeads ? 'Machine' : 'Scale only')
         : switch (scale.connection) {
             // The battery level next to the name (the fourth button is
             // Auto now); red icon when low.
@@ -62,6 +61,9 @@ class PourOverCommandRow extends StatelessWidget {
     final dial = machine && brew.dialLeads;
     final scaleButton = _CommandButton(
       icon: scaleIcon,
+      // The Meticulous: an "M" for both of its modes (the label says
+      // which), until its logo may be used.
+      iconWidget: machine ? const MeticulousMark() : null,
       iconColor: battery != null && battery <= 15
           ? context.colors.danger
           : null,
@@ -178,8 +180,14 @@ class PourOverCommandRow extends StatelessWidget {
           String title,
           String subtitle, {
           required bool chosen,
+          Widget? mark,
         }) => ListTile(
-          leading: Icon(icon, color: colors.textSecondary),
+          leading: mark == null
+              ? Icon(icon, color: colors.textSecondary)
+              : IconTheme(
+                  data: IconThemeData(color: colors.textSecondary),
+                  child: mark,
+                ),
           title: Text(title, style: TextStyle(color: colors.textPrimary)),
           subtitle: Text(
             subtitle,
@@ -208,6 +216,7 @@ class PourOverCommandRow extends StatelessWidget {
                 MeticulousPourMode.machine,
                 Icons.touch_app_outlined,
                 '${MeticulousScale.name} · Machine',
+                mark: const MeticulousMark(),
                 'Brew on the machine, the brew comes to the app',
                 chosen:
                     onMeticulous &&
@@ -217,6 +226,7 @@ class PourOverCommandRow extends StatelessWidget {
                 MeticulousPourMode.scaleOnly,
                 Icons.coffee_maker_outlined,
                 '${MeticulousScale.name} · Scale only',
+                mark: const MeticulousMark(),
                 'The app leads, the machine weighs',
                 chosen:
                     onMeticulous &&
@@ -297,9 +307,13 @@ class _CommandButton extends StatelessWidget {
     required this.onTap,
     this.onLongPress,
     this.iconColor,
+    this.iconWidget,
   });
 
   final IconData icon;
+
+  /// Drawn instead of [icon] (the Meticulous "M"), in the same color.
+  final Widget? iconWidget;
   final String label;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -329,7 +343,12 @@ class _CommandButton extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 24, color: iconColor ?? color),
+              iconWidget == null
+                  ? Icon(icon, size: 24, color: iconColor ?? color)
+                  : IconTheme(
+                      data: IconThemeData(color: iconColor ?? color, size: 24),
+                      child: iconWidget!,
+                    ),
               const SizedBox(height: 8),
               Text(
                 label,
