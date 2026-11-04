@@ -814,6 +814,15 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               g(yieldGrams),
               'g',
               otherOf(g(other?.finalWeight)),
+              // Pour Over: the coffee weighed in the server after the
+              // brewer came off, small below the water.
+              // Every pour over brew shows it, "—" where nothing was
+              // weighed (no Auto, older brews).
+              note: !isPourOver
+                  ? null
+                  : shot.beverageGrams != null
+                  ? 'In cup ${g(shot.beverageGrams)} g'
+                  : 'In cup —',
               onTap: tapIf(_Open.yield),
               active: _open == _Open.yield,
             ),
@@ -955,15 +964,6 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               cur(then?.flow, 1),
               color: context.colors.sensorDown,
             ),
-            // Pour Over on the Meticulous: the coffee weighed in the server
-            // after the brewer came off (one value, not on the curve).
-            if (isPourOver && shot.beverageGrams != null)
-              _Stat(
-                'In cup',
-                g(shot.beverageGrams),
-                'g',
-                otherOf(g(other?.beverageGrams)),
-              ),
             if (!isPourOver)
               _Stat(
                 'Pressure',

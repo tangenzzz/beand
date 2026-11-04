@@ -17,7 +17,8 @@ import 'recipe_format.dart';
 // Live brew card: chart on top (weight in yellow over time, the plan dashed,
 // flow in blue on its own axis on the right, pours as bands; above it
 // Time/Weight/Flow like in the machines' live card), below it the pour list
-// with check marks and the hint for the current pour. "Finish" at the bottom.
+// with check marks and the hint for the current pour. "Finish" at the
+// bottom; after the end the result (water, In cup) stays with "Rate brew".
 class LiveBrewCard extends StatelessWidget {
   const LiveBrewCard({super.key});
 
@@ -26,6 +27,9 @@ class LiveBrewCard extends StatelessWidget {
     final brew = context.watch<PourOverBrewService>();
     final plan = brew.plan;
     final running = brew.stage == ShotStage.running;
+    // After the end the card keeps the result until "Rate brew".
+    final done = brew.brewDone;
+    final shown = (running || done) && brew.liveReadings.isNotEmpty;
     return Container(
       decoration: BoxDecoration(
         color: context.colors.card,
@@ -52,27 +56,26 @@ class LiveBrewCard extends StatelessWidget {
               children: [
                 LiveStat(
                   'Time',
-                  running && brew.liveReadings.isNotEmpty
-                      ? formatClock(brew.elapsedMs / 1000)
-                      : null,
+                  shown ? formatClock(brew.elapsedMs / 1000) : null,
                   '',
                 ),
                 LiveStat(
-                  'Weight',
-                  running && brew.liveReadings.isNotEmpty
-                      ? brew.grams.toStringAsFixed(1)
-                      : null,
+                  done ? 'Water' : 'Weight',
+                  shown ? brew.grams.toStringAsFixed(1) : null,
                   'g',
                   color: context.colors.sensorMid,
                 ),
-                LiveStat(
-                  'Flow',
-                  running && brew.liveReadings.isNotEmpty
-                      ? brew.flow.toStringAsFixed(1)
-                      : null,
-                  'g/s',
-                  color: context.colors.sensorDown,
-                ),
+                // Done: the coffee weighed in the server instead of the
+                // flow (which is 0 by then).
+                if (done && brew.beverageG != null)
+                  LiveStat('In cup', brew.beverageG!.toStringAsFixed(1), 'g')
+                else
+                  LiveStat(
+                    'Flow',
+                    shown && !done ? brew.flow.toStringAsFixed(1) : null,
+                    'g/s',
+                    color: context.colors.sensorDown,
+                  ),
               ],
             ),
             const SizedBox(height: 6),
@@ -94,11 +97,18 @@ class LiveBrewCard extends StatelessWidget {
             ],
           ],
           const SizedBox(height: 8),
-          AppButton(
-            label: 'Finish',
-            variant: AppButtonVariant.primary,
-            onPressed: running ? brew.stopShot : null,
-          ),
+          if (done)
+            AppButton(
+              label: 'Rate brew',
+              variant: AppButtonVariant.primary,
+              onPressed: brew.purge,
+            )
+          else
+            AppButton(
+              label: 'Finish',
+              variant: AppButtonVariant.primary,
+              onPressed: running ? brew.stopShot : null,
+            ),
           const SizedBox(height: AppSpacing.tileActionBottom),
         ],
       ),

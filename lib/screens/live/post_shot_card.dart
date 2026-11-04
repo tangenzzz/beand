@@ -178,8 +178,12 @@ class _Body extends StatelessWidget {
         shot.doseGrams != null
             ? '${grams(shot.doseGrams!)} → ${grams(shot.finalWeight!)} g'
             : '${grams(shot.finalWeight!)} g',
-      // Pour Over on the Meticulous: the coffee weighed in the server.
-      if (shot.beverageGrams != null) '${grams(shot.beverageGrams!)} g in cup',
+      // Pour Over: the coffee weighed in the server (every brew, "—" where
+      // nothing was weighed).
+      if (shot.machine == 'pourover')
+        shot.beverageGrams != null
+            ? '${grams(shot.beverageGrams!)} g in cup'
+            : '— in cup',
       if (shot.durationMs != null) '${seconds(shot.durationMs!)} s',
     ].join(' · ');
     return Column(

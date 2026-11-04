@@ -123,57 +123,63 @@ void main() {
     });
   });
 
-  testWidgets('connects the scale, brews a recipe and lands on Post Brew', (
-    tester,
-  ) async {
-    await tester.runAsync(() async {
-      await tester.pumpWidget(wrap());
-      await tester.pump();
+  testWidgets(
+    'connects the scale, brews a recipe, Rate brew leads to Post Brew',
+    (tester) async {
+      await tester.runAsync(() async {
+        await tester.pumpWidget(wrap());
+        await tester.pump();
 
-      // The scale connects on opening; Pre Brew shows the recipe.
-      expect(scale.isConnected, isTrue);
-      // Once in Pre Brew, once in the profile row below.
-      expect(find.text('Two Pours'), findsNWidgets(2));
-      expect(find.text('250 g  ·  1:16.7'), findsOneWidget);
-      expect(find.text('Start Brew'), findsOneWidget);
-      expect(find.text('PRE'), findsOneWidget);
-      expect(find.text('Brew'), findsWidgets);
+        // The scale connects on opening; Pre Brew shows the recipe.
+        expect(scale.isConnected, isTrue);
+        // Once in Pre Brew, once in the profile row below.
+        expect(find.text('Two Pours'), findsNWidgets(2));
+        expect(find.text('250 g  ·  1:16.7'), findsOneWidget);
+        expect(find.text('Start Brew'), findsOneWidget);
+        expect(find.text('PRE'), findsOneWidget);
+        expect(find.text('Brew'), findsWidgets);
 
-      await tester.ensureVisible(find.text('Start Brew'));
-      await tester.tap(find.text('Start Brew'));
-      await tester.pump();
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(brew.stage, ShotStage.running);
-      expect(
-        find.textContaining('START POURING', findRichText: true),
-        findsOneWidget,
-      );
+        await tester.ensureVisible(find.text('Start Brew'));
+        await tester.tap(find.text('Start Brew'));
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(brew.stage, ShotStage.running);
+        expect(
+          find.textContaining('START POURING', findRichText: true),
+          findsOneWidget,
+        );
 
-      scale.setGrams(20);
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      scale.setGrams(50);
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      await tester.pump();
-      expect(brew.phase, BrewState.waiting);
-      expect(find.textContaining('WAIT', findRichText: true), findsOneWidget);
-      expect(find.byType(LiveBrewCard), findsOneWidget);
+        scale.setGrams(20);
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        scale.setGrams(50);
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        await tester.pump();
+        expect(brew.phase, BrewState.waiting);
+        expect(find.textContaining('WAIT', findRichText: true), findsOneWidget);
+        expect(find.byType(LiveBrewCard), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Finish'));
-      await tester.tap(find.text('Finish'));
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(brew.stage, ShotStage.purging);
-      final shots = await db.select(db.shots).get();
-      expect(shots.single.machine, 'pourover');
-      expect(shots.single.finalWeight, closeTo(50, 0.2));
+        await tester.ensureVisible(find.text('Finish'));
+        await tester.tap(find.text('Finish'));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 500));
+        // The Live card keeps the result; "Rate brew" goes on to Post Brew.
+        expect(brew.stage, ShotStage.awaitingPurge);
+        expect(find.text('Rate brew'), findsOneWidget);
+        await tester.tap(find.text('Rate brew'));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(brew.stage, ShotStage.purging);
+        final shots = await db.select(db.shots).get();
+        expect(shots.single.machine, 'pourover');
+        expect(shots.single.finalWeight, closeTo(50, 0.2));
 
-      // The scale stays connected when the view goes away (pill switch).
-      await disposeTree(tester);
-      expect(scale.isConnected, isTrue);
-      await scale.disconnect();
-    });
-  });
+        // The scale stays connected when the view goes away (pill switch).
+        await disposeTree(tester);
+        expect(scale.isConnected, isTrue);
+        await scale.disconnect();
+      });
+    },
+  );
 
   testWidgets('without a scale the start button connects instead', (
     tester,

@@ -413,6 +413,9 @@ class _StartButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final brew = context.watch<PourOverBrewService>();
     final scale = context.watch<BrewScale>();
+    if (brew.brewDone) {
+      return const AppButton(label: 'Rate the brew first', onPressed: null);
+    }
     if (brew.stage != ShotStage.idle) {
       return const AppButton(label: 'Brewing…', onPressed: null);
     }

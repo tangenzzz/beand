@@ -465,7 +465,15 @@ class PourOverBrewService extends LiveShotService {
     return (_grams - s.startTotalG).clamp(0, s.waterG);
   }
 
+  /// Brew over and saved, the Live card shows the result until "Rate brew"
+  /// (no automatic jump to Post Brew — user 2026-11-04).
+  bool get brewDone => stage == ShotStage.awaitingPurge;
+
+  // Duration of the finished brew (as saved), for the Live card.
+  int? _finalMs;
+
   int get elapsedMs {
+    if (brewDone && _finalMs != null) return _finalMs!;
     final start = _startedAt;
     if (start == null) return 0;
     // Stopped at the lift of the brewer.
@@ -569,6 +577,7 @@ class PourOverBrewService extends LiveShotService {
     _liftSince = null;
     _serverMissing = false;
     _beverageG = null;
+    _finalMs = null;
     _measureWindow.clear();
     _readingSub = scale.readings.listen((r) {
       if (!tared) {
@@ -681,6 +690,8 @@ class PourOverBrewService extends LiveShotService {
     _runningPrep = null;
     _setupG = null;
     _dialLive = true;
+    _beverageG = null;
+    _finalMs = null;
     _phase = BrewState.pouring;
     _stepIndex = 0;
     _startedAt = rise.first.at;
@@ -745,6 +756,10 @@ class PourOverBrewService extends LiveShotService {
                 const Duration(minutes: 10) &&
             !(await database.knownExternalIds()).contains(brew.externalId)) {
           await _saveDialBrew(brew);
+          // The machine's numbers on the Live card.
+          _finalMs = brew.durationMs ?? _finalMs;
+          if (brew.waterG != null) _grams = brew.waterG!;
+          _beverageG = brew.beverageG;
           _finishDialLive();
           return;
         }
@@ -766,8 +781,8 @@ class PourOverBrewService extends LiveShotService {
     _dialPoll = null;
     _dialLive = false;
     _stopListening();
-    _runningPlan = null;
-    applyStage(ShotStage.purging);
+    _finalMs ??= liveReadings.isEmpty ? null : liveReadings.last.timeMs;
+    applyStage(ShotStage.awaitingPurge);
     _syncDial();
     notifyListeners();
   }
@@ -976,9 +991,10 @@ class PourOverBrewService extends LiveShotService {
         notifyListeners();
         return true;
       }
+      _finalMs = liveReadings.isEmpty ? elapsedMs : liveReadings.last.timeMs;
       await _save();
-      _runningPlan = null;
-      applyStage(ShotStage.purging);
+      // The Live card keeps the result; "Rate brew" goes on to Post Brew.
+      applyStage(ShotStage.awaitingPurge);
       notifyListeners();
       return true;
     } catch (e) {
@@ -993,9 +1009,16 @@ class PourOverBrewService extends LiveShotService {
     }
   }
 
-  // No purge for pour over.
+  // No purge for pour over: the step that completes the Live card is
+  // "Rate brew" — on to Post Brew.
   @override
-  Future<bool> purge() async => true;
+  Future<bool> purge() async {
+    if (!brewDone) return false;
+    _runningPlan = null;
+    applyStage(ShotStage.purging);
+    notifyListeners();
+    return true;
+  }
 
   @override
   void confirmPostShot() {

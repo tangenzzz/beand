@@ -294,6 +294,10 @@ void main() {
         expect(scale.timer, ['reset', 'start']);
         service.stopShot();
         async.flushMicrotasks();
+        expect(service.stage, ShotStage.awaitingPurge);
+        expect(service.brewDone, isTrue);
+        service.purge();
+        async.flushMicrotasks();
         expect(service.stage, ShotStage.purging);
         expect(scale.timer, ['reset', 'start', 'stop']);
         expect(service.activeCard, ActiveCard.post);
@@ -352,6 +356,10 @@ void main() {
         // Target reached, weight still: runs on until "Finish".
         expect(service.stage, ShotStage.running);
         service.stopShot();
+        async.flushMicrotasks();
+        expect(service.stage, ShotStage.awaitingPurge);
+        expect(service.brewDone, isTrue);
+        service.purge();
         async.flushMicrotasks();
         expect(service.stage, ShotStage.purging);
       });
