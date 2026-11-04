@@ -66,11 +66,23 @@ Future<void> showWaterDialog(
   );
 }
 
+/// The form for a new grinder inside the desk's add sheet: [top] is the
+/// sheet's choice of what to add.
+Widget newGrinderForm({
+  required Widget top,
+  void Function(String id)? onPhoto,
+}) => _GrinderDialog(top: top, onPhoto: onPhoto);
+
+/// The form for a new water inside the desk's add sheet, see [newGrinderForm].
+Widget newWaterForm({required Widget top, void Function(String id)? onPhoto}) =>
+    _WaterDialog(top: top, onPhoto: onPhoto);
+
 class _GrinderDialog extends StatefulWidget {
-  const _GrinderDialog({this.grinder, this.onPhoto});
+  const _GrinderDialog({this.grinder, this.onPhoto, this.top});
 
   final Grinder? grinder;
   final void Function(String id)? onPhoto;
+  final Widget? top;
 
   @override
   State<_GrinderDialog> createState() => _GrinderDialogState();
@@ -308,6 +320,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     final editing = widget.grinder != null;
     return SetupDialog(
       title: 'Grinder',
+      top: widget.top,
       heading: _name.text,
       subheading: _brand.text,
       photo: widget.onPhoto == null
@@ -335,7 +348,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
           key: const ValueKey('grinder-name'),
           controller: _name,
           label: 'Name',
-          autofocus: !editing,
+          autofocus: !editing && widget.top == null,
         ),
         const SizedBox(height: 6),
         for (var i = 0; i < _burrs.length; i++)
@@ -608,10 +621,11 @@ const _months = [
 String _date(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
 
 class _WaterDialog extends StatefulWidget {
-  const _WaterDialog({this.water, this.onPhoto});
+  const _WaterDialog({this.water, this.onPhoto, this.top});
 
   final Water? water;
   final void Function(String id)? onPhoto;
+  final Widget? top;
 
   @override
   State<_WaterDialog> createState() => _WaterDialogState();
@@ -769,6 +783,7 @@ class _WaterDialogState extends State<_WaterDialog> {
     final editing = widget.water != null;
     return SetupDialog(
       title: 'Water',
+      top: widget.top,
       heading: _recipe.text,
       photo: widget.onPhoto == null
           ? null
@@ -786,7 +801,7 @@ class _WaterDialogState extends State<_WaterDialog> {
           key: const ValueKey('water-recipe'),
           controller: _recipe,
           label: 'Recipe',
-          autofocus: !editing,
+          autofocus: !editing && widget.top == null,
         ),
         // Unit of the mineral amounts; switching converts what is entered.
         SetupRow(
@@ -898,6 +913,7 @@ class SetupDialog extends StatefulWidget {
     required this.onSave,
     required this.onDelete,
     required this.deleteLabel,
+    this.top,
     this.heading,
     this.subheading,
     this.photo,
@@ -910,6 +926,9 @@ class SetupDialog extends StatefulWidget {
   /// The kind of piece, e.g. "Grinder" — the head only shows it while
   /// neither [heading] nor [subheading] has text.
   final String title;
+
+  /// Above the fields: the add sheet's choice of what to add.
+  final Widget? top;
 
   /// The piece's name as typed (live) and its brand: shown like the card
   /// titles ("PREShot") — brand small in the accent color in the line
@@ -1011,6 +1030,7 @@ class _SetupDialogState extends State<SetupDialog> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  ?widget.top,
                   ...widget.children,
                   if (widget.advanced.isNotEmpty) ...[
                     const SizedBox(height: 6),

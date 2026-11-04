@@ -4,9 +4,13 @@ import 'package:provider/provider.dart';
 import '../../models/gear.dart';
 import '../../scale/brew_scale.dart';
 import '../../services/gear_store.dart';
+import '../../services/grinder_store.dart';
+import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
+import '../../widgets/value_select_row.dart';
 import 'coffee_desk_data.dart';
+import 'my_coffee_desk_screen.dart' show GearIcon;
 import 'my_setup_dialogs.dart';
 
 // Add/edit dialogs of My Coffee Desk for everything that is not a grinder
@@ -43,12 +47,127 @@ Future<BrewChain?> showChainDialog(
   ),
 );
 
+/// The desk's one "+": first what to add, gear or a brew chain, then — for
+/// gear — which kind, then the form that belongs to it. [chain] is the
+/// choice to start with (the tab it was opened from).
+Future<void> showAddToDeskSheet(
+  BuildContext context, {
+  required bool chain,
+  void Function(String id)? onPhoto,
+}) => showSetupSheet<Object?>(
+  context,
+  (_) => MultiProvider(
+    providers: [
+      ChangeNotifierProvider<GearStore>.value(value: context.read<GearStore>()),
+      ChangeNotifierProvider<GrinderStore>.value(
+        value: context.read<GrinderStore>(),
+      ),
+      ChangeNotifierProvider<WaterStore>.value(
+        value: context.read<WaterStore>(),
+      ),
+    ],
+    child: _AddToDeskSheet(chain: chain, onPhoto: onPhoto),
+  ),
+);
+
+class _AddToDeskSheet extends StatefulWidget {
+  const _AddToDeskSheet({required this.chain, this.onPhoto});
+
+  final bool chain;
+  final void Function(String id)? onPhoto;
+
+  @override
+  State<_AddToDeskSheet> createState() => _AddToDeskSheetState();
+}
+
+class _AddToDeskSheetState extends State<_AddToDeskSheet> {
+  late bool _chain = widget.chain;
+  GearType? _type;
+
+  Widget _choice() {
+    final colors = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SetupRow(
+          label: 'Add',
+          child: UnderlineSelect<bool>(
+            key: const ValueKey('add-kind'),
+            options: const [
+              UnderlineOption(false, 'Gear'),
+              UnderlineOption(true, 'Brew chain'),
+            ],
+            value: _chain,
+            onChanged: (v) => setState(() => _chain = v!),
+          ),
+        ),
+        if (!_chain)
+          ValueSelectRow<GearType>(
+            key: const ValueKey('add-gear-type'),
+            label: 'Gear',
+            labelSize: 14,
+            labelWidth: 112,
+            placeholder: 'Select gear',
+            value: _type,
+            options: [
+              for (final t in GearType.values)
+                ValueOption(
+                  value: t,
+                  title: t.single,
+                  leading: GearIcon(
+                    asset: t.iconAsset(const {}),
+                    size: 22,
+                    color: colors.textSecondary,
+                  ),
+                ),
+            ],
+            onChanged: (t) => setState(() => _type = t),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = _choice();
+    if (_chain) return _ChainDialog(top: top);
+    return switch (_type) {
+      // Nothing to fill in until the kind is chosen.
+      null => SetupDialog(
+        title: 'New gear',
+        top: top,
+        canSave: false,
+        onSave: () {},
+        onDelete: null,
+        deleteLabel: '',
+        children: const [],
+      ),
+      GearType.grinder => newGrinderForm(top: top, onPhoto: widget.onPhoto),
+      GearType.water => newWaterForm(top: top, onPhoto: widget.onPhoto),
+      final type => _GearDialog(
+        // Each kind has its own fields.
+        key: ValueKey(type),
+        type: type,
+        top: top,
+        onPhoto: widget.onPhoto,
+      ),
+    };
+  }
+}
+
 class _GearDialog extends StatefulWidget {
-  const _GearDialog({required this.type, this.gear, this.onPhoto});
+  const _GearDialog({
+    super.key,
+    required this.type,
+    this.gear,
+    this.onPhoto,
+    this.top,
+  });
 
   final GearType type;
   final Gear? gear;
   final void Function(String id)? onPhoto;
+  final Widget? top;
 
   @override
   State<_GearDialog> createState() => _GearDialogState();
@@ -161,6 +280,7 @@ class _GearDialogState extends State<_GearDialog> {
     final shapes = gearShapes[type];
     return SetupDialog(
       title: type.single,
+      top: widget.top,
       heading: _model.text,
       subheading: _brand.text,
       photo: widget.onPhoto == null
@@ -185,7 +305,7 @@ class _GearDialogState extends State<_GearDialog> {
           key: const ValueKey('gear-model'),
           controller: _model,
           label: 'Model',
-          autofocus: !editing,
+          autofocus: !editing && widget.top == null,
         ),
         for (final f in specFields[type] ?? const <SpecField>[])
           SetupField(
@@ -223,10 +343,11 @@ class _GearDialogState extends State<_GearDialog> {
 }
 
 class _ChainDialog extends StatefulWidget {
-  const _ChainDialog({this.chain, this.onCopy});
+  const _ChainDialog({this.chain, this.onCopy, this.top});
 
   final BrewChain? chain;
   final VoidCallback? onCopy;
+  final Widget? top;
 
   @override
   State<_ChainDialog> createState() => _ChainDialogState();
@@ -294,6 +415,7 @@ class _ChainDialogState extends State<_ChainDialog> {
     final editing = widget.chain != null;
     return SetupDialog(
       title: 'Brew chain',
+      top: widget.top,
       heading: _name.text,
       canSave: _name.text.trim().isNotEmpty,
       onSave: _save,
@@ -314,7 +436,7 @@ class _ChainDialogState extends State<_ChainDialog> {
           key: const ValueKey('chain-name'),
           controller: _name,
           label: 'Name',
-          autofocus: !editing,
+          autofocus: !editing && widget.top == null,
         ),
         if (store.gear.isEmpty)
           Padding(

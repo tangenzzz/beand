@@ -23,6 +23,26 @@ import 'package:provider/provider.dart';
 import 'support/offline_gaggimate.dart';
 
 // Grinder scale (unit, step, range) and zero point with its history.
+// The desk's one "+", kept on Gear, then the kind from the list.
+Future<void> addGear(WidgetTester tester, String kind) async {
+  await tester.tap(find.byTooltip('Add to desk'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('add-gear-type')));
+  await tester.pumpAndSettle();
+  // The list shows a few rows and scrolls.
+  await tester.dragUntilVisible(
+    find.text(kind),
+    find.descendant(
+      of: find.byKey(const ValueKey('add-gear-type')),
+      matching: find.byType(ListView),
+    ),
+    const Offset(0, -48),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(kind));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('GrindScale', () {
     test('formats per unit, decimals from the step', () {
@@ -166,8 +186,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byKey(const ValueKey('new-grinder')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Grinder');
     await tester.enterText(find.byKey(const ValueKey('grinder-name')), 'K6');
     await tester.tap(find.text('Hand'));
     await tester.pump();
@@ -324,8 +343,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.byKey(const ValueKey('new-grinder')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Grinder');
     await tester.enterText(
       find.byKey(const ValueKey('grinder-name')),
       'Monolith',

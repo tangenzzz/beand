@@ -23,6 +23,7 @@ import 'package:beand/services/shot_setup.dart';
 import 'package:beand/services/water_store.dart';
 import 'package:beand/sync/records/setting_codec.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:beand/widgets/app_button.dart';
 import 'package:beand/widgets/underline_select.dart';
 import 'package:beand/scale/brew_scale.dart';
 import 'package:beand/scale/simulated_scale.dart';
@@ -40,6 +41,26 @@ import 'support/offline_gaggimate.dart';
 // Settings → My Setup → Grinders: own grinders with several burr sets, one
 // of them fitted; chosen per machine next to the grind size; stored on the
 // shot as text.
+// The desk's one "+", kept on Gear, then the kind from the list.
+Future<void> addGear(WidgetTester tester, String kind) async {
+  await tester.tap(find.byTooltip('Add to desk'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey('add-gear-type')));
+  await tester.pumpAndSettle();
+  // The list shows a few rows and scrolls.
+  await tester.dragUntilVisible(
+    find.text(kind),
+    find.descendant(
+      of: find.byKey(const ValueKey('add-gear-type')),
+      matching: find.byType(ListView),
+    ),
+    const Offset(0, -48),
+  );
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(kind));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('GrinderStore', () {
     test('add, fitted burrs, switch, remove', () {
@@ -241,12 +262,11 @@ void main() {
     addTearDown(tester.view.reset);
     final store = GrinderStore.inMemory();
     await tester.pumpWidget(mySetup(store.gear));
-    // Shelves in the one card; each ends in a dashed "New".
+    // Shelves in the one card.
     expect(find.textContaining('GRINDERS', findRichText: true), findsOneWidget);
     expect(find.textContaining('WATER', findRichText: true), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('new-grinder')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Grinder');
     // A new piece without brand and name: the head shows only its kind.
     expect(
       find.descendant(
@@ -443,8 +463,7 @@ void main() {
         child: mySetup(gear),
       ),
     );
-    await tester.tap(find.byKey(const ValueKey('new-brewer')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Brewer');
     expect(find.textContaining('with the paper filter'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('gear-model')), 'V60 02');
     // The scale shows 0.0 g: take it, then type the real one.
@@ -463,8 +482,7 @@ void main() {
     final waters = WaterStore.inMemory();
     await tester.pumpWidget(mySetup(waters.gear));
 
-    await tester.tap(find.byKey(const ValueKey('new-water')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Water');
     await tester.enterText(find.byKey(const ValueKey('water-recipe')), 'Lotus');
     await tester.enterText(find.byKey(const ValueKey('water-gh')), '68');
     // Fixed minerals instead of free text; GH from two of them.
@@ -523,6 +541,55 @@ void main() {
     );
   });
 
+  testWidgets(
+    'My Coffee Desk: one "+", gear or chain, then the matching form',
+    (tester) async {
+      tester.view.physicalSize = const Size(800, 2600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final gear = GearStore.inMemory();
+      await tester.pumpWidget(mySetup(gear));
+
+      // From the shelf: Gear, no form and no Save until the kind is chosen.
+      await tester.tap(find.byTooltip('Add to desk'));
+      await tester.pumpAndSettle();
+      expect(find.text('Select gear'), findsOneWidget);
+      expect(find.byKey(const ValueKey('gear-model')), findsNothing);
+      expect(find.byKey(const ValueKey('chain-name')), findsNothing);
+      final save = find.widgetWithText(AppButton, 'Save');
+      expect(tester.widget<AppButton>(save).onPressed, isNull);
+
+      // The kind brings its own form.
+      await tester.tap(find.byKey(const ValueKey('add-gear-type')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Brewer'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('gear-weight')), findsOneWidget);
+
+      // Switching to a chain turns everything below into the chain's form.
+      await tester.tap(find.text('Brew chain'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('add-gear-type')), findsNothing);
+      expect(find.byKey(const ValueKey('gear-weight')), findsNothing);
+      await tester.enterText(
+        find.byKey(const ValueKey('chain-name')),
+        'Morning',
+      );
+      await tester.pump();
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      expect(gear.chains.single.name, 'Morning');
+      expect(gear.gear, isEmpty);
+
+      // From the chains tab the same sheet starts on the chain.
+      await tester.tap(find.text('Brew chains'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Add to desk'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('chain-name')), findsOneWidget);
+    },
+  );
+
   testWidgets('My Coffee Desk: Shelf and Brew chains tabs, one per kind', (
     tester,
   ) async {
@@ -563,13 +630,16 @@ void main() {
             .dy,
       ),
     );
-    expect(find.byTooltip('Add brew chain'), findsNothing);
+    expect(find.byTooltip('Add to desk'), findsOneWidget);
+    // No "+" on the shelves any more, the one on top is for everything.
+    expect(find.byIcon(Icons.add), findsOneWidget);
 
-    // Brew chains tab: "+" adds one; one piece per category.
+    // Brew chains tab: the same "+" starts on the chain; one piece per
+    // category.
     await tester.tap(find.text('Brew chains'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('Filter'), findsNothing, reason: 'gear only');
-    await tester.tap(find.byTooltip('Add brew chain'));
+    await tester.tap(find.byTooltip('Add to desk'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('chain-name')),
@@ -658,8 +728,7 @@ void main() {
     final gear = GearStore.inMemory();
     await tester.pumpWidget(mySetup(gear));
 
-    await tester.tap(find.byKey(const ValueKey('new-machine')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Machine');
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     final machine = gear.ofType(GearType.machine).single;
@@ -753,8 +822,7 @@ void main() {
     final gear = GearStore.inMemory();
     await tester.pumpWidget(mySetup(gear));
 
-    await tester.tap(find.byKey(const ValueKey('new-basket')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Basket');
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('dialog-heading')),
@@ -805,8 +873,7 @@ void main() {
     final gear = GearStore.inMemory();
     await tester.pumpWidget(mySetup(gear));
 
-    await tester.tap(find.byKey(const ValueKey('new-basket')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Basket');
     await tester.enterText(find.byKey(const ValueKey('gear-model')), 'VST');
     // The photo is there before the piece exists (user 2026-10-22), with a
     // small "+" while it has none.
@@ -860,8 +927,7 @@ void main() {
     store.add('Zero', ['SSP', 'Stock'], brand: 'Niche');
     await tester.pumpWidget(mySetup(store.gear));
 
-    await tester.tap(find.byKey(const ValueKey('new-grinder')));
-    await tester.pumpAndSettle();
+    await addGear(tester, 'Grinder');
     await tester.enterText(find.byKey(const ValueKey('grinder-brand')), 'Ni');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);

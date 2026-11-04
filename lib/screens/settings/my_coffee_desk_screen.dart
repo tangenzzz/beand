@@ -22,12 +22,12 @@ import 'my_setup_dialogs.dart';
 import 'settings_widgets.dart';
 
 // Settings → My Coffee Desk: all the user's gear as shelves, one per
-// category — a row of round avatars standing on a 3 dp "shelf board" (a
-// dashed "New" at the end adds one), no hairlines between the shelves,
-// only one below the tabs. Two tabs: "Shelf" and "Brew chains" (one row per
-// chain, swiped left: Copy and Delete; + adds one). Search and filter sit
-// in the app bar like in the bean list and the history. Tapping an avatar
-// folds its details out below that shelf, a long press edits it.
+// category — a row of round avatars standing on a 3 dp "shelf board", no
+// hairlines between the shelves, only one below the tabs. Two tabs: "Shelf"
+// and "Brew chains" (one shelf per chain), with one "+" for both that asks
+// what to add. Search and filter sit in the app bar like in the bean list
+// and the history. Tapping an avatar folds its details out below that
+// shelf, a long press edits it.
 //
 // Grinders and waters open their own dialogs (burr sets, minerals),
 // everything else the generic gear form (gear_dialogs.dart).
@@ -100,24 +100,17 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     }
   }
 
-  Future<void> _add(GearType type) => _openAddDialog(type);
+  Future<void> _add() => showAddToDeskSheet(
+    context,
+    chain: _tab == _DeskTab.chains,
+    onPhoto: _photoFor,
+  );
 
   // The photo choice from a dialog's head; a new piece is already saved
   // by then (user 2026-10-22: photo while adding, not only afterwards).
   void _photoFor(String id) {
     final current = context.read<GearStore>().byId(id);
     if (current != null) _choosePhoto(current);
-  }
-
-  Future<void> _openAddDialog(GearType type) async {
-    switch (type) {
-      case GearType.grinder:
-        await showGrinderDialog(context, onPhoto: _photoFor);
-      case GearType.water:
-        await showWaterDialog(context, onPhoto: _photoFor);
-      default:
-        await showGearDialog(context, type: type, onPhoto: _photoFor);
-    }
   }
 
   // Long press on a piece: its dialog, with "Photo" at the top.
@@ -335,7 +328,7 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
       filter: _filter,
     );
     // The shelf without search or filter shows every category, empty ones
-    // with just "New"; anything narrower drops what it leaves empty.
+    // as a bare board; anything narrower drops what it leaves empty.
     final showEmpty = !_filter.isActive && query.isEmpty;
     final shelves = [
       for (final type in GearType.values)
@@ -367,13 +360,7 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
             SettingsCard(
               dividers: false,
               children: [
-                _DeskTabs(
-                  tab: _tab,
-                  onSelect: _selectTab,
-                  onAddChain: _tab == _DeskTab.chains
-                      ? () => showChainDialog(context)
-                      : null,
-                ),
+                _DeskTabs(tab: _tab, onSelect: _selectTab, onAdd: _add),
                 // The one hairline left: tabs above, content below.
                 const SettingsDivider(),
                 if (_tab == _DeskTab.chains) ...[
@@ -418,7 +405,6 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
                       onTap: (g) => setState(
                         () => _openId = _openId == g.id ? null : g.id,
                       ),
-                      onAdd: () => _add(type),
                       onEdit: _edit,
                     ),
                 ],
@@ -431,18 +417,17 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
   }
 }
 
-// "Shelf" and "Brew chains" on top; on the chains tab "+" at the right adds
-// one.
+// "Shelf" and "Brew chains" on top, at the right the "+" for both.
 class _DeskTabs extends StatelessWidget {
   const _DeskTabs({
     required this.tab,
     required this.onSelect,
-    required this.onAddChain,
+    required this.onAdd,
   });
 
   final _DeskTab tab;
   final ValueChanged<_DeskTab> onSelect;
-  final VoidCallback? onAddChain;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -462,12 +447,11 @@ class _DeskTabs extends StatelessWidget {
                 onChanged: (t) => onSelect(t!),
               ),
             ),
-            if (onAddChain != null)
-              IconButton(
-                tooltip: 'Add brew chain',
-                icon: Icon(Icons.add, color: context.colors.textSecondary),
-                onPressed: onAddChain,
-              ),
+            IconButton(
+              tooltip: 'Add to desk',
+              icon: Icon(Icons.add, color: context.colors.textSecondary),
+              onPressed: onAdd,
+            ),
           ],
         ),
       ),
@@ -505,11 +489,7 @@ class _ChainRow extends StatelessWidget {
           onLabelTap: onTap,
           count: pieces.isEmpty ? 1 : pieces.length,
           builder: (context, i) => pieces.isEmpty
-              ? _NewAvatar(
-                  type: GearType.machine,
-                  label: 'Add gear',
-                  onTap: onTap,
-                )
+              ? _NewAvatar(onTap: onTap)
               : GearAvatar(
                   gear: pieces[i],
                   photo: photoOf(pieces[i]),
@@ -536,7 +516,6 @@ class _Shelf extends StatelessWidget {
     required this.shotsOf,
     required this.chainsOf,
     required this.onTap,
-    required this.onAdd,
     required this.onEdit,
   });
 
@@ -548,7 +527,6 @@ class _Shelf extends StatelessWidget {
   final int? Function(Gear) shotsOf;
   final List<String> Function(Gear) chainsOf;
   final ValueChanged<Gear> onTap;
-  final VoidCallback onAdd;
   final ValueChanged<Gear> onEdit;
 
   @override
@@ -559,17 +537,15 @@ class _Shelf extends StatelessWidget {
         const SizedBox(height: 10),
         _ShelfBoard(
           label: type.label,
-          count: items.length + 1,
-          builder: (context, i) => i == items.length
-              ? _NewAvatar(type: type, onTap: onAdd)
-              : GearAvatar(
-                  gear: items[i],
-                  photo: photoOf(items[i]),
-                  active: active.contains(items[i].id),
-                  selected: items[i].id == openId,
-                  onTap: () => onTap(items[i]),
-                  onLongPress: () => onEdit(items[i]),
-                ),
+          count: items.length,
+          builder: (context, i) => GearAvatar(
+            gear: items[i],
+            photo: photoOf(items[i]),
+            active: active.contains(items[i].id),
+            selected: items[i].id == openId,
+            onTap: () => onTap(items[i]),
+            onLongPress: () => onEdit(items[i]),
+          ),
         ),
         AnimatedSize(
           duration: const Duration(milliseconds: 200),
@@ -828,14 +804,10 @@ class GearAvatar extends StatelessWidget {
   }
 }
 
-// The "+" at the end of a shelf: dashed circle, nothing below.
+// On a brew chain without gear: dashed circle with "+", opens the chain.
 class _NewAvatar extends StatelessWidget {
-  const _NewAvatar({required this.type, required this.onTap, this.label});
+  const _NewAvatar({required this.onTap});
 
-  final GearType type;
-
-  /// Instead of "Add machine" and the like, e.g. on an empty brew chain.
-  final String? label;
   final VoidCallback onTap;
 
   @override
@@ -843,10 +815,10 @@ class _NewAvatar extends StatelessWidget {
     final colors = context.colors;
     return Semantics(
       button: true,
-      label: label ?? 'Add ${type.single.toLowerCase()}',
+      label: 'Add gear',
       excludeSemantics: true,
       child: GestureDetector(
-        key: ValueKey('new-${type.name}'),
+        key: const ValueKey('chain-add-gear'),
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: SizedBox(
