@@ -133,7 +133,8 @@ class _BrewChart extends StatelessWidget {
     final maxX = math
         .max(manual ? 180.0 : plan.plannedSeconds * 1.1, lastS + 5)
         .ceilToDouble();
-    final maxY = (plan.totalWaterG * 1.1).ceilToDouble();
+    // Never 0: the chart's grid needs a height.
+    final maxY = math.max(10.0, (plan.totalWaterG * 1.1).ceilToDouble());
     // Flow (g/s) on its own axis on the right: 0 … flowDialMax over the full
     // height, so it's as readable as the weight.
     final k = maxY / flowDialMax;

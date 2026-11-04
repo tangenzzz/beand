@@ -33,9 +33,18 @@ FlowZone flowZone(double gPerS) {
 }
 
 class BrewPlan {
+  // A dose of 0 (or none, or nonsense) falls back to the recipe's: scaled
+  // by 0 every pour was 0 g — the chart crashed on a zero grid and the
+  // ratio on 1:∞ (bug 2026-11-04).
   BrewPlan(this.recipe, {double? doseG})
-    : doseG = doseG ?? recipe.doseG,
-      steps = _scaled(recipe, (doseG ?? recipe.doseG) / recipe.doseG);
+    : doseG = _validDose(doseG) ?? recipe.doseG,
+      steps = _scaled(
+        recipe,
+        (_validDose(doseG) ?? recipe.doseG) / recipe.doseG,
+      );
+
+  static double? _validDose(double? g) =>
+      g != null && g.isFinite && g >= 1 ? g : null;
 
   final BrewRecipe recipe;
   final double doseG;

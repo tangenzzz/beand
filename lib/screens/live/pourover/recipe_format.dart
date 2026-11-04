@@ -6,6 +6,7 @@ import '../../../theme/app_theme.dart';
 String formatGrams(double g) => g.toStringAsFixed(g % 1 == 0 ? 0 : 1);
 
 String formatRatio(double r) {
+  if (!r.isFinite) return '–';
   final rounded = (r * 10).round() / 10;
   return rounded.toStringAsFixed(rounded % 1 == 0 ? 0 : 1);
 }

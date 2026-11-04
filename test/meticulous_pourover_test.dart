@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:beand/database/database.dart';
+import 'package:beand/models/brew_plan.dart';
 import 'package:beand/models/brew_recipe.dart';
+import 'package:beand/screens/live/pourover/recipe_format.dart';
 import 'package:beand/models/machine_status.dart';
 import 'package:beand/services/gear_store.dart';
 import 'package:beand/models/gear.dart';
@@ -493,6 +495,15 @@ void main() {
       });
       expect(tares.map((t) => t.$2), [87.53, 30.64]);
     });
+  });
+
+  test('a dose of 0 g falls back to the recipe (crash 2026-11-04)', () {
+    final r = brewRecipeFromMeticulous(_machineProfile);
+    final plan = BrewPlan(r, doseG: 0);
+    expect(plan.doseG, 15);
+    expect(plan.steps.map((s) => s.targetTotalG), [45, 90, 225]);
+    expect(plan.ratio.isFinite, isTrue);
+    expect(formatRatio(double.infinity), '–');
   });
 
   test('pour over time reads m:ss', () {

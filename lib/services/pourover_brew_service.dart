@@ -374,7 +374,9 @@ class PourOverBrewService extends LiveShotService {
     }
     // Weighed coffee becomes the dose of this brew.
     final coffee = prep.coffeeG;
+    // Only a real dose (a step confirmed with an empty scale gave 0 g).
     if (coffee != null &&
+        coffee >= 1 &&
         coffee != _prepCoffeeTaken &&
         prep.step.index > SetupStep.coffee.index) {
       _prepCoffeeTaken = coffee;
@@ -508,6 +510,10 @@ class PourOverBrewService extends LiveShotService {
 
   @override
   void start() {
+    // A dose of 0 g left behind by an empty coffee step (bug 2026-11-04)
+    // → the recipe's again.
+    final dose = setup.doseGrams;
+    if (dose != null && dose < 1) setup.setDose(recipe?.doseG);
     unawaited(_loadManual());
     scale.addListener(_onScale);
     setup.addListener(_onScale);
@@ -848,7 +854,7 @@ class PourOverBrewService extends LiveShotService {
           ),
       ],
     );
-    if (dose != null) setup.setDose(dose);
+    if (dose != null && dose >= 1) setup.setDose(dose);
   }
 
   // ---- End by lifting the brewer (Meticulous, after the steps) ----
