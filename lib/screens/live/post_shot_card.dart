@@ -174,16 +174,17 @@ class _Body extends StatelessWidget {
     final title = bean?.name ?? (profile.isEmpty ? 'Shot' : profile);
     final details = [
       if (bean != null && profile.isNotEmpty) profile,
-      if (shot.finalWeight != null)
+      // Pour over: water poured and the yield (the coffee in the server,
+      // "—" where nothing was weighed).
+      if (shot.machine == 'pourover') ...[
+        if (shot.finalWeight != null) 'Water ${grams(shot.finalWeight!)} g',
+        shot.beverageGrams != null
+            ? 'Yield ${grams(shot.beverageGrams!)} g'
+            : 'Yield —',
+      ] else if (shot.finalWeight != null)
         shot.doseGrams != null
             ? '${grams(shot.doseGrams!)} → ${grams(shot.finalWeight!)} g'
             : '${grams(shot.finalWeight!)} g',
-      // Pour Over: the coffee weighed in the server (every brew, "—" where
-      // nothing was weighed).
-      if (shot.machine == 'pourover')
-        shot.beverageGrams != null
-            ? '${grams(shot.beverageGrams!)} g in cup'
-            : '— in cup',
       if (shot.durationMs != null) '${seconds(shot.durationMs!)} s',
     ].join(' · ');
     return Column(

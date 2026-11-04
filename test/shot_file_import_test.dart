@@ -303,7 +303,8 @@ settings {
     await tester.pump();
     expect(find.text('New brew'), findsOneWidget);
     expect(find.text('Recipe'), findsOneWidget);
-    expect(find.text('WATER'), findsOneWidget);
+    // The total and, like Yield for espresso, the value at the cursor.
+    expect(find.text('WATER'), findsNWidgets(2));
     // Nothing to compare with in a blank new shot.
     expect(find.text('Compare'), findsNothing);
     await tester.tap(find.byTooltip('Discard'));

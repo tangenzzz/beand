@@ -48,7 +48,7 @@ class PourOverHero extends StatelessWidget {
       label = 'DONE';
       stepLine = brew.beverageG == null
           ? null
-          : 'In cup ${formatGrams(brew.beverageG!)} g';
+          : 'Yield ${formatGrams(brew.beverageG!)} g';
     } else if (!scale.isConnected) {
       label = 'NO SCALE';
       stepLine = null;

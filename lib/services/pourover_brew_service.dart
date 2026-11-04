@@ -254,7 +254,7 @@ class PourOverBrewService extends LiveShotService {
   //
   // On: the steps weigh server, brewer and coffee by themselves (tare after
   // each), the coffee becomes the dose, the first water starts the brew and
-  // lifting the brewer ends it with the coffee weighed ("In cup"). Off:
+  // lifting the brewer ends it with the coffee weighed (the yield). Off:
   // enter everything by hand, Start Brew waits for the water, Finish ends.
   // Same for a Bluetooth scale and the Meticulous in Scale only mode (user
   // 2026-11-04).

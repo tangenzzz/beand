@@ -18,7 +18,7 @@ import 'recipe_format.dart';
 // flow in blue on its own axis on the right, pours as bands; above it
 // Time/Weight/Flow like in the machines' live card), below it the pour list
 // with check marks and the hint for the current pour. "Finish" at the
-// bottom; after the end the result (water, In cup) stays with "Rate brew".
+// bottom; after the end the result (water, yield) stays with "Rate brew".
 class LiveBrewCard extends StatelessWidget {
   const LiveBrewCard({super.key});
 
@@ -60,7 +60,8 @@ class LiveBrewCard extends StatelessWidget {
                   '',
                 ),
                 LiveStat(
-                  done ? 'Water' : 'Weight',
+                  // The scale counts the water poured.
+                  'Water',
                   shown ? brew.grams.toStringAsFixed(1) : null,
                   'g',
                   color: context.colors.sensorMid,
@@ -68,7 +69,7 @@ class LiveBrewCard extends StatelessWidget {
                 // Done: the coffee weighed in the server instead of the
                 // flow (which is 0 by then).
                 if (done && brew.beverageG != null)
-                  LiveStat('In cup', brew.beverageG!.toStringAsFixed(1), 'g')
+                  LiveStat('Yield', brew.beverageG!.toStringAsFixed(1), 'g')
                 else
                   LiveStat(
                     'Flow',

@@ -455,7 +455,12 @@ class _Numbers extends StatelessWidget {
     final rows = [
       [
         ('Time', s.durationMs == null ? null : seconds(s.durationMs!), 's'),
-        ('Yield', s.finalWeight == null ? null : grams(s.finalWeight!), 'g'),
+        // Pour over: the scale curve is the water poured.
+        (
+          s.machine == 'pourover' ? 'Water' : 'Yield',
+          s.finalWeight == null ? null : grams(s.finalWeight!),
+          'g',
+        ),
         ('Temp', s.profileTemp == null ? null : grams(s.profileTemp!), '°C'),
       ],
       [
@@ -480,7 +485,9 @@ class _Numbers extends StatelessWidget {
                             TextSpan(
                               text: value ?? '–',
                               style: TextStyle(
-                                color: label == 'Yield' && value != null
+                                color:
+                                    (label == 'Yield' || label == 'Water') &&
+                                        value != null
                                     ? colors.sensorMid
                                     : (value == null
                                           ? colors.textTertiary
