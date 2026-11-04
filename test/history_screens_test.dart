@@ -4,6 +4,7 @@ import 'package:beand/database/database.dart';
 import 'package:beand/models/history_import.dart';
 import 'package:beand/screens/history/history_tab.dart';
 import 'package:beand/screens/history/shot_detail_screen.dart';
+import 'package:beand/screens/live/ruler_picker.dart';
 import 'package:beand/widgets/value_select_row.dart';
 import 'package:beand/screens/beans/beans_tab.dart';
 import 'package:beand/screens/history/history_widgets.dart';
@@ -329,6 +330,34 @@ void main() {
       'Sweet, try 0.1 finer',
     );
 
+    await teardownApp(tester);
+  });
+
+  testWidgets('shot detail: the temperature can be changed afterwards', (
+    tester,
+  ) async {
+    bigScreen(tester);
+    late int id;
+    await tester.runAsync(() async {
+      id = await _insertShot(db, at: DateTime(2026, 9, 21, 8), externalId: 't');
+    });
+    await tester.pumpWidget(_app(db, ShotDetailScreen(shotId: id)));
+    await settle(tester);
+    expect(find.text('93.1 °C'), findsOneWidget);
+    await tester.tap(find.text('93.1 °C'));
+    await tester.pump();
+    final ruler = tester.widget<RulerPicker>(
+      find.byKey(const ValueKey('temp')),
+    );
+    ruler.onChanged(96);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    expect(
+      (await inDb(tester, () => db.watchShotEntry(id).first))!.shot.profileTemp,
+      96,
+    );
     await teardownApp(tester);
   });
 

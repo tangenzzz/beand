@@ -150,7 +150,8 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  // Time, yield, temp of a shot added by hand, debounced like dose/grind.
+  // Time and yield of a shot added by hand, the temp of any shot —
+  // debounced like dose/grind.
   void _setNumbers({double? seconds, double? yieldGrams, double? temp}) {
     setState(() {
       _secondsDraft = seconds ?? _secondsDraft;
@@ -833,7 +834,9 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               temp(profileTemp),
               '°C',
               otherOf(temp(other?.profileTemp)),
-              onTap: tapIf(_Open.temp),
+              // Always editable, like dose and grind (user 2026-11-04): the
+              // water temperature is often only known afterwards.
+              onTap: () => _toggle(_Open.temp),
               active: _open == _Open.temp,
             ),
           ],
