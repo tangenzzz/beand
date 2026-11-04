@@ -132,7 +132,16 @@ void main() {
     );
     await tester.pump();
 
+    // Machine mode (default): the dial leads.
     expect(find.text('Meticulous'), findsOneWidget);
+    expect(find.text('Last brew'), findsOneWidget);
+    expect(find.textContaining('Brew on the machine'), findsWidgets);
+    expect(find.text('On the machine'), findsNWidgets(3));
+    expect(find.textContaining('Put the server'), findsNothing);
+
+    // Scale only: the app leads with its own steps.
+    brew.setMeticulousMode(MeticulousPourMode.scaleOnly);
+    await tester.pump();
     expect(find.text('Setup'), findsOneWidget);
     expect(find.text('1/3 Put the server on the scale'), findsOneWidget);
     expect(find.text('One and Done'), findsWidgets);

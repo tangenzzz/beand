@@ -31,6 +31,7 @@ import 'services/gear_store.dart';
 import 'services/grinder_store.dart';
 import 'services/water_store.dart';
 import 'services/brew_recipe_store.dart';
+import 'services/meticulous_dial_brews.dart';
 import 'services/meticulous_pourover_profiles.dart';
 import 'services/heating_estimator.dart';
 import 'services/live_shot_service.dart';
@@ -264,12 +265,16 @@ Future<void> main() async {
       pourOverSetup.setDose(first.doseG);
     }
   }
-  pourOver = PourOverBrewService(
-    scale: scale,
-    recipes: recipeStore,
-    setup: pourOverSetup,
-    database: database,
-  )..start();
+  pourOver =
+      PourOverBrewService(
+          scale: scale,
+          recipes: recipeStore,
+          setup: pourOverSetup,
+          database: database,
+        )
+        // Brews made on the Meticulous' dial (Machine mode).
+        ..dialBrews = MeticulousDialBrews(host: () => socketService.hostname)
+        ..start();
 
   final profileImages = ProfileImages(database.watchStoredProfiles());
 

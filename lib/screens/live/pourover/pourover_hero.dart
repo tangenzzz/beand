@@ -47,6 +47,18 @@ class PourOverHero extends StatelessWidget {
     if (!scale.isConnected) {
       label = 'NO SCALE';
       stepLine = null;
+    } else if (brew.dialLeads) {
+      // Machine mode: the dial leads, the app shows weight, flow and time.
+      if (!running) {
+        label = 'READY';
+        stepLine = 'Brew on the machine';
+      } else if (brew.phase == BrewState.measuring) {
+        label = 'DONE';
+        stepLine = 'Finish on the machine';
+      } else {
+        label = 'POURING';
+        stepLine = null;
+      }
     } else if (!running) {
       // After the steps on the Meticulous the first water starts the brew.
       label = brew.prepComplete ? 'START POURING' : 'READY';
@@ -382,12 +394,7 @@ class _PrepLines extends StatelessWidget {
         ? (colors.danger, 'Tare not confirmed · tap Tare')
         : weighed.isNotEmpty
         ? (colors.success, weighed)
-        : (
-            colors.divider,
-            prep.following
-                ? 'Press the dial on the machine · or Tare here'
-                : 'Records itself once steady · Tare to confirm',
-          );
+        : (colors.divider, 'Records itself once steady · Tare to confirm');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

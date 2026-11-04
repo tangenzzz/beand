@@ -102,9 +102,12 @@ class _PreBrewCardState extends State<PreBrewCard> {
   List<BrewRecipe> _pickerRecipes() {
     final store = context.read<BrewRecipeStore>();
     final current = context.read<PourOverBrewService>().recipe;
+    final list = store.enabledRecipes;
+    // The chosen recipe once — also when it is not checked (machine
+    // profiles are never "checked", it used to show up twice).
     return [
-      ...store.enabledRecipes,
-      if (current != null && !store.isEnabled(current.id)) current,
+      ...list,
+      if (current != null && !list.any((r) => r.id == current.id)) current,
     ];
   }
 
@@ -178,6 +181,9 @@ class _PreBrewCardState extends State<PreBrewCard> {
     final grinder = setup.grinder;
     final grindScale = grinder?.scale ?? const GrindScale(max: 60);
     final temp = brew.temperature;
+    // Machine mode: profile, water and temperature are set on the dial.
+    final dial = brew.dialLeads;
+    const onMachine = 'On the machine';
 
     // Nothing can be changed during the brew.
     if ((locked && _open != null) ||
@@ -210,7 +216,18 @@ class _PreBrewCardState extends State<PreBrewCard> {
                   children: [
                     TileTitle(short: 'PRE', active: isActiveCard),
                     const SizedBox(height: 2),
-                    if (!manual)
+                    if (dial)
+                      const ValueSelectRow<void>.custom(
+                        icon: Icons.tune,
+                        label: 'Profile',
+                        valueText: onMachine,
+                        dimValue: true,
+                        enabled: false,
+                        open: false,
+                        showChevron: false,
+                        panel: SizedBox.shrink(),
+                      )
+                    else if (!manual)
                       ValueSelectRow<String>(
                         // Nearly the full card width, like Compare.
                         listIndent: 0,
@@ -324,11 +341,13 @@ class _PreBrewCardState extends State<PreBrewCard> {
                     ValueSelectRow<void>.custom(
                       icon: Icons.water_drop_outlined,
                       label: 'Water',
-                      valueText: plan == null
+                      valueText: dial
+                          ? onMachine
+                          : plan == null
                           ? null
                           : '${formatGrams(plan.totalWaterG)} g  ·  1:${formatRatio(plan.ratio)}',
-                      dimValue: !manual || locked,
-                      enabled: manual && !locked,
+                      dimValue: dial || !manual || locked,
+                      enabled: !dial && manual && !locked,
                       trailing: manual
                           ? null
                           : Icon(
@@ -351,13 +370,15 @@ class _PreBrewCardState extends State<PreBrewCard> {
                     ValueSelectRow<void>.custom(
                       icon: Icons.thermostat_outlined,
                       label: 'Temp',
-                      valueText: temp != null
+                      valueText: dial
+                          ? onMachine
+                          : temp != null
                           ? '${formatGrams(temp)}°C'
                           : (recipe?.brewTemperature != null
                                 ? brewTemperatureLabel(recipe!.brewTemperature!)
                                 : null),
-                      dimValue: temp == null || locked,
-                      enabled: !locked,
+                      dimValue: dial || temp == null || locked,
+                      enabled: !dial && !locked,
                       isLast: true,
                       open: _open == _OpenList.temp,
                       onToggle: () => _toggle(_OpenList.temp),
@@ -394,6 +415,10 @@ class _StartButton extends StatelessWidget {
     final scale = context.watch<BrewScale>();
     if (brew.stage != ShotStage.idle) {
       return const AppButton(label: 'Brewing…', onPressed: null);
+    }
+    // Machine mode: the brew starts on the dial (the app follows by itself).
+    if (brew.dialLeads) {
+      return const AppButton(label: 'Brew on the machine', onPressed: null);
     }
     if (!scale.isConnected) {
       final busy = scale.connection != ScaleConnection.disconnected;

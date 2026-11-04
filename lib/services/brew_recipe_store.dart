@@ -91,11 +91,17 @@ class BrewRecipeStore extends ChangeNotifier {
 
   final Map<String, File> _machinePhotos = {};
 
-  void setUseMachine(bool value) {
-    if (value == _useMachine) return;
+  bool _alsoRecipes = false;
+
+  /// With the Meticulous: its profiles; [alsoRecipes] adds the checked
+  /// brew-recipes (Scale only — the app leads and can run both).
+  void setUseMachine(bool value, {bool alsoRecipes = false}) {
+    if (value == _useMachine && alsoRecipes == _alsoRecipes) return;
+    final load = value && !_useMachine;
     _useMachine = value;
+    _alsoRecipes = alsoRecipes;
     notifyListeners();
-    if (value) unawaited(refreshMachine());
+    if (load) unawaited(refreshMachine());
   }
 
   Future<void>? _machineFetch;
@@ -146,7 +152,9 @@ class BrewRecipeStore extends ChangeNotifier {
   /// Checked profiles: first in custom order, then the rest in list order.
   /// With the Meticulous as the scale: the machine's profiles.
   List<BrewRecipe> get enabledRecipes {
-    if (_useMachine) return _sorted(_machineRecipes);
+    if (_useMachine) {
+      return _sorted([..._machineRecipes, if (_alsoRecipes) ..._githubEnabled]);
+    }
     return _sorted(_githubEnabled);
   }
 
@@ -307,7 +315,10 @@ class BrewRecipeStore extends ChangeNotifier {
   /// Recipe from the list in use (machine profiles with the Meticulous as
   /// the scale, brew-recipes otherwise).
   BrewRecipe? byId(String id) {
-    for (final r in _useMachine ? _machineRecipes : _recipes) {
+    for (final r in [
+      if (_useMachine) ..._machineRecipes,
+      if (!_useMachine || _alsoRecipes) ..._recipes,
+    ]) {
       if (r.id == id) return r;
     }
     return null;

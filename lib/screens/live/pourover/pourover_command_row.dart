@@ -64,7 +64,8 @@ class PourOverCommandRow extends StatelessWidget {
                 _CommandButton(
                   icon: brew.manual ? Icons.back_hand_outlined : Icons.tune,
                   label: brew.manual ? 'Manual' : 'Profile',
-                  onTap: brew.profileLocked
+                  // Machine mode: the dial picks the profile.
+                  onTap: brew.profileLocked || brew.dialLeads
                       ? null
                       : () => brew.setManual(!brew.manual),
                 ),
@@ -93,7 +94,17 @@ class PourOverCommandRow extends StatelessWidget {
                 // Bluetooth: battery level. Meticulous (mains powered):
                 // the setup steps — tap starts them again, long press skips
                 // them.
-                if (machine)
+                if (machine && brew.dialLeads)
+                  // Machine mode: fetch the machine's last brew now (it
+                  // also comes by itself after a brew and on connect).
+                  _CommandButton(
+                    icon: Icons.download_outlined,
+                    label: 'Last brew',
+                    onTap: connected && !brew.profileLocked
+                        ? () => _importLast(context, brew)
+                        : null,
+                  )
+                else if (machine)
                   _CommandButton(
                     icon: Icons.checklist,
                     label: 'Setup',
@@ -209,6 +220,22 @@ class PourOverCommandRow extends StatelessWidget {
         unawaited(scale.connect());
       }
     }
+  }
+
+  static Future<void> _importLast(
+    BuildContext context,
+    PourOverBrewService brew,
+  ) async {
+    final added = await brew.importLastDialBrew();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          added ? 'Brew taken from the machine' : 'No new brew on the machine',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   static void _openScaleSettings(BuildContext context) {

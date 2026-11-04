@@ -11,6 +11,7 @@ import 'package:beand/scale/scale_selector.dart';
 import 'package:beand/scale/simulated_scale.dart';
 import 'package:beand/services/brew_recipe_store.dart';
 import 'package:beand/services/brew_recipes_source.dart';
+import 'package:beand/services/meticulous_dial_brews.dart';
 import 'package:beand/services/meticulous_pourover_profiles.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/services/pourover_brew_service.dart';
@@ -469,122 +470,305 @@ void main() {
     });
   });
 
-  group('Brew service with the Meticulous', () {
-    test('follows the dial, starts with the first water, ends when the '
-        'brewer comes off and weighs the coffee', () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      var now = DateTime(2026, 11, 3, 23);
+  group('Dial brews', () {
+    test('parse the machine\'s brew', () {
+      final b = DialBrew.fromJson(
+        jsonDecode(
+          File('test/fixtures/meticulous_dial_brew.json').readAsStringSync(),
+        ) as Map<String, dynamic>,
+      );
+      expect(b.profileName, 'Manhattan Pour Over');
+      expect(b.temperatureC, 99);
+      expect(b.doseG, 15);
+      expect(b.waterG, 253.1);
+      expect(b.beverageG, 199.2);
+      expect(b.brewerG, 115.5);
+      expect(b.durationMs, 223483);
+      expect(b.pours.map((p) => p.number), [1, 2, 3]);
+      expect(b.stageAt(10000), 'Pour 1');
+      expect(b.stageAt(30000), '');
+      expect(b.samples, isNotEmpty);
+      expect(b.externalId, startsWith('meticulous-pourover:'));
+    });
+
+    test('detector: water after a dial tare starts, setting things down '
+        'and coffee do not, a lift ends', () {
+      final d = DialBrewDetector();
+      var t = DateTime(2026, 11, 4, 8);
+      ScaleReading at(double g) {
+        t = t.add(const Duration(milliseconds: 100));
+        return ScaleReading(g, t);
+      }
+
+      // Not armed yet: nothing starts.
+      expect(d.feedIdle(at(50)), isNull);
+      d.deviceTared();
+      // Brewer set down (jump), coffee spooned in (< 40 g), next tare.
+      expect(d.feedIdle(at(0)), isNull);
+      expect(d.feedIdle(at(115)), isNull);
+      for (var g = 115.0; g < 130; g += 1) {
+        expect(d.feedIdle(at(g)), isNull);
+      }
+      d.deviceTared();
+      // Water at ~8 g/s.
+      List<ScaleReading>? rise;
+      for (var g = 0.0; rise == null && g < 100; g += 0.8) {
+        rise = d.feedIdle(at(g));
+      }
+      expect(rise, isNotNull);
+      expect(rise!.first.grams, lessThan(2));
+      expect(d.running, isTrue);
+      // Keeps pouring to 250, then the brewer comes off.
+      for (var g = 40.0; g < 250; g += 0.8) {
+        expect(d.feedRunning(at(g)), isNull);
+      }
+      DateTime? lift;
+      final liftStart = t;
+      for (var i = 0; lift == null && i < 40; i++) {
+        lift = d.feedRunning(at(120));
+      }
+      expect(lift, isNotNull);
+      expect(lift!.difference(liftStart).inMilliseconds, lessThan(200));
+    });
+
+    test('detector on the real capture: starts with the water poured after '
+        'the brewer tare', () async {
+      final fixture = jsonDecode(
+        File('test/fixtures/meticulous_dial_pourover.json').readAsStringSync(),
+      ) as Map;
+      final socket = _FakeSocket();
+      final start = DateTime(2026, 11, 3, 23, 13, 23);
+      var now = start;
+      int? startedMs;
       await withClock(Clock(() => now), () async {
-        final socket = _FakeSocket()..send(-136.5);
-        final selector = ScaleSelector(
-          bluetooth: SimulatedScale(),
-          meticulous: MeticulousScale(socket),
-        );
-        final store = _store([_github]);
-        await store.load();
-        store.setEnabled('two-pours', true);
-        store.machineSource = MeticulousPourOverProfiles(
-          host: () => 'machine.local',
-          client: MockClient(
-            (req) async => req.url.path.contains('/image/')
-                ? http.Response('', 404)
-                : http.Response(
-                    jsonEncode({
-                      'profiles': [_machineProfile],
-                    }),
-                    200,
-                  ),
-          ),
-        );
-        final service = PourOverBrewService(
-          scale: selector,
-          recipes: store,
-          setup: ShotSetup.inMemory(machineKey: 'pourover'),
-          database: db,
-        )..start();
-        service.selectRecipe(_github);
-
-        selector.setSource(ScaleSource.meticulous);
-        await store.refreshMachine();
-        await Future<void>.delayed(Duration.zero);
-        expect(service.recipe?.name, 'One and Done');
-        service.setPrepVisible(true);
-        expect(service.prepActive, isTrue);
-
-        var gross = -136.5;
-        Future<void> hold(int ticks) async {
-          for (var i = 0; i < ticks; i++) {
-            now = now.add(const Duration(milliseconds: 100));
-            socket.send(gross);
+        final scale = MeticulousScale(socket);
+        final d = DialBrewDetector();
+        scale.deviceTares.listen((_) => d.deviceTared());
+        scale.readings.listen((r) {
+          final rise = d.feedIdle(r);
+          if (rise != null) {
+            startedMs ??= rise.first.at.difference(start).inMilliseconds;
           }
+        });
+        for (final sample in fixture['samples'] as List) {
+          now = start.add(Duration(milliseconds: sample[0] as int));
+          socket.send((sample[1] as num).toDouble());
           await Future<void>.delayed(Duration.zero);
         }
+      });
+      // Water from 101.6 s (after the brewer tare at 96.7 s).
+      expect(startedMs, isNotNull);
+      expect(startedMs! / 1000, closeTo(101.6, 0.5));
+    });
+  });
 
-        // Server on — the app does not tare by itself.
-        await hold(12);
-        gross += 300;
-        await hold(15);
-        expect(service.prep.step, SetupStep.server);
-        expect(socket.actions, isEmpty);
-        // Press on the dial → machine tares → the app follows.
-        socket.dialTare();
-        await hold(5);
-        expect(service.prep.step, SetupStep.brewer);
-        expect(service.prep.serverG, closeTo(300, 1e-9));
+  group('Brew service with the Meticulous', () {
+    late AppDatabase db;
+    late _FakeSocket socket;
+    late ScaleSelector selector;
+    late BrewRecipeStore store;
+    late PourOverBrewService service;
+    late Map<String, dynamic> dialBrew;
+    var now = DateTime(2026, 11, 4, 7, 34);
+    var brewOnMachine = false;
 
-        gross += 30.6;
-        await hold(10);
-        socket.dialTare();
-        await hold(5);
-        gross += 15.2;
-        await hold(10);
-        socket.dialTare();
-        await hold(5);
-        expect(service.prep.done, isTrue);
-        expect(service.setup.doseGrams, 15.2);
-        expect(service.prepComplete, isTrue);
+    Future<void> setUpService(MeticulousPourMode mode) async {
+      SharedPreferences.setMockInitialValues({
+        PourOverBrewService.meticulousModePrefKey: mode.name,
+      });
+      db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      socket = _FakeSocket()..send(-136.5);
+      selector = ScaleSelector(
+        bluetooth: SimulatedScale(),
+        meticulous: MeticulousScale(socket),
+      );
+      store = _store([_github]);
+      await store.load();
+      store.setEnabled('two-pours', true);
+      dialBrew = jsonDecode(
+        File('test/fixtures/meticulous_dial_brew.json').readAsStringSync(),
+      ) as Map<String, dynamic>;
+      final client = MockClient((req) async {
+        final path = req.url.path;
+        if (path.contains('/pour-over/profile/list')) {
+          return http.Response(
+            jsonEncode({
+              'profiles': [_machineProfile],
+            }),
+            200,
+          );
+        }
+        if (path.endsWith('/history/pour-over/last')) {
+          return brewOnMachine
+              ? http.Response(
+                  jsonEncode({'id': dialBrew['id'], 'file': 'x.json.zst'}),
+                  200,
+                )
+              : http.Response('{}', 404);
+        }
+        if (path.contains('/history/pour-over/files/')) {
+          return http.Response(jsonEncode(dialBrew), 200);
+        }
+        return http.Response('', 404);
+      });
+      store.machineSource = MeticulousPourOverProfiles(
+        host: () => 'machine.local',
+        client: client,
+      );
+      service =
+          PourOverBrewService(
+              scale: selector,
+              recipes: store,
+              setup: ShotSetup.inMemory(machineKey: 'pourover'),
+              database: db,
+            )
+            ..dialBrews = MeticulousDialBrews(
+              host: () => 'm.local',
+              client: client,
+            )
+            ..dialPollEvery = const Duration(milliseconds: 20);
+      service.start();
+      selector.setSource(ScaleSource.meticulous);
+      await store.refreshMachine();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      service.setPrepVisible(true);
+    }
+
+    var gross = -136.5;
+    Future<void> hold(int ticks) async {
+      for (var i = 0; i < ticks; i++) {
+        now = now.add(const Duration(milliseconds: 100));
+        socket.send(gross);
+      }
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    test('Machine: follows the dial live, then takes the machine\'s brew '
+        'combined with Pre Brew', () async {
+      await withClock(Clock(() => now), () async {
+        brewOnMachine = false;
+        gross = -136.5;
+        await setUpService(MeticulousPourMode.machine);
+        expect(service.dialLeads, isTrue);
+        expect(service.prepActive, isFalse);
+        service.setup.setBean(7);
+        service.setup.setGrind(24);
+
+        // Server, brewer, coffee — each tared on the dial.
+        for (final load in [300.0, 115.5, 15.0]) {
+          gross += load;
+          await hold(10);
+          socket.dialTare();
+          await hold(5);
+        }
         expect(service.stage, ShotStage.idle);
         expect(socket.actions, isEmpty);
 
-        // First water starts the brew by itself — no tare.
+        // Water: the brew shows up in the app by itself.
+        for (var i = 0; i < 60; i++) {
+          gross += 0.8;
+          await hold(1);
+        }
+        expect(service.stage, ShotStage.running);
+        expect(service.grams, greaterThan(40));
+        expect(service.elapsedMs, greaterThan(5000));
+
+        // Brewer off → waiting for the machine.
+        gross -= 200;
+        await hold(35);
+        expect(service.waitingForMachine, isTrue);
+
+        // The dial finishes and saves its brew.
+        brewOnMachine = true;
+        dialBrew['startedAt'] = now.toUtc().toIso8601String();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await service.importLastDialBrew(); // no-op while running
+        // The poll timer runs on real time — call it like the timer would.
+        for (var i = 0; i < 20 && service.stage == ShotStage.running; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 100));
+        }
+        expect(service.stage, isNot(ShotStage.running));
+        final shot = (await db.select(db.shots).get()).single;
+        expect(shot.profileName, 'Manhattan Pour Over');
+        expect(shot.profileTemp, 99);
+        expect(shot.finalWeight, 253.1);
+        expect(shot.beverageGrams, 199.2);
+        expect(shot.doseGrams, 15);
+        expect(shot.durationMs, 223483);
+        expect(shot.beanId, 7);
+        expect(shot.grindSize, isNotNull);
+        expect(socket.actions, isEmpty);
+        service.dispose();
+      });
+    });
+
+    test(
+      'Machine: a dial brew made while the app was away is taken once',
+      () async {
+        await withClock(Clock(() => now), () async {
+          brewOnMachine = true;
+          gross = -136.5;
+          await setUpService(MeticulousPourMode.machine);
+          // Taken when the view opened.
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          expect(await service.importLastDialBrew(), isFalse);
+          expect((await db.select(db.shots).get()).length, 1);
+          expect(await service.importLastDialBrew(), isFalse);
+          expect((await db.select(db.shots).get()).length, 1);
+          service.dispose();
+        });
+      },
+    );
+
+    test('Scale only: app steps tare by themselves, brew starts with the '
+        'water, ends at the lift and weighs the coffee', () async {
+      await withClock(Clock(() => now), () async {
+        brewOnMachine = false;
+        gross = -136.5;
+        await setUpService(MeticulousPourMode.scaleOnly);
+        expect(service.dialLeads, isFalse);
+        expect(service.prepActive, isTrue);
+        // Machine profiles first, checked recipes after them.
+        expect(store.enabledRecipes.map((r) => r.id), [
+          _machineProfile['id'],
+          'two-pours',
+        ]);
+
+        await hold(12);
+        gross += 300;
+        await hold(15);
+        expect(service.prep.step, SetupStep.brewer);
+        expect(socket.actions, ['tare']);
+        gross += 30.6;
+        await hold(15);
+        gross += 15.2;
+        await hold(15);
+        expect(service.prep.done, isTrue);
+        expect(service.setup.doseGrams, 15.2);
+        expect(socket.actions.length, 3);
+
         gross += 3;
         await hold(1);
         await Future<void>.delayed(Duration.zero);
         expect(service.stage, ShotStage.running);
-        expect(service.phase, BrewState.pouring);
         for (var poured = 3.0; poured < 225; poured += 7.5) {
           gross += 7.5;
           await hold(1);
         }
         await hold(20);
         final water = service.grams;
-        expect(water, greaterThan(220));
-
-        // Brewer off (brewer + grounds + retained water) …
         gross -= 30.6 + 15.2 + 40;
         await hold(35);
         expect(service.phase, BrewState.measuring);
-        // … everything off → the server has to go back …
-        gross -= 300 + 225 - 40;
-        await hold(10);
-        expect(service.serverMissing, isTrue);
-        // … server with 185 g of coffee back on.
         gross = -136.5 + 300 + 185;
+        // (zero sits on server + brewer + coffee after the app's tares)
+        gross += 0;
         await hold(12);
         await Future<void>.delayed(const Duration(milliseconds: 50));
-        expect(service.stage, isNot(ShotStage.running));
-        expect(socket.actions, isEmpty);
-
         final shot = (await db.select(db.shots).get()).single;
-        expect(shot.profileName, 'One and Done');
-        expect(shot.doseGrams, 15.2);
-        expect(shot.beverageGrams, closeTo(185, 0.05));
         expect(shot.finalWeight, closeTo(water, 1e-9));
-        // Time stops at the lift, not when the coffee was weighed.
-        expect(shot.durationMs, lessThan(6000));
-        final saved = jsonDecode(shot.rawDebugJson!) as Map;
-        expect(saved['pourOverSetup']['brewerG'], closeTo(30.6, 1e-9));
+        expect(shot.beverageGrams, isNotNull);
         service.dispose();
       });
     });

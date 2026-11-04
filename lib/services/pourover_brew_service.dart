@@ -13,8 +13,22 @@ import '../models/brew_recipe.dart';
 import '../scale/brew_scale.dart';
 import 'brew_recipe_store.dart';
 import 'live_shot_service.dart';
+import 'meticulous_dial_brews.dart';
 import 'pourover_setup.dart';
 import 'shot_setup.dart';
+
+/// Who leads a Pour Over brew on the Meticulous' scale (Settings → Pour
+/// Over → Meticulous). The machine's own Pour Over mode can't be steered
+/// from outside (no profile choice, steps stay in the dial — checked
+/// 2026-11-04), so the two are kept apart instead of mixed.
+enum MeticulousPourMode {
+  /// The dial leads: the app shows weight, flow and time live and takes
+  /// the finished brew from the machine, combined with Pre Brew.
+  machine,
+
+  /// Only the scale: the app leads with its own steps, tare and timer.
+  scaleOnly,
+}
 
 /// Where the running brew currently is.
 enum BrewState {
@@ -30,9 +44,9 @@ enum BrewState {
   /// Last pour reached, drawdown.
   drawdown,
 
-  /// Brewer lifted off (Meticulous, like its own Pour Over mode): the
-  /// timer has stopped, waiting for the server with the coffee to stand
-  /// still on the scale to weigh the beverage.
+  /// Brewer lifted off (Meticulous): the timer has stopped. Scale only:
+  /// waiting for the server with the coffee to weigh the beverage. Machine:
+  /// waiting for the dial to finish and send the brew.
   measuring,
 }
 
@@ -125,6 +139,13 @@ class PourOverBrewService extends LiveShotService {
       final prefs = await SharedPreferences.getInstance();
       _manual = prefs.getBool(manualPrefKey) ?? _manual;
       _manualWater = prefs.getDouble(manualWaterPrefKey) ?? _manualWater;
+      final mode = MeticulousPourMode.values
+          .where((m) => m.name == prefs.getString(meticulousModePrefKey))
+          .firstOrNull;
+      if (mode != null && mode != _meticulousMode) {
+        _meticulousMode = mode;
+        _applyMode();
+      }
       notifyListeners();
     } catch (_) {}
   }
@@ -142,6 +163,19 @@ class PourOverBrewService extends LiveShotService {
       sourceName: '',
     );
   }
+
+  // Stand-in plan while the dial leads: one open pour the app never
+  // reaches, so it shows weight and flow without targets.
+  static final _dialRecipe = BrewRecipe(
+    id: 'meticulous-dial',
+    name: 'Meticulous',
+    brewer: '',
+    doseG: 15,
+    waterMl: 2000,
+    grindSize: '',
+    phases: const [BrewPhase(label: 'Pour', waterG: 2000)],
+    sourceName: '',
+  );
 
   void setTemperature(double? c) {
     _temperature = c;
@@ -169,13 +203,42 @@ class PourOverBrewService extends LiveShotService {
   late final PourOverSetup prep = PourOverSetup(
     tare: () => scale.tare(),
     targetDose: () => setup.doseGrams ?? recipe?.doseG,
-    followDevice: () => scale.isMachineScale,
   )..addListener(_onPrep);
 
   bool _prepVisible = false;
   StreamSubscription<ScaleReading>? _prepSub;
-  StreamSubscription<double>? _deviceTareSub;
   StreamSubscription<ScaleReading>? _armSub;
+
+  // ---- Who leads on the Meticulous ----
+  static const meticulousModePrefKey = 'pourover_meticulous_mode';
+  MeticulousPourMode _meticulousMode = MeticulousPourMode.machine;
+  MeticulousPourMode get meticulousMode => _meticulousMode;
+
+  /// The Meticulous' dial leads the brew (Machine mode).
+  bool get dialLeads =>
+      scale.isMachineScale && _meticulousMode == MeticulousPourMode.machine;
+
+  void setMeticulousMode(MeticulousPourMode mode) {
+    if (mode == _meticulousMode || stage != ShotStage.idle) return;
+    _meticulousMode = mode;
+    _applyMode();
+    if (scale.isMachineScale && mode == MeticulousPourMode.scaleOnly) {
+      prep.restart();
+    }
+    notifyListeners();
+    _persist((p) => p.setString(meticulousModePrefKey, mode.name));
+  }
+
+  // Machine mode: only the machine's profiles (the dial picks one anyway);
+  // Scale only: the machine's profiles AND the checked recipes.
+  void _applyMode() {
+    recipes.setUseMachine(
+      scale.isMachineScale,
+      alsoRecipes: _meticulousMode == MeticulousPourMode.scaleOnly,
+    );
+    _syncPrep();
+    _syncDial();
+  }
 
   /// Grams of water that start the brew by themselves after the steps.
   static const autoStartGrams = 2.0;
@@ -183,12 +246,13 @@ class PourOverBrewService extends LiveShotService {
   /// The steps went through to the coffee: the scale stands at zero with
   /// everything on it, the next weight is water.
   bool get prepComplete =>
-      scale.isMachineScale && prep.done && prep.coffeeG != null;
+      scale.isMachineScale && !dialLeads && prep.done && prep.coffeeG != null;
   double? _prepCoffeeTaken;
 
   /// Steps are shown/running.
   bool get prepActive =>
       scale.isMachineScale &&
+      !dialLeads &&
       scale.isConnected &&
       stage == ShotStage.idle &&
       !prep.done;
@@ -198,6 +262,9 @@ class PourOverBrewService extends LiveShotService {
     _prepVisible = visible;
     if (visible) {
       prep.resume();
+      if (dialLeads && stage == ShotStage.idle) {
+        unawaited(importLastDialBrew());
+      }
       // Profiles may have been added on the machine in the meantime.
       if (recipes.useMachine && scale.isConnected) {
         unawaited(recipes.refreshMachine());
@@ -232,12 +299,9 @@ class PourOverBrewService extends LiveShotService {
     final listen = prepActive && _prepVisible;
     if (listen && _prepSub == null) {
       _prepSub = scale.readings.listen(prep.feed);
-      _deviceTareSub = scale.deviceTares.listen(prep.deviceTared);
     } else if (!listen && _prepSub != null) {
       _prepSub!.cancel();
       _prepSub = null;
-      _deviceTareSub?.cancel();
-      _deviceTareSub = null;
     }
     // After the steps: the first water starts the brew (timer, ring, Live
     // card) — like the machine's own Pour Over mode.
@@ -282,7 +346,7 @@ class PourOverBrewService extends LiveShotService {
     if (machine == _wasMachineScale) return;
     final first = _wasMachineScale == null;
     _wasMachineScale = machine;
-    recipes.setUseMachine(machine);
+    _applyMode();
     if (machine && !first) prep.restart();
   }
 
@@ -300,6 +364,8 @@ class PourOverBrewService extends LiveShotService {
   BrewPlan? get plan => _runningPlan ?? _currentPlan();
 
   BrewPlan? _currentPlan() {
+    // The dial picks the profile; live only weight, flow and time.
+    if (dialLeads) return BrewPlan(_dialRecipe);
     if (_manual) {
       final dose = setup.doseGrams ?? 15;
       return BrewPlan(_manualRecipe(dose), doseG: dose);
@@ -404,9 +470,12 @@ class PourOverBrewService extends LiveShotService {
     if (connectedNow && recipes.useMachine) {
       unawaited(recipes.refreshMachine());
     }
+    // A brew made on the dial while the app was away.
+    if (connectedNow && dialLeads) unawaited(importLastDialBrew());
     _ensureRecipe();
     stabilized = scale.isConnected && plan != null;
     _syncPrep();
+    _syncDial();
     notifyListeners();
   }
 
@@ -512,6 +581,211 @@ class PourOverBrewService extends LiveShotService {
       stage: currentStep?.label ?? '',
     );
     notifyListeners();
+  }
+
+  // ---- Machine mode: the dial leads ----
+  //
+  // Live the app only knows the weight: [DialBrewDetector] recognises the
+  // first water (after a dial tare) and the lift of the brewer. The real
+  // brew comes from the machine afterwards (`/history/pour-over/last`) and
+  // is saved combined with Pre Brew (bean, grinder, grind, chain).
+
+  /// Fetches the dial's brews; set in main.dart.
+  MeticulousDialBrews? dialBrews;
+
+  final _detector = DialBrewDetector();
+  StreamSubscription<ScaleReading>? _dialIdleSub;
+  StreamSubscription<double>? _dialTareSub;
+  bool _dialLive = false;
+  Timer? _dialPoll;
+  DateTime? _dialWaitSince;
+  bool _importing = false;
+
+  /// How long the app waits for the machine's brew after the lift.
+  static const dialWait = Duration(minutes: 5);
+  Duration dialPollEvery = const Duration(seconds: 2);
+
+  /// The live brew is waiting for the machine to send it.
+  bool get waitingForMachine => _dialLive && _phase == BrewState.measuring;
+
+  void _syncDial() {
+    final listen = dialLeads && stage == ShotStage.idle && scale.isConnected;
+    if (listen && _dialIdleSub == null) {
+      _detector.reset();
+      _dialIdleSub = scale.readings.listen(_onDialIdle);
+      _dialTareSub = scale.deviceTares.listen((_) => _detector.deviceTared());
+    } else if (!listen && _dialIdleSub != null) {
+      _dialIdleSub!.cancel();
+      _dialIdleSub = null;
+      _dialTareSub?.cancel();
+      _dialTareSub = null;
+    }
+  }
+
+  void _onDialIdle(ScaleReading r) {
+    final rise = _detector.feedIdle(r);
+    if (rise != null) _beginDial(rise);
+  }
+
+  void _beginDial(List<ScaleReading> rise) {
+    if (stage != ShotStage.idle) return;
+    _runningPlan = BrewPlan(_dialRecipe);
+    _runningPrep = null;
+    _setupG = null;
+    _dialLive = true;
+    _phase = BrewState.pouring;
+    _stepIndex = 0;
+    _startedAt = rise.first.at;
+    _waitUntil = null;
+    _grams = 0;
+    _flow = 0;
+    _flowEstimator.reset();
+    resetReadings();
+    _syncDial();
+    applyStage(ShotStage.running);
+    markExtracting(true);
+    for (final r in rise) {
+      _onDialReading(r);
+    }
+    _readingSub = scale.readings.listen(_onDialReading);
+    _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) => _tick());
+    notifyListeners();
+  }
+
+  void _onDialReading(ScaleReading r) {
+    if (_phase == BrewState.measuring || _startedAt == null) return;
+    final liftAt = _detector.feedRunning(r);
+    if (liftAt != null) {
+      _awaitDialBrew();
+      return;
+    }
+    // Lifting: hold back until confirmed or back on the scale.
+    if (r.grams < _grams - DialBrewDetector.liftDrop) return;
+    final ms = r.at.difference(_startedAt!).inMilliseconds;
+    _grams = math.max(0, r.grams);
+    _flowEstimator.add(ms, _grams);
+    _flow = _flowEstimator.gramsPerSecond;
+    addReading(timeMs: ms, pressure: 0, flow: _flow, weight: _grams, stage: '');
+    notifyListeners();
+  }
+
+  void _awaitDialBrew() {
+    _phase = BrewState.measuring;
+    markExtracting(false);
+    _flow = 0;
+    _dialWaitSince = clock.now();
+    _readingSub?.cancel();
+    _readingSub = null;
+    _dialPoll?.cancel();
+    _dialPoll = Timer.periodic(dialPollEvery, (_) => _pollDialBrew());
+    unawaited(_pollDialBrew());
+    notifyListeners();
+  }
+
+  Future<void> _pollDialBrew() async {
+    if (!waitingForMachine || _importing) return;
+    final source = dialBrews;
+    final since = _dialWaitSince ?? clock.now();
+    if (source != null) {
+      _importing = true;
+      try {
+        final brew = await source.fetchLast();
+        final start = _startedAt;
+        if (brew != null &&
+            start != null &&
+            brew.startedAt.difference(start).abs() <
+                const Duration(minutes: 10) &&
+            !(await database.knownExternalIds()).contains(brew.externalId)) {
+          await _saveDialBrew(brew);
+          _finishDialLive();
+          return;
+        }
+      } catch (e) {
+        debugPrint('PourOverBrewService: dial brew not fetched: $e');
+      } finally {
+        _importing = false;
+      }
+    }
+    if (clock.now().difference(since) >= dialWait) {
+      // The machine sent nothing — keep what the app measured.
+      _lastError = 'No brew from the machine — saved what the app measured.';
+      await stopShot();
+    }
+  }
+
+  void _finishDialLive() {
+    _dialPoll?.cancel();
+    _dialPoll = null;
+    _dialLive = false;
+    _stopListening();
+    _runningPlan = null;
+    applyStage(ShotStage.purging);
+    _syncDial();
+    notifyListeners();
+  }
+
+  /// Takes the machine's latest Pour Over brew into the history if it is
+  /// new (e.g. brewed on the dial while the app was away). True when one
+  /// was added.
+  Future<bool> importLastDialBrew() async {
+    final source = dialBrews;
+    if (source == null || _importing || stage != ShotStage.idle) return false;
+    _importing = true;
+    try {
+      final brew = await source.fetchLast();
+      if (brew == null) return false;
+      if ((await database.knownExternalIds()).contains(brew.externalId)) {
+        return false;
+      }
+      if (stage != ShotStage.idle) return false;
+      await _saveDialBrew(brew);
+      return true;
+    } catch (e) {
+      debugPrint('PourOverBrewService: dial brew not fetched: $e');
+      return false;
+    } finally {
+      _importing = false;
+    }
+  }
+
+  // The machine's brew + Pre Brew: what was weighed and brewed comes from
+  // the machine, bean / grinder / grind / chain from the app.
+  Future<void> _saveDialBrew(DialBrew b) async {
+    final snap = setup.snapshot();
+    final dose = b.doseG ?? setup.doseGrams;
+    await database.insertShotWithReadings(
+      ShotsCompanion.insert(
+        timestamp: b.startedAt,
+        machine: const Value('pourover'),
+        externalId: Value(b.externalId),
+        beanId: Value(snap.beanId),
+        profileName: Value(b.profileName),
+        doseGrams: Value(dose),
+        grindSize: Value(snap.grindText),
+        grindZero: Value(snap.grindZero),
+        grindMarker: Value(snap.grindMarker),
+        grinder: Value(snap.grinder),
+        burrs: Value(snap.burrs),
+        brewedWith: Value(snap.brewedWith),
+        brewChainId: Value(snap.brewChainId),
+        finalWeight: Value(b.waterG),
+        beverageGrams: Value(b.beverageG),
+        durationMs: Value(b.durationMs),
+        profileTemp: Value(b.temperatureC),
+        rawDebugJson: Value(b.raw),
+      ),
+      [
+        for (final r in b.samples)
+          (shotId) => ShotReadingsCompanion.insert(
+            shotId: shotId,
+            timeMs: r.ms,
+            weight: Value(r.grams),
+            gravimetricFlow: Value(r.flow),
+            stage: Value(b.stageAt(r.ms)),
+          ),
+      ],
+    );
+    if (dose != null) setup.setDose(dose);
   }
 
   // ---- End by lifting the brewer (Meticulous, after the steps) ----
@@ -635,6 +909,14 @@ class PourOverBrewService extends LiveShotService {
   @override
   Future<bool> stopShot() async {
     if (stage != ShotStage.running || _saving) return false;
+    // Dial leads: "Finish" means the pouring is over — wait for the
+    // machine's brew; a second Finish keeps what the app measured.
+    if (_dialLive && _phase != BrewState.measuring) {
+      _awaitDialBrew();
+      return true;
+    }
+    _dialPoll?.cancel();
+    _dialLive = false;
     _saving = true;
     try {
       _stopListening();
@@ -741,8 +1023,10 @@ class PourOverBrewService extends LiveShotService {
   void dispose() {
     _stopListening();
     _prepSub?.cancel();
-    _deviceTareSub?.cancel();
     _armSub?.cancel();
+    _dialIdleSub?.cancel();
+    _dialTareSub?.cancel();
+    _dialPoll?.cancel();
     prep.removeListener(_onPrep);
     scale.removeListener(_onScale);
     setup.removeListener(_onScale);
