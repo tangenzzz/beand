@@ -120,6 +120,16 @@ class PourOverSetup extends ChangeNotifier {
     }
     if (_status != SetupStatus.waiting || !_steady) return;
     final g = r.grams;
+    // The piece of the step before was taken off again (another brewer
+    // after all): the weight sits that far below zero → tare and wait for
+    // it again (user 2026-11-04).
+    final previous = _previousWeight;
+    if (previous != null &&
+        previous >= brewerMinLoad &&
+        (g + previous).abs() <= math.max(takenOffBand, previous * 0.05)) {
+      unawaited(_stepBack());
+      return;
+    }
     switch (_step) {
       case SetupStep.server:
         // Baseline = lowest steady value: whatever stood on the scale
@@ -154,6 +164,45 @@ class PourOverSetup extends ChangeNotifier {
       case SetupStep.done:
         break;
     }
+  }
+
+  /// Tolerance for "the last piece came off again" (scale noise, a drop of
+  /// water from a wet filter).
+  static const takenOffBand = 2.0;
+
+  /// What the step before put on the scale.
+  double? get _previousWeight => switch (_step) {
+    SetupStep.brewer => serverG,
+    SetupStep.coffee => brewerG,
+    _ => null,
+  };
+
+  /// Back to the step before: tare (the piece is off), forget its weight.
+  Future<void> _stepBack() async {
+    if (_status == SetupStatus.taring || _step.index == 0) return;
+    _status = SetupStatus.taring;
+    notifyListeners();
+    try {
+      await tare();
+    } catch (_) {
+      _status = SetupStatus.tareFailed;
+      notifyListeners();
+      return;
+    }
+    _step = SetupStep.values[_step.index - 1];
+    switch (_step) {
+      case SetupStep.server:
+        serverG = null;
+        // Tared with the scale empty: that's the baseline now.
+        _baseline = 0;
+      case SetupStep.brewer:
+        brewerG = null;
+      case _:
+        break;
+    }
+    _status = SetupStatus.waiting;
+    _window.clear();
+    notifyListeners();
   }
 
   /// Weight on the scale that belongs to the setup (brewer + coffee) — the

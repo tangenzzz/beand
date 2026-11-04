@@ -376,6 +376,28 @@ void main() {
       expect(tares, 3);
     });
 
+    test(
+      'server taken off again in the brewer step: back to the server',
+      () async {
+        steady.hold(0);
+        steady.hold(300);
+        await settle();
+        expect(prep.step, SetupStep.brewer);
+        // The scale was tared with the server on; now it is off again.
+        steady.hold(-300);
+        await settle();
+        expect(prep.step, SetupStep.server);
+        expect(prep.serverG, isNull);
+        expect(tares, 2);
+        // After that tare the scale reads 0 — a new server counts from there.
+        steady.hold(0);
+        steady.hold(280);
+        await settle();
+        expect(prep.serverG, 280);
+        expect(prep.step, SetupStep.brewer);
+      },
+    );
+
     test('unsteady weight does not count', () async {
       steady.hold(0);
       for (var i = 0; i < 20; i++) {
@@ -920,6 +942,24 @@ void main() {
         await hold(15);
         expect(service.detectedBrewer?.id, 'april');
         expect(setup.chain?.id, 'c-april');
+        expect(service.prep.step, SetupStep.coffee);
+        final taresBefore = scale.tares;
+
+        // Another brewer after all: the April comes off again (the scale
+        // falls by its weight below zero) → tare, back to the brewer step.
+        scale.gross -= 116;
+        await hold(15);
+        expect(service.prep.step, SetupStep.brewer);
+        expect(service.prep.brewerG, isNull);
+        expect(service.detectedBrewer, isNull);
+        expect(scale.tares, taresBefore + 1);
+        expect(scale.grams, 0);
+
+        scale.gross += 30.8; // the V60
+        await hold(15);
+        expect(service.detectedBrewer?.id, 'v60');
+        expect(setup.chain?.id, 'c-v60');
+        expect(service.prep.step, SetupStep.coffee);
         service.dispose();
       });
     });
