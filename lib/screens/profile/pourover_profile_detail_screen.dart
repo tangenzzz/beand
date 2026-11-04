@@ -240,7 +240,11 @@ class _PourOverProfileDetailScreenState
           ),
           // Delete at the very end, like on the Meticulous. Not for the
           // machine's own profiles — those are managed on the Meticulous.
-          if (!r.fromMachine)
+          // Only for own profiles (not the machine's, not a recipe of the
+          // collection that isn't added).
+          if (!r.fromMachine &&
+              (context.watch<BrewRecipeStore>().isEnabled(r.id) ||
+                  context.watch<BrewRecipeStore>().isImported(r.id)))
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 20, 10, 4),
               child: AppButton(

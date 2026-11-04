@@ -11,7 +11,6 @@ import '../../../services/brew_recipe_store.dart';
 import '../../../services/meticulous_pourover_profiles.dart';
 import '../../../services/pourover_brew_service.dart';
 import '../../../theme/app_theme.dart';
-import '../../root_scaffold.dart';
 import '../../settings/pourover_profiles_screen.dart';
 
 // "+" on the Pour Over profile rows (user 2026-11-04): everyone gathers
@@ -46,15 +45,13 @@ Future<void> showAddPourOverProfile(
   ),
 );
 
-void _openRecipes(BuildContext context) {
-  final nav = RootNavigation.maybeOf(context);
-  if (nav?.openSettingsPage != null) {
-    nav!.openSettingsPage!((_) => const PourOverProfilesScreen());
-  } else {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const PourOverProfilesScreen()),
-    );
-  }
+// The collection opens right here (not in the settings tab), and going
+// back leads to the "+" dialog again (user 2026-11-04).
+Future<void> _openRecipes(BuildContext context) async {
+  await Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => const PourOverProfilesScreen()),
+  );
+  if (context.mounted) await showAddPourOverProfile(context);
 }
 
 class AddPourOverProfileDialog extends StatefulWidget {
@@ -69,7 +66,7 @@ class AddPourOverProfileDialog extends StatefulWidget {
 
   final BrewRecipeStore store;
   final PourOverBrewService brew;
-  final VoidCallback openRecipes;
+  final Future<void> Function() openRecipes;
   // Replaceable for tests; normally file picker and browser of the device.
   final Future<String?> Function()? pickJsonFile;
   final Future<bool> Function(Uri url)? openUrl;
@@ -193,9 +190,8 @@ class _AddPourOverProfileDialogState extends State<AddPourOverProfileDialog> {
             _Option(
               icon: Icons.upload_file_outlined,
               title: 'Upload .json file',
-              subtitle: machine
-                  ? 'A Meticulous pour over profile, onto the machine'
-                  : 'A Meticulous or brew-recipes profile',
+              // Same words as on the Meticulous pill.
+              subtitle: 'Pick a profile from this device',
               busy: _busy,
               onTap: _uploadJson,
             ),

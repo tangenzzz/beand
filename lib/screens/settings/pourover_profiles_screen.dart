@@ -6,6 +6,7 @@ import '../../services/brew_recipe_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../live/pourover/recipe_format.dart';
+import '../profile/pourover_profile_detail_screen.dart';
 import 'settings_widgets.dart';
 
 // Settings → Home → Pour Over → Profiles: all profiles to check. Only the
@@ -22,8 +23,16 @@ class PourOverProfilesScreen extends StatefulWidget {
 }
 
 class _PourOverProfilesScreenState extends State<PourOverProfilesScreen> {
-  late final BrewRecipeStore _store = context.read<BrewRecipeStore>();
+  // Read right away: fetched only in dispose() (for markAllSeen) it would
+  // look up an ancestor of a widget that is already gone.
+  late final BrewRecipeStore _store;
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _store = context.read<BrewRecipeStore>();
+  }
 
   @override
   void dispose() {
@@ -195,13 +204,22 @@ class _ProfileCheck extends StatelessWidget {
     final store = context.watch<BrewRecipeStore>();
     final colors = context.colors;
     final isNew = store.isNew(recipe.id);
-    return CheckboxListTile(
-      value: store.isEnabled(recipe.id),
-      onChanged: (v) => store.setEnabled(recipe.id, v ?? false),
+    // Tapping the row shows the recipe like a profile on Home (its card
+    // with the pours); the box on the right adds it to your profiles.
+    return ListTile(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PourOverProfileDetailScreen(recipe: recipe),
+        ),
+      ),
+      trailing: Checkbox(
+        value: store.isEnabled(recipe.id),
+        onChanged: (v) => store.setEnabled(recipe.id, v ?? false),
+      ),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.dividerInset,
       ),
-      secondary: BrewerAvatar(brewer: recipe.brewer, size: 34),
+      leading: BrewerAvatar(brewer: recipe.brewer, size: 34),
       title: Row(
         children: [
           Flexible(
