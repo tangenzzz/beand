@@ -45,31 +45,15 @@ class SettingsScreen extends StatelessWidget {
           SettingsList(
             entries: [
               SettingsEntry(
-                icon: Icons.cable,
-                title: 'Connections',
-                builder: (_) => const ConnectionsScreen(),
+                icon: Icons.blender_outlined,
+                title: 'My Coffee Desk',
+                builder: (_) => const MyCoffeeDeskScreen(),
               ),
               SettingsEntry(
                 // Home and Beans as in the tab bar.
                 icon: Icons.coffee,
                 title: 'Home',
                 builder: (_) => const HomeSettingsScreen(),
-              ),
-
-              SettingsEntry(
-                icon: Icons.blender_outlined,
-                title: 'My Coffee Desk',
-                builder: (_) => const MyCoffeeDeskScreen(),
-              ),
-              SettingsEntry(
-                icon: Icons.notifications_outlined,
-                title: 'Notifications',
-                builder: (_) => const NotificationSettingsScreen(),
-              ),
-              SettingsEntry(
-                icon: Icons.palette_outlined,
-                title: 'Appearance',
-                builder: (_) => const AppearanceSettingsScreen(),
               ),
               SettingsEntry(
                 icon: Icons.history,
@@ -80,6 +64,16 @@ class SettingsScreen extends StatelessWidget {
                 iconWidget: const BeanIcon(size: 20),
                 title: 'Beans',
                 builder: (_) => const BeansSettingsScreen(),
+              ),
+              SettingsEntry(
+                icon: Icons.cable,
+                title: 'Connections',
+                builder: (_) => const ConnectionsScreen(),
+              ),
+              SettingsEntry(
+                icon: Icons.notifications_outlined,
+                title: 'Notifications',
+                builder: (_) => const NotificationSettingsScreen(),
               ),
               SettingsEntry(
                 icon: Icons.auto_awesome_outlined,
@@ -95,6 +89,11 @@ class SettingsScreen extends StatelessWidget {
                 icon: Icons.backup_outlined,
                 title: 'Backup',
                 builder: (_) => const BackupSettingsScreen(),
+              ),
+              SettingsEntry(
+                icon: Icons.palette_outlined,
+                title: 'Appearance',
+                builder: (_) => const AppearanceSettingsScreen(),
               ),
               SettingsEntry(
                 icon: Icons.info_outline,
