@@ -20,8 +20,8 @@ import '../../settings/scale_settings_screen.dart';
 // top; a Bluetooth scale shows its name and battery, the Meticulous its
 // mode "Machine" / "Scale only"; a tap chooses Meticulous Machine / Scale
 // only or a Bluetooth scale, a long press opens Settings → Scale) and Auto.
-// The same for every scale the app leads with. In Machine mode only two:
-// the scale button and Last brew.
+// The same for every scale the app leads with. In Machine mode Free Pour
+// and Tare stay dark without a function, Auto's place is Last brew.
 class PourOverCommandRow extends StatelessWidget {
   const PourOverCommandRow({super.key});
 
@@ -78,12 +78,22 @@ class PourOverCommandRow extends StatelessWidget {
       onLongPress: () => _openScaleSettings(context),
     );
 
-    // Machine mode (the dial leads) needs only two: the scale button (it
-    // switches to Scale only too) and fetching the last brew. No Profile
-    // (the dial picks it) and no Tare (a tare from the app would confuse
-    // the dial's steps).
+    // Machine mode (the dial leads): the same four places as always, so
+    // nothing jumps — Free Pour and Tare stay but dark and without a
+    // function (the dial picks the profile; a tare from the app would
+    // confuse its steps), Auto's place is Last brew (user 2026-11-04).
     final List<Widget> buttons = dial
         ? [
+            const _CommandButton(
+              icon: Icons.back_hand_outlined,
+              label: 'Free Pour',
+              onTap: null,
+            ),
+            const _CommandButton(
+              icon: Icons.balance,
+              label: 'Tare',
+              onTap: null,
+            ),
             scaleButton,
             _CommandButton(
               icon: Icons.download_outlined,
@@ -301,7 +311,11 @@ class _CommandButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = context.colors.textSecondary;
+    // Without a function: dark (as in Machine mode or during the brew).
+    final enabled = onTap != null || onLongPress != null;
+    final color = enabled
+        ? context.colors.textSecondary
+        : context.colors.textTertiary;
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,

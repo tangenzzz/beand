@@ -31,8 +31,13 @@ class _Socket extends MeticulousSocketService {
   @override
   void connect() {}
 
+  final actions = <String>[];
+
   @override
-  Future<bool> triggerAction(String action) async => true;
+  Future<bool> triggerAction(String action) async {
+    actions.add(action);
+    return true;
+  }
 
   void send(double w) {
     connectionState = MachineConnectionState.connected;
@@ -136,9 +141,14 @@ void main() {
     // button names the mode, and Last brew.
     expect(find.text('Machine'), findsOneWidget);
     expect(find.text('Last brew'), findsOneWidget);
-    // No Tare and no Profile button while the dial leads.
-    expect(find.text('Tare'), findsNothing);
-    expect(find.byIcon(Icons.back_hand_outlined), findsNothing);
+    // Free Pour and Tare stay, but dark and without a function; Auto's
+    // place is Last brew.
+    expect(find.text('Free Pour'), findsOneWidget);
+    expect(find.text('Tare'), findsOneWidget);
+    expect(find.text('Auto off'), findsNothing);
+    await tester.tap(find.text('Tare'));
+    await tester.pump();
+    expect(socket.actions, isEmpty);
     expect(find.textContaining('Brew on the machine'), findsWidgets);
     expect(find.text('On the machine'), findsNWidgets(3));
     expect(find.textContaining('Put the server'), findsNothing);
