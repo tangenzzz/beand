@@ -17,9 +17,10 @@ import '../../settings/scale_settings_screen.dart';
 //
 // Contents, in order: Profile ↔ Manual toggle, Tare, the scale (icon
 // neutral like the other buttons — the colored status is in the pill at the
-// top; a tap chooses Meticulous or Bluetooth scale, a long press opens
-// Settings → Scale) and the battery level — or, with the Meticulous'
-// built-in scale (mains powered), the setup steps.
+// top; a tap chooses Meticulous Machine / Scale only or a Bluetooth scale,
+// a long press opens Settings → Scale) and the battery level — or, with the
+// Meticulous' built-in scale (mains powered), the setup steps. In Machine
+// mode only three: Machine (→ Scale only), the scale, Last brew.
 class PourOverCommandRow extends StatelessWidget {
   const PourOverCommandRow({super.key});
 
@@ -48,6 +49,86 @@ class PourOverCommandRow extends StatelessWidget {
                   : (Icons.bluetooth, 'Connect'),
           };
 
+    final dial = machine && brew.dialLeads;
+    final scaleButton = _CommandButton(
+      icon: scaleIcon,
+      label: scaleLabel,
+      // Tap: choose the scale (Meticulous Machine / Scale only /
+      // Bluetooth); long press: the scale settings.
+      onTap: brew.profileLocked
+          ? null
+          : scale is ScaleSelector
+          ? () => _chooseScale(context, scale, brew)
+          : scale.connection == ScaleConnection.disconnected
+          ? scale.connect
+          : () => _openScaleSettings(context),
+      onLongPress: () => _openScaleSettings(context),
+    );
+
+    // Machine mode (the dial leads) needs only three: the mode, the scale
+    // and fetching the last brew. No Profile (the dial picks it) and no
+    // Tare (a tare from the app would confuse the dial's steps).
+    final List<Widget> buttons = dial
+        ? [
+            _CommandButton(
+              icon: Icons.touch_app_outlined,
+              label: 'Machine',
+              onTap: brew.profileLocked
+                  ? null
+                  : () => brew.setMeticulousMode(MeticulousPourMode.scaleOnly),
+            ),
+            scaleButton,
+            _CommandButton(
+              icon: Icons.download_outlined,
+              label: 'Last brew',
+              onTap: connected && !brew.profileLocked
+                  ? () => _importLast(context, brew)
+                  : null,
+            ),
+          ]
+        : [
+            // One button that toggles: icon and label show the current
+            // mode. Disabled during the brew.
+            _CommandButton(
+              icon: brew.manual ? Icons.back_hand_outlined : Icons.tune,
+              label: brew.manual ? 'Manual' : 'Profile',
+              onTap: brew.profileLocked
+                  ? null
+                  : () => brew.setManual(!brew.manual),
+            ),
+            _CommandButton(
+              // Same icon as Tare on the Meticulous, but with "Tare"
+              // instead of the weight below — that is in the hero. During
+              // the setup steps it records the current step.
+              icon: Icons.balance,
+              label: 'Tare',
+              onTap: connected ? brew.tare : null,
+            ),
+            scaleButton,
+            // Bluetooth: battery level. Meticulous (mains powered): the
+            // setup steps — tap starts them again, long press skips them.
+            if (machine)
+              _CommandButton(
+                icon: Icons.checklist,
+                label: 'Setup',
+                onTap: connected && !brew.profileLocked
+                    ? brew.restartPrep
+                    : null,
+                onLongPress: connected && !brew.profileLocked
+                    ? brew.skipPrep
+                    : null,
+              )
+            else
+              _CommandButton(
+                icon: _batteryIcon(battery),
+                iconColor: battery != null && battery <= 15
+                    ? context.colors.danger
+                    : null,
+                label: battery == null ? '—' : '$battery %',
+                onTap: null,
+              ),
+          ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -58,73 +139,7 @@ class PourOverCommandRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                // One button that toggles: icon and label show the current
-                // mode. Disabled during the brew.
-                _CommandButton(
-                  icon: brew.manual ? Icons.back_hand_outlined : Icons.tune,
-                  label: brew.manual ? 'Manual' : 'Profile',
-                  // Machine mode: the dial picks the profile.
-                  onTap: brew.profileLocked || brew.dialLeads
-                      ? null
-                      : () => brew.setManual(!brew.manual),
-                ),
-                _CommandButton(
-                  // Same icon as Tare on the Meticulous, but with "Tare"
-                  // instead of the weight below — that is in the hero.
-                  // During the setup steps it records the current step.
-                  icon: Icons.balance,
-                  label: 'Tare',
-                  onTap: connected ? brew.tare : null,
-                ),
-                _CommandButton(
-                  icon: scaleIcon,
-                  label: scaleLabel,
-                  // Tap: choose the scale (Meticulous / Bluetooth); long
-                  // press: the scale settings.
-                  onTap: brew.profileLocked
-                      ? null
-                      : scale is ScaleSelector
-                      ? () => _chooseScale(context, scale)
-                      : scale.connection == ScaleConnection.disconnected
-                      ? scale.connect
-                      : () => _openScaleSettings(context),
-                  onLongPress: () => _openScaleSettings(context),
-                ),
-                // Bluetooth: battery level. Meticulous (mains powered):
-                // the setup steps — tap starts them again, long press skips
-                // them.
-                if (machine && brew.dialLeads)
-                  // Machine mode: fetch the machine's last brew now (it
-                  // also comes by itself after a brew and on connect).
-                  _CommandButton(
-                    icon: Icons.download_outlined,
-                    label: 'Last brew',
-                    onTap: connected && !brew.profileLocked
-                        ? () => _importLast(context, brew)
-                        : null,
-                  )
-                else if (machine)
-                  _CommandButton(
-                    icon: Icons.checklist,
-                    label: 'Setup',
-                    onTap: connected && !brew.profileLocked
-                        ? brew.restartPrep
-                        : null,
-                    onLongPress: connected && !brew.profileLocked
-                        ? brew.skipPrep
-                        : null,
-                  )
-                else
-                  _CommandButton(
-                    icon: _batteryIcon(battery),
-                    iconColor: battery != null && battery <= 15
-                        ? context.colors.danger
-                        : null,
-                    label: battery == null ? '—' : '$battery %',
-                    onTap: null,
-                  ),
-              ],
+              children: buttons,
             ),
           ),
           Divider(height: 1, color: context.colors.divider),
@@ -136,9 +151,11 @@ class PourOverCommandRow extends StatelessWidget {
   static Future<void> _chooseScale(
     BuildContext context,
     ScaleSelector scale,
+    PourOverBrewService brew,
   ) async {
     final colors = context.colors;
     final btName = scale.bluetooth.deviceName;
+    final onMeticulous = scale.source == ScaleSource.meticulous;
     final choice = await showModalBottomSheet<Object>(
       context: context,
       backgroundColor: colors.card,
@@ -149,21 +166,20 @@ class PourOverCommandRow extends StatelessWidget {
       ),
       builder: (context) {
         Widget option(
-          ScaleSource source,
+          Object value,
           IconData icon,
           String title,
-          String subtitle,
-        ) => ListTile(
+          String subtitle, {
+          required bool chosen,
+        }) => ListTile(
           leading: Icon(icon, color: colors.textSecondary),
           title: Text(title, style: TextStyle(color: colors.textPrimary)),
           subtitle: Text(
             subtitle,
             style: TextStyle(color: colors.textTertiary, fontSize: 12),
           ),
-          trailing: scale.source == source
-              ? Icon(Icons.check, color: colors.success)
-              : null,
-          onTap: () => Navigator.pop(context, source),
+          trailing: chosen ? Icon(Icons.check, color: colors.success) : null,
+          onTap: () => Navigator.pop(context, value),
         );
         return SafeArea(
           child: Column(
@@ -182,16 +198,31 @@ class PourOverCommandRow extends StatelessWidget {
                 ),
               ),
               option(
-                ScaleSource.meticulous,
+                MeticulousPourMode.machine,
+                Icons.touch_app_outlined,
+                '${MeticulousScale.name} · Machine',
+                'Brew on the machine, the brew comes to the app',
+                chosen:
+                    onMeticulous &&
+                    brew.meticulousMode == MeticulousPourMode.machine,
+              ),
+              option(
+                MeticulousPourMode.scaleOnly,
                 Icons.coffee_maker_outlined,
-                MeticulousScale.name,
-                'Built-in scale · filter profiles',
+                '${MeticulousScale.name} · Scale only',
+                'The app leads, the machine weighs',
+                chosen:
+                    onMeticulous &&
+                    brew.meticulousMode == MeticulousPourMode.scaleOnly,
               ),
               option(
                 ScaleSource.bluetooth,
                 Icons.bluetooth,
                 'Bluetooth scale',
-                '${btName == null ? 'Acaia, Decent, Bookoo' : scaleShortName(btName)} · recipes',
+                btName == null
+                    ? 'Acaia, Decent, Bookoo'
+                    : scaleShortName(btName),
+                chosen: !onMeticulous,
               ),
               Align(
                 alignment: Alignment.centerRight,
@@ -211,11 +242,13 @@ class PourOverCommandRow extends StatelessWidget {
     if (!context.mounted) return;
     if (choice == 'settings') {
       _openScaleSettings(context);
-    } else if (choice is ScaleSource) {
-      scale.setSource(choice);
+    } else if (choice is MeticulousPourMode) {
+      brew.setMeticulousMode(choice);
+      scale.setSource(ScaleSource.meticulous);
+    } else if (choice == ScaleSource.bluetooth) {
+      scale.setSource(ScaleSource.bluetooth);
       // A Bluetooth scale that is not connected yet connects right away.
-      if (choice == ScaleSource.bluetooth &&
-          scale.connection == ScaleConnection.disconnected &&
+      if (scale.connection == ScaleConnection.disconnected &&
           scale.bluetooth.rememberedId != null) {
         unawaited(scale.connect());
       }
