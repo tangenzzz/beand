@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -47,12 +49,26 @@ class HomeModeBar extends StatelessWidget {
             child: _ModePill(
               mode: modes[i],
               selected: modes[i] == active,
-              onTap: () => settings.setHomeMode(modes[i]),
+              onTap: () => modes[i] == active
+                  ? _onActiveTapped(context, modes[i])
+                  : settings.setHomeMode(modes[i]),
             ),
           ),
         ),
       ),
     );
+  }
+
+  // Tapping the Pour Over pill while on it searches for the Bluetooth scale
+  // again. Not for the Meticulous' built-in scale, nothing to search there.
+  static void _onActiveTapped(BuildContext context, HomeMode mode) {
+    if (mode != HomeMode.pourOver) return;
+    final scale = context.read<BrewScale>();
+    if (scale.isMachineScale ||
+        scale.connection != ScaleConnection.disconnected) {
+      return;
+    }
+    unawaited(scale.connect());
   }
 
   // Height of the pill including border; the list needs a fixed size.

@@ -19,7 +19,11 @@ import 'support/offline_gaggimate.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-Widget wrap(AppSettings settings, Widget child) => MultiProvider(
+Widget wrap(
+  AppSettings settings,
+  Widget child, {
+  BrewScale? scale,
+}) => MultiProvider(
   providers: [
     ChangeNotifierProvider<AppSettings>.value(value: settings),
     ChangeNotifierProvider<MeticulousSocketService>.value(
@@ -31,7 +35,7 @@ Widget wrap(AppSettings settings, Widget child) => MultiProvider(
       value: MeticulousSocketService(hostname: 'unreachable.local'),
     ),
     ChangeNotifierProvider<GaggiMateService>.value(value: offlineGaggiMate()),
-    ChangeNotifierProvider<BrewScale>.value(value: SimulatedScale()),
+    ChangeNotifierProvider<BrewScale>.value(value: scale ?? SimulatedScale()),
     ChangeNotifierProvider<BrewRecipeStore>.value(
       value: BrewRecipeStore(
         cacheFile: File('${Directory.systemTemp.path}/no-such-cache.json'),
@@ -144,6 +148,60 @@ void main() {
     expect(settings.activeHomeMode, HomeMode.pourOver);
   });
 
+  group('tapping the Pour Over pill again', () {
+    Future<_CountingScale> tapTwice(
+      WidgetTester tester, {
+      required bool machine,
+      ScaleConnection connection = ScaleConnection.disconnected,
+    }) async {
+      final scale = _CountingScale(machine: machine, state: connection);
+      final settings = AppSettings();
+      await tester.pumpWidget(
+        wrap(settings, const HomeModeBar(), scale: scale),
+      );
+      await tester.tap(find.text('Pour Over'));
+      await tester.pump();
+      expect(scale.connects, 0, reason: 'the first tap only switches');
+      await tester.tap(find.text('Pour Over'));
+      await tester.pump();
+      return scale;
+    }
+
+    testWidgets('searches for the Bluetooth scale', (tester) async {
+      final scale = await tapTwice(tester, machine: false);
+      expect(scale.connects, 1);
+    });
+
+    testWidgets('nothing to search with the machine scale', (tester) async {
+      final scale = await tapTwice(tester, machine: true);
+      expect(scale.connects, 0);
+    });
+
+    testWidgets('nothing while connected or already searching', (tester) async {
+      for (final state in [
+        ScaleConnection.connected,
+        ScaleConnection.scanning,
+        ScaleConnection.connecting,
+      ]) {
+        final scale = await tapTwice(tester, machine: false, connection: state);
+        expect(scale.connects, 0, reason: '$state');
+      }
+    });
+
+    testWidgets('another active pill does not search', (tester) async {
+      final scale = _CountingScale(
+        machine: false,
+        state: ScaleConnection.disconnected,
+      );
+      await tester.pumpWidget(
+        wrap(AppSettings(), const HomeModeBar(), scale: scale),
+      );
+      await tester.tap(find.text('Meticulous'));
+      await tester.pump();
+      expect(scale.connects, 0);
+    });
+  });
+
   group('pill order', () {
     test('moving swaps the visible modes', () async {
       final settings = AppSettings();
@@ -222,4 +280,21 @@ void main() {
       );
     });
   });
+}
+
+class _CountingScale extends SimulatedScale {
+  _CountingScale({required this.machine, required this.state});
+
+  final bool machine;
+  final ScaleConnection state;
+  int connects = 0;
+
+  @override
+  bool get isMachineScale => machine;
+
+  @override
+  ScaleConnection get connection => state;
+
+  @override
+  Future<void> connect() async => connects++;
 }
