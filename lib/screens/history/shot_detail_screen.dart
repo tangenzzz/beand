@@ -816,19 +816,18 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               g(yieldGrams),
               'g',
               otherOf(g(other?.finalWeight)),
+              // Pour over: the yield — the coffee weighed in the server
+              // after the brewer came off — small below the water (user
+              // 2026-11-04, after trying it as a fourth column); "—"
+              // where nothing was weighed.
+              note: !isPourOver
+                  ? null
+                  : shot.beverageGrams != null
+                  ? 'Yield ${g(shot.beverageGrams)} g'
+                  : 'Yield —',
               onTap: tapIf(_Open.yield),
               active: _open == _Open.yield,
             ),
-            // Pour over: the yield — the coffee weighed in the server after
-            // the brewer came off — as a fourth column next to the water
-            // (user 2026-11-04); "—" where nothing was weighed.
-            if (isPourOver)
-              _Stat(
-                'Yield',
-                g(shot.beverageGrams),
-                'g',
-                otherOf(g(other?.beverageGrams)),
-              ),
             _Stat(
               'Temp',
               temp(profileTemp),
