@@ -313,9 +313,11 @@ class _CommandButton extends StatelessWidget {
   Widget build(BuildContext context) {
     // Without a function: dark (as in Machine mode or during the brew).
     final enabled = onTap != null || onLongPress != null;
+    // Clearly darker than the usable ones (user: tertiary alone was too
+    // close).
     final color = enabled
         ? context.colors.textSecondary
-        : context.colors.textTertiary;
+        : context.colors.textTertiary.withValues(alpha: 0.4);
     return InkWell(
       onTap: onTap,
       onLongPress: onLongPress,
