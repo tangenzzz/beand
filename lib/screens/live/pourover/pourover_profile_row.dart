@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'add_pourover_profile.dart';
 
 import '../../../models/brew_recipe.dart';
-import '../../../models/machine_profile.dart' show profilePlaceholderColor;
+import '../../../models/machine_profile.dart' show profileColor;
 import '../../../widgets/machine_badge.dart';
 import '../../history/history_logic.dart' show ShotMachine;
 import '../../../services/brew_recipe_store.dart';
@@ -157,7 +157,7 @@ class _ProfileTile extends StatelessWidget {
                 ),
               ),
               decoration: BoxDecoration(
-                color: profilePlaceholderColor(recipe.id),
+                color: profileColor(recipe.accentColor, recipe.id),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Stack(
@@ -220,7 +220,7 @@ class PourOverProfileAvatar extends StatelessWidget {
       height: size,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: profilePlaceholderColor(recipe.id),
+        color: profileColor(recipe.accentColor, recipe.id),
         shape: BoxShape.circle,
       ),
       child: photo == null

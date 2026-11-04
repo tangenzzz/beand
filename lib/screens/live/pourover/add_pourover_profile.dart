@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'pourover_profile_editor.dart';
 import '../../../models/brew_recipe.dart';
 import '../../../services/brew_recipe_store.dart';
 import '../../../services/meticulous_pourover_profiles.dart';
@@ -187,6 +189,24 @@ class _AddPourOverProfileDialogState extends State<AddPourOverProfileDialog> {
               ),
             ),
             const SizedBox(height: 12),
+            _Option(
+              icon: Icons.add,
+              // Same words as on the Meticulous pill.
+              title: 'Create new profile',
+              subtitle: 'Write your own recipe',
+              onTap: () {
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                unawaited(
+                  navigator.push(
+                    MaterialPageRoute<void>(
+                      fullscreenDialog: true,
+                      builder: (_) => const PourOverProfileEditor(),
+                    ),
+                  ),
+                );
+              },
+            ),
             _Option(
               icon: Icons.upload_file_outlined,
               title: 'Upload .json file',

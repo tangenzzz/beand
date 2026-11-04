@@ -113,6 +113,7 @@ class BrewRecipe {
     this.competition,
     this.tags = const [],
     this.fromMachine = false,
+    this.accentColor,
   });
 
   final String id;
@@ -137,6 +138,10 @@ class BrewRecipe {
   /// recipe): read-only, can't be removed from the app.
   final bool fromMachine;
 
+  /// The profile's own color (`#RRGGBB`) where it has one, else the
+  /// placeholder color of its ID.
+  final String? accentColor;
+
   /// The same recipe, marked as on the machine or not.
   BrewRecipe withFromMachine(bool value) => BrewRecipe(
     id: id,
@@ -157,6 +162,7 @@ class BrewRecipe {
     competition: competition,
     tags: tags,
     fromMachine: value,
+    accentColor: accentColor,
   );
 
   /// Ratio as a number (1:15 → 15). If missing in the recipe, from water/dose.

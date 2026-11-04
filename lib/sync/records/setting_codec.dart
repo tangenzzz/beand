@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../services/brew_recipe_store.dart';
+
 import '../../services/ai/ai_provider.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../services/app_settings.dart';
@@ -32,6 +34,8 @@ List<String> syncedSettingKeys() => [
   // the brew chains (JSON lists).
   GearStore.gearPrefKey,
   GearStore.chainsPrefKey,
+  // Own Pour Over profiles; their photos stay on each device.
+  BrewRecipeStore.importedPrefKey,
   AiSettings.providerPrefKey,
   AiSettings.baseUrlPrefKey,
   for (final p in AiProvider.values) AiSettings.modelPrefKey(p),

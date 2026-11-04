@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../live/pourover/pourover_profile_editor.dart';
 import '../../database/database.dart';
 import '../../models/brew_recipe.dart';
 import '../../models/machine_profile.dart' show profilePlaceholderColor;
@@ -187,7 +188,30 @@ class _PourOverProfileDetailScreenState
     final steps = r.steps;
     final water = steps.isEmpty ? r.waterMl : steps.last.targetTotalG;
     return Scaffold(
-      appBar: AppBar(titleSpacing: 0),
+      appBar: AppBar(
+        titleSpacing: 0,
+        actions: [
+          if (context.watch<BrewRecipeStore>().editableProfile(r.id)
+              case final raw?)
+            IconButton(
+              tooltip: 'Edit profile',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () async {
+                final saved = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (_) => PourOverProfileEditor(profile: raw),
+                  ),
+                );
+                // This page shows the profile as it was.
+                if (saved == true && context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.tileOuterMargin,

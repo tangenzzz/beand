@@ -75,6 +75,7 @@ class BrewRecipeStore extends ChangeNotifier {
   static const importedPrefKey = 'pourover_imported_profiles';
 
   List<Map<String, dynamic>> _importedRaw = [];
+  List<Map<String, dynamic>> _machineRaw = [];
   List<BrewRecipe> _imported = const [];
   List<BrewRecipe> get importedRecipes => _imported;
   bool isImported(String id) => _imported.any((r) => r.id == id);
@@ -195,6 +196,7 @@ class BrewRecipeStore extends ChangeNotifier {
     try {
       final raw = await source.fetchRaw();
       setMachineRecipes(parseMachineProfiles(raw));
+      _machineRaw = raw;
       _machineError = null;
       // Kept for when the machine is out of reach (Bluetooth scale).
       final cache = jsonEncode(raw);
@@ -231,8 +233,51 @@ class BrewRecipeStore extends ChangeNotifier {
 
   /// All own profiles: the machine's, from files, checked brew-recipes —
   /// whatever the scale (also the profile list of a brew added by hand).
-  List<BrewRecipe> get ownRecipes =>
-      _sorted([..._machineRecipes, ..._imported, ..._githubEnabled]);
+  ///
+  /// An own profile sent to the machine is in both lists; once is enough.
+  List<BrewRecipe> get ownRecipes {
+    final seen = <String>{};
+    return _sorted([
+      for (final r in [..._machineRecipes, ..._imported, ..._githubEnabled])
+        if (seen.add(r.id)) r,
+    ]);
+  }
+
+  /// The profile as written, for editing — the app's copy first, it knows
+  /// more than the machine's. Only in the Meticulous' format; null for a
+  /// brew-recipes recipe.
+  Map<String, dynamic>? editableProfile(String id) {
+    for (final r in [..._importedRaw, ..._machineRaw]) {
+      if ('${r['id']}' == id && r['brew_type'] == 'pour_over') return r;
+    }
+    return null;
+  }
+
+  /// A saved profile's image is gone (removed in the form).
+  void removeImportedPhoto(String id) {
+    _importPhotos.remove(id)?.delete().catchError((Object _) => File(''));
+    notifyListeners();
+  }
+
+  /// After a sync brought own profiles from another device.
+  Future<void> reloadImported() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final imported = prefs.getString(importedPrefKey);
+      _importedRaw = [
+        if (imported != null)
+          for (final r in jsonDecode(imported) as List)
+            Map<String, dynamic>.from(r as Map),
+      ];
+      _imported = [
+        for (final r in _importedRaw)
+          if (_tryParse(r) case final BrewRecipe recipe) recipe,
+      ];
+      notifyListeners();
+    } catch (e) {
+      debugPrint('BrewRecipeStore: reload failed: $e');
+    }
+  }
 
   /// Checked brew-recipes (Settings → Pour Over → Profiles), whatever scale
   /// is in use.
@@ -358,12 +403,11 @@ class BrewRecipeStore extends ChangeNotifier {
       }
       final machine = prefs.getString(machineCachePrefKey);
       if (machine != null && _machineRecipes.isEmpty) {
-        _machineRecipes = List.unmodifiable(
-          parseMachineProfiles([
-            for (final r in jsonDecode(machine) as List)
-              Map<String, dynamic>.from(r as Map),
-          ]),
-        );
+        _machineRaw = [
+          for (final r in jsonDecode(machine) as List)
+            Map<String, dynamic>.from(r as Map),
+        ];
+        _machineRecipes = List.unmodifiable(parseMachineProfiles(_machineRaw));
         _machineLoaded = true;
       }
       final dir = _photoDir;

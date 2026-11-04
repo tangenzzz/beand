@@ -69,6 +69,11 @@ BrewRecipe brewRecipeFromMeticulous(Map<String, dynamic> j) {
   final water = number(recipe['total_water_g'], 'total_water_g');
   final temp = recipe['water_temperature_c'];
 
+  final app = j['beand'] is Map ? j['beand'] as Map : const {};
+  final tempFall = app['temp_fall'] is List
+      ? app['temp_fall'] as List
+      : const [];
+
   final parsed = <({double start, double duration, BrewPhase phase})>[];
   for (final raw in stages) {
     if (raw is! Map) throw BrewRecipeFormatException('stage');
@@ -78,6 +83,10 @@ BrewRecipe brewRecipeFromMeticulous(Map<String, dynamic> j) {
       if (_patternLabels[pour['pattern']] case final String label) label,
       if (pour['height_cm'] case final num h when h > 0)
         '${h.toStringAsFixed(h % 1 == 0 ? 0 : 1)} cm high',
+      if (raw['temperature_c'] case final num t)
+        '${t.toStringAsFixed(t % 1 == 0 ? 0 : 1)} °C'
+      else if (tempFall.contains(raw['key']))
+        'Let the temperature fall',
     ].join(', ');
     final note = raw['note'] is String ? (raw['note'] as String).trim() : '';
     parsed.add((
@@ -139,6 +148,9 @@ BrewRecipe brewRecipeFromMeticulous(Map<String, dynamic> j) {
     phases: phases,
     sourceName: (j['author'] as String?) ?? 'Meticulous',
     fromMachine: true,
+    accentColor: display['accentColor'] is String
+        ? display['accentColor'] as String
+        : null,
   );
 }
 

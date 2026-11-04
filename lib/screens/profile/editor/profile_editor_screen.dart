@@ -500,7 +500,7 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _ColorRow(
+                child: ProfileColorRow(
                   value: _draft.accentColor,
                   onChanged: (hex) {
                     _draft.accentColor = hex;
@@ -793,8 +793,12 @@ class _PhotoButton extends StatelessWidget {
 
 // The profile's accent color. No color wheel — a row of colors that look
 // good on the cards.
-class _ColorRow extends StatelessWidget {
-  const _ColorRow({required this.value, required this.onChanged});
+class ProfileColorRow extends StatelessWidget {
+  const ProfileColorRow({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
 
   final String value;
   final ValueChanged<String> onChanged;

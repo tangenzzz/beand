@@ -295,9 +295,10 @@ Future<void> main() async {
         await appSettings.reload();
         await aiSettings.reload();
         await gear.reload();
+        await recipeStore.reloadImported();
       },
     ),
-    settingsSources: [appSettings, aiSettings, gear],
+    settingsSources: [appSettings, aiSettings, gear, recipeStore],
     docsDir: getApplicationDocumentsDirectory,
   );
   await deviceSync.init();

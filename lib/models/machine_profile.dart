@@ -134,6 +134,16 @@ const profilePlaceholderColors = [
   Color(0xFF7A6B3D), // Brass
 ];
 
+/// A profile's own color (`#RRGGBB`), else its placeholder color.
+Color profileColor(String? hex, String seed) {
+  final value = hex == null
+      ? null
+      : int.tryParse(hex.replaceFirst('#', ''), radix: 16);
+  return value == null
+      ? profilePlaceholderColor(seed)
+      : Color(0xFF000000 | value);
+}
+
 // Always the same color for the same profile: it depends only on the key,
 // not on the position in the list — otherwise a new profile would recolor
 // all the others.
