@@ -575,6 +575,7 @@ void main() {
     Future<void> setUpService(MeticulousPourMode mode) async {
       SharedPreferences.setMockInitialValues({
         PourOverBrewService.meticulousModePrefKey: mode.name,
+        PourOverBrewService.autoPrefKey: true,
       });
       db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -773,4 +774,102 @@ void main() {
       });
     });
   });
+
+  test('Bluetooth scale with Auto: same steps, start and end as on the '
+      'Meticulous', () async {
+    SharedPreferences.setMockInitialValues({
+      PourOverBrewService.autoPrefKey: true,
+    });
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    var now = DateTime(2026, 11, 4, 9);
+    await withClock(Clock(() => now), () async {
+      final scale = _BtScale();
+      final store = _store([_github]);
+      await store.load();
+      store.setEnabled('two-pours', true);
+      final service = PourOverBrewService(
+        scale: scale,
+        recipes: store,
+        setup: ShotSetup.inMemory(machineKey: 'pourover'),
+        database: db,
+      )..start();
+      service.selectRecipe(_github);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      service.setPrepVisible(true);
+      expect(service.auto, isTrue);
+      expect(service.prepActive, isTrue);
+
+      Future<void> hold(int ticks) async {
+        for (var i = 0; i < ticks; i++) {
+          now = now.add(const Duration(milliseconds: 100));
+          scale.tick();
+        }
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      await hold(12);
+      scale.gross += 300;
+      await hold(15);
+      scale.gross += 30;
+      await hold(15);
+      scale.gross += 16;
+      await hold(15);
+      expect(service.prep.done, isTrue);
+      expect(service.setup.doseGrams, 16);
+      expect(scale.tares, 3);
+
+      scale.gross += 3;
+      await hold(1);
+      await Future<void>.delayed(Duration.zero);
+      expect(service.stage, ShotStage.running);
+      for (var w = 3.0; w < 250; w += 7.5) {
+        scale.gross += 7.5;
+        await hold(1);
+      }
+      await hold(20);
+      scale.gross -= 30 + 16 + 45;
+      await hold(35);
+      expect(service.phase, BrewState.measuring);
+      await hold(12);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final shot = (await db.select(db.shots).get()).single;
+      expect(shot.doseGrams, 16);
+      expect(shot.beverageGrams, closeTo(250.5 - 45, 0.5));
+      service.dispose();
+    });
+  });
+}
+
+/// Bluetooth-like scale the test drives tick by tick; tare zeroes it.
+class _BtScale extends BrewScale {
+  final _ctrl = StreamController<ScaleReading>.broadcast(sync: true);
+  double gross = 0;
+  double _zero = 0;
+  int tares = 0;
+
+  @override
+  ScaleConnection get connection => ScaleConnection.connected;
+  @override
+  String? get deviceName => 'LUNAR-TEST';
+  @override
+  double? get grams => gross - _zero;
+  @override
+  String? get error => null;
+  @override
+  Stream<ScaleReading> get readings => _ctrl.stream;
+  @override
+  Future<void> connect() async {}
+  @override
+  Future<void> disconnect() async {}
+  @override
+  Future<void> tare() async {
+    tares++;
+    _zero = gross;
+  }
+
+  void tick() {
+    _ctrl.add(ScaleReading(gross - _zero, clock.now()));
+    notifyListeners();
+  }
 }

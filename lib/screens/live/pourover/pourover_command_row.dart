@@ -17,10 +17,10 @@ import '../../settings/scale_settings_screen.dart';
 //
 // Contents, in order: Profile ↔ Manual toggle, Tare, the scale (icon
 // neutral like the other buttons — the colored status is in the pill at the
-// top; a tap chooses Meticulous Machine / Scale only or a Bluetooth scale,
-// a long press opens Settings → Scale) and the battery level — or, with the
-// Meticulous' built-in scale (mains powered), the setup steps. In Machine
-// mode only three: Machine (→ Scale only), the scale, Last brew.
+// top; battery next to the name; a tap chooses Meticulous Machine / Scale
+// only or a Bluetooth scale, a long press opens Settings → Scale) and Auto.
+// The same for every scale the app leads with. In Machine mode only three:
+// Machine (→ Scale only), the scale, Last brew.
 class PourOverCommandRow extends StatelessWidget {
   const PourOverCommandRow({super.key});
 
@@ -35,9 +35,13 @@ class PourOverCommandRow extends StatelessWidget {
     final (IconData scaleIcon, String scaleLabel) = machine
         ? (Icons.coffee_maker_outlined, MeticulousScale.name)
         : switch (scale.connection) {
+            // The battery level next to the name (the fourth button is
+            // Auto now); red icon when low.
             ScaleConnection.connected => (
               Icons.bluetooth_connected,
-              scaleShortName(scale.deviceName),
+              battery == null
+                  ? scaleShortName(scale.deviceName)
+                  : '${scaleShortName(scale.deviceName)} $battery%',
             ),
             ScaleConnection.scanning || ScaleConnection.connecting => (
               Icons.bluetooth_searching,
@@ -52,6 +56,9 @@ class PourOverCommandRow extends StatelessWidget {
     final dial = machine && brew.dialLeads;
     final scaleButton = _CommandButton(
       icon: scaleIcon,
+      iconColor: battery != null && battery <= 15
+          ? context.colors.danger
+          : null,
       label: scaleLabel,
       // Tap: choose the scale (Meticulous Machine / Scale only /
       // Bluetooth); long press: the scale settings.
@@ -105,28 +112,18 @@ class PourOverCommandRow extends StatelessWidget {
               onTap: connected ? brew.tare : null,
             ),
             scaleButton,
-            // Bluetooth: battery level. Meticulous (mains powered): the
-            // setup steps — tap starts them again, long press skips them.
-            if (machine)
-              _CommandButton(
-                icon: Icons.checklist,
-                label: 'Setup',
-                onTap: connected && !brew.profileLocked
-                    ? brew.restartPrep
-                    : null,
-                onLongPress: connected && !brew.profileLocked
-                    ? brew.skipPrep
-                    : null,
-              )
-            else
-              _CommandButton(
-                icon: _batteryIcon(battery),
-                iconColor: battery != null && battery <= 15
-                    ? context.colors.danger
-                    : null,
-                label: battery == null ? '—' : '$battery %',
-                onTap: null,
-              ),
+            // Auto: weigh server, brewer and coffee by themselves, start
+            // with the water, end when the brewer comes off. Tap switches,
+            // long press starts the steps again. Any scale.
+            _CommandButton(
+              icon: Icons.auto_mode,
+              iconColor: brew.auto ? context.colors.accent : null,
+              label: brew.auto ? 'Auto on' : 'Auto off',
+              onTap: brew.profileLocked ? null : () => brew.setAuto(!brew.auto),
+              onLongPress: brew.auto && connected && !brew.profileLocked
+                  ? brew.restartPrep
+                  : null,
+            ),
           ];
 
     return Padding(
@@ -280,21 +277,6 @@ class PourOverCommandRow extends StatelessWidget {
         MaterialPageRoute<void>(builder: (_) => const ScaleSettingsScreen()),
       );
     }
-  }
-
-  static IconData _batteryIcon(int? percent) {
-    if (percent == null) return Icons.battery_unknown_outlined;
-    if (percent >= 95) return Icons.battery_full;
-    const bars = [
-      Icons.battery_0_bar,
-      Icons.battery_1_bar,
-      Icons.battery_2_bar,
-      Icons.battery_3_bar,
-      Icons.battery_4_bar,
-      Icons.battery_5_bar,
-      Icons.battery_6_bar,
-    ];
-    return bars[(percent / 100 * 7).floor().clamp(0, 6)];
   }
 }
 

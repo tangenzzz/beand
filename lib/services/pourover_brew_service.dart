@@ -139,6 +139,12 @@ class PourOverBrewService extends LiveShotService {
       final prefs = await SharedPreferences.getInstance();
       _manual = prefs.getBool(manualPrefKey) ?? _manual;
       _manualWater = prefs.getDouble(manualWaterPrefKey) ?? _manualWater;
+      final auto = prefs.getBool(autoPrefKey) ?? _auto;
+      if (auto != _auto) {
+        _auto = auto;
+        if (auto) prep.restart();
+        _syncPrep();
+      }
       final mode = MeticulousPourMode.values
           .where((m) => m.name == prefs.getString(meticulousModePrefKey))
           .firstOrNull;
@@ -222,7 +228,7 @@ class PourOverBrewService extends LiveShotService {
     if (mode == _meticulousMode || stage != ShotStage.idle) return;
     _meticulousMode = mode;
     _applyMode();
-    if (scale.isMachineScale && mode == MeticulousPourMode.scaleOnly) {
+    if (_auto && scale.isMachineScale && mode == MeticulousPourMode.scaleOnly) {
       prep.restart();
     }
     notifyListeners();
@@ -243,15 +249,36 @@ class PourOverBrewService extends LiveShotService {
   /// Grams of water that start the brew by themselves after the steps.
   static const autoStartGrams = 2.0;
 
+  // ---- Auto (any scale the app leads with) ----
+  //
+  // On: the steps weigh server, brewer and coffee by themselves (tare after
+  // each), the coffee becomes the dose, the first water starts the brew and
+  // lifting the brewer ends it with the coffee weighed ("In cup"). Off:
+  // enter everything by hand, Start Brew waits for the water, Finish ends.
+  // Same for a Bluetooth scale and the Meticulous in Scale only mode (user
+  // 2026-11-04).
+  static const autoPrefKey = 'pourover_auto';
+  bool _auto = false;
+  bool get auto => _auto;
+
+  void setAuto(bool value) {
+    if (value == _auto || stage != ShotStage.idle) return;
+    _auto = value;
+    if (value) prep.restart();
+    _syncPrep();
+    notifyListeners();
+    _persist((p) => p.setBool(autoPrefKey, value));
+  }
+
   /// The steps went through to the coffee: the scale stands at zero with
   /// everything on it, the next weight is water.
   bool get prepComplete =>
-      scale.isMachineScale && !dialLeads && prep.done && prep.coffeeG != null;
+      _auto && !dialLeads && prep.done && prep.coffeeG != null;
   double? _prepCoffeeTaken;
 
   /// Steps are shown/running.
   bool get prepActive =>
-      scale.isMachineScale &&
+      _auto &&
       !dialLeads &&
       scale.isConnected &&
       stage == ShotStage.idle &&
@@ -273,15 +300,12 @@ class PourOverBrewService extends LiveShotService {
     _syncPrep();
   }
 
-  /// "Setup" button: start the steps again.
+  /// Long press on "Auto": start the steps again.
   void restartPrep() {
-    if (stage != ShotStage.idle) return;
+    if (stage != ShotStage.idle || !_auto) return;
     prep.restart();
     _syncPrep();
   }
-
-  /// Long press on "Setup": everything is already in place and tared.
-  void skipPrep() => prep.skip();
 
   /// Tare in the command row: during the steps it records the current step
   /// (and tares), otherwise a plain tare.
@@ -347,7 +371,8 @@ class PourOverBrewService extends LiveShotService {
     final first = _wasMachineScale == null;
     _wasMachineScale = machine;
     _applyMode();
-    if (machine && !first) prep.restart();
+    // Another scale: the steps from the start.
+    if (_auto && !first) prep.restart();
   }
 
   // The chosen profile belongs to the other list (scale switched) or is
@@ -488,13 +513,13 @@ class PourOverBrewService extends LiveShotService {
     _lastError = null;
     // Keep what the setup steps weighed (also when started before the
     // last step).
-    _runningPrep = scale.isMachineScale ? prep.toJson() : null;
+    _runningPrep = _auto && !dialLeads ? prep.toJson() : null;
     // After the dial's steps the scale is already at zero with everything
     // on it (a tare now would also hit the first water when started by
     // the water itself).
     final tareFirst = !prepComplete;
     _setupG = prepComplete ? prep.setupG : null;
-    if (scale.isMachineScale && !prep.done) prep.skip();
+    if (_auto && !prep.done) prep.skip();
     if (tareFirst) {
       try {
         await scale.tare();
@@ -957,7 +982,7 @@ class PourOverBrewService extends LiveShotService {
     if (stage == ShotStage.purging) {
       applyStage(ShotStage.idle);
       // Next brew on the Meticulous: the steps again.
-      if (scale.isMachineScale) prep.restart();
+      if (_auto) prep.restart();
     }
     _syncPrep();
     notifyListeners();

@@ -148,7 +148,12 @@ void main() {
     await tester.pump();
     expect(brew.meticulousMode, MeticulousPourMode.scaleOnly);
     expect(find.text('Tare'), findsOneWidget);
-    expect(find.text('Setup'), findsOneWidget);
+    // Auto off: no steps, enter everything by hand.
+    expect(find.text('Auto off'), findsOneWidget);
+    expect(find.textContaining('Put the server'), findsNothing);
+    await tester.tap(find.text('Auto off'));
+    await tester.pump();
+    expect(find.text('Auto on'), findsOneWidget);
     expect(find.text('1/3 Put the server on the scale'), findsOneWidget);
     expect(find.text('One and Done'), findsWidgets);
     // Machine profiles: reload instead of "+".
@@ -163,7 +168,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 400));
     expect(selector.source, ScaleSource.bluetooth);
-    expect(find.text('Setup'), findsNothing);
+    // Same row for a Bluetooth scale: Auto stays (steps once it connects).
+    expect(find.text('Auto on'), findsOneWidget);
     expect(find.textContaining('Put the server'), findsNothing);
     expect(store.useMachine, isFalse);
 
