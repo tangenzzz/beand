@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
@@ -10,10 +11,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../live/pourover/pourover_profile_editor.dart';
 import '../../database/database.dart';
 import '../../models/brew_recipe.dart';
+import '../../models/setpoint_curve.dart';
 import '../../models/machine_profile.dart' show profilePlaceholderColor;
+import '../../models/pourover_draft.dart';
 import '../../services/brew_recipe_store.dart';
+import '../../services/profile_share.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
+import 'setpoint_curve_chart.dart';
 import '../history/history_logic.dart';
 import '../live/pourover/recipe_format.dart';
 
@@ -21,12 +26,14 @@ import '../live/pourover/recipe_format.dart';
 // laid out like the machines' profile view (ProfileDetailScreen): one large
 // card with header (color or custom photo), key facts, description,
 // breakdown of the pours and "About". At the very bottom "Delete profile"
-// like on the Meticulous: removes it from your own selection.
+// like on the Meticulous: removes it from your own selection and, if it is
+// on the machine, from there too.
 class PourOverProfileDetailScreen extends StatefulWidget {
   const PourOverProfileDetailScreen({
     super.key,
     required this.recipe,
     this.pickPhoto,
+    this.shareFile,
   });
 
   final BrewRecipe recipe;
@@ -34,6 +41,9 @@ class PourOverProfileDetailScreen extends StatefulWidget {
   // Returns the path of the chosen photo ('camera' | 'gallery'), already in
   // the photo folder; null = cancelled. Replaceable only for tests.
   final Future<String?> Function(String source)? pickPhoto;
+
+  // Replaceable only for tests.
+  final ProfileFileSharer? shareFile;
 
   @override
   State<PourOverProfileDetailScreen> createState() =>
@@ -45,6 +55,7 @@ class _PourOverProfileDetailScreenState
   late final Future<ProfileUsage> _usage = context
       .read<AppDatabase>()
       .profileUsage(widget.recipe.name, machine: 'pourover');
+  bool _deleting = false;
 
   static Future<String?> _pickAndStore(String source) async {
     final picked = await ImagePicker().pickImage(
@@ -145,6 +156,8 @@ class _PourOverProfileDetailScreenState
 
   Future<void> _deleteProfile() async {
     final name = widget.recipe.name;
+    final store = context.read<BrewRecipeStore>();
+    final onMachine = store.isOnMachine(widget.recipe.id);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -154,8 +167,12 @@ class _PourOverProfileDetailScreenState
           style: TextStyle(color: context.colors.textPrimary),
         ),
         content: Text(
-          '"$name" is removed from your profiles. You can add it again with + '
-          'or in Settings. Brews you already made with it stay in your history.',
+          onMachine
+              ? '"$name" is removed from the app and from the machine. '
+                    'Brews you already made with it stay in your history.'
+              : '"$name" is removed from your profiles. You can add it again '
+                    'with + or in Settings. Brews you already made with it '
+                    'stay in your history.',
           style: TextStyle(color: context.colors.textSecondary),
         ),
         actions: [
@@ -177,8 +194,64 @@ class _PourOverProfileDetailScreenState
       ),
     );
     if (confirmed != true || !mounted) return;
-    context.read<BrewRecipeStore>().remove(widget.recipe.id);
-    Navigator.of(context).pop();
+    if (onMachine) {
+      setState(() => _deleting = true);
+      try {
+        await store.deleteFromMachine(widget.recipe.id);
+      } catch (e) {
+        debugPrint('Pour Over delete: $e');
+        if (!mounted) return;
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not delete. Is the machine reachable?'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+    } else {
+      store.remove(widget.recipe.id);
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  // The profile as a file: in the Meticulous' format when it has one (without
+  // the app's own section, so the machine takes it too), else as a recipe.
+  // The photo travels inside, like when sending it to the machine.
+  Future<void> _share(BuildContext buttonContext) async {
+    final store = context.read<BrewRecipeStore>();
+    final messenger = ScaffoldMessenger.of(context);
+    final r = widget.recipe;
+    final raw = store.editableProfile(r.id);
+    var json = raw == null ? r.toJson() : toMachineJson(raw);
+    final origin = shareOrigin(buttonContext);
+    try {
+      final photo = store.photoFor(r.id)?.path;
+      if (raw != null && photo != null) {
+        final image = await compute(pourOverPhotoDataUri, photo);
+        if (image != null) {
+          json = {
+            ...json,
+            'display': {...?(json['display'] as Map?), 'image': image},
+          };
+        }
+      }
+      await shareProfileJson(
+        r.name,
+        json,
+        origin: origin,
+        share: widget.shareFile,
+      );
+    } catch (e) {
+      debugPrint('Pour Over share: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Could not share this profile'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
@@ -209,7 +282,16 @@ class _PourOverProfileDetailScreenState
                 }
               },
             ),
-          const SizedBox(width: 4),
+          Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: Builder(
+              builder: (buttonContext) => IconButton(
+                tooltip: 'Share profile',
+                icon: const Icon(Icons.share_outlined),
+                onPressed: () => _share(buttonContext),
+              ),
+            ),
+          ),
         ],
       ),
       body: ListView(
@@ -256,19 +338,29 @@ class _PourOverProfileDetailScreenState
                       ],
                     ),
                   ),
-                if (steps.isNotEmpty) _PoursSection(steps: steps),
+                if (steps.isNotEmpty) ...[
+                  _Section(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SectionLabel('Target curve'),
+                        const SizedBox(height: 10),
+                        SetpointCurveChart(curve: SetpointCurve.fromRecipe(r)),
+                      ],
+                    ),
+                  ),
+                  _PoursSection(steps: steps),
+                ],
                 _BrewSection(recipe: r),
                 _AboutSection(recipe: r, usage: _usage),
               ],
             ),
           ),
-          // Delete at the very end, like on the Meticulous. Not for the
-          // machine's own profiles — those are managed on the Meticulous.
-          // Only for own profiles (not the machine's, not a recipe of the
-          // collection that isn't added).
-          if (!r.fromMachine &&
-              (context.watch<BrewRecipeStore>().isEnabled(r.id) ||
-                  context.watch<BrewRecipeStore>().isImported(r.id)))
+          // Delete at the very end, like on the Meticulous. Not for a recipe
+          // of the collection that isn't added: there is nothing to delete.
+          if (context.watch<BrewRecipeStore>().isOnMachine(r.id) ||
+              context.watch<BrewRecipeStore>().isEnabled(r.id) ||
+              context.watch<BrewRecipeStore>().isImported(r.id))
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 20, 10, 4),
               child: AppButton(
@@ -276,7 +368,7 @@ class _PourOverProfileDetailScreenState
                 icon: Icons.delete_outline,
                 variant: AppButtonVariant.destructive,
                 expand: true,
-                onPressed: _deleteProfile,
+                onPressed: _deleting ? null : _deleteProfile,
               ),
             ),
         ],

@@ -376,6 +376,38 @@ class BrewRecipeStore extends ChangeNotifier {
     }
   }
 
+  /// Whether the Meticulous holds this profile (a copy may also be in the app).
+  bool isOnMachine(String id) => _machineRecipes.any((r) => r.id == id);
+
+  /// "Delete profile" for a profile on the Meticulous: from the machine first,
+  /// otherwise the next fetch brings it back; then from the app. Throws when
+  /// the machine refuses or is out of reach, and then nothing has changed.
+  Future<void> deleteFromMachine(String id) async {
+    final source = machineSource;
+    if (source == null) throw StateError('no machine');
+    // A fetch still running would put the profile back in the list.
+    await _machineFetch;
+    await source.delete(id);
+    _machineRaw = [
+      for (final r in _machineRaw)
+        if ('${r['id']}' != id) r,
+    ];
+    _machineRecipes = List.unmodifiable([
+      for (final r in _machineRecipes)
+        if (r.id != id) r,
+    ]);
+    final photo = _machinePhotos.remove(id);
+    try {
+      photo?.deleteSync();
+    } catch (_) {}
+    final cache = jsonEncode(_machineRaw);
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setString(machineCachePrefKey, cache))
+        .catchError((Object _) => false);
+    remove(id);
+    notifyListeners();
+  }
+
   Future<void> _loadPrefs() async {
     try {
       _photoDir = p.join(

@@ -11,12 +11,15 @@ import '../../database/database.dart';
 import '../../models/machine_profile.dart';
 import '../../models/profile_detail.dart';
 import '../../models/profile_draft.dart';
+import '../../models/setpoint_curve.dart';
 import '../../machines/espresso_machine.dart';
 import '../../machines/gaggimate/gaggimate_profile_detail.dart';
+import '../../services/profile_share.dart';
 import '../../services/profile_store.dart';
 import '../../theme/app_theme.dart';
 import '../history/history_logic.dart';
 import 'editor/profile_editor_screen.dart';
+import 'setpoint_curve_chart.dart';
 import '../../widgets/app_button.dart';
 
 // View into a machine profile (tapping a profile card in the Home tab):
@@ -31,6 +34,7 @@ class ProfileDetailScreen extends StatefulWidget {
     required this.machine,
     required this.store,
     this.pickPhoto,
+    this.shareFile,
   });
 
   // From the card: name/image/color are available immediately, the rest
@@ -49,6 +53,8 @@ class ProfileDetailScreen extends StatefulWidget {
   // Returns the path of the chosen photo ('camera' | 'gallery'), already
   // copied into the app folder; null = cancelled. Replaceable only for tests.
   final Future<String?> Function(String source)? pickPhoto;
+  // Replaceable only for tests.
+  final ProfileFileSharer? shareFile;
 
   @override
   State<ProfileDetailScreen> createState() => _ProfileDetailScreenState();
@@ -209,6 +215,27 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  // The profile as the machine wrote it, so it can go back onto a machine.
+  Future<void> _share(BuildContext buttonContext, StoredProfile stored) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await shareProfileJson(
+        widget.summary.name,
+        jsonDecode(stored.json),
+        origin: shareOrigin(buttonContext),
+        share: widget.shareFile,
+      );
+    } catch (e) {
+      debugPrint('Profile share: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Could not share this profile'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   ProfileDetail? _parse(StoredProfile stored) {
     try {
       final json = Map<String, dynamic>.from(jsonDecode(stored.json) as Map);
@@ -332,19 +359,29 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
               // away from the edge. The trash can now sits at the very
               // bottom of the page.
               if (widget.machine.canEditProfiles)
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: IconButton(
-                    tooltip: 'Edit profile',
+                IconButton(
+                  tooltip: 'Edit profile',
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    color: context.colors.textSecondary,
+                  ),
+                  onPressed: stored == null ? null : () => _editProfile(stored),
+                ),
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: Builder(
+                  builder: (buttonContext) => IconButton(
+                    tooltip: 'Share profile',
                     icon: Icon(
-                      Icons.edit_outlined,
+                      Icons.share_outlined,
                       color: context.colors.textSecondary,
                     ),
                     onPressed: stored == null
                         ? null
-                        : () => _editProfile(stored),
+                        : () => _share(buttonContext, stored),
                   ),
                 ),
+              ),
             ],
           ),
           body: ListView(
@@ -397,6 +434,18 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                               machine: widget.store.machineKey,
                             ),
                       ),
+                      if (SetpointCurve.fromProfile(detail) case final curve
+                          when !curve.isEmpty)
+                        _Section(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _SectionLabel('Target curve'),
+                              const SizedBox(height: 10),
+                              SetpointCurveChart(curve: curve),
+                            ],
+                          ),
+                        ),
                       if (detail.stages.isNotEmpty)
                         _StagesSection(detail.stages),
                       if (detail.variables.isNotEmpty)

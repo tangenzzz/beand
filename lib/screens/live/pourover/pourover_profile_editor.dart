@@ -36,7 +36,7 @@ const _plainLabelWidth = _labelWidth + 12;
 const _maxImageBytes = 290 * 1024;
 
 /// A photo as the machine takes it: JPEG data URI, null if unreadable.
-String? _photoDataUri(String path) {
+String? pourOverPhotoDataUri(String path) {
   final decoded = img.decodeImage(File(path).readAsBytesSync());
   if (decoded == null) return null;
   var image = decoded;
@@ -202,7 +202,9 @@ class _PourOverProfileEditorState extends State<PourOverProfileEditor> {
       // machine would lose it when the profile is replaced.
       final photo =
           _newPhoto ?? (_photoRemoved ? null : store.photoFor(_draft.id)?.path);
-      final image = photo == null ? null : await compute(_photoDataUri, photo);
+      final image = photo == null
+          ? null
+          : await compute(pourOverPhotoDataUri, photo);
       final json = _draft.toJson(imageDataUri: image, dropImage: _photoRemoved);
       if (_newPhoto != null || _photoRemoved) store.setPhoto(_draft.id, null);
       if (_photoRemoved) store.removeImportedPhoto(_draft.id);
@@ -921,7 +923,7 @@ class _PourFieldsState extends State<_PourFields> {
             key: ValueKey('pour-height-$i'),
             value: p.heightCm ?? 10,
             min: 0,
-            max: 50,
+            max: maxHeightCm,
             unit: 'cm',
             text: p.heightCm == null
                 ? 'Not set'

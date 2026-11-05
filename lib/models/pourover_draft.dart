@@ -13,6 +13,7 @@ import 'profile_draft.dart' show newUuid;
 // total, which makes the machine's consistency rules hold by construction.
 
 const maxPours = 5;
+const maxHeightCm = 15.0;
 const minDoseG = 5.0;
 const maxDoseG = 40.0;
 const minTempC = 70.0;
@@ -171,7 +172,7 @@ class PourOverDraft {
               ? pour['pattern'] as String
               : null,
           heightCm: pour['height_cm'] is num
-              ? (pour['height_cm'] as num).toDouble()
+              ? math.min((pour['height_cm'] as num).toDouble(), maxHeightCm)
               : null,
           note: '${s['note'] ?? ''}',
           rawPour: pour,

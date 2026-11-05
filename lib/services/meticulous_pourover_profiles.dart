@@ -14,6 +14,7 @@ import '../models/brew_recipe.dart';
 //
 //   GET /api/v1/pour-over/profile/list        → {"profiles": [...]}
 //   GET /api/v1/pour-over/profile/image/{id}  → JPEG (404 without image)
+//   DELETE /api/v1/pour-over/profile/delete/{id}
 //
 // Schema v1 (pour_over_profile_schema/schema.json in meticulous-backend):
 // recipe {coffee_dose_g, total_water_g, water_temperature_c,
@@ -272,6 +273,20 @@ class MeticulousPourOverProfiles {
         reason = (jsonDecode(response.body) as Map)['error']?.toString();
       } catch (_) {}
       throw HttpException(reason ?? 'HTTP ${response.statusCode}');
+    }
+  }
+
+  /// Removes a Pour Over profile from the machine. Already gone counts as
+  /// done. Throws on network/HTTP errors.
+  Future<void> delete(String id) async {
+    final response = await _client
+        .delete(
+          Uri.parse('http://${host()}/api/v1/pour-over/profile/delete/$id'),
+        )
+        .timeout(const Duration(seconds: 15));
+    final ok = response.statusCode >= 200 && response.statusCode < 300;
+    if (!ok && response.statusCode != 404) {
+      throw HttpException('HTTP ${response.statusCode}');
     }
   }
 

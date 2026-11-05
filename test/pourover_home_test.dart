@@ -227,7 +227,7 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 50));
         await tester.pump();
         expect(find.text('Pour breakdown'), findsOneWidget);
-        expect(find.text('Bloom'), findsOneWidget);
+        expect(find.text('Bloom'), findsWidgets);
         expect(find.text('2 pours'), findsOneWidget);
         expect(find.byTooltip('Change photo'), findsOneWidget);
         expect(store.isEnabled(_recipe.id), isTrue);

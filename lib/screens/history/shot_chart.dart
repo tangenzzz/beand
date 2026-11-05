@@ -424,9 +424,9 @@ class ShotChart extends StatelessWidget {
         ),
         if (showStageBar && phases.isNotEmpty) ...[
           const SizedBox(height: 10),
-          _StageBar(phases: phases, cursorMs: cursorMs),
+          StageBar(phases: phases, cursorMs: cursorMs),
           const SizedBox(height: 9),
-          _StageReadout(
+          StageReadout(
             phase: phaseAt(phases, cursorMs),
             allNames: [for (final p in phases) p.name],
             cursorMs: cursorMs,
@@ -443,8 +443,8 @@ class ShotChart extends StatelessWidget {
 // Segmented bar (width per phase proportional to duration) instead of the
 // earlier chip cloud — subtle gray, only the active segment (cursor
 // position) stands out lighter.
-class _StageBar extends StatelessWidget {
-  const _StageBar({required this.phases, required this.cursorMs});
+class StageBar extends StatelessWidget {
+  const StageBar({super.key, required this.phases, required this.cursorMs});
 
   final List<ShotPhase> phases;
   final int cursorMs;
@@ -476,8 +476,9 @@ class _StageBar extends StatelessWidget {
   }
 }
 
-class _StageReadout extends StatelessWidget {
-  const _StageReadout({
+class StageReadout extends StatelessWidget {
+  const StageReadout({
+    super.key,
     required this.phase,
     required this.allNames,
     required this.cursorMs,

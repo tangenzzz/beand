@@ -10,6 +10,7 @@ import 'package:beand/models/profile_detail.dart';
 import 'package:beand/screens/live/profile_carousel.dart';
 import 'package:beand/screens/profile/editor/profile_editor_screen.dart';
 import 'package:beand/screens/profile/profile_detail_screen.dart';
+import 'package:beand/screens/profile/setpoint_curve_chart.dart';
 import 'package:beand/widgets/app_button.dart';
 import 'package:beand/services/profile_store.dart';
 import 'package:beand/services/profile_sync_service.dart';
@@ -18,10 +19,12 @@ import 'package:beand/theme/app_theme.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'support/offline_gaggimate.dart';
 
@@ -353,7 +356,7 @@ void main() {
       expect(find.textContaining('Immediately ramps-up'), findsOneWidget);
       expect(find.text('Stage breakdown'), findsOneWidget);
       expect(find.text('1 stage'), findsOneWidget);
-      expect(find.text('no ramp (6bar down ramp) turbo'), findsOneWidget);
+      expect(find.text('no ramp (6bar down ramp) turbo'), findsWidgets);
       // Ramp 6 → 2 bar over 22.7 s; exit after 30 s; limit: flow 4 ml/s
       // (variable).
       expect(find.textContaining('over 22.7 s · curve'), findsOneWidget);
@@ -440,7 +443,7 @@ void main() {
         'Percolation Ramp',
         'Percolation',
       ]) {
-        expect(find.text(name), findsOneWidget);
+        expect(find.text(name), findsWidgets);
       }
       expect(find.text('100 %'), findsOneWidget, reason: 'power stage: 100 %');
       expect(find.text('0.1 bar'), findsOneWidget, reason: 'exit: pressure');
@@ -467,6 +470,48 @@ void main() {
       await teardown(tester);
     },
   );
+
+  testWidgets('shows the target curve and shares the raw profile', (
+    tester,
+  ) async {
+    bigScreen(tester);
+    await seedStored(tester);
+    final dir = Directory.systemTemp.createTempSync('beand_share');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (_) async => dir.path,
+    );
+    XFile? shared;
+    await tester.pumpWidget(
+      app(
+        ProfileDetailScreen(
+          summary: summary('Turbo'),
+          machine: machine,
+          store: sync,
+          shareFile: (file, _) async => shared = file,
+        ),
+      ),
+    );
+    await settle(tester);
+    expect(find.text('TARGET CURVE'), findsOneWidget);
+    expect(find.byType(SetpointCurveChart), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Share profile'));
+    // Real file access: real time, with the test's clock pumped in between.
+    for (var i = 0; i < 10 && shared == null; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 30)),
+      );
+      await tester.pump();
+    }
+    expect(shared!.path, endsWith('Turbo.json'));
+    final json = await tester.runAsync(
+      () async => jsonDecode(await File(shared!.path).readAsString()) as Map,
+    );
+    expect(json!['stages'], isNotEmpty);
+    await teardown(tester);
+  });
 
   testWidgets('offline: stored profile is fully available, copy is marked', (
     tester,
