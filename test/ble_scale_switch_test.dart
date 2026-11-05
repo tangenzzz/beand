@@ -281,44 +281,34 @@ void scanAndKnownTests() {
     },
   );
 
-  test(
-    'the state the plugin repeats on subscribing is not the end of the attempt '
-    '(log 2026-11-05: Decent off, its attempt cancelled, Pearl never connected)',
-    () async {
-      final ble = _ScanBle();
-      final scale = BleScale(ble: ble);
-      await _tick();
-      const decent = ScaleCandidate(
-        id: 'decent',
-        name: 'Decent Scale',
-        rssi: 0,
-      );
-      const pearl = ScaleCandidate(id: 'pearl', name: 'PROCHBT001', rssi: 0);
-      unawaited(scale.connectTo(decent));
-      await _tick();
-      // The old "disconnected" first, then the attempt really starts.
-      ble.conns['decent']!
-        ..add(_state('decent', DeviceConnectionState.disconnected))
-        ..add(_state('decent', DeviceConnectionState.connecting));
-      await _tick();
-      expect(scale.connection, ScaleConnection.connecting);
-      expect(scale.error, isNull);
+  test('an attempt ended by a late "disconnected" is cleared before the next scale '
+      '(log 2026-11-05: Decent off, Pearl never connected)', () async {
+    final ble = _ScanBle();
+    final scale = BleScale(ble: ble);
+    await _tick();
+    const decent = ScaleCandidate(id: 'decent', name: 'Decent Scale', rssi: 0);
+    const pearl = ScaleCandidate(id: 'pearl', name: 'PROCHBT001', rssi: 0);
+    unawaited(scale.connectTo(decent));
+    await _tick();
+    // The plugin's stream ends on it before the attempt said "connecting".
+    ble.conns['decent']!.add(
+      _state('decent', DeviceConnectionState.disconnected),
+    );
+    await ble.conns['decent']!.close();
+    await _tick();
 
-      unawaited(scale.connectTo(pearl));
-      await _tick();
-      expect(
-        ble.cancelled,
-        isEmpty,
-        reason: 'still running: must not be cancelled',
-      );
-      ble.conns['decent']!.add(
-        _state('decent', DeviceConnectionState.disconnected),
-      );
-      await _tick();
-      expect(ble.cancelled, ['decent']);
-      await scale.disconnect();
-    },
-  );
+    unawaited(scale.connectTo(pearl));
+    await _tick();
+    // First a short attempt on the Decent, the Pearl waits for its answer.
+    expect(ble.connectedTo.last, 'decent');
+    expect(ble.connectedTo, isNot(contains('pearl')));
+    ble.conns['decent']!
+      ..add(_state('decent', DeviceConnectionState.connecting))
+      ..add(_state('decent', DeviceConnectionState.disconnected));
+    await _tick();
+    expect(ble.connectedTo.last, 'pearl');
+    await scale.disconnect();
+  });
 
   test('the same scale again waits for its old attempt to end', () async {
     final ble = _ScanBle();

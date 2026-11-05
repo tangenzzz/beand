@@ -618,14 +618,19 @@ class BleScale extends BrewScale {
     // Giving up on the same scale ends with a disconnect by its id, which
     // would also hit this attempt.
     await _abandoned[id];
+    // Connecting the same scale clears it by itself.
+    _stuck.remove(id);
+    for (final other in _stuck.toList()) {
+      await _clearStuck(other);
+    }
     if (session != _session) {
       throw const _ScaleException('Connection cancelled.');
     }
     _connPending = true;
-    // On subscribing, the plugin first repeats the scale's last state, usually
-    // "disconnected" from the time before (log 2026-11-05). That says nothing
-    // about this attempt: only after its "connecting" does a "disconnected"
-    // mean it ended.
+    // A "disconnected" still on its way from the time before (log 2026-11-05:
+    // retried 60 ms after the loss) reaches this attempt first. The plugin's
+    // stream ends on it and tells the native side to disconnect, which leaves
+    // this attempt stuck first in the queue (see _abandon).
     var attemptStarted = false;
     _connSub = _ble
         .connectToDevice(id: id, connectionTimeout: _connectTimeout)
@@ -634,11 +639,13 @@ class BleScale extends BrewScale {
             if (session != _session) return;
             if (update.connectionState == DeviceConnectionState.connecting) {
               attemptStarted = true;
-            } else if (update.connectionState ==
-                    DeviceConnectionState.disconnected &&
-                !attemptStarted) {
-              return;
             } else {
+              if (!attemptStarted &&
+                  update.connectionState ==
+                      DeviceConnectionState.disconnected) {
+                _log('attempt on $id ended before it started');
+                _stuck.add(id);
+              }
               attemptStarted = true;
               _connPending = false;
             }
@@ -996,6 +1003,42 @@ class BleScale extends BrewScale {
     _connPending = false;
     _writeChar = null;
     _grams = null;
+  }
+
+  // Scales with an attempt stuck in the plugin's queue.
+  final _stuck = <String>{};
+
+  // A stuck attempt only goes when one for the same scale answers, so a short
+  // one is made and left to run out; the other scales get their turn after it.
+  Future<void> _clearStuck(String id) async {
+    _stuck.remove(id);
+    _log('clearing the queue of $id');
+    final answered = Completer<void>();
+    var started = false;
+    void answer() {
+      if (!answered.isCompleted) answered.complete();
+    }
+
+    final sub = _ble
+        .connectToDevice(id: id, connectionTimeout: const Duration(seconds: 2))
+        .listen(
+          (u) {
+            if (u.connectionState == DeviceConnectionState.connecting) {
+              started = true;
+            } else if (started ||
+                u.connectionState == DeviceConnectionState.connected) {
+              answer();
+            }
+          },
+          onError: (Object _) => answer(),
+          onDone: answer,
+        );
+    try {
+      await answered.future.timeout(const Duration(seconds: 6));
+      await sub.cancel();
+    } on TimeoutException {
+      _abandon(sub, id);
+    }
   }
 
   // An attempt that hasn't answered must not be cancelled on Android: the
