@@ -1050,13 +1050,14 @@ void main() {
           scale.gross += 7.5;
           await hold(1);
         }
+        await hold(6);
         scale.gross -= 200;
         await hold(45);
         await Future<void>.delayed(const Duration(milliseconds: 50));
         expect(service.stage, ShotStage.awaitingPurge);
         final shot = (await db.select(db.shots).get()).single;
         expect(shot.beverageGrams, isNull);
-        expect(shot.finalWeight, greaterThan(90));
+        expect(shot.finalWeight, greaterThan(100));
         service.dispose();
       });
     },
@@ -1236,14 +1237,27 @@ void main() {
         final water = service.grams;
         final dose = service.setup.doseGrams;
         expect(dose, 15);
+        // A hand on the brewer for a moment is no water.
+        scale.gross += 30;
+        await hold(1);
+        scale.gross -= 30;
+        await hold(6);
         // Everything off the scale: time and recording end right there.
         final ms = service.elapsedMs;
+        // Lifting takes a moment: the weight falls through several readings
+        // before it passes the lift threshold.
+        scale.gross -= 10;
+        await hold(1);
+        scale.gross -= 12;
+        await hold(1);
         scale.gross = 0;
         await hold(45);
         await Future<void>.delayed(const Duration(milliseconds: 50));
         expect(service.stage, ShotStage.awaitingPurge);
         expect(service.serverMissing, isTrue);
         expect(service.elapsedMs, ms);
+        expect(service.grams, closeTo(water, 1e-9));
+        expect(service.liveReadings.last.weight, closeTo(water, 1e-9));
         final saved = (await db.select(db.shots).get()).single;
         expect(saved.beverageGrams, isNull);
         expect(saved.durationMs, ms);

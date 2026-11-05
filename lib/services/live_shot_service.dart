@@ -156,6 +156,11 @@ abstract class LiveShotService extends ChangeNotifier {
   @protected
   bool get hasReadings => _readings.isNotEmpty;
 
+  /// Drops the readings after [ms] (what was recorded while the end was only
+  /// on its way).
+  @protected
+  void dropReadingsAfter(int ms) => _readings.removeWhere((r) => r.timeMs > ms);
+
   @protected
   void resetReadings() {
     _readings.clear();

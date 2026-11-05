@@ -602,6 +602,7 @@ class PourOverBrewService extends LiveShotService {
     // weight — only count from a value close to 0.
     var tared = !tareFirst;
     _peakWater = 0;
+    _recentWeights.clear();
     _liftSince = null;
     _serverMissing = false;
     _beverageG = null;
@@ -892,8 +893,12 @@ class PourOverBrewService extends LiveShotService {
   static const measureSteady = Duration(milliseconds: 700);
   static const measureBand = 1.5;
 
+  /// Below the peak by this much, the weight has started to fall.
+  static const liftFallBand = 3.0;
+
   double? _setupG;
   double _peakWater = 0;
+  final _recentWeights = <double>[];
   DateTime? _liftSince;
   bool _serverMissing = false;
   double? _beverageG;
@@ -915,7 +920,12 @@ class PourOverBrewService extends LiveShotService {
   bool _watchLift(ScaleReading r) {
     if (!_autoEnd) return false;
     final g = r.grams;
-    if (_liftSince == null) _peakWater = math.max(_peakWater, g);
+    // The median of the last few: a hand on the brewer for a moment is no water.
+    _recentWeights.add(g);
+    if (_recentWeights.length > 5) _recentWeights.removeAt(0);
+    final sorted = [..._recentWeights]..sort();
+    final settled = sorted[sorted.length ~/ 2];
+    if (_liftSince == null) _peakWater = math.max(_peakWater, settled);
     final below = _peakWater >= 20 && g <= _peakWater - _liftThreshold;
     if (!below) {
       _liftSince = null;
@@ -927,6 +937,19 @@ class PourOverBrewService extends LiveShotService {
   }
 
   void _beginMeasuring() {
+    // Lifting takes a moment and the falling weight still looked like water,
+    // up to the lift threshold (log 2026-11-05: 209 g counted, the server held
+    // 223 g, so the yield was thrown out). The water is the highest it got, and
+    // time and chart end where the weight started to fall.
+    final readings = liveReadings;
+    if (_peakWater > 0 && readings.isNotEmpty) {
+      final lastAtPeak = readings.lastWhere(
+        (e) => (e.weight ?? 0) >= _peakWater - liftFallBand,
+        orElse: () => readings.last,
+      );
+      dropReadingsAfter(lastAtPeak.timeMs);
+      _grams = _peakWater;
+    }
     ConnectionLog.write(
       'pourover',
       'lift: water ${_grams.toStringAsFixed(1)} g, setup ${_setupG?.toStringAsFixed(1)} g, '
@@ -970,7 +993,7 @@ class PourOverBrewService extends LiveShotService {
       'after lift: scale ${r.grams.toStringAsFixed(1)} g → coffee '
           '${beverage.toStringAsFixed(1)} g of water ${water.toStringAsFixed(1)} g',
     );
-    if (beverage > water + 8) {
+    if (beverage > water + _stackMargin(setupG)) {
       // Everything is still on the scale — it was a wobble, not a lift.
       _phase = _stepIndex >= (_runningPlan?.steps.length ?? 0)
           ? BrewState.drawdown
@@ -992,6 +1015,10 @@ class PourOverBrewService extends LiveShotService {
     _serverMissing = false;
     unawaited(stopShot());
   }
+
+  // Above the water by this much, the brewer is still on the scale: then the
+  // reading is the water plus the setup.
+  static double _stackMargin(double setupG) => math.max(8, setupG * 0.5);
 
   int? _savedShotId;
   double? _lastYieldLog;
@@ -1035,7 +1062,10 @@ class PourOverBrewService extends LiveShotService {
       );
     }
     // Still empty, or the brewer is back on it too.
-    if (beverage < math.max(8, water * 0.2) || beverage > water + 8) return;
+    if (beverage < math.max(8, water * 0.2) ||
+        beverage > water + _stackMargin(_setupG ?? 0)) {
+      return;
+    }
     _beverageG = (beverage * 10).roundToDouble() / 10;
     _serverMissing = false;
     _stopWatchingYield();
