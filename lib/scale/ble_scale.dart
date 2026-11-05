@@ -622,12 +622,24 @@ class BleScale extends BrewScale {
       throw const _ScaleException('Connection cancelled.');
     }
     _connPending = true;
+    // On subscribing, the plugin first repeats the scale's last state, usually
+    // "disconnected" from the time before (log 2026-11-05). That says nothing
+    // about this attempt: only after its "connecting" does a "disconnected"
+    // mean it ended.
+    var attemptStarted = false;
     _connSub = _ble
         .connectToDevice(id: id, connectionTimeout: _connectTimeout)
         .listen(
           (update) async {
             if (session != _session) return;
-            if (update.connectionState != DeviceConnectionState.connecting) {
+            if (update.connectionState == DeviceConnectionState.connecting) {
+              attemptStarted = true;
+            } else if (update.connectionState ==
+                    DeviceConnectionState.disconnected &&
+                !attemptStarted) {
+              return;
+            } else {
+              attemptStarted = true;
               _connPending = false;
             }
             switch (update.connectionState) {
@@ -846,6 +858,9 @@ class BleScale extends BrewScale {
   @visibleForTesting
   Duration autoSwitchGrace = const Duration(seconds: 5);
 
+  @visibleForTesting
+  Duration lostSettle = const Duration(seconds: 2);
+
   bool get _otherKnown =>
       (mayAutoSwitch?.call() ?? true) && _known.any((k) => k.id != _deviceId);
 
@@ -917,6 +932,12 @@ class BleScale extends BrewScale {
           // on a scale that is off holds up everything else for its timeout.
           if (_reconnects > 1 || _otherKnown) {
             _set(ScaleConnection.scanning);
+            // Android still reports a scale just switched off for a moment
+            // (log 2026-11-05: 85 ms after the loss).
+            if (_reconnects == 1) {
+              await Future<void>.delayed(lostSettle);
+              if (!current()) break;
+            }
             final next = await _searchAfterLost(_deviceId!);
             if (next == null || !current()) continue;
             if (next.id != _deviceId) {
@@ -1000,7 +1021,9 @@ class BleScale extends BrewScale {
     conn.onError((Object _) => end());
     conn.onDone(end);
     // Should it never answer, don't hold on to it for ever.
-    final limit = Timer(_connectTimeout + const Duration(seconds: 5), end);
+    // Generous: a timer running out cancels the attempt, and one still waiting
+    // behind others in the plugin's queue may need several timeouts.
+    final limit = Timer(const Duration(seconds: 60), end);
     unawaited(ended.future.whenComplete(limit.cancel));
     if (id != null) _abandoned[id] = ended.future;
   }

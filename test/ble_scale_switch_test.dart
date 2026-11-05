@@ -116,6 +116,9 @@ class _ScanBle extends _SilentBle {
 
 Future<void> _tick() => Future<void>.delayed(const Duration(milliseconds: 20));
 
+ConnectionStateUpdate _state(String id, DeviceConnectionState state) =>
+    ConnectionStateUpdate(deviceId: id, connectionState: state, failure: null);
+
 void scanAndKnownTests() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -278,6 +281,45 @@ void scanAndKnownTests() {
     },
   );
 
+  test(
+    'the state the plugin repeats on subscribing is not the end of the attempt '
+    '(log 2026-11-05: Decent off, its attempt cancelled, Pearl never connected)',
+    () async {
+      final ble = _ScanBle();
+      final scale = BleScale(ble: ble);
+      await _tick();
+      const decent = ScaleCandidate(
+        id: 'decent',
+        name: 'Decent Scale',
+        rssi: 0,
+      );
+      const pearl = ScaleCandidate(id: 'pearl', name: 'PROCHBT001', rssi: 0);
+      unawaited(scale.connectTo(decent));
+      await _tick();
+      // The old "disconnected" first, then the attempt really starts.
+      ble.conns['decent']!
+        ..add(_state('decent', DeviceConnectionState.disconnected))
+        ..add(_state('decent', DeviceConnectionState.connecting));
+      await _tick();
+      expect(scale.connection, ScaleConnection.connecting);
+      expect(scale.error, isNull);
+
+      unawaited(scale.connectTo(pearl));
+      await _tick();
+      expect(
+        ble.cancelled,
+        isEmpty,
+        reason: 'still running: must not be cancelled',
+      );
+      ble.conns['decent']!.add(
+        _state('decent', DeviceConnectionState.disconnected),
+      );
+      await _tick();
+      expect(ble.cancelled, ['decent']);
+      await scale.disconnect();
+    },
+  );
+
   test('the same scale again waits for its old attempt to end', () async {
     final ble = _ScanBle();
     final scale = BleScale(ble: ble);
@@ -310,7 +352,8 @@ void scanAndKnownTests() {
       });
       final ble = _ScanBle();
       final scale = BleScale(ble: ble)
-        ..autoSwitchGrace = const Duration(milliseconds: 150);
+        ..autoSwitchGrace = const Duration(milliseconds: 150)
+        ..lostSettle = Duration.zero;
       await _tick();
       unawaited(
         scale.connectTo(
@@ -318,13 +361,9 @@ void scanAndKnownTests() {
         ),
       );
       await _tick();
-      ble.conns['decent']!.add(
-        const ConnectionStateUpdate(
-          deviceId: 'decent',
-          connectionState: DeviceConnectionState.disconnected,
-          failure: null,
-        ),
-      );
+      ble.conns['decent']!
+        ..add(_state('decent', DeviceConnectionState.connecting))
+        ..add(_state('decent', DeviceConnectionState.disconnected));
       await _tick();
       ble.connectedTo.clear();
       unawaited(scale.simulateLost());
