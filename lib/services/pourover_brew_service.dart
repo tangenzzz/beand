@@ -250,7 +250,7 @@ class PourOverBrewService extends LiveShotService {
   /// A touch on the scale passes; water stays.
   static const autoStartHold = Duration(milliseconds: 300);
 
-  /// Scale counts as tared within this of zero.
+  /// A reading this close to the coffee's weight may be from before the tare.
   static const armZeroBand = 1.0;
 
   // ---- Auto (any scale the app leads with) ----
@@ -337,13 +337,16 @@ class PourOverBrewService extends LiveShotService {
     if (arm && _armSub == null) {
       // After the tare the scale first still reports the coffee for a few
       // packets, which started the brew with no water poured (user
-      // 2026-11-05). So: back at zero first, then a weight that stays.
-      var atZero = false;
+      // 2026-11-05). So: not the old weight any more, then a weight that stays.
+      var tared = false;
       ScaleReading? rising;
       _armSub = scale.readings.listen((r) {
         if (stage != ShotStage.idle) return;
-        if (r.grams.abs() < armZeroBand) atZero = true;
-        if (!atZero) return;
+        // Anything but the coffee's weight means the tare has gone through
+        // (pouring right away may never show a zero).
+        final old = prep.coffeeG;
+        if (old == null || (r.grams - old).abs() > armZeroBand) tared = true;
+        if (!tared) return;
         if (r.grams < autoStartGrams) {
           rising = null;
           return;
