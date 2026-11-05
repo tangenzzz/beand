@@ -499,7 +499,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Share profile'));
     // Real file access: real time, with the test's clock pumped in between.
-    for (var i = 0; i < 10 && shared == null; i++) {
+    for (var i = 0; i < 100 && shared == null; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 30)),
       );

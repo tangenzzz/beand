@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/connection_log.dart';
 import 'acaia_driver.dart';
 import 'acaia_protocol.dart' show hexPacket;
 import 'bookoo_driver.dart';
@@ -15,6 +18,12 @@ import 'scale_driver.dart';
 
 const scaleLastDeviceIdPrefKey = 'scale.lastDeviceId';
 const scaleLastDeviceNamePrefKey = 'scale.lastDeviceName';
+const scaleKnownPrefKey = 'scale.known';
+
+void _log(String message) {
+  debugPrint('BleScale: $message');
+  ConnectionLog.write('scale', message);
+}
 
 /// A Bluetooth scale via flutter_reactive_ble: scan, connect, reconnect and
 /// permissions are the same for every scale; what a scale speaks is in its
@@ -109,11 +118,67 @@ class BleScale extends BrewScale {
   // until the app restarted).
   Completer<void>? _ready;
 
+  List<KnownScale> _known = const [];
+  @override
+  List<KnownScale> get knownScales => _known;
+
   Future<void> _loadRemembered() async {
     final prefs = await SharedPreferences.getInstance();
     _rememberedId = prefs.getString(scaleLastDeviceIdPrefKey);
-    _deviceName ??= prefs.getString(scaleLastDeviceNamePrefKey);
+    final name = prefs.getString(scaleLastDeviceNamePrefKey);
+    _deviceName ??= name;
+    var known = const <KnownScale>[];
+    try {
+      final raw = prefs.getString(scaleKnownPrefKey);
+      if (raw != null) {
+        known = [
+          for (final e in jsonDecode(raw) as List) ?KnownScale.fromJson(e),
+        ];
+      }
+    } catch (e) {
+      debugPrint('BleScale: known scales unreadable: $e');
+    }
+    // Keep what was added meanwhile; the scale of older versions counts too.
+    final id = _rememberedId;
+    final merged = [
+      ...known,
+      for (final k in _known)
+        if (!known.any((e) => e.id == k.id)) k,
+    ];
+    _known = [
+      ...merged,
+      if (id != null && name != null && !merged.any((e) => e.id == id))
+        KnownScale(id: id, name: name),
+    ];
     notifyListeners();
+  }
+
+  Future<void> _saveKnown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      scaleKnownPrefKey,
+      jsonEncode([for (final k in _known) k.toJson()]),
+    );
+  }
+
+  void _addKnown(String id, String name) {
+    if (_known.any((k) => k.id == id)) return;
+    _known = [..._known, KnownScale(id: id, name: name)];
+    unawaited(_saveKnown());
+  }
+
+  @override
+  Future<void> forgetScale(String id) async {
+    _known = [
+      for (final k in _known)
+        if (k.id != id) k,
+    ];
+    if (id == _rememberedId) {
+      await forget();
+    } else {
+      notifyListeners();
+    }
+    await _saveKnown();
   }
 
   Future<void> _remember(String id, String name) async {
@@ -125,17 +190,104 @@ class BleScale extends BrewScale {
 
   // ---- Scan -----------------------------------------------------------
 
+  // There is one radio scan: everyone asking for a scan (the settings page,
+  // finding a scale, a reconnect) shares it. On Android a second scan silently
+  // ends the first, and a scan ending stops it for everyone.
+  StreamSubscription<DiscoveredDevice>? _radioScan;
+  final _scanListeners = <StreamController<DiscoveredDevice>>{};
+  final _seenInScan = <String, DiscoveredDevice>{};
+  Timer? _scanStartTimer;
+
+  // Android answers more than 5 scan starts in 30 s with an empty scan and no
+  // error. Stay below that: the next start waits instead.
+  final _scanStarts = <DateTime>[];
+  static const _maxScanStarts = 4;
+  static const _scanStartWindow = Duration(seconds: 30);
+
   @override
   Stream<ScaleCandidate> scan({
     Duration timeout = const Duration(seconds: 10),
   }) async* {
     await _ensurePermissions();
     await _waitForBluetooth();
+    final out = StreamController<DiscoveredDevice>();
+    _scanListeners.add(out);
+    final wait = _startRadioScan();
+    // Long enough to really search when the start has to wait.
+    final end = Timer(timeout + wait, out.close);
     final seen = <String>{};
-    yield* _scanStream()
-        .where((d) => _driverFor(d.name) != null && seen.add(d.id))
-        .map((d) => ScaleCandidate(id: d.id, name: d.name, rssi: d.rssi))
-        .timeout(timeout, onTimeout: (sink) => sink.close());
+    for (final d in _seenInScan.values) {
+      out.add(d);
+    }
+    try {
+      yield* out.stream
+          .where((d) => _driverFor(d.name) != null && seen.add(d.id))
+          .map((d) => ScaleCandidate(id: d.id, name: d.name, rssi: d.rssi));
+    } finally {
+      end.cancel();
+      _scanListeners.remove(out);
+      if (_scanListeners.isEmpty) _stopRadioScan();
+    }
+  }
+
+  // Returns how long until the scan really runs.
+  Duration _startRadioScan() {
+    if (_radioScan != null) return Duration.zero;
+    if (_scanStartTimer case final t? when t.isActive) {
+      return _nextScanStart();
+    }
+    final wait = _nextScanStart();
+    if (wait > Duration.zero) {
+      _log('scan waits ${wait.inSeconds}s (too many scans)');
+      _scanStartTimer = Timer(wait, () {
+        if (_scanListeners.isNotEmpty) _startRadioScan();
+      });
+      return wait;
+    }
+    _scanStarts.add(DateTime.now());
+    _seenInScan.clear();
+    _log('scan started');
+    _radioScan = _scanStream().listen(
+      (d) {
+        _seenInScan[d.id] = d;
+        for (final l in _scanListeners.toList()) {
+          if (!l.isClosed) l.add(d);
+        }
+      },
+      onError: (Object e) {
+        _log('scan failed: $e');
+        _radioScan = null;
+        for (final l in _scanListeners.toList()) {
+          if (!l.isClosed) {
+            l.addError(e);
+            l.close();
+          }
+        }
+      },
+      onDone: () {
+        _radioScan = null;
+      },
+    );
+    return Duration.zero;
+  }
+
+  Duration _nextScanStart() {
+    final now = DateTime.now();
+    _scanStarts.removeWhere((t) => now.difference(t) >= _scanStartWindow);
+    if (_scanStarts.length < _maxScanStarts) return Duration.zero;
+    return _scanStartWindow - now.difference(_scanStarts.first);
+  }
+
+  void _stopRadioScan() {
+    _scanStartTimer?.cancel();
+    _scanStartTimer = null;
+    final running = _radioScan;
+    _radioScan = null;
+    _seenInScan.clear();
+    if (running != null) {
+      _log('scan stopped');
+      unawaited(running.cancel());
+    }
   }
 
   Stream<DiscoveredDevice> _scanStream({bool askedForLocation = false}) async* {
@@ -167,16 +319,17 @@ class BleScale extends BrewScale {
   @override
   Future<void> connect() => _connectWith(null);
 
-  /// Tapping another scale while one is connected switches right over.
+  /// Tapping another scale switches right over, whatever the app is doing.
   @override
   Future<void> connectTo(ScaleCandidate candidate) async {
     if (_deviceId == candidate.id && _connection == ScaleConnection.connected) {
       return;
     }
+    // Tapped again while this was still dropping the old one: the last tap
+    // counts.
+    final mine = _session + 1;
     await disconnect();
-    // A connect still hanging from the old scale must not swallow this
-    // one.
-    _connecting = null;
+    if (mine != _session) return;
     return _connectWith(candidate);
   }
 
@@ -184,16 +337,21 @@ class BleScale extends BrewScale {
     if (_connection == ScaleConnection.connected) return;
     if (_connecting != null) return _connecting!.future;
     final done = _connecting = Completer<void>();
+    // Also ends the reconnect loop of whatever came before.
+    final session = ++_session;
+    bool current() => session == _session;
     _wantConnected = true;
     _reconnects = 0;
     _error = null;
     try {
       await _ensurePermissions();
       await _waitForBluetooth();
+      if (!current()) return;
       var target = pick;
       if (target == null) {
         _set(ScaleConnection.scanning);
         target = await _findForConnect();
+        if (!current()) return;
       }
       if (target == null) {
         _fail(
@@ -204,11 +362,31 @@ class BleScale extends BrewScale {
       _deviceId = target.id;
       _deviceName = target.name;
       await _remember(target.id, target.name);
-      await _open();
+      if (!current()) return;
+      _log('connecting to ${target.name}');
+      // Android often fails the first try right after a scan or another
+      // scale's connection (GATT error 133): worth a second one.
+      for (var attempt = 1; ; attempt++) {
+        try {
+          await _open();
+          break;
+        } catch (e) {
+          _log('connect attempt $attempt failed: $e');
+          if (!current() || attempt >= 2) rethrow;
+          await _teardown();
+          await Future<void>.delayed(const Duration(seconds: 1));
+          if (!current()) return;
+        }
+      }
     } catch (e) {
-      _fail(_describe(e));
+      // An attempt that was cancelled has nothing to say: the app has moved
+      // on, and failing here would end the new scale's connection.
+      if (current()) {
+        _log('connect failed: $e');
+        _fail(_describe(e));
+      }
     } finally {
-      _connecting = null;
+      if (identical(_connecting, done)) _connecting = null;
       if (!done.isCompleted) done.complete();
     }
   }
@@ -219,7 +397,7 @@ class BleScale extends BrewScale {
     await _loadRemembered();
     final lastId = _rememberedId;
     ScaleCandidate? firstOther;
-    final found = Completer<ScaleCandidate?>();
+    final found = _finding = Completer<ScaleCandidate?>();
     Timer? grace;
     final sub = scan(timeout: _scanTimeout).listen(
       (c) {
@@ -243,26 +421,42 @@ class BleScale extends BrewScale {
     try {
       return await found.future;
     } finally {
+      if (identical(_finding, found)) _finding = null;
       grace?.cancel();
       await sub.cancel();
     }
   }
 
+  // The search of a connect() in progress; a disconnect ends it right away.
+  Completer<ScaleCandidate?>? _finding;
+
   @override
   Future<void> disconnect() async {
     _wantConnected = false;
     _session++;
+    // An attempt still under way ends by itself; nothing may wait for it.
+    _connecting = null;
+    final finding = _finding;
+    if (finding != null && !finding.isCompleted) finding.complete(null);
+    final session = _session;
     await _teardown();
-    _set(ScaleConnection.disconnected);
+    if (session == _session) _set(ScaleConnection.disconnected);
   }
 
   @override
   Future<void> forget() async {
     await disconnect();
+    final id = _rememberedId;
     _rememberedId = null;
+    _deviceId = null;
     _deviceName = null;
     _error = null;
+    _known = [
+      for (final k in _known)
+        if (k.id != id) k,
+    ];
     final prefs = await SharedPreferences.getInstance();
+    await _saveKnown();
     await prefs.remove(scaleLastDeviceIdPrefKey);
     await prefs.remove(scaleLastDeviceNamePrefKey);
     notifyListeners();
@@ -309,6 +503,12 @@ class BleScale extends BrewScale {
     // On Android 11 and older permission_handler reports "granted" for
     // SCAN/CONNECT anyway; there the scan needs location instead
     // (see _scanStream).
+    // Only ask when it's needed: two requests at the same time throw, and a
+    // scan and a reconnect can come together.
+    if (await Permission.bluetoothScan.isGranted &&
+        await Permission.bluetoothConnect.isGranted) {
+      return;
+    }
     final res = await [
       Permission.bluetoothScan,
       Permission.bluetoothConnect,
@@ -318,6 +518,38 @@ class BleScale extends BrewScale {
         'Bluetooth permission denied. Allow "Nearby devices" for bean\'d.',
       );
     }
+  }
+
+  static const _bluetoothChannel = MethodChannel('beand/bluetooth');
+
+  Future<BleStatus> _status() => _ble.statusStream
+      .firstWhere((s) => s != BleStatus.unknown)
+      .timeout(const Duration(seconds: 3), onTimeout: () => BleStatus.unknown);
+
+  @override
+  Future<bool> get bluetoothOff async {
+    try {
+      return await _status() == BleStatus.poweredOff;
+    } catch (e) {
+      debugPrint('BleScale: Bluetooth status failed: $e');
+      return false;
+    }
+  }
+
+  @override
+  Stream<bool> get bluetoothOffChanges => _ble.statusStream
+      .where((s) => s != BleStatus.unknown)
+      .map((s) => s == BleStatus.poweredOff)
+      .distinct();
+
+  @override
+  Future<bool> requestBluetoothOn() async {
+    if (!await bluetoothOff) return true;
+    if (!Platform.isAndroid) return false;
+    await _ensurePermissions();
+    final on = await _bluetoothChannel.invokeMethod<bool>('requestEnable');
+    _log('asked to switch Bluetooth on: ${on == true ? 'yes' : 'no'}');
+    return on == true;
   }
 
   Future<void> _waitForBluetooth() async {
@@ -353,18 +585,25 @@ class BleScale extends BrewScale {
 
   Future<void> _open() async {
     final id = _deviceId!;
+    final session = _session;
     _set(ScaleConnection.connecting);
     final ready = _ready = Completer<void>();
     await _connSub?.cancel();
+    if (session != _session) {
+      throw const _ScaleException('Connection cancelled.');
+    }
     _connSub = _ble
         .connectToDevice(id: id, connectionTimeout: _connectTimeout)
         .listen(
           (update) async {
+            if (session != _session) return;
             switch (update.connectionState) {
               case DeviceConnectionState.connected:
                 try {
-                  await _setUp(id);
+                  await _setUp(id, session);
                   _reconnects = 0;
+                  _addKnown(id, _deviceName ?? id);
+                  _log('connected to $_deviceName');
                   _set(ScaleConnection.connected);
                   if (!ready.isCompleted) ready.complete();
                 } catch (e) {
@@ -372,9 +611,7 @@ class BleScale extends BrewScale {
                 }
               case DeviceConnectionState.disconnected:
                 if (!ready.isCompleted) {
-                  ready.completeError(
-                    const _ScaleException('The scale closed the connection.'),
-                  );
+                  ready.completeError(const _ScaleException(_noAnswer));
                 } else {
                   _onLost();
                 }
@@ -399,9 +636,19 @@ class BleScale extends BrewScale {
     }
   }
 
-  Future<void> _setUp(String id) async {
+  Future<void> _setUp(String id, int session) async {
+    // Switched to another scale meanwhile: nothing here may touch its
+    // connection (its timers and channels replaced the new scale's).
+    void stillCurrent() {
+      if (session != _session) {
+        throw const _ScaleException('Connection cancelled.');
+      }
+    }
+
     await _ble.discoverAllServices(id);
+    stillCurrent();
     final services = await _ble.getDiscoveredServices(id);
+    stillCurrent();
     for (final s in services) {
       debugPrint(
         'BleScale: service ${s.id} → '
@@ -449,6 +696,7 @@ class BleScale extends BrewScale {
     _packets.clear();
     _packetCount = 0;
     await _notifySub?.cancel();
+    stillCurrent();
     _notifySub = notify.subscribe().listen(
       _onPacket,
       onError: (Object e) {
@@ -456,6 +704,7 @@ class BleScale extends BrewScale {
       },
     );
     await driver.start(_write);
+    stillCurrent();
 
     _lastPacket = DateTime.now();
     _heartbeat?.cancel();
@@ -555,20 +804,24 @@ class BleScale extends BrewScale {
     );
   }
 
-  bool _recovering = false;
+  // The session being recovered: a loop of an older one must not stop the
+  // new scale from recovering.
+  int? _recovering;
 
   Future<void> _onLost() async {
-    if (_recovering) return;
-    _recovering = true;
+    final session = _session;
+    if (_recovering == session) return;
+    _recovering = session;
+    _log('connection lost');
     try {
       await _teardown();
+      if (session != _session) return;
       if (!_wantConnected || _deviceId == null) {
         _set(ScaleConnection.disconnected);
         return;
       }
       // First reconnect blindly (short radio dropout), after that only
       // when the scale is sending again – it can be off for minutes.
-      final session = _session;
       bool current() => _wantConnected && session == _session;
       final deadline = DateTime.now().add(_reconnectWindow);
       while (current() && DateTime.now().isBefore(deadline)) {
@@ -602,7 +855,7 @@ class BleScale extends BrewScale {
       }
       _fail('Lost the connection to the scale.');
     } finally {
-      _recovering = false;
+      if (_recovering == session) _recovering = null;
     }
   }
 
@@ -640,18 +893,21 @@ class BleScale extends BrewScale {
 
   static String _describe(Object e) {
     if (e is _ScaleException) return e.message;
-    if (e is TimeoutException) return 'The scale did not answer in time.';
+    if (e is TimeoutException) return _noAnswer;
     return 'Scale error: $e';
   }
 
   @override
   void dispose() {
     _wantConnected = false;
+    _stopRadioScan();
     _teardown();
     _readings.close();
     super.dispose();
   }
 }
+
+const _noAnswer = 'No answer from the scale. Is it on and free?';
 
 class _ScaleException implements Exception {
   const _ScaleException(this.message);

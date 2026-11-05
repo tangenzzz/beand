@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../scale/bluetooth_prompt.dart';
 import '../../../scale/brew_scale.dart';
 import '../../../services/live_shot_service.dart';
 import '../../../services/pourover_brew_service.dart';
@@ -56,11 +57,13 @@ class _BodyState extends State<_Body> {
     _brew = context.read<PourOverBrewService>();
     // After the first frame: connect() reports a new state immediately, and
     // providers must not rebuild in the middle of a build.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted &&
           _scale.connection == ScaleConnection.disconnected &&
           _scale.error == null) {
-        _scale.connect();
+        // Declined: connect() leaves its error, so this doesn't ask again.
+        if (!_scale.isMachineScale) await ensureBluetoothOn(context, _scale);
+        if (mounted) _scale.connect();
       }
       // Setup steps on the Meticulous only run while this view is shown.
       if (mounted) _brew.setPrepVisible(true);

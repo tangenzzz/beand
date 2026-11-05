@@ -1,5 +1,6 @@
 package app.beand
 
+import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -12,6 +13,17 @@ import io.flutter.plugin.common.MethodChannel
 // FlutterFragmentActivity instead of FlutterActivity: local_auth (fingerprint/
 // PIN before showing the sync key) needs a FragmentActivity.
 class MainActivity : FlutterFragmentActivity() {
+    private var bluetoothAnswer: MethodChannel.Result? = null
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_ENABLE_BLUETOOTH) {
+            bluetoothAnswer?.success(resultCode == RESULT_OK)
+            bluetoothAnswer = null
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LiveStatus.onIntent(intent, atLaunch = true)
@@ -49,6 +61,23 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+        // The system's "turn on Bluetooth?" dialog (BleScale.requestBluetoothOn).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "beand/bluetooth")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "requestEnable" -> {
+                        // Asked twice: the first dialog answers for both.
+                        bluetoothAnswer?.success(false)
+                        bluetoothAnswer = result
+                        @Suppress("DEPRECATION")
+                        startActivityForResult(
+                            Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE),
+                            REQUEST_ENABLE_BLUETOOTH,
+                        )
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         // Gear photo cutout (lib/services/gear_cutout.dart).
         Cutout.register(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
         // After a restore: really end the process and start fresh
@@ -73,5 +102,9 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    private companion object {
+        const val REQUEST_ENABLE_BLUETOOTH = 4711
     }
 }

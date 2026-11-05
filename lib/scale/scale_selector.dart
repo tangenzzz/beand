@@ -100,6 +100,16 @@ class ScaleSelector extends BrewScale {
   @override
   String? get rememberedId => active.rememberedId;
   @override
+  List<KnownScale> get knownScales => bluetooth.knownScales;
+  @override
+  Future<void> forgetScale(String id) => bluetooth.forgetScale(id);
+  @override
+  Future<bool> get bluetoothOff => bluetooth.bluetoothOff;
+  @override
+  Stream<bool> get bluetoothOffChanges => bluetooth.bluetoothOffChanges;
+  @override
+  Future<bool> requestBluetoothOn() => bluetooth.requestBluetoothOn();
+  @override
   String? get details => active.details;
   @override
   double? get grams => active.grams;

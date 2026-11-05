@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../scale/brew_scale.dart';
 import '../../../scale/meticulous_scale.dart';
+import '../../../scale/bluetooth_prompt.dart';
 import '../../../scale/scale_selector.dart';
 import '../../../services/pourover_brew_service.dart';
 import '../../../theme/app_theme.dart';
@@ -246,7 +247,7 @@ class PourOverCommandRow extends StatelessWidget {
                 child: TextButton(
                   onPressed: () => Navigator.pop(context, 'settings'),
                   child: Text(
-                    'Scale settings ›',
+                    'Scales ›',
                     style: TextStyle(color: colors.accent, fontSize: 13),
                   ),
                 ),
@@ -264,6 +265,7 @@ class PourOverCommandRow extends StatelessWidget {
       scale.setSource(ScaleSource.meticulous);
     } else if (choice == ScaleSource.bluetooth) {
       scale.setSource(ScaleSource.bluetooth);
+      if (!await ensureBluetoothOn(context, scale)) return;
       // A Bluetooth scale that is not connected yet connects right away.
       if (scale.connection == ScaleConnection.disconnected &&
           scale.bluetooth.rememberedId != null) {

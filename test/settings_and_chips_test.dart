@@ -99,7 +99,7 @@ void main() {
     await tester.tap(find.text('Connections'));
     await tester.pumpAndSettle();
     expect(find.text('Meticulous'), findsOneWidget);
-    expect(find.text('Scale'), findsOneWidget);
+    expect(find.text('Scales'), findsOneWidget);
 
     await tester.tap(find.text('Meticulous'));
     await tester.pumpAndSettle();

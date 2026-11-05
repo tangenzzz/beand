@@ -33,6 +33,27 @@ class ScaleCandidate {
   int get hashCode => id.hashCode;
 }
 
+/// A scale the app has been connected to; stays listed while it is off, like
+/// the known devices in the phone's Bluetooth settings.
+@immutable
+class KnownScale {
+  const KnownScale({required this.id, required this.name});
+
+  final String id;
+  final String name;
+
+  Map<String, String> toJson() => {'id': id, 'name': name};
+
+  static KnownScale? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final id = json['id'];
+    final name = json['name'];
+    return id is String && name is String
+        ? KnownScale(id: id, name: name)
+        : null;
+  }
+}
+
 /// A Bluetooth scale for Pour Over. Pour Over only runs with a connected
 /// scale — the rest of the app only knows this interface, not the Acaia
 /// protocol behind it.
@@ -48,6 +69,22 @@ abstract class BrewScale extends ChangeNotifier {
 
   /// Device the app last connected to (preferred).
   String? get rememberedId => null;
+
+  /// Every scale the app has been connected to, in the order they were added.
+  List<KnownScale> get knownScales => const [];
+
+  /// Removes a scale from [knownScales]; disconnects if it is in use.
+  Future<void> forgetScale(String id) async {}
+
+  /// Whether Bluetooth is switched off on the phone.
+  Future<bool> get bluetoothOff async => false;
+
+  /// True when Bluetooth goes off, false when it comes on.
+  Stream<bool> get bluetoothOffChanges => const Stream.empty();
+
+  /// Asks to switch Bluetooth on: the system's dialog on Android. iOS has
+  /// none for apps. Returns whether it is on now.
+  Future<bool> requestBluetoothOn() async => !await bluetoothOff;
 
   /// Technical extra info for the settings (e.g. firmware generation).
   String? get details => null;

@@ -31,7 +31,7 @@ class ConnectionsScreen extends StatelessWidget {
               ),
               SettingsEntry(
                 icon: Icons.scale_outlined,
-                title: 'Scale',
+                title: 'Scales',
                 builder: (_) => const ScaleSettingsScreen(),
               ),
               SettingsEntry(

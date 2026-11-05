@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../machines/gaggimate/gaggimate_service.dart';
+import '../../scale/bluetooth_prompt.dart';
 import '../../scale/brew_scale.dart';
 import '../../services/app_settings.dart';
 import '../../services/meticulous_socket_service.dart';
@@ -61,13 +62,17 @@ class HomeModeBar extends StatelessWidget {
 
   // Tapping the Pour Over pill while on it searches for the Bluetooth scale
   // again. Not for the Meticulous' built-in scale, nothing to search there.
-  static void _onActiveTapped(BuildContext context, HomeMode mode) {
+  static Future<void> _onActiveTapped(
+    BuildContext context,
+    HomeMode mode,
+  ) async {
     if (mode != HomeMode.pourOver) return;
     final scale = context.read<BrewScale>();
     if (scale.isMachineScale ||
         scale.connection != ScaleConnection.disconnected) {
       return;
     }
+    if (!await ensureBluetoothOn(context, scale)) return;
     unawaited(scale.connect());
   }
 

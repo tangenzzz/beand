@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../scale/bluetooth_prompt.dart';
 import '../../scale/brew_scale.dart';
 import '../../scale/meticulous_scale.dart';
 import '../../scale/scale_selector.dart';
@@ -12,11 +13,11 @@ import '../../widgets/meticulous_mark.dart';
 import '../../widgets/underline_select.dart';
 import 'settings_widgets.dart';
 
-// Connection page of the Bluetooth scale (Settings → Connections), built
+// Connection page of the Bluetooth scales (Settings → Connections), built
 // like the machines' one (MachineConnectionCard): at the top what the app
-// is connected to, below the found scales to tap. Plus the live weight with
-// tare — so the scale can be checked without starting a brew — and,
-// collapsed, the raw data for debugging.
+// is connected to, with the live weight and tare, so the scale can be checked
+// without starting a brew. Below it the known scales, also while they are off,
+// like the phone's Bluetooth settings, and the new ones a scan finds.
 //
 // One card per settings page.
 class ScaleSettingsScreen extends StatelessWidget {
@@ -25,7 +26,7 @@ class ScaleSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scale')),
+      appBar: AppBar(title: const Text('Scales')),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: const [ScaleConnectionCard()],
@@ -48,28 +49,57 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
   bool _searchedOnce = false;
   String? _scanError;
 
+  StreamSubscription<bool>? _bluetoothSub;
+  bool _bluetoothOff = false;
+
   @override
   void initState() {
     super.initState();
-    // Look for scales also while one is connected, so another one can be
-    // tapped to switch over (user 2026-11-04). Not while the scale is
-    // scanning or connecting itself — Android does not like two scans at
-    // the same time.
+    // Look for scales whatever the scale is doing, so another one can always
+    // be tapped to switch over.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final scale = context.read<BrewScale>();
-      if (mounted &&
-          !scale.isMachineScale &&
-          (scale.connection == ScaleConnection.disconnected ||
-              scale.connection == ScaleConnection.connected)) {
-        _scan();
-      }
+      if (!mounted) return;
+      if (!context.read<BrewScale>().isMachineScale) _watchBluetooth();
+    });
+  }
+
+  // Follows the phone's Bluetooth: scans once when it's on (also right when
+  // it comes on). Listening asks iOS for its permission, so only on this
+  // page with a Bluetooth scale chosen.
+  void _watchBluetooth() {
+    if (_bluetoothSub != null) return;
+    var first = true;
+    final scale = context.read<BrewScale>();
+    _bluetoothSub = scale.bluetoothOffChanges.listen((off) {
+      if (!mounted) return;
+      final cameOn = !off && (_bluetoothOff || first);
+      first = false;
+      setState(() => _bluetoothOff = off);
+      if (cameOn) _scan();
+    });
+    // The stream may say nothing until something changes.
+    scale.bluetoothOff.then((off) {
+      if (!mounted || !first) return;
+      first = false;
+      setState(() => _bluetoothOff = off);
+      if (!off) _scan();
     });
   }
 
   @override
   void dispose() {
     _scanSub?.cancel();
+    _bluetoothSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _onScanTap() async {
+    final scale = context.read<BrewScale>();
+    if (await scale.bluetoothOff) {
+      if (mounted) await ensureBluetoothOn(context, scale);
+      return;
+    }
+    if (mounted) _scan();
   }
 
   void _scan() {
@@ -108,10 +138,55 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
   }
 
   Future<void> _use(ScaleCandidate c) async {
-    await _scanSub?.cancel();
-    if (mounted) setState(() => _scanning = false);
-    if (!mounted) return;
-    await context.read<BrewScale>().connectTo(c);
+    final scale = context.read<BrewScale>();
+    // Not awaited: a scan just starting only finishes cancelling once its
+    // Bluetooth checks are through, and the tap shouldn't wait for that.
+    unawaited(_scanSub?.cancel());
+    setState(() => _scanning = false);
+    if (!await ensureBluetoothOn(context, scale)) return;
+    await scale.connectTo(c);
+  }
+
+  // Chose Bluetooth as the input: if it's off, ask right away.
+  Future<void> _bluetoothChosen(BrewScale scale) async {
+    _watchBluetooth();
+    if (await ensureBluetoothOn(context, scale) && mounted) _scan();
+  }
+
+  Future<void> _scaleActions(KnownScale known) async {
+    final colors = context.colors;
+    final scale = context.read<BrewScale>();
+    final forget = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: colors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.tile),
+        ),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text(
+                known.name,
+                style: TextStyle(color: colors.textPrimary, fontSize: 15),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: colors.danger),
+              title: Text('Forget', style: TextStyle(color: colors.danger)),
+              onTap: () => Navigator.pop(context, true),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (forget == true) await scale.forgetScale(known.id);
   }
 
   (Color, String) _status(BuildContext context, BrewScale scale) =>
@@ -137,6 +212,11 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
     final busy =
         scale.connection == ScaleConnection.scanning ||
         scale.connection == ScaleConnection.connecting;
+    final known = scale.knownScales;
+    final others = [
+      for (final c in _found)
+        if (!known.any((k) => k.id == c.id)) c,
+    ];
 
     return Container(
       decoration: BoxDecoration(
@@ -158,10 +238,7 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
               onChanged: (v) {
                 if (v == null) return;
                 scale.setSource(v);
-                if (v == ScaleSource.bluetooth &&
-                    scale.connection == ScaleConnection.disconnected) {
-                  _scan();
-                }
+                if (v == ScaleSource.bluetooth) _bluetoothChosen(scale);
               },
             ),
             const SizedBox(height: 16),
@@ -292,50 +369,32 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
               style: TextStyle(color: colors.textTertiary, fontSize: 12),
             ),
           ] else ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                if (scale.isConnected || busy)
-                  AppButton(
-                    label: 'Disconnect',
-                    variant: AppButtonVariant.secondary,
-                    expand: false,
-                    height: 36,
-                    onPressed: scale.disconnect,
-                  )
-                else if (scale.rememberedId != null)
-                  AppButton(
-                    label: 'Connect',
-                    expand: false,
-                    height: 36,
-                    onPressed: scale.connect,
-                  ),
-                const Spacer(),
-                if (scale.rememberedId != null)
-                  AppButton(
-                    label: 'Forget',
-                    variant: AppButtonVariant.secondary,
-                    expand: false,
-                    height: 36,
-                    onPressed: () {
-                      scale.forget();
-                      _scan();
-                    },
-                  ),
-              ],
-            ),
+            if (scale.isConnected || busy) ...[
+              const SizedBox(height: 12),
+              AppButton(
+                label: 'Disconnect',
+                variant: AppButtonVariant.secondary,
+                expand: false,
+                height: 36,
+                onPressed: scale.disconnect,
+              ),
+            ],
             Divider(height: 24, color: colors.divider),
-            // ---- Found scales ----
+            if (_bluetoothOff) _bluetoothBanner(context, scale),
+            // ---- The scales ----
             Row(
               children: [
                 Expanded(
                   child: Text(
-                    'Scales nearby'.toUpperCase(),
+                    (known.isEmpty ? 'Scales nearby' : 'My scales')
+                        .toUpperCase(),
                     style: settingsGroupLabelStyle(context),
                   ),
                 ),
+                // Works at any time: while one runs it searches on.
                 InkWell(
-                  onTap: _scanning || busy ? null : _scan,
+                  key: const ValueKey('scale-scan'),
+                  onTap: _onScanTap,
                   borderRadius: BorderRadius.circular(8),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -344,22 +403,21 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.refresh,
-                          size: 14,
-                          color: _scanning || busy
-                              ? colors.textTertiary
-                              : colors.accent,
-                        ),
+                        if (_scanning)
+                          SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: colors.accent,
+                            ),
+                          )
+                        else
+                          Icon(Icons.refresh, size: 14, color: colors.accent),
                         const SizedBox(width: 4),
                         Text(
                           'Scan',
-                          style: TextStyle(
-                            color: _scanning || busy
-                                ? colors.textTertiary
-                                : colors.accent,
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: colors.accent, fontSize: 13),
                         ),
                       ],
                     ),
@@ -368,14 +426,33 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
               ],
             ),
             const SizedBox(height: 8),
-            for (final c in _found)
+            for (final k in known)
+              _KnownScaleRow(
+                known: k,
+                status: _knownStatus(context, scale, k),
+                connected: k.id == scale.rememberedId && scale.isConnected,
+                onTap: () => _use(
+                  _found.where((c) => c.id == k.id).firstOrNull ??
+                      ScaleCandidate(id: k.id, name: k.name, rssi: 0),
+                ),
+                onMore: () => _scaleActions(k),
+              ),
+            if (known.isNotEmpty && others.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'New scales'.toUpperCase(),
+                style: settingsGroupLabelStyle(context),
+              ),
+              const SizedBox(height: 8),
+            ],
+            for (final c in others)
               _ScaleRow(
                 candidate: c,
                 inUse: c.id == scale.rememberedId,
                 connected: c.id == scale.rememberedId && scale.isConnected,
-                onTap: busy ? null : () => _use(c),
+                onTap: () => _use(c),
               ),
-            if (_found.isEmpty) _hint(context),
+            if (others.isEmpty) _hint(context, known.isNotEmpty),
             const SizedBox(height: 4),
             Text(
               'Supported: Acaia, Decent and Bookoo scales. Close other apps '
@@ -388,13 +465,70 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
     );
   }
 
-  Widget _hint(BuildContext context) {
+  (Color, String) _knownStatus(
+    BuildContext context,
+    BrewScale scale,
+    KnownScale k,
+  ) {
     final colors = context.colors;
-    final text = _scanError != null
+    if (k.id == scale.rememberedId) {
+      final battery = scale.batteryPercent;
+      switch (scale.connection) {
+        case ScaleConnection.connected:
+          return (
+            colors.success,
+            battery == null ? 'Connected' : 'Connected · Battery $battery %',
+          );
+        case ScaleConnection.connecting:
+          return (colors.sensorMid, 'Connecting…');
+        case ScaleConnection.scanning:
+          return (colors.sensorMid, 'Searching…');
+        case ScaleConnection.disconnected:
+          break;
+      }
+    }
+    return _found.any((c) => c.id == k.id)
+        ? (colors.accent, 'Nearby')
+        : (colors.textTertiary, 'Offline');
+  }
+
+  Widget _bluetoothBanner(BuildContext context, BrewScale scale) {
+    final colors = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(Icons.bluetooth_disabled, size: 18, color: colors.danger),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              Theme.of(context).platform == TargetPlatform.iOS
+                  ? 'Bluetooth is off. Turn it on in Control Center.'
+                  : 'Bluetooth is off.',
+              style: TextStyle(color: colors.textSecondary, fontSize: 13),
+            ),
+          ),
+          if (Theme.of(context).platform != TargetPlatform.iOS)
+            AppButton(
+              label: 'Turn on',
+              expand: false,
+              height: 36,
+              onPressed: () => ensureBluetoothOn(context, scale),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _hint(BuildContext context, bool hasKnown) {
+    final colors = context.colors;
+    final text = _bluetoothOff
+        ? ''
+        : _scanError != null
         ? _scanError!
         : _scanning
-        ? 'Searching…'
-        : _searchedOnce
+        ? (hasKnown ? '' : 'Searching…')
+        : _searchedOnce && !hasKnown
         ? 'No scale found. Switch it on (and wake it up) and tap Scan.'
         : '';
     if (text.isEmpty) return const SizedBox.shrink();
@@ -403,6 +537,80 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
       child: Text(
         text,
         style: TextStyle(color: colors.textTertiary, fontSize: 12),
+      ),
+    );
+  }
+}
+
+// A scale the app knows: there also while it's off, with its state instead of
+// the signal. Tapping connects, like in the phone's Bluetooth settings.
+class _KnownScaleRow extends StatelessWidget {
+  const _KnownScaleRow({
+    required this.known,
+    required this.status,
+    required this.connected,
+    required this.onTap,
+    required this.onMore,
+  });
+
+  final KnownScale known;
+  final (Color, String) status;
+  final bool connected;
+  final VoidCallback onTap;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final (dot, label) = status;
+    return InkWell(
+      key: ValueKey('known-scale-${known.id}'),
+      onTap: connected ? null : onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(Icons.bluetooth, size: 18, color: colors.accent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    known.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: colors.textPrimary, fontSize: 15),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.circle, size: 7, color: dot),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.textTertiary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              tooltip: 'More',
+              icon: Icon(Icons.more_vert, size: 18, color: colors.textTertiary),
+              onPressed: onMore,
+            ),
+          ],
+        ),
       ),
     );
   }
