@@ -436,16 +436,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> {
                       ),
                       if (SetpointCurve.fromProfile(detail) case final curve
                           when !curve.isEmpty)
-                        _Section(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const _SectionLabel('Target curve'),
-                              const SizedBox(height: 10),
-                              SetpointCurveChart(curve: curve),
-                            ],
-                          ),
-                        ),
+                        _Section(child: SetpointCurveSection(curve: curve)),
                       if (detail.stages.isNotEmpty)
                         _StagesSection(detail.stages),
                       if (detail.variables.isNotEmpty)

@@ -5,6 +5,7 @@ import 'package:beand/database/database.dart';
 import 'package:beand/models/pourover_draft.dart';
 import 'package:beand/screens/profile/pourover_profile_detail_screen.dart';
 import 'package:beand/screens/profile/setpoint_curve_chart.dart';
+import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/brew_recipe_store.dart';
 import 'package:beand/services/brew_recipes_source.dart';
 import 'package:beand/services/meticulous_pourover_profiles.dart';
@@ -55,6 +56,7 @@ void main() {
   late BrewRecipeStore store;
   late List<String> deletes;
   late int deleteStatus;
+  late AppSettings settings;
 
   Future<void> build(
     WidgetTester tester, {
@@ -74,6 +76,7 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     deletes = [];
     deleteStatus = 200;
+    settings = AppSettings();
     await tester.runAsync(() async {
       store = BrewRecipeStore(
         cacheFile: File('${dir.path}/no-cache.json'),
@@ -118,6 +121,7 @@ void main() {
         providers: [
           Provider<AppDatabase>.value(value: db),
           ChangeNotifierProvider<BrewRecipeStore>.value(value: store),
+          ChangeNotifierProvider<AppSettings>.value(value: settings),
         ],
         child: MaterialApp(
           theme: ThemeData(
@@ -171,6 +175,29 @@ void main() {
     expect(deletes, ['/api/v1/pour-over/profile/delete/$_id']);
     expect(store.machineRecipes, isEmpty);
     expect(find.text('open'), findsOneWidget);
+    await finish(tester);
+  });
+
+  testWidgets('the curve folds away and stays as it was left', (tester) async {
+    await build(tester);
+    expect(find.byType(SetpointCurveChart), findsOneWidget);
+    await tester.tap(find.text('TARGET CURVE'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SetpointCurveChart), findsNothing);
+    expect(settings.expandProfileCurve, isFalse);
+
+    // Leave and come back.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('TARGET CURVE'), findsOneWidget);
+    expect(find.byType(SetpointCurveChart), findsNothing);
+
+    await tester.runAsync(() async {
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(AppSettings.expandProfileCurvePrefKey), isFalse);
+    });
     await finish(tester);
   });
 

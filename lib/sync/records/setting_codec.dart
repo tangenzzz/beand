@@ -23,6 +23,7 @@ List<String> syncedSettingKeys() => [
   AppSettings.showShotFactsPrefKey,
   AppSettings.showGrindFromZeroPrefKey,
   AppSettings.expandAiAnalysisPrefKey,
+  AppSettings.expandProfileCurvePrefKey,
   AppSettings.homeModeOrderPrefKey,
   for (final mode in HomeMode.values) AppSettings.homeModeEnabledPrefKey(mode),
   AppSettings.beanFormOrderPrefKey,

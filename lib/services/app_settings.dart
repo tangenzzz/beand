@@ -74,6 +74,7 @@ class AppSettings extends ChangeNotifier {
     bool showShotFacts = true,
     bool showGrindFromZero = false,
     bool expandAiAnalysis = true,
+    bool expandProfileCurve = true,
   }) {
     _showFreshnessRing = showFreshnessRing;
     _showBeanStock = showBeanStock;
@@ -81,6 +82,7 @@ class AppSettings extends ChangeNotifier {
     _showShotFacts = showShotFacts;
     _showGrindFromZero = showGrindFromZero;
     _expandAiAnalysis = expandAiAnalysis;
+    _expandProfileCurve = expandProfileCurve;
     _enabledHomeModes = {...enabledHomeModes};
     _homeMode = homeMode;
     _homeModeOrder = normalizeHomeModeOrder(homeModeOrder);
@@ -98,6 +100,7 @@ class AppSettings extends ChangeNotifier {
   static const showShotFactsPrefKey = 'history_show_shot_facts';
   static const showGrindFromZeroPrefKey = 'history_show_grind_from_zero';
   static const expandAiAnalysisPrefKey = 'history_expand_ai_analysis';
+  static const expandProfileCurvePrefKey = 'profile_expand_curve';
   static const homeModePrefKey = 'home_mode_selected';
   static const homeModeOrderPrefKey = 'home_mode_order';
   static const beanFormOrderPrefKey = 'beans_form_order';
@@ -127,6 +130,7 @@ class AppSettings extends ChangeNotifier {
       showShotFacts: prefs.getBool(showShotFactsPrefKey) ?? true,
       showGrindFromZero: prefs.getBool(showGrindFromZeroPrefKey) ?? false,
       expandAiAnalysis: prefs.getBool(expandAiAnalysisPrefKey) ?? true,
+      expandProfileCurve: prefs.getBool(expandProfileCurvePrefKey) ?? true,
       enabledHomeModes: {
         for (final mode in HomeMode.values)
           if (prefs.getBool(homeModeEnabledPrefKey(mode)) ??
@@ -221,6 +225,7 @@ class AppSettings extends ChangeNotifier {
     _showShotFacts = fresh._showShotFacts;
     _showGrindFromZero = fresh._showGrindFromZero;
     _expandAiAnalysis = fresh._expandAiAnalysis;
+    _expandProfileCurve = fresh._expandProfileCurve;
     _enabledHomeModes = fresh._enabledHomeModes;
     _homeMode = fresh._homeMode;
     _homeModeOrder = fresh._homeModeOrder;
@@ -240,6 +245,7 @@ class AppSettings extends ChangeNotifier {
   late bool _showShotFacts;
   late bool _showGrindFromZero;
   late bool _expandAiAnalysis;
+  late bool _expandProfileCurve;
   late Set<HomeMode> _enabledHomeModes;
   late HomeMode _homeMode;
   late List<HomeMode> _homeModeOrder;
@@ -322,6 +328,18 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(expandAiAnalysisPrefKey, value);
+  }
+
+  // Target curve in the profile views expanded or collapsed: applies to all
+  // profiles and is persisted.
+  bool get expandProfileCurve => _expandProfileCurve;
+
+  Future<void> setExpandProfileCurve(bool value) async {
+    if (value == _expandProfileCurve) return;
+    _expandProfileCurve = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(expandProfileCurvePrefKey, value);
   }
 
   bool isHomeModeEnabled(HomeMode mode) => _enabledHomeModes.contains(mode);

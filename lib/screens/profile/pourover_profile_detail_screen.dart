@@ -340,13 +340,8 @@ class _PourOverProfileDetailScreenState
                   ),
                 if (steps.isNotEmpty) ...[
                   _Section(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _SectionLabel('Target curve'),
-                        const SizedBox(height: 10),
-                        SetpointCurveChart(curve: SetpointCurve.fromRecipe(r)),
-                      ],
+                    child: SetpointCurveSection(
+                      curve: SetpointCurve.fromRecipe(r),
                     ),
                   ),
                   _PoursSection(steps: steps),

@@ -2,12 +2,69 @@ import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/profile_detail.dart';
 import '../../models/setpoint_curve.dart';
 import '../../models/shot_phases.dart';
+import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import '../history/shot_chart.dart';
+import '../history/section_header.dart';
+
+// The chart under its heading, folds away. Open or closed stays as it was
+// left, for all profiles.
+class SetpointCurveSection extends StatefulWidget {
+  const SetpointCurveSection({super.key, required this.curve});
+
+  final SetpointCurve curve;
+
+  @override
+  State<SetpointCurveSection> createState() => _SetpointCurveSectionState();
+}
+
+class _SetpointCurveSectionState extends State<SetpointCurveSection> {
+  // Only without AppSettings above (some tests).
+  bool _localOpen = true;
+
+  @override
+  Widget build(BuildContext context) {
+    AppSettings? settings;
+    try {
+      settings = context.watch<AppSettings>();
+    } on ProviderNotFoundException {
+      settings = null;
+    }
+    final open = settings?.expandProfileCurve ?? _localOpen;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          label: 'TARGET CURVE',
+          expanded: open,
+          onToggle: () {
+            if (settings != null) {
+              settings.setExpandProfileCurve(!open);
+            } else {
+              setState(() => _localOpen = !open);
+            }
+          },
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.ease,
+          alignment: Alignment.topCenter,
+          child: open
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: SetpointCurveChart(curve: widget.curve),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+}
 
 // A profile's targets over time, drawn like the chart in the shot detail:
 // same axes (pressure and flow left, weight right), colors, bands, stage bar

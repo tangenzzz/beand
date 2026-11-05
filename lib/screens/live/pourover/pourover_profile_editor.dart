@@ -921,7 +921,7 @@ class _PourFieldsState extends State<_PourFields> {
           widget.ruler(
             label: 'Height',
             key: ValueKey('pour-height-$i'),
-            value: p.heightCm ?? 10,
+            value: p.heightCm ?? 0,
             min: 0,
             max: maxHeightCm,
             unit: 'cm',

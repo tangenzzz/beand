@@ -8,6 +8,7 @@ import 'package:beand/scale/simulated_scale.dart';
 import 'package:beand/screens/live/pourover/add_pourover_profile.dart';
 import 'package:beand/screens/live/pourover/pourover_profile_editor.dart';
 import 'package:beand/screens/profile/pourover_profile_detail_screen.dart';
+import 'package:beand/screens/live/ruler_picker.dart';
 import 'package:beand/services/brew_recipe_store.dart';
 import 'package:beand/services/gear_store.dart';
 import 'package:beand/services/meticulous_pourover_profiles.dart';
@@ -294,6 +295,36 @@ void main() {
     final raw = store.editableProfile(id)!;
     expect(raw['author'], 'Someone');
     expect(((raw['recipe'] as Map)['water'] as Map)['name'], 'Lotus');
+    await finish(tester);
+  });
+
+  testWidgets('height at the bottom of the ruler stays there', (tester) async {
+    await setUp0(tester);
+    await tester.pumpWidget(app(const PourOverProfileEditor()));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('pour-row-0')));
+    await tester.pumpAndSettle();
+    final row = find.byKey(const ValueKey('pour-height-0'));
+    await tester.ensureVisible(row);
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    RulerPicker ruler() => tester.widget<RulerPicker>(
+      find.descendant(of: row, matching: find.byType(RulerPicker)),
+    );
+    expect(ruler().value, 0);
+    expect(ruler().max, 15);
+
+    ruler().onChanged(7);
+    await tester.pump();
+    expect(ruler().value, 7);
+    // Back to not set: the ruler stays at 0.
+    ruler().onChanged(0);
+    await tester.pump();
+    expect(ruler().value, 0);
+    expect(
+      find.descendant(of: row, matching: find.text('Not set')),
+      findsOneWidget,
+    );
     await finish(tester);
   });
 
