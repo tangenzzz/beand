@@ -15,6 +15,7 @@ import '../scale/brew_scale.dart';
 import 'brew_recipe_store.dart';
 import 'live_shot_service.dart';
 import 'meticulous_dial_brews.dart';
+import 'connection_log.dart';
 import 'pourover_setup.dart';
 import 'shot_setup.dart';
 
@@ -905,6 +906,11 @@ class PourOverBrewService extends LiveShotService {
   }
 
   void _beginMeasuring() {
+    ConnectionLog.write(
+      'pourover',
+      'lift: water ${_grams.toStringAsFixed(1)} g, setup ${_setupG?.toStringAsFixed(1)} g, '
+          'server ${prep.serverG?.toStringAsFixed(1)} g',
+    );
     _phase = BrewState.measuring;
     markExtracting(false);
     if (_startedAt != null) _scaleTimer(scale.stopTimer);
@@ -938,6 +944,11 @@ class PourOverBrewService extends LiveShotService {
       return;
     }
     final beverage = r.grams + setupG;
+    ConnectionLog.write(
+      'pourover',
+      'after lift: scale ${r.grams.toStringAsFixed(1)} g → coffee '
+          '${beverage.toStringAsFixed(1)} g of water ${water.toStringAsFixed(1)} g',
+    );
     if (beverage > water + 8) {
       // Everything is still on the scale — it was a wobble, not a lift.
       _phase = _stepIndex >= (_runningPlan?.steps.length ?? 0)
@@ -962,10 +973,12 @@ class PourOverBrewService extends LiveShotService {
   }
 
   int? _savedShotId;
+  double? _lastYieldLog;
   StreamSubscription<ScaleReading>? _yieldSub;
 
   Future<void> _endAndWatchYield() async {
     if (!await stopShot() || !_serverMissing || _savedShotId == null) return;
+    _lastYieldLog = null;
     _measureWindow.clear();
     _yieldSub = scale.readings.listen(_watchYield);
   }
@@ -991,6 +1004,15 @@ class PourOverBrewService extends LiveShotService {
     if (hi - lo > measureBand) return;
     final beverage = r.grams + (_setupG ?? 0);
     final water = _grams;
+    // Only when it changes: this runs ten times a second.
+    if ((r.grams - (_lastYieldLog ?? double.infinity)).abs() > 2) {
+      _lastYieldLog = r.grams;
+      ConnectionLog.write(
+        'pourover',
+        'waiting for yield: scale ${r.grams.toStringAsFixed(1)} g → coffee '
+            '${beverage.toStringAsFixed(1)} g of water ${water.toStringAsFixed(1)} g',
+      );
+    }
     // Still empty, or the brewer is back on it too.
     if (beverage < math.max(8, water * 0.2) || beverage > water + 8) return;
     _beverageG = (beverage * 10).roundToDouble() / 10;
