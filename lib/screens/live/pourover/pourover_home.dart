@@ -41,11 +41,11 @@ class _Body extends StatefulWidget {
 }
 
 class _BodyState extends State<_Body> {
-  // Measured via screenshot on the device (the test font is wider and would
-  // have needed 82/19): Profile mode needs one more line of space, Manual
-  // fits into the standard height.
-  static const _profileExtra = 44.0;
-  static const _manualExtra = 0.0;
+  // Pre Brew must fit without scrolling, the other two cards take the same
+  // height. Measured with the phone's font (pourover_home_test): Profile mode
+  // has seven rows, Manual six.
+  static const _profileExtra = 102.0;
+  static const _manualExtra = 52.0;
 
   late final BrewScale _scale;
   late final PourOverBrewService _brew;
@@ -85,8 +85,6 @@ class _BodyState extends State<_Body> {
         const PourOverCommandRow(),
         const SizedBox(height: 12),
         ShotCardsCarousel(
-          // Pre Brew has six rows (Profile mode) or five (Manual) — tall
-          // enough that nothing in the card scrolls.
           extraCardHeight:
               context.select<PourOverBrewService, bool>((b) => b.manual)
               ? _manualExtra

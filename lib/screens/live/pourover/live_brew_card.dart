@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/brew_plan.dart';
@@ -93,7 +94,13 @@ class LiveBrewCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: _StepList(plan: plan, brew: brew, running: running),
+                child: BrewStepList(
+                  plan: plan,
+                  current: running ? brew.stepIndex : -1,
+                  waitLeftSeconds: running && brew.phase == BrewState.waiting
+                      ? brew.waitLeftSeconds
+                      : null,
+                ),
               ),
             ],
           ],
@@ -297,30 +304,85 @@ class _BrewChart extends StatelessWidget {
   }
 }
 
-class _StepList extends StatelessWidget {
-  const _StepList({
+/// The pours below the chart. The current one is highlighted and scrolled to
+/// the top of the list, with the next ones below it.
+@visibleForTesting
+class BrewStepList extends StatefulWidget {
+  const BrewStepList({
+    super.key,
     required this.plan,
-    required this.brew,
-    required this.running,
+    required this.current,
+    this.waitLeftSeconds,
   });
 
   final BrewPlan plan;
-  final PourOverBrewService brew;
-  final bool running;
+
+  /// Index of the current pour; -1 before the brew.
+  final int current;
+
+  /// Pause before the current pour.
+  final double? waitLeftSeconds;
+
+  @override
+  State<BrewStepList> createState() => _BrewStepListState();
+}
+
+class _BrewStepListState extends State<BrewStepList> {
+  final _controller = ScrollController();
+  final _rowKeys = <int, GlobalKey>{};
+
+  @override
+  void didUpdateWidget(BrewStepList old) {
+    super.didUpdateWidget(old);
+    if (old.current == widget.current) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrent());
+  }
+
+  // Not Scrollable.ensureVisible: that also moves the page and the carousel
+  // around the card.
+  void _scrollToCurrent() {
+    if (!mounted || !_controller.hasClients) return;
+    final last = widget.plan.steps.length - 1;
+    final index = widget.current.clamp(0, last < 0 ? 0 : last);
+    final box = _rowKeys[index]?.currentContext?.findRenderObject();
+    if (box == null) return;
+    final offset = RenderAbstractViewport.of(box)
+        .getOffsetToReveal(box, 0)
+        .offset;
+    final position = _controller.position;
+    _controller.animateTo(
+      offset.clamp(position.minScrollExtent, position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final current = running ? brew.stepIndex : -1;
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: plan.steps.length,
-      itemBuilder: (context, i) => _StepRow(
-        step: plan.steps[i],
-        done: running && i < current,
-        active: i == current,
-        waitingFor: i == current && brew.phase == BrewState.waiting
-            ? brew.waitLeftSeconds
-            : null,
+    final steps = widget.plan.steps;
+    final current = widget.current;
+    // All rows are built: scrolling to one needs its position, and a brew has
+    // only a handful.
+    return SingleChildScrollView(
+      controller: _controller,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < steps.length; i++)
+            _StepRow(
+              key: _rowKeys.putIfAbsent(i, GlobalKey.new),
+              step: steps[i],
+              done: current >= 0 && i < current,
+              active: i == current,
+              waitingFor: i == current ? widget.waitLeftSeconds : null,
+            ),
+        ],
       ),
     );
   }
@@ -328,6 +390,7 @@ class _StepList extends StatelessWidget {
 
 class _StepRow extends StatelessWidget {
   const _StepRow({
+    super.key,
     required this.step,
     required this.done,
     required this.active,

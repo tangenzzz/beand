@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:beand/database/database.dart';
+import 'package:beand/models/brew_plan.dart';
 import 'package:beand/models/brew_recipe.dart';
 import 'package:beand/scale/brew_scale.dart';
 import 'package:beand/scale/simulated_scale.dart';
@@ -22,8 +23,10 @@ import 'package:beand/theme/app_theme.dart';
 import 'package:drift/native.dart';
 import 'package:beand/services/gear_store.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final _recipe = BrewRecipe.fromJson({
   'id': 'two-pours',
@@ -53,6 +56,7 @@ void main() {
   late PourOverBrewService brew;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     db = AppDatabase(NativeDatabase.memory());
     scale = SimulatedScale();
     store = BrewRecipeStore(
@@ -101,6 +105,107 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 10));
   }
+
+  testWidgets('Pre Brew fits without scrolling, in both modes', (tester) async {
+    // The test font is wider than the phone's, so with the real one.
+    final font = File(
+      '${Platform.environment['FLUTTER_ROOT']}/bin/cache/artifacts/'
+      'material_fonts/Roboto-Regular.ttf',
+    );
+    if (!font.existsSync()) {
+      markTestSkipped('Roboto not in the Flutter cache');
+      return;
+    }
+    final loader = FontLoader('Roboto')
+      ..addFont(Future.value(ByteData.sublistView(font.readAsBytesSync())));
+    await tester.runAsync(loader.load);
+    tester.view.physicalSize = const Size(412, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    double overflow() => tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byType(PreBrewCard),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position
+        .maxScrollExtent;
+    await tester.runAsync(() async {
+      await tester.pumpWidget(wrap());
+      await tester.pump();
+      await tester.pump();
+      expect(overflow(), 0);
+      brew.setManual(true);
+      await tester.pump();
+      await tester.pump();
+      expect(overflow(), 0);
+      await disposeTree(tester);
+    });
+  });
+
+  testWidgets('the current pour is scrolled to, the page around stays', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final plan = BrewPlan(
+      BrewRecipe.fromJson({
+        ..._recipe.toJson(),
+        'phases': [
+          for (var i = 0; i < 8; i++)
+            {'label': 'Pour $i', 'water_g': 30, 'wait_seconds': 10},
+        ],
+      }),
+    );
+    final outer = ScrollController(initialScrollOffset: 40);
+    addTearDown(outer.dispose);
+    Widget list(int current) => MaterialApp(
+      theme: buildAppTheme(),
+      home: Scaffold(
+        body: SingleChildScrollView(
+          controller: outer,
+          child: Column(
+            children: [
+              const SizedBox(height: 300),
+              SizedBox(
+                height: 120,
+                child: BrewStepList(plan: plan, current: current),
+              ),
+              const SizedBox(height: 900),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(list(-1));
+    final inner = find
+        .descendant(
+          of: find.byType(BrewStepList),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    double offset() => tester.state<ScrollableState>(inner).position.pixels;
+    expect(offset(), 0);
+
+    await tester.pumpWidget(list(4));
+    await tester.pumpAndSettle();
+    expect(offset(), greaterThan(0));
+    final listTop = tester.getTopLeft(find.byType(BrewStepList)).dy;
+    final row = tester.getTopLeft(find.text('Pour 4')).dy;
+    expect(row, greaterThanOrEqualTo(listTop));
+    expect(row, lessThan(listTop + 40));
+    expect(outer.offset, 40);
+
+    // Past the last one: stays at the end.
+    await tester.pumpWidget(list(8));
+    await tester.pumpAndSettle();
+    final max = tester.state<ScrollableState>(inner).position.maxScrollExtent;
+    expect(offset(), max);
+  });
 
   // Time and weight next to the ring are large (read while pouring), on a
   // phone-width screen without overflowing.
