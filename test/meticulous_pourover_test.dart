@@ -882,7 +882,7 @@ void main() {
         expect(socket.actions.length, 3);
 
         gross += 3;
-        await hold(1);
+        await hold(4);
         await Future<void>.delayed(Duration.zero);
         expect(service.stage, ShotStage.running);
         for (var poured = 3.0; poured < 225; poured += 7.5) {
@@ -952,7 +952,7 @@ void main() {
       expect(scale.tares, 3);
 
       scale.gross += 3;
-      await hold(1);
+      await hold(4);
       await Future<void>.delayed(Duration.zero);
       expect(service.stage, ShotStage.running);
       for (var w = 3.0; w < 250; w += 7.5) {
@@ -1062,6 +1062,65 @@ void main() {
     },
   );
 
+  test('Auto: only water starts the brew, not the old weight after the tare '
+      'or a touch on the scale', () async {
+    SharedPreferences.setMockInitialValues({
+      PourOverBrewService.autoPrefKey: true,
+    });
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final scale = _BtScale();
+    final store = _store([_github]);
+    await store.load();
+    var now = DateTime(2026, 11, 5, 12);
+    await withClock(Clock(() => now), () async {
+      final service = PourOverBrewService(
+        scale: scale,
+        recipes: store,
+        setup: ShotSetup.inMemory(machineKey: 'pourover'),
+        database: db,
+      )..start();
+      service.selectRecipe(_github);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      service.setPrepVisible(true);
+      Future<void> hold(int ticks) async {
+        for (var i = 0; i < ticks; i++) {
+          now = now.add(const Duration(milliseconds: 100));
+          scale.tick();
+        }
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      await hold(12);
+      scale.gross += 300;
+      await hold(15);
+      scale.gross += 30;
+      await hold(15);
+      // Packets that still carry the coffee, as a tare in flight does.
+      scale.tareLagTicks = 6;
+      scale.gross += 15;
+      await hold(40);
+      expect(service.prep.done, isTrue);
+      expect(service.prepComplete, isTrue);
+      await hold(12);
+      expect(service.stage, ShotStage.idle, reason: 'no water poured');
+
+      // A touch.
+      scale.gross += 5;
+      await hold(2);
+      scale.gross -= 5;
+      await hold(4);
+      expect(service.stage, ShotStage.idle);
+
+      // Water.
+      scale.gross += 3;
+      await hold(4);
+      await Future<void>.delayed(Duration.zero);
+      expect(service.stage, ShotStage.running);
+      service.dispose();
+    });
+  });
+
   group('Brewer by weight', () {
     Gear brewer(String id, String model, double? weight) => Gear(
       id: id,
@@ -1166,7 +1225,7 @@ void main() {
         await hold(40);
         expect(service.prep.done, isTrue);
         scale.gross += 3;
-        await hold(1);
+        await hold(4);
         await Future<void>.delayed(Duration.zero);
         expect(service.stage, ShotStage.running);
         for (var w = 3.0; w < 250; w += 7.5) {
@@ -1226,6 +1285,11 @@ class _BtScale extends BrewScale {
   double _zero = 0;
   int tares = 0;
 
+  /// After a tare the next ticks still report the old weight.
+  int tareLagTicks = 0;
+  int _lagLeft = 0;
+  double _lagWeight = 0;
+
   @override
   ScaleConnection get connection => ScaleConnection.connected;
   @override
@@ -1243,10 +1307,17 @@ class _BtScale extends BrewScale {
   @override
   Future<void> tare() async {
     tares++;
+    _lagWeight = gross - _zero;
+    _lagLeft = tareLagTicks;
     _zero = gross;
   }
 
   void tick() {
+    if (_lagLeft > 0) {
+      _lagLeft--;
+      _ctrl.add(ScaleReading(_lagWeight, clock.now()));
+      return;
+    }
     _ctrl.add(ScaleReading(gross - _zero, clock.now()));
     notifyListeners();
   }

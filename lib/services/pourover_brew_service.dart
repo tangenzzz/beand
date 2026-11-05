@@ -247,6 +247,12 @@ class PourOverBrewService extends LiveShotService {
   /// Grams of water that start the brew by themselves after the steps.
   static const autoStartGrams = 2.0;
 
+  /// A touch on the scale passes; water stays.
+  static const autoStartHold = Duration(milliseconds: 300);
+
+  /// Scale counts as tared within this of zero.
+  static const armZeroBand = 1.0;
+
   // ---- Auto (any scale the app leads with) ----
   //
   // On: the steps weigh server, brewer and coffee by themselves (tare after
@@ -329,12 +335,24 @@ class PourOverBrewService extends LiveShotService {
     // card) — like the machine's own Pour Over mode.
     final arm = prepComplete && stage == ShotStage.idle && scale.isConnected;
     if (arm && _armSub == null) {
+      // After the tare the scale first still reports the coffee for a few
+      // packets, which started the brew with no water poured (user
+      // 2026-11-05). So: back at zero first, then a weight that stays.
+      var atZero = false;
+      ScaleReading? rising;
       _armSub = scale.readings.listen((r) {
-        if (r.grams >= autoStartGrams && stage == ShotStage.idle) {
-          _armSub?.cancel();
-          _armSub = null;
-          unawaited(_autoStart(r));
+        if (stage != ShotStage.idle) return;
+        if (r.grams.abs() < armZeroBand) atZero = true;
+        if (!atZero) return;
+        if (r.grams < autoStartGrams) {
+          rising = null;
+          return;
         }
+        final first = rising ??= r;
+        if (r.at.difference(first.at) < autoStartHold) return;
+        _armSub?.cancel();
+        _armSub = null;
+        unawaited(_autoStart(first));
       });
     } else if (!arm && _armSub != null) {
       _armSub!.cancel();
