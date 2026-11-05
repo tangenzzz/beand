@@ -746,13 +746,13 @@ void main() {
 
     test('a turned-off switch survives a restart', () async {
       final settings = AiSettings(keyStore: InMemoryAiKeyStore());
-      await settings.setFeatureOn(AiFeature.profileDraft, false);
+      await settings.setFeatureOn(AiFeature.beanForm, false);
 
       final store = InMemoryAiKeyStore();
       await store.write(AiProvider.gemini, 'AIza');
       final reloaded = await AiSettings.load(keyStore: store);
-      expect(reloaded.isFeatureOn(AiFeature.profileDraft), isFalse);
-      expect(reloaded.isFeatureOn(AiFeature.beanForm), isTrue);
+      expect(reloaded.isFeatureOn(AiFeature.beanForm), isFalse);
+      expect(reloaded.isFeatureOn(AiFeature.shotAnalysis), isTrue);
       expect(reloaded.hasKey(AiProvider.gemini), isTrue);
     });
   });

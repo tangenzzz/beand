@@ -19,11 +19,6 @@ enum AiFeature {
     'Analyse shots',
     'Comment on a shot and suggest what to change next. '
         'Espresso shots only, not for pour-over brews',
-  ),
-  profileDraft(
-    'Draft profiles',
-    'Turn a description into a profile — always opened in the editor first, '
-        'never sent straight to the machine',
   );
 
   const AiFeature(this.label, this.description);
