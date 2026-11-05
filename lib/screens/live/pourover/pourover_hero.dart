@@ -46,9 +46,11 @@ class PourOverHero extends StatelessWidget {
     final String? stepLine;
     if (brew.brewDone) {
       label = 'DONE';
-      stepLine = brew.beverageG == null
-          ? null
-          : 'Yield ${formatGrams(brew.beverageG!)} g';
+      stepLine = brew.beverageG != null
+          ? 'Yield ${formatGrams(brew.beverageG!)} g'
+          : brew.serverMissing
+          ? 'Server on the scale for the yield'
+          : null;
     } else if (!scale.isConnected) {
       label = 'NO SCALE';
       stepLine = null;
@@ -89,9 +91,7 @@ class PourOverHero extends StatelessWidget {
         // Brewer lifted (Meticulous): time stopped, weighing the coffee.
         case BrewState.measuring:
           label = 'DONE';
-          stepLine = brew.serverMissing
-              ? 'Put the server with the coffee back'
-              : 'Weighing the coffee…';
+          stepLine = 'Weighing the coffee…';
       }
     }
     final needleActive =
@@ -385,12 +385,7 @@ class _PrepLines extends StatelessWidget {
     final (String task, String? extra) = switch (prep.step) {
       SetupStep.server => ('Put the server on the scale', null),
       SetupStep.brewer => ('Put the brewer on', null),
-      SetupStep.coffee => (
-        'Add the coffee',
-        brew.recipe == null && !brew.manual
-            ? null
-            : 'target ${formatGrams(brew.setup.doseGrams ?? brew.recipe?.doseG ?? 15)} g',
-      ),
+      SetupStep.coffee => ('Add the coffee', null),
       SetupStep.done => ('', null),
     };
     final status = switch (prep.status) {

@@ -29,13 +29,10 @@ enum SetupStatus {
 /// Used with the Meticulous' scale in "Scale only" mode: the app leads and
 /// tares by itself (the machine's dial is not used then).
 class PourOverSetup extends ChangeNotifier {
-  PourOverSetup({required this.tare, this.targetDose});
+  PourOverSetup({required this.tare});
 
   /// Tares the scale; throws if it failed.
   final Future<void> Function() tare;
-
-  /// Dose of the plan — the coffee step records from 80 % of it.
-  double? Function()? targetDose;
 
   /// Steady = the readings of the last [steadyWindow] stay within
   /// [steadyBand] (Meticulous noise idle: ±0.03 g).
@@ -53,6 +50,11 @@ class PourOverSetup extends ChangeNotifier {
   static const coffeeMin = 5.0;
   static const coffeeMax = 60.0;
 
+  /// The coffee is what was weighed in, not what Pre Brew suggested (user
+  /// 2026-11-05): the step ends once the weight has rested this long after
+  /// the last spoonful, on top of [steadyWindow].
+  static const coffeeSettle = Duration(milliseconds: 2500);
+
   SetupStep _step = SetupStep.server;
   SetupStep get step => _step;
 
@@ -69,6 +71,10 @@ class PourOverSetup extends ChangeNotifier {
   double? brewerG;
   double? coffeeG;
 
+  /// The coffee on the scale right now, while it is being weighed in.
+  double? liveCoffeeG;
+  ({int ms, double g})? _coffeePlateau;
+
   double? _baseline;
   double? _last;
   final _window = <({int ms, double g})>[];
@@ -76,7 +82,8 @@ class PourOverSetup extends ChangeNotifier {
   void restart() {
     _step = SetupStep.server;
     _status = SetupStatus.waiting;
-    serverG = brewerG = coffeeG = null;
+    serverG = brewerG = coffeeG = liveCoffeeG = null;
+    _coffeePlateau = null;
     _baseline = null;
     _window.clear();
     notifyListeners();
@@ -118,7 +125,10 @@ class PourOverSetup extends ChangeNotifier {
         ms - _window.first.ms > steadyWindow.inMilliseconds) {
       _window.removeAt(0);
     }
-    if (_status != SetupStatus.waiting || !_steady) return;
+    if (_status != SetupStatus.waiting || !_steady) {
+      _coffeePlateau = null;
+      return;
+    }
     final g = r.grams;
     // The piece of the step before was taken off again (another brewer
     // after all): the weight sits that far below zero → tare and wait for
@@ -143,11 +153,18 @@ class PourOverSetup extends ChangeNotifier {
       case SetupStep.brewer:
         if (g >= brewerMinLoad) unawaited(confirm());
       case SetupStep.coffee:
-        final target = targetDose?.call();
-        final from = target == null
-            ? coffeeMin
-            : math.max(coffeeMin, target * 0.8);
-        if (g >= from && g <= coffeeMax) unawaited(confirm());
+        if (g < coffeeMin || g > coffeeMax) {
+          _coffeePlateau = null;
+          return;
+        }
+        final plateau = _coffeePlateau;
+        if (plateau == null || (g - plateau.g).abs() > steadyBand) {
+          _coffeePlateau = (ms: ms, g: g);
+          liveCoffeeG = g;
+          notifyListeners();
+        } else if (ms - plateau.ms >= coffeeSettle.inMilliseconds) {
+          unawaited(confirm());
+        }
       case SetupStep.done:
         break;
     }
@@ -161,6 +178,7 @@ class PourOverSetup extends ChangeNotifier {
         brewerG = math.max(0, g);
       case SetupStep.coffee:
         coffeeG = math.max(0, g);
+        liveCoffeeG = null;
       case SetupStep.done:
         break;
     }
@@ -200,6 +218,8 @@ class PourOverSetup extends ChangeNotifier {
       case _:
         break;
     }
+    liveCoffeeG = null;
+    _coffeePlateau = null;
     _status = SetupStatus.waiting;
     _window.clear();
     notifyListeners();

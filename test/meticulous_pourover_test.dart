@@ -350,7 +350,7 @@ void main() {
       readings = StreamController<ScaleReading>.broadcast(sync: true);
       steady = _Steady(readings);
       tares = 0;
-      prep = PourOverSetup(tare: () async => tares++, targetDose: () => 15);
+      prep = PourOverSetup(tare: () async => tares++);
       readings.stream.listen(prep.feed);
     });
 
@@ -375,13 +375,49 @@ void main() {
       expect(prep.step, SetupStep.coffee);
 
       steady.hold(0);
-      steady.hold(8); // still filling — below 80 % of the dose
+      // Spoonfuls with short rests: the step waits, the value follows.
+      steady.hold(8);
       expect(prep.step, SetupStep.coffee);
+      expect(prep.liveCoffeeG, 8);
       steady.hold(15.1);
+      expect(prep.step, SetupStep.coffee);
+      expect(prep.liveCoffeeG, 15.1);
+      steady.hold(15.1, seconds: 3);
       await settle();
       expect(prep.coffeeG, 15.1);
+      expect(prep.liveCoffeeG, isNull);
       expect(prep.done, isTrue);
       expect(tares, 3);
+    });
+
+    test('the coffee needs no target: any amount that rests goes on', () async {
+      steady.hold(0);
+      steady.hold(300);
+      await settle();
+      steady.hold(0);
+      steady.hold(30);
+      await settle();
+      steady.hold(0);
+      steady.hold(6.4, seconds: 4);
+      await settle();
+      expect(prep.done, isTrue);
+      expect(prep.coffeeG, 6.4);
+    });
+
+    test('below 5 g the coffee step stays, Tare records it', () async {
+      steady.hold(0);
+      steady.hold(300);
+      await settle();
+      steady.hold(0);
+      steady.hold(30);
+      await settle();
+      steady.hold(0);
+      steady.hold(3, seconds: 6);
+      await settle();
+      expect(prep.step, SetupStep.coffee);
+      await prep.confirm();
+      expect(prep.coffeeG, 3);
+      expect(prep.done, isTrue);
     });
 
     test(
@@ -840,7 +876,7 @@ void main() {
         gross += 30.6;
         await hold(15);
         gross += 15.2;
-        await hold(15);
+        await hold(40);
         expect(service.prep.done, isTrue);
         expect(service.setup.doseGrams, 15.2);
         expect(socket.actions.length, 3);
@@ -910,7 +946,7 @@ void main() {
       scale.gross += 30;
       await hold(15);
       scale.gross += 16;
-      await hold(15);
+      await hold(40);
       expect(service.prep.done, isTrue);
       expect(service.setup.doseGrams, 16);
       expect(scale.tares, 3);
@@ -935,6 +971,96 @@ void main() {
       service.dispose();
     });
   });
+
+  test(
+    'Auto: weighing in more or less than Pre Brew says becomes the dose, '
+    'already while weighing; started early, a lift ends it without a yield',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        PourOverBrewService.autoPrefKey: true,
+      });
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final scale = _BtScale();
+      final store = _store([_github]);
+      await store.load();
+      var now = DateTime(2026, 11, 5, 12);
+      await withClock(Clock(() => now), () async {
+        final service = PourOverBrewService(
+          scale: scale,
+          recipes: store,
+          setup: ShotSetup.inMemory(machineKey: 'pourover'),
+          database: db,
+        )..start();
+        service.selectRecipe(_github);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        service.setPrepVisible(true);
+        Future<void> hold(int ticks) async {
+          for (var i = 0; i < ticks; i++) {
+            now = now.add(const Duration(milliseconds: 100));
+            scale.tick();
+          }
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        final suggested = service.setup.doseGrams!;
+        await hold(12);
+        scale.gross += 300;
+        await hold(15);
+        scale.gross += 30;
+        await hold(15);
+        // Far below the suggestion: it still goes on.
+        scale.gross += suggested / 2;
+        await hold(15);
+        expect(service.prep.done, isFalse);
+        expect(service.setup.doseGrams, suggested / 2);
+        // Then more than the suggestion.
+        scale.gross += suggested;
+        await hold(15);
+        expect(service.setup.doseGrams, suggested * 1.5);
+        await hold(30);
+        expect(service.prep.done, isTrue);
+        expect(service.setup.doseGrams, suggested * 1.5);
+        service.dispose();
+      });
+
+      // Started by hand before the coffee: no weights, but a lift ends it.
+      await withClock(Clock(() => now), () async {
+        final service = PourOverBrewService(
+          scale: scale,
+          recipes: store,
+          setup: ShotSetup.inMemory(machineKey: 'pourover'),
+          database: db,
+        )..start();
+        service.selectRecipe(_github);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        service.setPrepVisible(true);
+        Future<void> hold(int ticks) async {
+          for (var i = 0; i < ticks; i++) {
+            now = now.add(const Duration(milliseconds: 100));
+            scale.tick();
+          }
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        service.restartPrep();
+        expect(await service.startShot(), isTrue);
+        await hold(3);
+        for (var w = 0.0; w < 100; w += 7.5) {
+          scale.gross += 7.5;
+          await hold(1);
+        }
+        scale.gross -= 200;
+        await hold(45);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(service.stage, ShotStage.awaitingPurge);
+        final shot = (await db.select(db.shots).get()).single;
+        expect(shot.beverageGrams, isNull);
+        expect(shot.finalWeight, greaterThan(90));
+        service.dispose();
+      });
+    },
+  );
 
   group('Brewer by weight', () {
     Gear brewer(String id, String model, double? weight) => Gear(
@@ -1037,7 +1163,7 @@ void main() {
         // with the coffee back — the beverage still adds up with the V60's
         // weight (not the April's).
         scale.gross += 15;
-        await hold(15);
+        await hold(40);
         expect(service.prep.done, isTrue);
         scale.gross += 3;
         await hold(1);
@@ -1049,19 +1175,44 @@ void main() {
         }
         await hold(20);
         final water = service.grams;
-        // Everything off the scale (server 300 g + V60 + coffee + water).
+        final dose = service.setup.doseGrams;
+        expect(dose, 15);
+        // Everything off the scale: time and recording end right there.
+        final ms = service.elapsedMs;
         scale.gross = 0;
-        await hold(35);
-        expect(service.phase, BrewState.measuring);
-        await hold(12);
+        await hold(45);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(service.stage, ShotStage.awaitingPurge);
         expect(service.serverMissing, isTrue);
-        // Only the server with 200 g of coffee back on.
+        expect(service.elapsedMs, ms);
+        final saved = (await db.select(db.shots).get()).single;
+        expect(saved.beverageGrams, isNull);
+        expect(saved.durationMs, ms);
+
+        // The whole stack back on is no yield.
+        scale.gross = 300 + 30.8 + 15 + 250;
+        await hold(12);
+        expect(service.beverageG, isNull);
+        // Only the server with 200 g of coffee: the yield is filled in.
         scale.gross = 300 + 200;
         await hold(12);
+        expect(service.serverMissing, isFalse);
+        expect(service.beverageG, closeTo(200, 0.1));
         await Future<void>.delayed(const Duration(milliseconds: 50));
         final shot = (await db.select(db.shots).get()).single;
         expect(shot.beverageGrams, closeTo(200, 0.1));
         expect(shot.finalWeight, closeTo(water, 1e-9));
+
+        // Rated and on to the next brew: a server now is no yield any more.
+        await service.purge();
+        service.confirmPostShot();
+        scale.gross = 300 + 50;
+        await hold(12);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(
+          (await db.select(db.shots).get()).single.beverageGrams,
+          closeTo(200, 0.1),
+        );
         service.dispose();
       });
     });

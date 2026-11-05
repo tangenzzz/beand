@@ -208,10 +208,8 @@ class PourOverBrewService extends LiveShotService {
   // With the Meticulous the machine's dial leads (user wish 2026-11-03):
   // the app follows its tares instead of taring itself, then starts the
   // brew by itself with the first water — like the machine does.
-  late final PourOverSetup prep = PourOverSetup(
-    tare: () => scale.tare(),
-    targetDose: () => setup.doseGrams ?? recipe?.doseG,
-  )..addListener(_onPrep);
+  late final PourOverSetup prep = PourOverSetup(tare: () => scale.tare())
+    ..addListener(_onPrep);
 
   bool _prepVisible = false;
   StreamSubscription<ScaleReading>? _prepSub;
@@ -370,13 +368,13 @@ class PourOverBrewService extends LiveShotService {
         if (chain != null) setup.setChain(chain.id);
       }
     }
-    // Weighed coffee becomes the dose of this brew.
-    final coffee = prep.coffeeG;
-    // Only a real dose (a step confirmed with an empty scale gave 0 g).
-    if (coffee != null &&
-        coffee >= 1 &&
-        coffee != _prepCoffeeTaken &&
-        prep.step.index > SetupStep.coffee.index) {
+    // Weighed coffee becomes the dose of this brew, already while weighing
+    // in: Pre Brew's value is only a suggestion.
+    final coffee = prep.liveCoffeeG ?? prep.coffeeG;
+    if (coffee == null) {
+      _prepCoffeeTaken = null;
+    } else if (coffee >= 1 && coffee != _prepCoffeeTaken) {
+      // ≥ 1: a step confirmed with an empty scale gave 0 g.
       _prepCoffeeTaken = coffee;
       setup.setDose((coffee * 10).roundToDouble() / 10);
     }
@@ -554,6 +552,10 @@ class PourOverBrewService extends LiveShotService {
     // the water itself).
     final tareFirst = !prepComplete;
     _setupG = prepComplete ? prep.setupG : null;
+    // Started by hand before the last step: the weights aren't all known, so
+    // no yield, but lifting everything still ends it.
+    _liftEnds = _auto && !dialLeads;
+    _stopWatchingYield();
     if (_auto && !prep.done) prep.skip();
     if (tareFirst) {
       try {
@@ -875,14 +877,15 @@ class PourOverBrewService extends LiveShotService {
   double? _beverageG;
   final _measureWindow = <ScaleReading>[];
 
-  /// After the lift nothing usable stands on the scale (everything taken
-  /// off) — the server with the coffee has to go back.
+  /// The brew ended with everything off the scale: no yield until the server
+  /// with the coffee is put back on.
   bool get serverMissing => _serverMissing;
 
   /// Weighed beverage (null until measured).
   double? get beverageG => _beverageG;
 
-  bool get _autoEnd => _setupG != null;
+  bool _liftEnds = false;
+  bool get _autoEnd => _liftEnds;
 
   double get _liftThreshold => math.max(28, (_setupG ?? 0) * 0.55);
 
@@ -928,7 +931,13 @@ class PourOverBrewService extends LiveShotService {
     }
     if (hi - lo > measureBand) return;
     final water = _grams;
-    final beverage = r.grams + (_setupG ?? 0);
+    final setupG = _setupG;
+    // Without the setup's weights there is nothing to work the yield out from.
+    if (setupG == null) {
+      unawaited(stopShot());
+      return;
+    }
+    final beverage = r.grams + setupG;
     if (beverage > water + 8) {
       // Everything is still on the scale — it was a wobble, not a lift.
       _phase = _stepIndex >= (_runningPlan?.steps.length ?? 0)
@@ -940,16 +949,72 @@ class PourOverBrewService extends LiveShotService {
       notifyListeners();
       return;
     }
+    // Everything was taken off: the brew is over (user 2026-11-05). The yield
+    // comes later, if the server with the coffee goes back on.
     if (beverage < math.max(8, water * 0.2)) {
-      if (!_serverMissing) {
-        _serverMissing = true;
-        notifyListeners();
-      }
+      _serverMissing = true;
+      unawaited(_endAndWatchYield());
       return;
     }
     _beverageG = (beverage * 10).roundToDouble() / 10;
     _serverMissing = false;
     unawaited(stopShot());
+  }
+
+  int? _savedShotId;
+  StreamSubscription<ScaleReading>? _yieldSub;
+
+  Future<void> _endAndWatchYield() async {
+    if (!await stopShot() || !_serverMissing || _savedShotId == null) return;
+    _measureWindow.clear();
+    _yieldSub = scale.readings.listen(_watchYield);
+  }
+
+  // After the end, until the next brew or leaving Post Brew: the server back
+  // on the scale gives the yield.
+  void _watchYield(ScaleReading r) {
+    _measureWindow.add(r);
+    while (_measureWindow.length > 2 &&
+        r.at.difference(_measureWindow.first.at) > measureSteady) {
+      _measureWindow.removeAt(0);
+    }
+    if (_measureWindow.length < 3 ||
+        r.at.difference(_measureWindow.first.at) <
+            measureSteady - const Duration(milliseconds: 150)) {
+      return;
+    }
+    var lo = double.infinity, hi = -double.infinity;
+    for (final m in _measureWindow) {
+      lo = math.min(lo, m.grams);
+      hi = math.max(hi, m.grams);
+    }
+    if (hi - lo > measureBand) return;
+    final beverage = r.grams + (_setupG ?? 0);
+    final water = _grams;
+    // Still empty, or the brewer is back on it too.
+    if (beverage < math.max(8, water * 0.2) || beverage > water + 8) return;
+    _beverageG = (beverage * 10).roundToDouble() / 10;
+    _serverMissing = false;
+    _stopWatchingYield();
+    final id = _savedShotId;
+    if (id != null) {
+      unawaited(
+        database
+            .updateShotFields(
+              id,
+              ShotsCompanion(beverageGrams: Value(_beverageG)),
+            )
+            .catchError((Object e) {
+              debugPrint('PourOverBrewService: yield not saved $e');
+            }),
+      );
+    }
+    notifyListeners();
+  }
+
+  void _stopWatchingYield() {
+    _yieldSub?.cancel();
+    _yieldSub = null;
   }
 
   void _tick() {
@@ -1030,6 +1095,8 @@ class PourOverBrewService extends LiveShotService {
     // Only end the finished brew — a new one may already be running when
     // the old one is saved late.
     if (stage == ShotStage.purging) {
+      _stopWatchingYield();
+      _serverMissing = false;
       applyStage(ShotStage.idle);
       // Next brew on the Meticulous: the steps again.
       if (_auto) prep.restart();
@@ -1042,7 +1109,7 @@ class PourOverBrewService extends LiveShotService {
     final p = _runningPlan!;
     final readings = List.of(liveReadings);
     final snap = setup.snapshot();
-    await database.insertShotWithReadings(
+    _savedShotId = await database.insertShotWithReadings(
       ShotsCompanion.insert(
         timestamp: _startedAt!,
         machine: const Value('pourover'),
@@ -1097,6 +1164,7 @@ class PourOverBrewService extends LiveShotService {
   @override
   void dispose() {
     _stopListening();
+    _stopWatchingYield();
     _prepSub?.cancel();
     _armSub?.cancel();
     _dialIdleSub?.cancel();
