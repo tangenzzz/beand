@@ -182,7 +182,7 @@ void main() {
       expect(scaleAmounts('Pour 70g', 1.2), 'Pour 84g');
       expect(scaleAmounts('Pour 100 ml slowly', 0.5), 'Pour 50 ml slowly');
       expect(scaleAmounts('Pour 12,5 g', 2), 'Pour 25 g');
-      expect(scaleAmounts('Pour 25 g', 1.1), 'Pour 27.5 g');
+      expect(scaleAmounts('Pour 25 g', 1.1), 'Pour 28 g');
       // Unchanged at the recipe's own dose, and nothing else is touched.
       expect(scaleAmounts('Pour to 170 g', 1), 'Pour to 170 g');
       expect(

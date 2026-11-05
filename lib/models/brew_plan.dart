@@ -62,8 +62,8 @@ String scaleAmounts(String text, double factor) {
   if ((factor - 1).abs() < 0.001) return text;
   return text.replaceAllMapped(_amount, (m) {
     final value = double.parse(m[1]!.replaceAll(',', '.')) * factor;
-    final rounded = (value * 10).round() / 10;
-    final shown = rounded.toStringAsFixed(rounded % 1 == 0 ? 0 : 1);
+    // Whole grams, like the steps' own numbers.
+    final shown = value.round();
     return '$shown${m[2]}${m[3]}';
   });
 }
