@@ -118,7 +118,7 @@ class _StageEditorScreenState extends State<StageEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final tint = colorForStageType(context, _stage.type);
+    final tint = context.colors.accent;
     final findings = checkStage(_draft, widget.stageIndex);
 
     return PopScope(
@@ -200,7 +200,7 @@ class _StageEditorScreenState extends State<StageEditorScreen> {
             for (final type in stageTypes)
               UnderlineItem(
                 label: labelForType(type),
-                underlineColor: colorForStageType(context, type),
+                underlineColor: context.colors.accent,
                 selected: _stage.type == type,
                 onTap: () => _changeType(type),
               ),
@@ -399,7 +399,7 @@ class _StageEditorScreenState extends State<StageEditorScreen> {
 
   Widget _limitRow(String type) {
     final existing = _stage.limits.where((l) => l.type == type).firstOrNull;
-    final tint = colorForStageType(context, type);
+    final tint = context.colors.accent;
 
     if (existing == null) {
       return Align(
@@ -552,7 +552,7 @@ class _StageEditorScreenState extends State<StageEditorScreen> {
 
   Widget _triggerRow(DraftTrigger trigger) {
     final colors = context.colors;
-    final tint = colorForStageType(context, trigger.type);
+    final tint = context.colors.accent;
 
     String? name;
     if (trigger.value.isVariable) {

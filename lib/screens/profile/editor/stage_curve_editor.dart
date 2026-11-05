@@ -210,7 +210,7 @@ class _StageCurveEditorState extends State<StageCurveEditor> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final tint = colorForStageType(context, _stage.type);
+    final tint = context.colors.accent;
     final limit = _shownLimit;
 
     return LayoutBuilder(
@@ -276,9 +276,7 @@ class _StageCurveEditorState extends State<StageCurveEditor> {
                 limitLabel: limit == null
                     ? null
                     : '${labelForType(limit.type)} · ${unitForType(limit.type)}',
-                limitColor: limit == null
-                    ? null
-                    : colorForStageType(context, limit.type),
+                limitColor: limit == null ? null : context.colors.textSecondary,
                 padLeft: limit == null ? _padRight : _padLeft,
                 padRight: _padRight,
                 padTop: _padTop,

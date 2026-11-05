@@ -468,7 +468,7 @@ class _PourOverProfileEditorState extends State<PourOverProfileEditor> {
                 ),
                 Text(
                   '${_grams(p.waterG)} g',
-                  style: TextStyle(color: colors.sensorMid, fontSize: 14),
+                  style: TextStyle(color: colors.accent, fontSize: 14),
                 ),
                 const SizedBox(width: 12),
                 SizedBox(
@@ -1132,7 +1132,7 @@ class _PlanChart extends StatelessWidget {
               lineBarsData: [
                 LineChartBarData(
                   spots: spots,
-                  color: colors.sensorMid,
+                  color: colors.accent,
                   barWidth: 2.4,
                   isStrokeCapRound: true,
                   dotData: const FlDotData(show: false),

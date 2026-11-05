@@ -517,20 +517,6 @@ double maxForType(String type) => switch (type) {
   _ => 100,
 };
 
-// Color of a stage type — same tokens as the curves in the profile view,
-// so both views mean the same thing.
-Color colorForStageType(BuildContext context, String type) {
-  final colors = context.colors;
-  return switch (type) {
-    'flow' => colors.sensorDown,
-    'pressure' => colors.success,
-    'power' => colors.danger,
-    'weight' => colors.sensorMid,
-    'piston_position' => colors.sensorGroup,
-    _ => colors.textSecondary,
-  };
-}
-
 // Explanation texts, paraphrased from the official RFC of the profile format
 // (MeticulousHome/espresso-profile-schema, rfc.md) and the hints of the two
 // reference apps.

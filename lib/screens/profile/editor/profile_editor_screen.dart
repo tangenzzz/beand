@@ -245,7 +245,7 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                 leading: Icon(
                   Icons.circle,
                   size: 12,
-                  color: colorForStageType(context, type),
+                  color: context.colors.accent,
                 ),
                 title: Text(
                   labelForType(type),
@@ -601,7 +601,7 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                         unit: unitForType(variable.type),
                         step: variable.type == 'power' ? 1 : 0.1,
                         max: maxForType(variable.type),
-                        color: colorForStageType(context, variable.type),
+                        color: context.colors.accent,
                         onChanged: (v) {
                           variable.value = v;
                           _touch();
@@ -914,7 +914,7 @@ class _StageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final tint = colorForStageType(context, stage.type);
+    final tint = context.colors.accent;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
