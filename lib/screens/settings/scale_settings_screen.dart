@@ -156,7 +156,7 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
   Future<void> _scaleActions(KnownScale known) async {
     final colors = context.colors;
     final scale = context.read<BrewScale>();
-    final forget = await showModalBottomSheet<bool>(
+    final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: colors.card,
       shape: const RoundedRectangleBorder(
@@ -172,21 +172,38 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(
-                known.name,
+                known.displayName,
                 style: TextStyle(color: colors.textPrimary, fontSize: 15),
               ),
             ),
             ListTile(
+              leading: Icon(Icons.edit_outlined, color: colors.textSecondary),
+              title: Text(
+                'Rename',
+                style: TextStyle(color: colors.textPrimary),
+              ),
+              onTap: () => Navigator.pop(context, 'rename'),
+            ),
+            ListTile(
               leading: Icon(Icons.delete_outline, color: colors.danger),
               title: Text('Forget', style: TextStyle(color: colors.danger)),
-              onTap: () => Navigator.pop(context, true),
+              onTap: () => Navigator.pop(context, 'forget'),
             ),
             const SizedBox(height: 8),
           ],
         ),
       ),
     );
-    if (forget == true) await scale.forgetScale(known.id);
+    if (action == 'forget') await scale.forgetScale(known.id);
+    if (action == 'rename' && mounted) await _renameScale(scale, known);
+  }
+
+  Future<void> _renameScale(BrewScale scale, KnownScale known) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _RenameScaleDialog(known: known),
+    );
+    if (name != null) await scale.renameScale(known.id, name);
   }
 
   (Color, String) _status(BuildContext context, BrewScale scale) =>
@@ -268,7 +285,7 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      scale.deviceName ?? 'Bluetooth Scale',
+                      scale.displayName ?? 'Bluetooth Scale',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: colors.textPrimary, fontSize: 15),
@@ -542,6 +559,55 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
   }
 }
 
+class _RenameScaleDialog extends StatefulWidget {
+  const _RenameScaleDialog({required this.known});
+
+  final KnownScale known;
+
+  @override
+  State<_RenameScaleDialog> createState() => _RenameScaleDialogState();
+}
+
+class _RenameScaleDialogState extends State<_RenameScaleDialog> {
+  late final _name = TextEditingController(text: widget.known.displayName);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return AlertDialog(
+      backgroundColor: colors.card,
+      title: Text('Rename scale', style: TextStyle(color: colors.textPrimary)),
+      content: TextField(
+        key: const ValueKey('scale-name'),
+        controller: _name,
+        autofocus: true,
+        maxLength: 30,
+        textCapitalization: TextCapitalization.sentences,
+        style: TextStyle(color: colors.textPrimary),
+        // Empty goes back to the scale's own name.
+        decoration: InputDecoration(hintText: widget.known.name),
+        onSubmitted: (v) => Navigator.pop(context, v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _name.text),
+          child: Text('Save', style: TextStyle(color: colors.accent)),
+        ),
+      ],
+    );
+  }
+}
+
 // A scale the app knows: there also while it's off, with its state instead of
 // the signal. Tapping connects, like in the phone's Bluetooth settings.
 class _KnownScaleRow extends StatelessWidget {
@@ -578,7 +644,7 @@ class _KnownScaleRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    known.name,
+                    known.displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: colors.textPrimary, fontSize: 15),

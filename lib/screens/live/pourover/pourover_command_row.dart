@@ -46,8 +46,8 @@ class PourOverCommandRow extends StatelessWidget {
             ScaleConnection.connected => (
               Icons.bluetooth_connected,
               battery == null
-                  ? scaleShortName(scale.deviceName)
-                  : '${scaleShortName(scale.deviceName)} $battery%',
+                  ? scale.shortName
+                  : '${scale.shortName} $battery%',
             ),
             ScaleConnection.scanning || ScaleConnection.connecting => (
               Icons.bluetooth_searching,
@@ -239,7 +239,7 @@ class PourOverCommandRow extends StatelessWidget {
                 'Bluetooth scale',
                 btName == null
                     ? 'Acaia, Decent, Bookoo'
-                    : scaleShortName(btName),
+                    : scale.bluetooth.shortName,
                 chosen: !onMeticulous,
               ),
               Align(

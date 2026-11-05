@@ -37,19 +37,39 @@ class ScaleCandidate {
 /// the known devices in the phone's Bluetooth settings.
 @immutable
 class KnownScale {
-  const KnownScale({required this.id, required this.name});
+  const KnownScale({required this.id, required this.name, this.customName});
 
   final String id;
+
+  /// What the scale advertises; decides how the app talks to it, so renaming
+  /// leaves it alone.
   final String name;
 
-  Map<String, String> toJson() => {'id': id, 'name': name};
+  /// Given by the user; null = none.
+  final String? customName;
+
+  String get displayName => customName ?? name;
+
+  KnownScale renamed(String? newName) =>
+      KnownScale(id: id, name: name, customName: newName);
+
+  Map<String, String> toJson() => {
+    'id': id,
+    'name': name,
+    'customName': ?customName,
+  };
 
   static KnownScale? fromJson(Object? json) {
     if (json is! Map) return null;
     final id = json['id'];
     final name = json['name'];
+    final custom = json['customName'];
     return id is String && name is String
-        ? KnownScale(id: id, name: name)
+        ? KnownScale(
+            id: id,
+            name: name,
+            customName: custom is String ? custom : null,
+          )
         : null;
   }
 }
@@ -64,6 +84,12 @@ abstract class BrewScale extends ChangeNotifier {
   /// Name the scale advertises (e.g. "LUNAR-1A2B3C").
   String? get deviceName;
 
+  /// The name to show: the one the user gave it, else [deviceName].
+  String? get displayName => deviceName;
+
+  /// For tight spots: the user's name as it is, else the short model name.
+  String get shortName => scaleShortName(deviceName);
+
   /// Battery level in percent, null while unknown (or without battery service).
   int? get batteryPercent => null;
 
@@ -75,6 +101,9 @@ abstract class BrewScale extends ChangeNotifier {
 
   /// Removes a scale from [knownScales]; disconnects if it is in use.
   Future<void> forgetScale(String id) async {}
+
+  /// Gives a known scale a name of its own; empty goes back to its own name.
+  Future<void> renameScale(String id, String name) async {}
 
   /// Whether Bluetooth is switched off on the phone.
   Future<bool> get bluetoothOff async => false;

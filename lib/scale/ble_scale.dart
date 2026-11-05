@@ -167,6 +167,28 @@ class BleScale extends BrewScale {
     unawaited(_saveKnown());
   }
 
+  String? get _customName {
+    final id = _deviceId ?? _rememberedId;
+    return _known.where((k) => k.id == id).firstOrNull?.customName;
+  }
+
+  @override
+  String? get displayName => _customName ?? _deviceName;
+
+  @override
+  String get shortName => _customName ?? scaleShortName(_deviceName);
+
+  @override
+  Future<void> renameScale(String id, String name) async {
+    final clean = name.trim();
+    _known = [
+      for (final k in _known)
+        if (k.id == id) k.renamed(clean.isEmpty ? null : clean) else k,
+    ];
+    notifyListeners();
+    await _saveKnown();
+  }
+
   @override
   Future<void> forgetScale(String id) async {
     _known = [

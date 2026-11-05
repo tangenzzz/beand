@@ -15,6 +15,7 @@ class _Scale extends SimulatedScale {
   ScaleConnection state = ScaleConnection.disconnected;
   final connects = <String>[];
   final forgotten = <String>[];
+  final renames = <String, String>{};
   List<ScaleCandidate> nearby = const [];
   final offChanges = StreamController<bool>.broadcast();
 
@@ -29,6 +30,8 @@ class _Scale extends SimulatedScale {
   ];
   @override
   Future<void> forgetScale(String id) async => forgotten.add(id);
+  @override
+  Future<void> renameScale(String id, String name) async => renames[id] = name;
   @override
   Future<bool> get bluetoothOff async => off;
   @override
@@ -123,6 +126,20 @@ void main() {
     await tester.tap(find.text('Forget'));
     await tester.pumpAndSettle();
     expect(scale.forgotten, ['b']);
+  });
+
+  testWidgets('a scale can be renamed', (tester) async {
+    final scale = _Scale();
+    await pump(tester, scale);
+    await tester.tap(find.byTooltip('More').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    expect(find.text('Decent Scale'), findsWidgets);
+    await tester.enterText(find.byKey(const ValueKey('scale-name')), 'Kitchen');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(scale.renames, {'b': 'Kitchen'});
   });
 
   testWidgets('Bluetooth off: reminder, Scan asks, coming on scans', (

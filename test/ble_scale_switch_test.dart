@@ -204,6 +204,34 @@ void scanAndKnownTests() {
     expect(ble.scansStarted, 4);
   });
 
+  test(
+    'a new name stays, but the app still talks to the scale by its own',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        scaleLastDeviceIdPrefKey: 'acaia',
+        scaleLastDeviceNamePrefKey: 'PROCHBT001',
+      });
+      final scale = BleScale(ble: _ScanBle());
+      await _tick();
+      expect(scale.shortName, 'Pearl');
+
+      await scale.renameScale('acaia', '  Pearl upstairs ');
+      expect(scale.displayName, 'Pearl upstairs');
+      // As given, not shortened to the model.
+      expect(scale.shortName, 'Pearl upstairs');
+      expect(scale.deviceName, 'PROCHBT001');
+      expect(scale.knownScales.single.name, 'PROCHBT001');
+
+      final again = BleScale(ble: _ScanBle());
+      await _tick();
+      expect(again.displayName, 'Pearl upstairs');
+
+      await again.renameScale('acaia', '   ');
+      expect(again.displayName, 'PROCHBT001');
+      expect(again.knownScales.single.customName, isNull);
+    },
+  );
+
   test('known scales: from older versions, kept, forgotten', () async {
     SharedPreferences.setMockInitialValues({
       scaleLastDeviceIdPrefKey: 'acaia',
