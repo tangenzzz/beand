@@ -163,9 +163,14 @@ class PourOverHero extends StatelessWidget {
                   child: _RingText(
                     label: label,
                     line: stepLine,
-                    // Without water there is no flow to read.
-                    flow: running && brew.phase != BrewState.measuring
-                        ? brew.flow
+                    // While weighing in the weight, while brewing the flow;
+                    // without water there is no flow to read.
+                    detail: prepStep
+                        ? (scale.grams != null && scale.grams!.abs() >= 1
+                              ? '${scale.grams!.toStringAsFixed(1)} g'
+                              : null)
+                        : running && brew.phase != BrewState.measuring
+                        ? '${brew.flow.toStringAsFixed(1)} g/s'
                         : null,
                     size: _ringSize,
                   ),
@@ -181,7 +186,9 @@ class PourOverHero extends StatelessWidget {
           SizedBox(
             height: 34,
             child: prepStep
-                ? _PrepRow(brew: brew)
+                ? (prep.status == SetupStatus.tareFailed
+                      ? const _TareFailed()
+                      : null)
                 : running && !brew.dialLeads
                 ? _NextLine(brew: brew)
                 : null,
@@ -200,18 +207,19 @@ class PourOverHero extends StatelessWidget {
 }
 
 // What to do now, in the gap the gauge leaves below the needle: a short label,
-// the amount large, and the flow while pouring. Sized to the ring's chord.
+// the amount large, and below it the flow or the weight being weighed in. Sized
+// to the ring's chord.
 class _RingText extends StatelessWidget {
   const _RingText({
     required this.label,
     required this.line,
-    required this.flow,
+    required this.detail,
     required this.size,
   });
 
   final String label;
   final String? line;
-  final double? flow;
+  final String? detail;
   final double size;
 
   @override
@@ -260,9 +268,9 @@ class _RingText extends StatelessWidget {
                   ),
                   0.72,
                 ),
-              if (flow != null)
+              if (detail != null)
                 Text(
-                  '${flow!.toStringAsFixed(1)} g/s',
+                  detail!,
                   maxLines: 1,
                   style: TextStyle(
                     color: colors.textSecondary,
@@ -418,73 +426,15 @@ class _HeroPainter extends CustomPainter {
       old.needle != needle;
 }
 
-// The setup steps below the ring: done with its weight, the current one in the
-// accent, the coming one dim. A failed tare takes the row over.
-class _PrepRow extends StatelessWidget {
-  const _PrepRow({required this.brew});
-
-  final PourOverBrewService brew;
-
-  static double _one(double g) => (g * 10).roundToDouble() / 10;
+// Below the ring during the setup steps: only when a tare failed.
+class _TareFailed extends StatelessWidget {
+  const _TareFailed();
 
   @override
-  Widget build(BuildContext context) {
-    final prep = brew.prep;
-    final colors = context.colors;
-    if (prep.status == SetupStatus.tareFailed) {
-      return Center(
-        child: Text(
-          'Tare not confirmed · tap Tare',
-          style: TextStyle(color: colors.danger, fontSize: 13),
-        ),
-      );
-    }
-    final brewer = brew.detectedBrewer?.displayName ?? 'Brewer';
-    Widget cell(SetupStep step, String name, double? grams) {
-      final done = prep.step.index > step.index;
-      final current = prep.step == step;
-      final color = current
-          ? colors.accent
-          : done
-          ? colors.textSecondary
-          : colors.textTertiary;
-      return Expanded(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (done) ...[
-                  Icon(Icons.check, size: 13, color: colors.accent),
-                  const SizedBox(width: 3),
-                ],
-                Flexible(
-                  child: Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: color, fontSize: 13, height: 1.2),
-                  ),
-                ),
-              ],
-            ),
-            Text(
-              grams == null ? '–' : '${formatGrams(_one(grams))} g',
-              maxLines: 1,
-              style: TextStyle(color: color, fontSize: 13, height: 1.2),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        cell(SetupStep.server, 'Server', prep.serverG),
-        cell(SetupStep.brewer, brewer, prep.brewerG),
-        cell(SetupStep.coffee, 'Coffee', prep.liveCoffeeG ?? prep.coffeeG),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Center(
+    child: Text(
+      'Tare not confirmed · tap Tare',
+      style: TextStyle(color: context.colors.danger, fontSize: 13),
+    ),
+  );
 }
