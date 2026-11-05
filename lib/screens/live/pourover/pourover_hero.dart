@@ -22,8 +22,8 @@ import 'recipe_format.dart';
 // pour's target and is empty again once that is reached (pause, next pour,
 // drawdown). Inside is the flow gauge with the ideal range at the top
 // (12 o'clock); its needle glides to the new value instead of jumping on
-// every scale packet. Name and progress of the pour are on a line below
-// the ring.
+// every scale packet. What to do now is in the ring too, in the gap the gauge
+// leaves below the needle (user 2026-11-05); below the ring what comes next.
 class PourOverHero extends StatelessWidget {
   const PourOverHero({super.key});
 
@@ -42,6 +42,8 @@ class PourOverHero extends StatelessWidget {
     final double? grams = running ? brew.grams : scale.grams;
     final step = brew.currentStep;
 
+    final prep = brew.prep;
+    final prepStep = brew.prepActive && !running;
     final String label;
     final String? stepLine;
     if (brew.brewDone) {
@@ -49,7 +51,7 @@ class PourOverHero extends StatelessWidget {
       stepLine = brew.beverageG != null
           ? 'Yield ${formatGrams(brew.beverageG!)} g'
           : brew.serverMissing
-          ? 'Server on the scale for the yield'
+          ? 'Server on scale'
           : null;
     } else if (!scale.isConnected) {
       label = 'NO SCALE';
@@ -58,20 +60,28 @@ class PourOverHero extends StatelessWidget {
       // Machine mode: the dial leads, the app shows weight, flow and time.
       if (!running) {
         label = 'READY';
-        stepLine = 'Brew on the machine';
+        stepLine = 'On the machine';
       } else if (brew.phase == BrewState.measuring) {
         label = 'DONE';
-        stepLine = 'Finish on the machine';
+        stepLine = 'On the machine';
       } else {
         label = 'POURING';
         stepLine = null;
       }
+    } else if (prepStep) {
+      label = '${prep.stepNumber}/${PourOverSetup.stepCount}';
+      stepLine = prep.status == SetupStatus.taring
+          ? 'Taring…'
+          : switch (prep.step) {
+              SetupStep.server => 'Server on',
+              SetupStep.brewer => 'Brewer on',
+              SetupStep.coffee => 'Add coffee',
+              SetupStep.done => '',
+            };
     } else if (!running) {
-      // After the steps on the Meticulous the first water starts the brew.
+      // After the steps the first water starts the brew.
       label = brew.prepComplete ? 'START POURING' : 'READY';
-      stepLine = step == null
-          ? null
-          : '${step.label} · ${formatGrams(step.waterG)} g';
+      stepLine = step == null ? null : '${formatGrams(step.waterG)} g';
     } else {
       switch (brew.phase) {
         case BrewState.armed:
@@ -84,14 +94,14 @@ class PourOverHero extends StatelessWidget {
               '${formatGrams(step.waterG)} g';
         case BrewState.waiting:
           label = 'WAIT';
-          stepLine = 'next in ${formatClock(brew.waitLeftSeconds)}';
+          stepLine = formatClock(brew.waitLeftSeconds);
         case BrewState.drawdown:
           label = 'DRAWDOWN';
           stepLine = null;
-        // Brewer lifted (Meticulous): time stopped, weighing the coffee.
+        // Everything lifted: time stopped, weighing the coffee.
         case BrewState.measuring:
           label = 'DONE';
-          stepLine = 'Weighing the coffee…';
+          stepLine = 'Weighing…';
       }
     }
     final needleActive =
@@ -150,9 +160,13 @@ class PourOverHero extends StatelessWidget {
                     ),
                     child: child,
                   ),
-                  child: _FlowValue(
-                    flow: brew.flow,
-                    active: needleActive,
+                  child: _RingText(
+                    label: label,
+                    line: stepLine,
+                    // Without water there is no flow to read.
+                    flow: running && brew.phase != BrewState.measuring
+                        ? brew.flow
+                        : null,
                     size: _ringSize,
                   ),
                 ),
@@ -161,39 +175,17 @@ class PourOverHero extends StatelessWidget {
               SensorStack(sensors: values, large: true),
             ],
           ),
-          // Pour info below the ring instead of inside — inside the ring it
-          // was too large. During the setup steps (Meticulous) the steps
-          // instead, as narrow lines like the GaggiMate warnings.
+          // Same height with or without content, so nothing jumps when the
+          // steps end and the brew starts.
           const SizedBox(height: 10),
-          if (brew.prepActive)
-            _PrepLines(brew: brew)
-          else
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: label,
-                    style: TextStyle(
-                      color: context.colors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  if (stepLine != null)
-                    TextSpan(
-                      text: '  ·  $stepLine',
-                      style: TextStyle(
-                        color: context.colors.textPrimary,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                ],
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
+          SizedBox(
+            height: 34,
+            child: prepStep
+                ? _PrepRow(brew: brew)
+                : running && !brew.dialLeads
+                ? _NextLine(brew: brew)
+                : null,
+          ),
         ],
       ),
     );
@@ -203,58 +195,114 @@ class PourOverHero extends StatelessWidget {
   // parenthetical, that belongs in the pour list. Long names → "POUR 3".
   static String _short(String label, int index) {
     final base = label.split('(').first.trim();
-    return base.length > 18 ? 'POUR ${index + 1}' : base.toUpperCase();
+    return base.length > 16 ? 'POUR ${index + 1}' : base.toUpperCase();
   }
 }
 
-// Inside the ring only the flow below the needle axis.
-class _FlowValue extends StatelessWidget {
-  const _FlowValue({
+// What to do now, in the gap the gauge leaves below the needle: a short label,
+// the amount large, and the flow while pouring. Sized to the ring's chord.
+class _RingText extends StatelessWidget {
+  const _RingText({
+    required this.label,
+    required this.line,
     required this.flow,
-    required this.active,
     required this.size,
   });
 
-  final double flow;
-  final bool active;
+  final String label;
+  final String? line;
+  final double? flow;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    Widget fit(Widget child, double share) => SizedBox(
+      width: size * share,
+      child: FittedBox(fit: BoxFit.scaleDown, child: child),
+    );
     return Stack(
       children: [
         Positioned(
           left: 0,
           right: 0,
-          top: size * 0.58,
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: flow.toStringAsFixed(1),
+          // Low enough to clear the needle at rest (lower left).
+          top: size * 0.62,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              fit(
+                Text(
+                  label,
+                  maxLines: 1,
                   style: TextStyle(
-                    color: active
-                        ? context.colors.textPrimary
-                        : context.colors.textTertiary,
-                    fontSize: 22,
+                    color: colors.accent,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    height: 1.1,
+                    letterSpacing: 0.6,
+                    height: 1.15,
+                  ),
+                ),
+                0.5,
+              ),
+              if (line != null)
+                fit(
+                  Text(
+                    line!,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  0.72,
+                ),
+              if (flow != null)
+                Text(
+                  '${flow!.toStringAsFixed(1)} g/s',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 11,
+                    height: 1.15,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-                TextSpan(
-                  text: ' g/s',
-                  style: TextStyle(
-                    color: context.colors.textSecondary,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
+            ],
           ),
         ),
       ],
+    );
+  }
+}
+
+// While brewing, below the ring: the pour after this one.
+class _NextLine extends StatelessWidget {
+  const _NextLine({required this.brew});
+
+  final PourOverBrewService brew;
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = brew.plan?.steps ?? const [];
+    // During a pause the index already points at the coming pour.
+    final i = brew.phase == BrewState.waiting
+        ? brew.stepIndex
+        : brew.stepIndex + 1;
+    if (brew.phase == BrewState.measuring || i >= steps.length) {
+      return const SizedBox.shrink();
+    }
+    final next = steps[i];
+    return Center(
+      child: Text(
+        'Next: ${next.label} · ${formatGrams(next.waterG)} g',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: context.colors.textSecondary, fontSize: 13),
+      ),
     );
   }
 }
@@ -370,99 +418,72 @@ class _HeroPainter extends CustomPainter {
       old.needle != needle;
 }
 
-// Setup steps on the Meticulous' scale: the current step (accent dot) and
-// what is already weighed (green dot). Two lines at most, small like the
-// GaggiMate warnings under its hero.
-class _PrepLines extends StatelessWidget {
-  const _PrepLines({required this.brew});
+// The setup steps below the ring: done with its weight, the current one in the
+// accent, the coming one dim. A failed tare takes the row over.
+class _PrepRow extends StatelessWidget {
+  const _PrepRow({required this.brew});
 
   final PourOverBrewService brew;
+
+  static double _one(double g) => (g * 10).roundToDouble() / 10;
 
   @override
   Widget build(BuildContext context) {
     final prep = brew.prep;
     final colors = context.colors;
-    final (String task, String? extra) = switch (prep.step) {
-      SetupStep.server => ('Put the server on the scale', null),
-      SetupStep.brewer => ('Put the brewer on', null),
-      SetupStep.coffee => ('Add the coffee', null),
-      SetupStep.done => ('', null),
-    };
-    final status = switch (prep.status) {
-      SetupStatus.taring => 'taring…',
-      SetupStatus.tareFailed => null,
-      SetupStatus.waiting => extra,
-    };
-    final weighed = [
-      if (prep.serverG != null) 'Server ${formatGrams(_one(prep.serverG!))} g',
-      if (prep.brewerG != null)
-        brew.detectedBrewer == null
-            ? 'Brewer ${formatGrams(_one(prep.brewerG!))} g'
-            : '${brew.detectedBrewer!.displayName} ${formatGrams(_one(prep.brewerG!))} g',
-    ].join(' · ');
-
-    final (Color dot2, String line2) = prep.status == SetupStatus.tareFailed
-        ? (colors.danger, 'Tare not confirmed · tap Tare')
-        : weighed.isNotEmpty
-        ? (colors.success, weighed)
-        : (colors.divider, 'Records itself once steady · Tare to confirm');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _line(
-          context,
-          colors.accent,
-          '${prep.stepNumber}/${PourOverSetup.stepCount} $task',
-          primary: true,
-          trailing: status,
+    if (prep.status == SetupStatus.tareFailed) {
+      return Center(
+        child: Text(
+          'Tare not confirmed · tap Tare',
+          style: TextStyle(color: colors.danger, fontSize: 13),
         ),
-        const SizedBox(height: 4),
-        _line(context, dot2, line2),
-      ],
-    );
-  }
-
-  static double _one(double g) => (g * 10).roundToDouble() / 10;
-
-  Widget _line(
-    BuildContext context,
-    Color dot,
-    String text, {
-    bool primary = false,
-    String? trailing,
-  }) {
-    final colors = context.colors;
-    return Row(
-      children: [
-        Container(
-          width: 5,
-          height: 5,
-          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 7),
-        Flexible(
-          child: Text.rich(
-            TextSpan(
+      );
+    }
+    final brewer = brew.detectedBrewer?.displayName ?? 'Brewer';
+    Widget cell(SetupStep step, String name, double? grams) {
+      final done = prep.step.index > step.index;
+      final current = prep.step == step;
+      final color = current
+          ? colors.accent
+          : done
+          ? colors.textSecondary
+          : colors.textTertiary;
+      return Expanded(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                TextSpan(
-                  text: text,
-                  style: TextStyle(
-                    color: primary ? colors.textPrimary : colors.textSecondary,
-                    fontSize: 11,
+                if (done) ...[
+                  Icon(Icons.check, size: 13, color: colors.accent),
+                  const SizedBox(width: 3),
+                ],
+                Flexible(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: color, fontSize: 13, height: 1.2),
                   ),
                 ),
-                if (trailing != null)
-                  TextSpan(
-                    text: ' · $trailing',
-                    style: TextStyle(color: colors.textTertiary, fontSize: 11),
-                  ),
               ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+            Text(
+              grams == null ? '–' : '${formatGrams(_one(grams))} g',
+              maxLines: 1,
+              style: TextStyle(color: color, fontSize: 13, height: 1.2),
+            ),
+          ],
         ),
+      );
+    }
+
+    return Row(
+      children: [
+        cell(SetupStep.server, 'Server', prep.serverG),
+        cell(SetupStep.brewer, brewer, prep.brewerG),
+        cell(SetupStep.coffee, 'Coffee', prep.liveCoffeeG ?? prep.coffeeG),
       ],
     );
   }

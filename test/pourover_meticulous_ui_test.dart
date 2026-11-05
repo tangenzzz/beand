@@ -150,8 +150,8 @@ void main() {
     await tester.pump();
     expect(socket.actions, isEmpty);
     expect(find.textContaining('Brew on the machine'), findsWidgets);
-    expect(find.text('On the machine'), findsNWidgets(3));
-    expect(find.textContaining('Put the server'), findsNothing);
+    expect(find.text('On the machine'), findsNWidgets(4));
+    expect(find.text('Server on'), findsNothing);
 
     // Scale only via the scale button: the app leads with its own steps.
     await tester.tap(find.text('Machine'));
@@ -165,11 +165,12 @@ void main() {
     expect(find.text('Tare'), findsOneWidget);
     // Auto off: no steps, enter everything by hand.
     expect(find.text('Auto off'), findsOneWidget);
-    expect(find.textContaining('Put the server'), findsNothing);
+    expect(find.text('Server on'), findsNothing);
     await tester.tap(find.text('Auto off'));
     await tester.pump();
     expect(find.text('Auto on'), findsOneWidget);
-    expect(find.text('1/3 Put the server on the scale'), findsOneWidget);
+    expect(find.text('1/3'), findsOneWidget);
+    expect(find.text('Server on'), findsOneWidget);
     expect(find.text('One and Done'), findsWidgets);
     // "+" on the profile row in every mode.
     expect(find.byTooltip('Add profile'), findsOneWidget);
@@ -185,7 +186,7 @@ void main() {
     expect(selector.source, ScaleSource.bluetooth);
     // Same row for a Bluetooth scale: Auto stays (steps once it connects).
     expect(find.text('Auto on'), findsOneWidget);
-    expect(find.textContaining('Put the server'), findsNothing);
+    expect(find.text('Server on'), findsNothing);
     expect(store.useMachine, isFalse);
 
     await tester.pumpWidget(const SizedBox());
