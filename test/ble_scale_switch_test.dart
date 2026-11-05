@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _SilentBle implements FlutterReactiveBle {
   final connectedTo = <String>[];
   final cancelled = <String>[];
+  final conns = <String, StreamController<ConnectionStateUpdate>>{};
 
   @override
   Stream<BleStatus> get statusStream => Stream.value(BleStatus.ready);
@@ -27,6 +28,7 @@ class _SilentBle implements FlutterReactiveBle {
     c = StreamController<ConnectionStateUpdate>(
       onCancel: () => cancelled.add(id),
     );
+    conns[id] = c;
     return c.stream;
   }
 
@@ -60,7 +62,6 @@ void main() {
       // Tapping the Acaia drops the Decent and really asks for the Acaia.
       unawaited(scale.connectTo(acaia));
       await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(ble.cancelled, contains('decent'));
       expect(ble.connectedTo, ['decent', 'acaia']);
       expect(scale.deviceName, 'PROCHBT001');
 
@@ -68,6 +69,15 @@ void main() {
       await scale.disconnect();
       expect(scale.connection, ScaleConnection.disconnected);
       unawaited(scale.connectTo(acaia));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // Its first attempt ends, then the new one goes out.
+      ble.conns['acaia']!.add(
+        const ConnectionStateUpdate(
+          deviceId: 'acaia',
+          connectionState: DeviceConnectionState.disconnected,
+          failure: null,
+        ),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(ble.connectedTo, ['decent', 'acaia', 'acaia']);
       await scale.disconnect();
@@ -231,6 +241,148 @@ void scanAndKnownTests() {
       expect(again.knownScales.single.customName, isNull);
     },
   );
+
+  test(
+    'an attempt that has not answered is left to run out, not cancelled '
+    '(the plugin would keep it first in its queue and block every other scale)',
+    () async {
+      final ble = _ScanBle();
+      final scale = BleScale(ble: ble);
+      await _tick();
+      const decent = ScaleCandidate(
+        id: 'decent',
+        name: 'Decent Scale',
+        rssi: 0,
+      );
+      const acaia = ScaleCandidate(id: 'acaia', name: 'PROCHBT001', rssi: 0);
+      unawaited(scale.connectTo(decent));
+      await _tick();
+      unawaited(scale.connectTo(acaia));
+      await _tick();
+      expect(ble.connectedTo, ['decent', 'acaia']);
+      expect(ble.cancelled, isEmpty);
+
+      // Its answer comes: now it may go.
+      ble.conns['decent']!.add(
+        const ConnectionStateUpdate(
+          deviceId: 'decent',
+          connectionState: DeviceConnectionState.disconnected,
+          failure: null,
+        ),
+      );
+      await _tick();
+      expect(ble.cancelled, ['decent']);
+      expect(scale.deviceName, 'PROCHBT001');
+      expect(scale.connection, ScaleConnection.connecting);
+      await scale.disconnect();
+    },
+  );
+
+  test('the same scale again waits for its old attempt to end', () async {
+    final ble = _ScanBle();
+    final scale = BleScale(ble: ble);
+    await _tick();
+    const decent = ScaleCandidate(id: 'decent', name: 'Decent Scale', rssi: 0);
+    unawaited(scale.connectTo(decent));
+    await _tick();
+    await scale.disconnect();
+    unawaited(scale.connectTo(decent));
+    await _tick();
+    expect(ble.connectedTo, ['decent']);
+    ble.conns['decent']!.add(
+      const ConnectionStateUpdate(
+        deviceId: 'decent',
+        connectionState: DeviceConnectionState.disconnected,
+        failure: null,
+      ),
+    );
+    await _tick();
+    expect(ble.connectedTo, ['decent', 'decent']);
+    await scale.disconnect();
+  });
+
+  group('a lost scale', () {
+    Future<(BleScale, _ScanBle)> lost() async {
+      SharedPreferences.setMockInitialValues({
+        scaleKnownPrefKey:
+            '[{"id":"decent","name":"Decent Scale"},'
+            '{"id":"acaia","name":"PROCHBT001"}]',
+      });
+      final ble = _ScanBle();
+      final scale = BleScale(ble: ble)
+        ..autoSwitchGrace = const Duration(milliseconds: 150);
+      await _tick();
+      unawaited(
+        scale.connectTo(
+          const ScaleCandidate(id: 'decent', name: 'Decent Scale', rssi: 0),
+        ),
+      );
+      await _tick();
+      ble.conns['decent']!.add(
+        const ConnectionStateUpdate(
+          deviceId: 'decent',
+          connectionState: DeviceConnectionState.disconnected,
+          failure: null,
+        ),
+      );
+      await _tick();
+      ble.connectedTo.clear();
+      unawaited(scale.simulateLost());
+      await _tick();
+      return (scale, ble);
+    }
+
+    test('another known scale takes over when it stays away', () async {
+      final (scale, ble) = await lost();
+      expect(ble.connectedTo, isEmpty, reason: 'looks first, no blind attempt');
+      ble.see('acaia', 'PROCHBT001');
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(ble.connectedTo, ['acaia']);
+      expect(scale.rememberedId, 'acaia');
+      expect(scale.deviceName, 'PROCHBT001');
+      await scale.disconnect();
+    });
+
+    test('it wins when it comes back in time', () async {
+      final (scale, ble) = await lost();
+      ble.see('acaia', 'PROCHBT001');
+      await _tick();
+      ble.see('decent', 'Decent Scale');
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(ble.connectedTo, ['decent']);
+      await scale.disconnect();
+    });
+
+    test('a scale never connected to is not taken', () async {
+      final (scale, ble) = await lost();
+      ble.see('new', 'BOOKOO_1');
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(ble.connectedTo, isEmpty);
+      await scale.disconnect();
+    });
+
+    test('during a brew it only waits for its own scale', () async {
+      final (scale, ble) = await lost();
+      await scale.disconnect();
+      scale.mayAutoSwitch = () => false;
+      unawaited(
+        scale.connectTo(
+          const ScaleCandidate(id: 'decent', name: 'Decent Scale', rssi: 0),
+        ),
+      );
+      await _tick();
+      ble.conns['decent']!.add(
+        const ConnectionStateUpdate(
+          deviceId: 'decent',
+          connectionState: DeviceConnectionState.disconnected,
+          failure: null,
+        ),
+      );
+      await Future<void>.delayed(const Duration(seconds: 2));
+      expect(ble.connectedTo.toSet(), {'decent'});
+      await scale.disconnect();
+    });
+  });
 
   test('known scales: from older versions, kept, forgotten', () async {
     SharedPreferences.setMockInitialValues({

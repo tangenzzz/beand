@@ -275,6 +275,11 @@ Future<void> main() async {
         // Brews made on the Meticulous' dial (Machine mode).
         ..dialBrews = MeticulousDialBrews(host: () => socketService.hostname)
         ..start();
+  // A scale that goes away during a brew is not replaced by another one.
+  final bluetoothScale = scale.bluetooth;
+  if (bluetoothScale is BleScale) {
+    bluetoothScale.mayAutoSwitch = () => pourOver.stage == ShotStage.idle;
+  }
 
   final profileImages = ProfileImages(database.watchStoredProfiles());
 

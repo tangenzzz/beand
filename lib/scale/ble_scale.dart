@@ -102,6 +102,10 @@ class BleScale extends BrewScale {
   StreamSubscription<List<int>>? _notifySub;
   Timer? _heartbeat;
   Timer? _watchdog;
+  // The connection attempt hasn't answered yet (see _teardown).
+  bool _connPending = false;
+  // Attempts given up on that are still running: their end, by scale.
+  final _abandoned = <String, Future<void>>{};
   DateTime? _lastPacket;
   bool _wantConnected = false;
   int _reconnects = 0;
@@ -611,14 +615,21 @@ class BleScale extends BrewScale {
     _set(ScaleConnection.connecting);
     final ready = _ready = Completer<void>();
     await _connSub?.cancel();
+    // Giving up on the same scale ends with a disconnect by its id, which
+    // would also hit this attempt.
+    await _abandoned[id];
     if (session != _session) {
       throw const _ScaleException('Connection cancelled.');
     }
+    _connPending = true;
     _connSub = _ble
         .connectToDevice(id: id, connectionTimeout: _connectTimeout)
         .listen(
           (update) async {
             if (session != _session) return;
+            if (update.connectionState != DeviceConnectionState.connecting) {
+              _connPending = false;
+            }
             switch (update.connectionState) {
               case DeviceConnectionState.connected:
                 try {
@@ -643,6 +654,7 @@ class BleScale extends BrewScale {
             }
           },
           onError: (Object e) {
+            _connPending = false;
             if (!ready.isCompleted) {
               ready.completeError(e);
             } else {
@@ -826,6 +838,57 @@ class BleScale extends BrewScale {
     );
   }
 
+  /// Whether a lost scale may be replaced by another known one right now.
+  /// Not during a brew: the zero and the weights belong to the scale in use.
+  bool Function()? mayAutoSwitch;
+
+  /// How long a lost scale has to show up again before another one takes over.
+  @visibleForTesting
+  Duration autoSwitchGrace = const Duration(seconds: 5);
+
+  bool get _otherKnown =>
+      (mayAutoSwitch?.call() ?? true) && _known.any((k) => k.id != _deviceId);
+
+  // The lost scale as soon as it shows up; after [autoSwitchGrace] a known
+  // other one. Null if neither does.
+  Future<ScaleCandidate?> _searchAfterLost(String id) async {
+    final found = _finding = Completer<ScaleCandidate?>();
+    ScaleCandidate? other;
+    Timer? grace;
+    void take(ScaleCandidate? c) {
+      if (!found.isCompleted) found.complete(c);
+    }
+
+    final started = DateTime.now();
+    final sub = scan(timeout: _scanTimeout).listen(
+      (c) {
+        if (c.id == id) {
+          take(c);
+        } else if (other == null &&
+            _known.any((k) => k.id == c.id) &&
+            _otherKnown) {
+          other = c;
+          final left = autoSwitchGrace - DateTime.now().difference(started);
+          grace = Timer(left.isNegative ? Duration.zero : left, () => take(c));
+        }
+      },
+      onError: (Object e) {
+        if (!found.isCompleted) found.completeError(e);
+      },
+      onDone: () => take(other),
+    );
+    try {
+      return await found.future;
+    } finally {
+      if (identical(_finding, found)) _finding = null;
+      grace?.cancel();
+      unawaited(sub.cancel());
+    }
+  }
+
+  @visibleForTesting
+  Future<void> simulateLost() => _onLost();
+
   // The session being recovered: a loop of an older one must not stop the
   // new scale from recovering.
   int? _recovering;
@@ -850,12 +913,19 @@ class BleScale extends BrewScale {
         _reconnects++;
         debugPrint('BleScale: reconnect $_reconnects');
         try {
-          if (_reconnects > 1) {
+          // With another scale to go to, look before connecting: an attempt
+          // on a scale that is off holds up everything else for its timeout.
+          if (_reconnects > 1 || _otherKnown) {
             _set(ScaleConnection.scanning);
-            final id = _deviceId!;
-            final back = await scan(timeout: _scanTimeout)
-                .any((c) => c.id == id);
-            if (!back || !current()) continue;
+            final next = await _searchAfterLost(_deviceId!);
+            if (next == null || !current()) continue;
+            if (next.id != _deviceId) {
+              _log('switching to ${next.name}');
+              _deviceId = next.id;
+              _deviceName = next.name;
+              await _remember(next.id, next.name);
+              if (!current()) break;
+            }
           }
           if (!current()) break;
           await _open();
@@ -895,10 +965,44 @@ class BleScale extends BrewScale {
     _notifySub = null;
     _batteryTimer?.cancel();
     _batteryTimer = null;
-    await _connSub?.cancel(); // drops the BLE connection
+    final conn = _connSub;
     _connSub = null;
+    if (conn != null && _connPending) {
+      _abandon(conn, _deviceId);
+    } else {
+      await conn?.cancel(); // drops the BLE connection
+    }
+    _connPending = false;
     _writeChar = null;
     _grams = null;
+  }
+
+  // An attempt that hasn't answered must not be cancelled on Android: the
+  // plugin (reactive_ble_mobile 5.6, DeviceConnector) only takes it off its
+  // connection queue when it answers, so it stays first in line and no other
+  // scale ever connects until the app restarts. So it runs out by itself (its
+  // connect timeout) and only then is dropped; the next scale waits in the
+  // plugin's queue meanwhile.
+  void _abandon(StreamSubscription<ConnectionStateUpdate> conn, String? id) {
+    final ended = Completer<void>();
+    void end() {
+      if (ended.isCompleted) return;
+      ended.complete();
+      unawaited(conn.cancel());
+      if (id != null && identical(_abandoned[id], ended.future)) {
+        _abandoned.remove(id);
+      }
+    }
+
+    conn.onData((update) {
+      if (update.connectionState != DeviceConnectionState.connecting) end();
+    });
+    conn.onError((Object _) => end());
+    conn.onDone(end);
+    // Should it never answer, don't hold on to it for ever.
+    final limit = Timer(_connectTimeout + const Duration(seconds: 5), end);
+    unawaited(ended.future.whenComplete(limit.cancel));
+    if (id != null) _abandoned[id] = ended.future;
   }
 
   void _fail(String message) {
