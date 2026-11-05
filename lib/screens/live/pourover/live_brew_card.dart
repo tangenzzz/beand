@@ -347,7 +347,7 @@ class _StepRow extends StatelessWidget {
     final meta = [
       '${formatGrams(step.waterG)} g',
       'to ${formatGrams(step.targetTotalG)} g',
-      if (wait != null && wait > 0) 'wait ${formatClock(wait)}',
+      if (wait != null && wait > 0) 'then wait ${formatClock(wait)}',
     ].join(' · ');
     return Container(
       margin: const EdgeInsets.only(bottom: 4),

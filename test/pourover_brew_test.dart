@@ -177,6 +177,40 @@ void main() {
       expect(plan.totalWaterG, 300);
     });
 
+    test('amounts in a profile\'s text follow the coffee actually used', () {
+      expect(scaleAmounts('Pour to 170 g', 1.2), 'Pour to 204 g');
+      expect(scaleAmounts('Pour 70g', 1.2), 'Pour 84g');
+      expect(scaleAmounts('Pour 100 ml slowly', 0.5), 'Pour 50 ml slowly');
+      expect(scaleAmounts('Pour 12,5 g', 2), 'Pour 25 g');
+      expect(scaleAmounts('Pour 25 g', 1.1), 'Pour 27.5 g');
+      // Unchanged at the recipe's own dose, and nothing else is touched.
+      expect(scaleAmounts('Pour to 170 g', 1), 'Pour to 170 g');
+      expect(
+        scaleAmounts('At 1:30, 93 °C, 2 big pours, gentle', 2),
+        'At 1:30, 93 °C, 2 big pours, gentle',
+      );
+      const recipe = BrewRecipe(
+        id: 'm',
+        name: 'M',
+        brewer: 'V60',
+        doseG: 15,
+        waterMl: 240,
+        grindSize: 'medium',
+        sourceName: 'x',
+        phases: [
+          BrewPhase(
+            label: 'Pour to 70 g',
+            waterG: 70,
+            note: 'Up to 70 g gently',
+          ),
+        ],
+      );
+      final step = BrewPlan(recipe, doseG: 18).steps.single;
+      expect(step.label, 'Pour to 84 g');
+      expect(step.note, 'Up to 84 g gently');
+      expect(step.targetTotalG, 84);
+    });
+
     test('target curve: pour at ideal flow, then wait', () {
       final plan = BrewPlan(_recipe);
       expect(plan.targetAt(5), 25);

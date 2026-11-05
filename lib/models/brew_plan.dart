@@ -51,6 +51,23 @@ extension BrewStepTiming on BrewStep {
   }
 }
 
+final _amount = RegExp(
+  r'(?<![\d.,:])(\d+(?:[.,]\d+)?)(\s?)(g|ml)\b',
+  caseSensitive: false,
+);
+
+/// Amounts written in a profile's text ("Pour to 170 g") follow the coffee
+/// actually used, like the numbers next to them.
+String scaleAmounts(String text, double factor) {
+  if ((factor - 1).abs() < 0.001) return text;
+  return text.replaceAllMapped(_amount, (m) {
+    final value = double.parse(m[1]!.replaceAll(',', '.')) * factor;
+    final rounded = (value * 10).round() / 10;
+    final shown = rounded.toStringAsFixed(rounded % 1 == 0 ? 0 : 1);
+    return '$shown${m[2]}${m[3]}';
+  });
+}
+
 class BrewPlan {
   // A dose of 0 (or none, or nonsense) falls back to the recipe's: scaled
   // by 0 every pour was 0 g — the chart crashed on a zero grid and the
@@ -143,11 +160,11 @@ class BrewPlan {
   static List<BrewStep> _scaled(BrewRecipe r, double factor) => [
     for (final s in r.steps)
       BrewStep(
-        label: s.label,
+        label: scaleAmounts(s.label, factor),
         waterG: _round(s.waterG * factor),
         targetTotalG: _round(s.targetTotalG * factor),
         waitSeconds: s.waitSeconds,
-        note: s.note,
+        note: s.note == null ? null : scaleAmounts(s.note!, factor),
         // More coffee means more water at the same flow.
         pourSeconds: s.pourSeconds == null ? null : s.pourSeconds! * factor,
       ),
