@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../../widgets/gaggimate_icons.dart';
 import 'connection_log_screen.dart';
 import 'gaggimate_settings_screen.dart';
 import 'meticulous_settings_screen.dart';
@@ -20,22 +21,22 @@ class ConnectionsScreen extends StatelessWidget {
           SettingsList(
             entries: [
               SettingsEntry(
-                icon: Icons.coffee_maker_outlined,
                 title: 'Meticulous',
                 builder: (_) => const MeticulousSettingsScreen(),
               ),
               SettingsEntry(
-                icon: Icons.memory,
                 title: 'GaggiMate',
+                titleWidget: GaggiMateWordmark(
+                  height: 11,
+                  color: context.colors.textPrimary,
+                ),
                 builder: (_) => const GaggiMateSettingsScreen(),
               ),
               SettingsEntry(
-                icon: Icons.scale_outlined,
                 title: 'Scales',
                 builder: (_) => const ScaleSettingsScreen(),
               ),
               SettingsEntry(
-                icon: Icons.receipt_long_outlined,
                 title: 'Connection log',
                 builder: (_) => const ConnectionLogScreen(),
               ),

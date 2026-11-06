@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../machines/gaggimate/gaggimate_service.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/gaggimate_icons.dart';
 import 'pourover_settings_screen.dart';
 import 'settings_widgets.dart';
 
@@ -12,12 +13,6 @@ import 'settings_widgets.dart';
 // page with a switch and profiles.
 class HomeSettingsScreen extends StatelessWidget {
   const HomeSettingsScreen({super.key});
-
-  static const _icons = {
-    HomeMode.meticulous: Icons.coffee_maker_outlined,
-    HomeMode.pourOver: Icons.water_drop_outlined,
-    HomeMode.gaggimate: Icons.coffee_outlined,
-  };
 
   // The GaggiMate only keeps its connection while its pill is shown —
   // otherwise everyone without a GaggiMate would run a reconnect loop into
@@ -48,7 +43,6 @@ class HomeSettingsScreen extends StatelessWidget {
                     // only the way there.
                     if (mode == HomeMode.pourOver)
                       SettingsRow(
-                        icon: _icons[mode],
                         title: mode.label,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -58,8 +52,13 @@ class HomeSettingsScreen extends StatelessWidget {
                       )
                     else
                       SettingsSwitchRow(
-                        icon: _icons[mode],
                         title: mode.label,
+                        titleWidget: mode == HomeMode.gaggimate
+                            ? GaggiMateWordmark(
+                                height: 11,
+                                color: context.colors.textPrimary,
+                              )
+                            : null,
                         value: settings.isHomeModeEnabled(mode),
                         onChanged: (value) => _setEnabled(context, mode, value),
                       ),

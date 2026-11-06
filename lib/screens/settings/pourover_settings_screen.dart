@@ -27,7 +27,6 @@ class PourOverSettingsScreen extends StatelessWidget {
               SettingsGroup(
                 children: [
                   SettingsSwitchRow(
-                    icon: Icons.water_drop_outlined,
                     title: 'Show on Home',
                     value: settings.isHomeModeEnabled(HomeMode.pourOver),
                     onChanged: (v) =>
@@ -36,7 +35,6 @@ class PourOverSettingsScreen extends StatelessWidget {
                   // The collection to pick from (also reachable with "+" on
                   // the profile row on Home).
                   SettingsRow(
-                    icon: Icons.tune,
                     title: 'Profiles',
                     subtitle:
                         '${store.ownRecipes.length} in use'

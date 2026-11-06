@@ -13,8 +13,8 @@ import '../sensor_stack.dart';
 import '../temperature_ring.dart';
 import 'recipe_format.dart';
 
-// Pour Over hero — laid out like the machines: ring on the left with the
-// same diameter (TemperatureRing.defaultSize), value column on the right
+// Pour Over hero — laid out like the machines: ring on the left, a little
+// larger for the text inside it, value column on the right
 // with time (white) and weight (yellow, like the weight curve everywhere
 // in the app).
 //
@@ -27,7 +27,7 @@ import 'recipe_format.dart';
 class PourOverHero extends StatelessWidget {
   const PourOverHero({super.key});
 
-  static const _ringSize = TemperatureRing.defaultSize;
+  static const _ringSize = TemperatureRing.defaultSize + 8;
 
   // Time the needle takes to reach the new flow value. The scale delivers
   // ~10 values/s — a bit longer than one packet so it glides continuously.
@@ -128,7 +128,7 @@ class PourOverHero extends StatelessWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
       child: Column(
         children: [
           Row(
@@ -182,9 +182,9 @@ class PourOverHero extends StatelessWidget {
           ),
           // Same height with or without content, so nothing jumps when the
           // steps end and the brew starts.
-          const SizedBox(height: 10),
+          const SizedBox(height: 2),
           SizedBox(
-            height: 34,
+            height: 20,
             child: prepStep
                 ? (prep.status == SetupStatus.tareFailed
                       ? const _TareFailed()
@@ -266,7 +266,7 @@ class _RingText extends StatelessWidget {
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
-                  0.72,
+                  0.6,
                 ),
               if (detail != null)
                 Text(

@@ -54,7 +54,6 @@ class BeansSettingsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SettingsRow(
-                    icon: Icons.dynamic_form_outlined,
                     title: 'Form',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(

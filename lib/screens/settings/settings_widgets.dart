@@ -7,14 +7,18 @@ class SettingsEntry {
     this.icon,
     this.iconWidget,
     required this.title,
+    this.titleWidget,
     required this.builder,
-  }) : assert(icon != null || iconWidget != null);
+  });
 
   final IconData? icon;
 
   /// A custom icon instead of [icon], e.g. the bean from the tab bar.
   final Widget? iconWidget;
   final String title;
+
+  /// Shown in place of [title], e.g. a wordmark.
+  final Widget? titleWidget;
   final WidgetBuilder builder;
 }
 
@@ -257,6 +261,7 @@ class SettingsSwitchRow extends StatelessWidget {
     super.key,
     this.icon,
     required this.title,
+    this.titleWidget,
     this.info,
     this.infoExtra,
     required this.value,
@@ -265,6 +270,9 @@ class SettingsSwitchRow extends StatelessWidget {
 
   final IconData? icon;
   final String title;
+
+  /// Shown in place of [title], e.g. a wordmark.
+  final Widget? titleWidget;
   final String? info;
   final Widget? infoExtra;
   final bool value;
@@ -284,12 +292,14 @@ class SettingsSwitchRow extends StatelessWidget {
             const SizedBox(width: 14),
           ],
           Expanded(
-            child: SettingsTitle(
-              title,
-              info: info,
-              infoExtra: infoExtra,
-              color: enabled ? null : context.colors.textTertiary,
-            ),
+            child: titleWidget != null
+                ? Align(alignment: Alignment.centerLeft, child: titleWidget)
+                : SettingsTitle(
+                    title,
+                    info: info,
+                    infoExtra: infoExtra,
+                    color: enabled ? null : context.colors.textTertiary,
+                  ),
           ),
           const SizedBox(width: 12),
           Switch(value: value, onChanged: onChanged),
@@ -299,19 +309,20 @@ class SettingsSwitchRow extends StatelessWidget {
   }
 }
 
-// A tappable row in a card: icon, title, optional second line.
+// A tappable row in a card: optional icon, title, optional second line.
 class SettingsRow extends StatelessWidget {
   const SettingsRow({
     super.key,
     this.icon,
     this.iconWidget,
     required this.title,
+    this.titleWidget,
     required this.onTap,
     this.subtitle,
     this.enabled = true,
     this.danger = false,
     this.info,
-  }) : assert(icon != null || iconWidget != null);
+  });
 
   final IconData? icon;
 
@@ -319,6 +330,9 @@ class SettingsRow extends StatelessWidget {
   /// surrounding [IconTheme], as with [icon].
   final Widget? iconWidget;
   final String title;
+
+  /// Shown in place of [title], e.g. a wordmark.
+  final Widget? titleWidget;
   final String? subtitle;
   final VoidCallback onTap;
   final bool enabled;
@@ -345,19 +359,22 @@ class SettingsRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              IconTheme.merge(
-                data: IconThemeData(
-                  color: danger ? titleColor : context.colors.textSecondary,
-                  size: 20,
+              if (icon != null || iconWidget != null) ...[
+                IconTheme.merge(
+                  data: IconThemeData(
+                    color: danger ? titleColor : context.colors.textSecondary,
+                    size: 20,
+                  ),
+                  child: iconWidget ?? Icon(icon),
                 ),
-                child: iconWidget ?? Icon(icon),
-              ),
-              const SizedBox(width: 14),
+                const SizedBox(width: 14),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SettingsTitle(title, info: info, color: titleColor),
+                    titleWidget ??
+                        SettingsTitle(title, info: info, color: titleColor),
                     if (subtitle != null) ...[
                       const SizedBox(height: 3),
                       Text(
@@ -497,6 +514,7 @@ class SettingsList extends StatelessWidget {
                 icon: entry.icon,
                 iconWidget: entry.iconWidget,
                 title: entry.title,
+                titleWidget: entry.titleWidget,
                 onTap: () =>
                     Navigator.of(context)
                         .push(MaterialPageRoute(builder: entry.builder)),
