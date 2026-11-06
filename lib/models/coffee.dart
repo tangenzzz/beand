@@ -75,19 +75,31 @@ class Coffee {
   /// What stands for the coffee in a list: the bag in use.
   Bean get lead => bags.first;
 
-  /// The fields of the coffee, for the card: the newest bag knows most. The
-  /// photo may be on an older one.
+  /// The fields of the coffee, for the card: what the newest bag knows, and
+  /// what only an older one knows.
   Bean get details {
-    final newest = bags.reduce(
-      (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
-    );
-    if (newest.photoPath != null) return newest;
-    for (final b in bags) {
-      if (b.photoPath != null) {
-        return newest.copyWith(photoPath: Value(b.photoPath));
+    final byAge = [...bags]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    T? pick<T>(T? Function(Bean) field) {
+      for (final b in byAge) {
+        final v = field(b);
+        if (v != null) return v;
       }
+      return null;
     }
-    return newest;
+
+    return byAge.first.copyWith(
+      region: Value(pick((b) => b.region)),
+      altitude: Value(pick((b) => b.altitude)),
+      country: Value(pick((b) => b.country)),
+      processing: Value(pick((b) => b.processing)),
+      variety: Value(pick((b) => b.variety)),
+      producer: Value(pick((b) => b.producer)),
+      taste: Value(pick((b) => b.taste)),
+      isBlend: Value(pick((b) => b.isBlend)),
+      roastedFor: Value(pick((b) => b.roastedFor)),
+      roastLevel: Value(pick((b) => b.roastLevel)),
+      photoPath: Value(pick((b) => b.photoPath)),
+    );
   }
 
   /// Bags by their number: stays the same whatever happens to their state.
