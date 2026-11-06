@@ -114,6 +114,8 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Fill from packaging or link'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   testWidgets('the main switch removes the row as well', (tester) async {
@@ -128,6 +130,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Fill from packaging or link'), findsNothing);
     expect(ai.hasKey(AiProvider.claude), isTrue);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   testWidgets('a disabled feature switch hides it again', (tester) async {
@@ -140,6 +144,8 @@ void main() {
     await ai.setFeatureOn(AiFeature.beanForm, false);
     await tester.pumpAndSettle();
     expect(find.text('Fill from packaging or link'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   testWidgets('fields read from a link are marked in the form', (tester) async {
@@ -180,6 +186,8 @@ void main() {
     expect(labelColor(tester, 'Country'), isNot(plain));
     expect(labelColor(tester, 'Producer'), plain);
     expect(before, isNull);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   testWidgets('Undo also restores an overwritten field', (tester) async {
@@ -219,6 +227,8 @@ void main() {
     expect(find.text('Meine Bohne'), findsOneWidget);
     expect(labelColor(tester, 'Country'), plain);
     expect(find.text('Undo'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   testWidgets('typing yourself removes the marking', (tester) async {
@@ -240,6 +250,8 @@ void main() {
     await tester.pumpAndSettle();
     // Touched means confirmed — without having to confirm anything.
     expect(labelColor(tester, 'Country'), plain);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   testWidgets('the paste button takes the link from the clipboard', (
@@ -278,6 +290,8 @@ void main() {
     await tester.tap(find.text('Read'));
     await tester.pumpAndSettle();
     expect(find.text('Kirinyaga AA'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   testWidgets('if the model finds nothing, the form stays untouched', (
@@ -319,6 +333,8 @@ void main() {
     expect(find.text('250'), findsOneWidget);
     expect(find.text('25'), findsNothing);
     expect(find.text('17.5'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   testWidgets('a price in a foreign currency is not filled in', (tester) async {

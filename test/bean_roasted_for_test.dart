@@ -1,7 +1,6 @@
 import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/database/database.dart';
-import 'package:beand/screens/beans/bean_form_screen.dart';
 import 'package:beand/screens/beans/bean_filter.dart';
 import 'package:beand/screens/beans/bean_widgets.dart';
 import 'package:beand/services/ai/ai_key_store.dart';
@@ -9,7 +8,6 @@ import 'package:beand/services/ai/ai_settings.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/theme/app_theme.dart';
-import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

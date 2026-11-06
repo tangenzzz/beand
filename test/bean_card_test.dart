@@ -221,6 +221,7 @@ void main() {
         find.widgetWithText(TextField, 'Matão'),
         'New name',
       );
+      await settle(tester);
       await tester.tap(find.text('Save'));
       await settle(tester);
       final rows = await tester.runAsync(db.allBeans);
@@ -275,6 +276,7 @@ void main() {
       await show(tester, null);
       await tester.pump();
       await tester.enterText(find.byType(TextField).at(1), 'A');
+      await settle(tester);
       await tester.tap(find.text('Save'));
       await settle(tester);
       expect(find.text('"A" already exists'), findsOneWidget);

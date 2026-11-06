@@ -13,7 +13,6 @@ import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
-import 'package:beand/widgets/underline_select.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';

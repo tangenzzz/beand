@@ -20,6 +20,7 @@ Bean _bean({int id = 1, double? weight, bool frozen = false}) => Bean(
   name: 'Guji',
   weightGrams: weight,
   roastDate: DateTime.now().subtract(const Duration(days: 12)),
+  openedAt: DateTime(2026),
   isFrozen: frozen,
   createdAt: DateTime(2026, 10, 1),
 );

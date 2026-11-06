@@ -1,7 +1,6 @@
 import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/database/database.dart';
-import 'package:beand/screens/beans/bean_form_screen.dart';
 import 'package:beand/screens/beans/bean_widgets.dart';
 import 'package:beand/screens/beans/freshness.dart';
 import 'package:beand/screens/settings/beans_form_settings_screen.dart';
@@ -101,18 +100,22 @@ void main() {
     }
     expect(find.byType(Switch), findsNWidgets(BeanFormField.values.length));
 
-    // Turn off Variety (index 2).
-    await tester.tap(find.byType(Switch).at(2));
+    // Turn off Variety.
+    await tester.tap(
+      find
+          .byType(Switch)
+          .at(BeanFormField.values.indexOf(BeanFormField.variety)),
+    );
     await tester.pump();
     expect(settings.isBeanFormFieldVisible(BeanFormField.variety), false);
 
-    // Drag Country (first row) down by its handle.
+    // Drag Processing (first row) down by its handle.
     await tester.drag(
       find.byIcon(Icons.drag_handle).first,
       const Offset(0, 130),
     );
     await tester.pumpAndSettle();
-    expect(settings.beanFormFields.first, isNot(BeanFormField.country));
+    expect(settings.beanFormFields.first, isNot(BeanFormField.processing));
     expect(
       settings.beanFormFields.indexOf(BeanFormField.country),
       greaterThan(0),

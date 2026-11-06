@@ -1615,7 +1615,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     return Column(
       children: [
         SizedBox(
-          height: _editing ? 262 : 190,
+          height: _editing ? 284 : 190,
           child: PageView(
             controller: _pages,
             padEnds: false,
