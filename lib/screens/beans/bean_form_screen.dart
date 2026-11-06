@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -9,38 +10,71 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
+import '../../models/coffee.dart';
+import '../../models/machine_profile.dart' show profilePlaceholderColor;
+import '../../models/profile_draft.dart' show newUuid;
 import '../../services/ai/ai_prompt.dart';
 import '../../services/ai/ai_service.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../services/ai/bean_extraction.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
+import 'bean_stock.dart';
 import 'bean_suggestions.dart';
 import 'bean_widgets.dart';
+import 'freshness.dart';
 import '../../widgets/underline_select.dart';
-import '../../widgets/value_select_row.dart';
 import '../../widgets/app_button.dart';
 
-// Form for creating/editing a bean (one card, photo at the top,
-// label-left/value-right like the Pre-Shot card). The pop result is the
-// saved Bean (null on cancel or delete).
+// The card of a coffee: one tile with its photo and details, below it a
+// carousel with its bags. A saved coffee opens for reading; the pencil turns
+// the same page into a form, with Save in its place. Only the name of the
+// page, the arrows and the fill row tell the two apart (user 2026-11-06).
+//
+// [bean] is any bag of the coffee, null = a new coffee. The pop result of a new
+// coffee is its saved bag.
 class BeanFormScreen extends StatefulWidget {
-  const BeanFormScreen({super.key, this.bean, this.newBagOf});
+  const BeanFormScreen({super.key, this.bean});
 
   final Bean? bean;
-
-  /// A new bag of this coffee: a new bean with everything that describes
-  /// the coffee (name, roastery, origin, taste, photo …) taken over, but
-  /// none of what belongs to one bag — roast date, weight, cost, frozen,
-  /// empty. The old bag stays as it is, with its shots.
-  final Bean? newBagOf;
 
   @override
   State<BeanFormScreen> createState() => _BeanFormScreenState();
 }
 
+// A bag while the form is open. [bean] null = not saved yet.
+class _BagDraft {
+  _BagDraft({
+    this.bean,
+    DateTime? roastDate,
+    DateTime? openedAt,
+    double? weight,
+    double? cost,
+  }) : roastDate = roastDate ?? bean?.roastDate,
+       openedAt = openedAt ?? bean?.openedAt,
+       weight = TextEditingController(
+         text: _BeanFormScreenState._formatNumber(weight ?? bean?.weightGrams),
+       ),
+       cost = TextEditingController(
+         text: _BeanFormScreenState._formatNumber(cost ?? bean?.cost),
+       );
+
+  final Bean? bean;
+  DateTime? roastDate;
+  DateTime? openedAt;
+  bool isFrozen = false;
+  final TextEditingController weight;
+  final TextEditingController cost;
+
+  void dispose() {
+    weight.dispose();
+    cost.dispose();
+  }
+}
+
+enum _SelectField { type, roastLevel, roastedFor }
+
 class _BeanFormScreenState extends State<BeanFormScreen> {
-  static const _labelWidth = 92.0;
   static const _months = [
     'Jan',
     'Feb',
@@ -64,25 +98,31 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   late final TextEditingController _processing;
   late final TextEditingController _variety;
   late final TextEditingController _producer;
-  late final TextEditingController _weight;
-  late final TextEditingController _cost;
   late final TextEditingController _taste;
 
-  // Both without preselection: null = nothing tapped. Tapping the selected
-  // pill again deselects it.
   bool? _isBlend;
   String? _roastedFor;
   String? _roastLevel;
-  DateTime? _roastDate;
-  late bool _isFrozen;
-  DateTime? _thawedDate;
-  DateTime? _frozenDate;
-  int _frozenDays = 0;
   String? _photoPath;
-  // Photos newly added in this session — deleted again on cancel.
+  // Photos newly added in this session, deleted again on cancel.
   final _addedPhotos = <String>{};
-  bool _saved = false;
   BeanSuggestions _suggestions = const BeanSuggestions();
+
+  late bool _editing;
+  _SelectField? _openMenu;
+
+  // Everything from the database, kept current: the bags change right away
+  // (open, freeze, empty), also while reading.
+  List<Bean> _beans = const [];
+  Map<int, double> _usage = const {};
+  StreamSubscription<List<Bean>>? _beansSub;
+  StreamSubscription<Map<int, double>>? _usageSub;
+  String? _key;
+
+  final _drafts = <int, _BagDraft>{};
+  final _newBags = <_BagDraft>[];
+  final _pages = PageController(viewportFraction: 0.94);
+  int _page = 0;
 
   // --- Read from packaging/link -------------------------------------------
   //
@@ -99,11 +139,25 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   String? _aiNote;
   _FormSnapshot? _aiUndo;
 
+  bool get _isNew => widget.bean == null;
+
+  Coffee? get _coffee {
+    final key = _key;
+    if (key == null) return null;
+    final stock = context.read<AppSettings>().showBeanStock;
+    return groupCoffees(
+      _beans.where((b) => coffeeKey(b) == key),
+      _usage,
+      stock: stock,
+    ).firstOrNull;
+  }
+
   @override
   void initState() {
     super.initState();
-    final bag = widget.bean;
-    final b = bag ?? widget.newBagOf;
+    final b = widget.bean;
+    _editing = b == null;
+    _key = b == null ? null : coffeeKey(b);
     _name = TextEditingController(text: b?.name)..addListener(_onNameChanged);
     _roaster = TextEditingController(text: b?.roaster);
     _country = TextEditingController(text: b?.country);
@@ -112,23 +166,16 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     _processing = TextEditingController(text: b?.processing);
     _variety = TextEditingController(text: b?.variety);
     _producer = TextEditingController(text: b?.producer);
-    _weight = TextEditingController(text: _formatNumber(bag?.weightGrams));
-    _cost = TextEditingController(text: _formatNumber(bag?.cost));
     _taste = TextEditingController(text: b?.taste);
     _isBlend = b?.isBlend;
     _roastedFor = b?.roastedFor;
     _roastLevel = b?.roastLevel;
-    _roastDate = bag?.roastDate;
-    _isFrozen = bag?.isFrozen ?? false;
-    _thawedDate = bag?.thawedDate;
-    _frozenDate = bag?.frozenDate;
-    _frozenDays = bag?.frozenDays ?? 0;
-    _photoPath = bag?.photoPath;
-    if (widget.newBagOf?.photoPath case final photo?) _copyPhoto(photo);
+    _photoPath = b?.photoPath;
+    if (_isNew) _newBags.add(_newDraft());
 
     // As soon as the user touches an imported field, it's theirs — the
     // marking disappears by itself without them having to confirm anything.
-    for (final entry in _markedControllers.entries) {
+    for (final entry in _coffeeControllers.entries) {
       entry.value.addListener(() => _clearMark(entry.key));
     }
 
@@ -137,29 +184,29 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       if (!mounted) return;
       setState(() => _suggestions = BeanSuggestions.fromBeans(beans));
     });
+    _beansSub = db.watchBeans().listen((beans) {
+      if (!mounted) return;
+      setState(() => _beans = beans);
+      if (!_editing && _coffee != null) _loadFromCoffee();
+    });
+    _usageSub = db.watchBeanUsage().listen((usage) {
+      if (mounted) setState(() => _usage = usage);
+    });
   }
 
   @override
   void dispose() {
-    if (!_saved) {
-      for (final path in _addedPhotos) {
-        _deleteFile(path);
-      }
+    _beansSub?.cancel();
+    _usageSub?.cancel();
+    for (final path in _addedPhotos) {
+      _deleteFile(path);
     }
     _link.dispose();
-    for (final c in [
-      _name,
-      _roaster,
-      _country,
-      _region,
-      _altitude,
-      _processing,
-      _variety,
-      _producer,
-      _weight,
-      _cost,
-      _taste,
-    ]) {
+    _pages.dispose();
+    for (final d in [..._drafts.values, ..._newBags]) {
+      d.dispose();
+    }
+    for (final c in _coffeeControllers.values) {
       c.dispose();
     }
     super.dispose();
@@ -167,36 +214,9 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
 
   void _onNameChanged() => setState(() {});
 
-  // The new bag gets its own copy of the photo: deleting one bag must not
-  // take the other's picture along.
-  Future<void> _copyPhoto(String path) async {
-    try {
-      final source = File(path);
-      if (!source.existsSync()) return;
-      final target = p.join(
-        p.dirname(path),
-        'bean_${DateTime.now().microsecondsSinceEpoch}${p.extension(path)}',
-      );
-      await source.copy(target);
-      if (!mounted || _photoPath != null) {
-        _deleteFile(target);
-        return;
-      }
-      _addedPhotos.add(target);
-      setState(() => _photoPath = target);
-    } catch (_) {}
-  }
-
-  void _newBag() {
-    final bean = widget.bean!;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<Bean>(builder: (_) => BeanFormScreen(newBagOf: bean)),
-    );
-  }
-
-  // Which key belongs to which text field. Name and Roastery are not in
-  // BeanFormField (they can't be turned off), but need the same marking.
-  Map<String, TextEditingController> get _markedControllers => {
+  // Name and Roastery are not in BeanFormField (they can't be turned off), but
+  // need the same marking.
+  Map<String, TextEditingController> get _coffeeControllers => {
     'name': _name,
     'roaster': _roaster,
     BeanFormField.country.name: _country,
@@ -205,10 +225,20 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     BeanFormField.processing.name: _processing,
     BeanFormField.variety.name: _variety,
     BeanFormField.producer.name: _producer,
-    BeanFormField.weight.name: _weight,
-    BeanFormField.cost.name: _cost,
     BeanFormField.taste.name: _taste,
   };
+
+  // Which key belongs to which text field, including the bag on screen.
+  Map<String, TextEditingController> get _markedControllers {
+    final bag = _bagOnScreen;
+    return {
+      ..._coffeeControllers,
+      if (bag != null) ...{
+        BeanFormField.weight.name: bag.weight,
+        BeanFormField.cost.name: bag.cost,
+      },
+    };
+  }
 
   void _clearMark(String key) {
     if (!_aiFilled.remove(key)) return;
@@ -243,15 +273,465 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   String _formatDate(DateTime d) =>
       '${d.day} ${_months[d.month - 1]} ${d.year}';
 
-  Future<void> _pickDate() async {
+  void _loadFromCoffee() {
+    final d = _coffee?.details;
+    if (d == null) return;
+    _name.text = d.name;
+    _roaster.text = d.roaster ?? '';
+    _country.text = d.country ?? '';
+    _region.text = d.region ?? '';
+    _altitude.text = d.altitude ?? '';
+    _processing.text = d.processing ?? '';
+    _variety.text = d.variety ?? '';
+    _producer.text = d.producer ?? '';
+    _taste.text = d.taste ?? '';
+    _isBlend = d.isBlend;
+    _roastedFor = d.roastedFor;
+    _roastLevel = d.roastLevel;
+    _photoPath = d.photoPath;
+  }
+
+  void _startEditing() {
+    _loadFromCoffee();
+    for (final bag in _coffee?.bags ?? const <Bean>[]) {
+      _drafts.putIfAbsent(bag.id, () => _BagDraft(bean: bag));
+    }
+    setState(() => _editing = true);
+  }
+
+  void _stopEditing() {
+    for (final d in [..._drafts.values, ..._newBags]) {
+      d.dispose();
+    }
+    _drafts.clear();
+    _newBags.clear();
+    for (final path in _addedPhotos) {
+      _deleteFile(path);
+    }
+    _addedPhotos.clear();
+    _aiFilled.clear();
+    _aiNote = null;
+    _aiUndo = null;
+    _openMenu = null;
+    _loadFromCoffee();
+    setState(() => _editing = false);
+  }
+
+  bool get _dirty {
+    if (_newBags.isNotEmpty && !_isNew) return true;
+    final d = _coffee?.details;
+    String t(String? v) => v ?? '';
+    if (_isNew) return _name.text.trim().isNotEmpty || _photoPath != null;
+    if (d == null) return false;
+    return _name.text != d.name ||
+        _roaster.text != t(d.roaster) ||
+        _country.text != t(d.country) ||
+        _region.text != t(d.region) ||
+        _altitude.text != t(d.altitude) ||
+        _processing.text != t(d.processing) ||
+        _variety.text != t(d.variety) ||
+        _producer.text != t(d.producer) ||
+        _taste.text != t(d.taste) ||
+        _isBlend != d.isBlend ||
+        _roastedFor != d.roastedFor ||
+        _roastLevel != d.roastLevel ||
+        _photoPath != d.photoPath ||
+        _drafts.values.any(_bagChanged);
+  }
+
+  bool _bagChanged(_BagDraft d) {
+    final b = d.bean;
+    if (b == null) return true;
+    return d.roastDate != b.roastDate ||
+        d.openedAt != b.openedAt ||
+        _parseNumber(d.weight.text) != b.weightGrams ||
+        _parseNumber(d.cost.text) != b.cost;
+  }
+
+  // Back while editing: leave the form, not the page. Changes are asked about.
+  Future<void> _back() async {
+    if (_editing && _dirty) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: context.colors.card,
+          title: Text(
+            'Discard changes?',
+            style: TextStyle(color: context.colors.textPrimary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Keep editing'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                'Discard',
+                style: TextStyle(color: context.colors.danger),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (discard != true || !mounted) return;
+    }
+    if (_editing && !_isNew) {
+      _stopEditing();
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
+
+  // ----- Bags ---------------------------------------------------------------
+
+  _BagDraft _newDraft() {
+    final bags = _coffee?.bags ?? const <Bean>[];
+    final last = bags.isEmpty
+        ? null
+        : bags.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b);
+    return _BagDraft(weight: last?.weightGrams);
+  }
+
+  void _addBag() {
+    if (!_editing) _startEditing();
+    final count = (_coffee?.bags.length ?? 0) + _newBags.length;
+    setState(() => _newBags.add(_newDraft()));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pages.hasClients) {
+        _pages.animateToPage(
+          count,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  // The bag whose tile is on screen: there the fill row puts weight and price.
+  _BagDraft? get _bagOnScreen {
+    final saved = _coffee?.bags ?? const <Bean>[];
+    if (_page < saved.length) return _drafts[saved[_page].id];
+    final i = _page - saved.length;
+    if (i < _newBags.length) return _newBags[i];
+    return _newBags.lastOrNull ??
+        (saved.isEmpty ? null : _drafts[saved.last.id]);
+  }
+
+  Future<void> _openToday(Bean? bag, _BagDraft? draft) async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    if (draft != null) setState(() => draft.openedAt = now);
+    if (bag != null) {
+      await context.read<AppDatabase>().updateBean(
+        bag.id,
+        BeansCompanion(openedAt: Value(now)),
+      );
+    }
+  }
+
+  // Freezing pauses the freshness ring; thawing goes on where it stopped.
+  Future<void> _toggleFreeze(Bean bag) async {
+    final db = context.read<AppDatabase>();
+    if (bag.isFrozen) {
+      await db.updateBean(
+        bag.id,
+        BeansCompanion(
+          isFrozen: const Value(false),
+          thawedDate: Value(DateTime.now()),
+          frozenDays: Value(frozenDaysWhenThawing(bag)),
+        ),
+      );
+    } else {
+      await db.updateBean(
+        bag.id,
+        BeansCompanion(
+          isFrozen: const Value(true),
+          frozenDate: Value(DateTime.now()),
+          frozenDays: Value(frozenDaysWhenFreezing(bag)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _toggleEmpty(Bean bag) => context.read<AppDatabase>().updateBean(
+    bag.id,
+    BeansCompanion(
+      emptiedAt: Value(bag.emptiedAt == null ? DateTime.now() : null),
+    ),
+  );
+
+  Future<DateTime?> _pickDate(DateTime? current) {
+    final now = DateTime.now();
+    return showDatePicker(
       context: context,
-      initialDate: _roastDate ?? now,
+      initialDate: current ?? now,
       firstDate: DateTime(now.year - 3),
       lastDate: now,
     );
-    if (picked != null) setState(() => _roastDate = picked);
+  }
+
+  // A photo may be used by several bags: only the last one takes it along.
+  void _deleteFileIfUnused(String? path, Iterable<int> goneIds) {
+    if (path == null) return;
+    final gone = goneIds.toSet();
+    if (_beans.any((b) => b.photoPath == path && !gone.contains(b.id))) return;
+    _deleteFile(path);
+  }
+
+  Future<void> _deleteBag(Bean bag) async {
+    final db = context.read<AppDatabase>();
+    final shots = await db.countShotsOfBean(bag.id);
+    if (!mounted) return;
+    final offerUsedUp = shots > 0 && bag.emptiedAt == null;
+    final choice = await showDialog<_DeleteChoice>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: context.colors.card,
+        title: Text(
+          'Delete bag?',
+          style: TextStyle(color: context.colors.textPrimary),
+        ),
+        content: Text(
+          shots == 0
+              ? 'This bag will be removed.'
+              : 'This bag is used by $shots ${shots == 1 ? 'shot' : 'shots'}. '
+                    'They keep their data but lose the bean.',
+          style: TextStyle(color: context.colors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          if (offerUsedUp)
+            TextButton(
+              onPressed: () => Navigator.pop(context, _DeleteChoice.usedUp),
+              child: const Text('Mark as used up'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, _DeleteChoice.delete),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: context.colors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == _DeleteChoice.usedUp) {
+      await _toggleEmpty(bag);
+      return;
+    }
+    final last = (_coffee?.bags.length ?? 0) <= 1;
+    _deleteFileIfUnused(bag.photoPath, [bag.id]);
+    _drafts.remove(bag.id)?.dispose();
+    await db.deleteBean(bag.id);
+    if (last && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _deleteCoffee() async {
+    final bags = _coffee?.bags ?? const <Bean>[];
+    if (bags.isEmpty) return;
+    final db = context.read<AppDatabase>();
+    var shots = 0;
+    for (final b in bags) {
+      shots += await db.countShotsOfBean(b.id);
+    }
+    if (!mounted) return;
+    final name = bags.first.name;
+    final what = bags.length == 1 ? '1 bag' : '${bags.length} bags';
+    final choice = await showDialog<_DeleteChoice>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: context.colors.card,
+        title: Text(
+          'Delete coffee?',
+          style: TextStyle(color: context.colors.textPrimary),
+        ),
+        content: Text(
+          shots == 0
+              ? '"$name" and its $what will be removed.'
+              : '"$name" and its $what are used by $shots '
+                    '${shots == 1 ? 'shot' : 'shots'}. They keep their data but '
+                    'lose the bean.',
+          style: TextStyle(color: context.colors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          if (shots > 0)
+            TextButton(
+              onPressed: () => Navigator.pop(context, _DeleteChoice.usedUp),
+              child: const Text('Mark as used up'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, _DeleteChoice.delete),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: context.colors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (choice == null || !mounted) return;
+    final ids = [for (final b in bags) b.id];
+    if (choice == _DeleteChoice.usedUp) {
+      await db.updateBeans([
+        for (final b in bags)
+          if (b.emptiedAt == null) b.id,
+      ], BeansCompanion(emptiedAt: Value(DateTime.now())));
+    } else {
+      for (final b in bags) {
+        _deleteFileIfUnused(b.photoPath, ids);
+        await db.deleteBean(b.id);
+      }
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  // ----- Save ---------------------------------------------------------------
+
+  // A coffee with this name is already there: a further bag of it, or another
+  // coffee (a new harvest under the same name)?
+  Future<_ClashChoice?> _askClash(String name) => showDialog<_ClashChoice>(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: context.colors.card,
+      title: Text(
+        '"$name" already exists',
+        style: TextStyle(color: context.colors.textPrimary),
+      ),
+      content: Text(
+        'Is this another bag of it, or a new coffee, like a new harvest?',
+        style: TextStyle(color: context.colors.textSecondary),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _ClashChoice.newCoffee),
+          child: const Text('New coffee'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _ClashChoice.sameCoffee),
+          child: Text(
+            'Add as bag',
+            style: TextStyle(color: context.colors.accent),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  List<String> _normalizedTaste() {
+    final seen = <String>{};
+    return [
+      for (final t in splitTaste(_taste.text))
+        if (seen.add(t.toLowerCase())) t,
+    ];
+  }
+
+  // Only what changed goes onto the bags: older bags may differ, and looking
+  // at a coffee must not overwrite them.
+  BeansCompanion _coffeeChanges(Bean? d) {
+    final taste = _normalizedTaste();
+    final tasteText = taste.isEmpty ? null : taste.join(', ');
+    final name = _name.text.trim();
+    Value<T> changed<T>(T now, T? before) =>
+        d != null && now == before ? const Value.absent() : Value(now);
+    String? text(TextEditingController c) => _nullIfEmpty(c.text);
+    return BeansCompanion(
+      name: changed(name, d?.name),
+      roaster: changed(text(_roaster), d?.roaster),
+      country: changed(text(_country), d?.country),
+      region: changed(text(_region), d?.region),
+      altitude: changed(text(_altitude), d?.altitude),
+      processing: changed(text(_processing), d?.processing),
+      variety: changed(text(_variety), d?.variety),
+      producer: changed(text(_producer), d?.producer),
+      taste: changed(tasteText, d?.taste),
+      isBlend: changed(_isBlend, d?.isBlend),
+      roastedFor: changed(_roastedFor, d?.roastedFor),
+      roastLevel: changed(_roastLevel, d?.roastLevel),
+      photoPath: changed(_photoPath, d?.photoPath),
+    );
+  }
+
+  Future<void> _save() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) return;
+    final db = context.read<AppDatabase>();
+    final coffee = _coffee;
+    final before = coffee?.details;
+    final roaster = _nullIfEmpty(_roaster.text);
+    String? coffeeId = before?.coffeeId;
+
+    final wanted = coffeeNameKey(name, roaster);
+    if (coffeeId == null && wanted != _key) {
+      final taken = _beans.any((b) => coffeeKey(b) == wanted);
+      if (taken) {
+        final choice = await _askClash(name);
+        if (choice == null || !mounted) return;
+        if (choice == _ClashChoice.newCoffee) coffeeId = newUuid();
+      }
+    }
+
+    final changes = _coffeeChanges(before);
+    final ids = [for (final b in coffee?.bags ?? const <Bean>[]) b.id];
+    if (ids.isNotEmpty) {
+      await db.updateBeans(
+        ids,
+        coffeeId == before?.coffeeId
+            ? changes
+            : changes.copyWith(coffeeId: Value(coffeeId)),
+      );
+    }
+    for (final d in _drafts.values) {
+      if (!_bagChanged(d) || !ids.contains(d.bean!.id)) continue;
+      await db.updateBean(
+        d.bean!.id,
+        BeansCompanion(
+          roastDate: Value(d.roastDate),
+          openedAt: Value(d.openedAt),
+          weightGrams: Value(_parseNumber(d.weight.text)),
+          cost: Value(_parseNumber(d.cost.text)),
+        ),
+      );
+    }
+    // New bags get everything about the coffee.
+    final full = _coffeeChanges(null).copyWith(coffeeId: Value(coffeeId));
+    Bean? first;
+    for (final d in _newBags) {
+      final saved = await db.insertBean(
+        full.copyWith(
+          roastDate: Value(d.roastDate),
+          openedAt: Value(d.openedAt),
+          weightGrams: Value(_parseNumber(d.weight.text)),
+          cost: Value(_parseNumber(d.cost.text)),
+        ),
+      );
+      first ??= saved;
+    }
+    // The old photo, if it is gone from every bag now.
+    final oldPhoto = before?.photoPath;
+    if (oldPhoto != null && oldPhoto != _photoPath) {
+      _deleteFileIfUnused(oldPhoto, ids);
+    }
+    _addedPhotos.clear();
+    if (!mounted) return;
+    if (_isNew) {
+      Navigator.of(context).pop(first);
+      return;
+    }
+    _key = coffeeId ?? wanted;
+    _beans = await db.allBeans();
+    if (mounted) _stopEditing();
   }
 
   Future<void> _photoActions() async {
@@ -578,20 +1058,27 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     setText(BeanFormField.processing.name, _processing, draft.processing);
     setText(BeanFormField.variety.name, _variety, draft.variety);
     setText(BeanFormField.producer.name, _producer, draft.producer);
-    setText(
-      BeanFormField.weight.name,
-      _weight,
-      _formatNumber(draft.weightGrams),
-    );
-    setText(BeanFormField.cost.name, _cost, _formatNumber(draft.costInEuro));
+    final bag = _bagOnScreen;
+    if (bag != null) {
+      setText(
+        BeanFormField.weight.name,
+        bag.weight,
+        _formatNumber(draft.weightGrams),
+      );
+      setText(
+        BeanFormField.cost.name,
+        bag.cost,
+        _formatNumber(draft.costInEuro),
+      );
+    }
     setText(
       BeanFormField.taste.name,
       _taste,
       draft.taste.isEmpty ? null : draft.taste.join(', '),
     );
 
-    if (draft.roastDate != null) {
-      _roastDate = draft.roastDate;
+    if (draft.roastDate != null && bag != null) {
+      bag.roastDate = draft.roastDate;
       filled.add(BeanFormField.roastDate.name);
     }
     if (draft.isBlend != null) {
@@ -654,46 +1141,6 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       );
   }
 
-  // Freezing pauses the freshness ring. When thawing a bean saved as frozen,
-  // it goes on where it stopped; if only toggled back and forth, the saved
-  // state is kept.
-  void _toggleFrozen() {
-    final saved = widget.bean;
-    final freezing = !_isFrozen;
-    setState(() {
-      _isFrozen = freezing;
-      if (saved != null && saved.isFrozen == freezing) {
-        // Back to what is saved.
-        _thawedDate = saved.thawedDate;
-        _frozenDate = saved.frozenDate;
-        _frozenDays = saved.frozenDays;
-      } else if (freezing) {
-        _frozenDate = DateTime.now();
-        _frozenDays = frozenDaysWhenFreezing(saved);
-      } else if (saved != null) {
-        _thawedDate = DateTime.now();
-        _frozenDays = frozenDaysWhenThawing(saved);
-      } else {
-        // New bean, only toggled: never really frozen.
-        _frozenDate = null;
-      }
-    });
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            freezing
-                ? 'Frozen – freshness ring paused'
-                : (saved != null && saved.isFrozen)
-                ? 'Thawed – freshness ring goes on'
-                : 'Not frozen',
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-  }
-
   void _replacePhoto(String? newPath) {
     final old = _photoPath;
     // Delete only photos added in this session right away; the bean's saved
@@ -702,241 +1149,880 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     setState(() => _photoPath = newPath);
   }
 
-  List<String> _normalizedTaste() {
-    final seen = <String>{};
-    return [
-      for (final t in splitTaste(_taste.text))
-        if (seen.add(t.toLowerCase())) t,
-    ];
-  }
-
-  Future<void> _save() async {
-    final name = _name.text.trim();
-    if (name.isEmpty) return;
-    final db = context.read<AppDatabase>();
-    final taste = _normalizedTaste();
-    final companion = BeansCompanion(
-      name: Value(name),
-      roaster: Value(_nullIfEmpty(_roaster.text)),
-      roastDate: Value(_roastDate),
-      isBlend: Value(_isBlend),
-      roastedFor: Value(_roastedFor),
-      roastLevel: Value(_roastLevel),
-      country: Value(_nullIfEmpty(_country.text)),
-      region: Value(_nullIfEmpty(_region.text)),
-      altitude: Value(_nullIfEmpty(_altitude.text)),
-      processing: Value(_nullIfEmpty(_processing.text)),
-      variety: Value(_nullIfEmpty(_variety.text)),
-      producer: Value(_nullIfEmpty(_producer.text)),
-      isFrozen: Value(_isFrozen),
-      thawedDate: Value(_thawedDate),
-      frozenDate: Value(_frozenDate),
-      frozenDays: Value(_frozenDays),
-      weightGrams: Value(_parseNumber(_weight.text)),
-      taste: Value(taste.isEmpty ? null : taste.join(', ')),
-      cost: Value(_parseNumber(_cost.text)),
-      photoPath: Value(_photoPath),
-    );
-    final existing = widget.bean;
-    final saved = existing == null
-        ? await db.insertBean(companion)
-        : await db.updateBean(existing.id, companion);
-    _saved = true;
-    if (existing != null && existing.photoPath != _photoPath) {
-      _deleteFile(existing.photoPath);
-    }
-    if (!mounted) return;
-    Navigator.of(context).pop(saved);
-  }
-
-  // With shots: first say how many will lose the bean and offer "Used up" —
-  // usually the bag is just empty, and then everything is kept.
-  Future<void> _delete() async {
-    final bean = widget.bean!;
-    final db = context.read<AppDatabase>();
-    final shotCount = await db.countShotsOfBean(bean.id);
-    if (!mounted) return;
-    final offerUsedUp = shotCount > 0 && bean.emptiedAt == null;
-    final choice = await showDialog<_DeleteChoice>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.colors.card,
-        title: Text(
-          'Delete bean?',
-          style: TextStyle(color: context.colors.textPrimary),
-        ),
-        content: Text(
-          shotCount == 0
-              ? '"${bean.name}" will be removed.'
-              : '"${bean.name}" is used by $shotCount '
-                    '${shotCount == 1 ? 'shot' : 'shots'}. They keep their '
-                    'data but lose the bean.',
-          style: TextStyle(color: context.colors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          if (offerUsedUp)
-            TextButton(
-              onPressed: () => Navigator.pop(context, _DeleteChoice.usedUp),
-              child: const Text('Mark as used up'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, _DeleteChoice.delete),
-            child: Text(
-              'Delete',
-              style: TextStyle(color: context.colors.danger),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (choice == null || !mounted) return;
-    switch (choice) {
-      case _DeleteChoice.usedUp:
-        await db.updateBean(
-          bean.id,
-          BeansCompanion(emptiedAt: Value(DateTime.now())),
-        );
-      case _DeleteChoice.delete:
-        await db.deleteBean(bean.id);
-        _deleteFile(bean.photoPath);
-    }
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final editing = widget.bean != null;
-    final visibleFields = context.watch<AppSettings>().visibleBeanFormFields;
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          editing
-              ? 'Edit bean'
-              : widget.newBagOf != null
-              ? 'New bag'
-              : 'New bean',
-        ),
-        actions: [
-          TextButton(
-            onPressed: _name.text.trim().isEmpty ? null : _save,
-            style: TextButton.styleFrom(foregroundColor: context.colors.accent),
-            child: const Text('Save'),
+    final colors = context.colors;
+    final coffee = _coffee;
+    return PopScope(
+      canPop: !_editing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _back();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          titleSpacing: 0,
+          leading: IconButton(
+            tooltip: 'Back',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _back,
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      // One open dropdown at a time (Type, Roasted for).
-      body: ValueSelectGroup(
-        child: ListView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
-          children: [
-            Stack(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: context.colors.card,
-                    borderRadius: BorderRadius.circular(AppRadii.tile),
-                  ),
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Column(
-                    children: [
-                      // Photo next to name and roastery.
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            _PhotoTile(path: _photoPath, onTap: _photoActions),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 44),
-                                    child: _SuggestionRow(
-                                      label: 'Name',
-                                      stacked: true,
-                                      marked: _aiFilled.contains('name'),
-                                      controller: _name,
-                                      suggestions: _suggestions.names,
-                                      capitalization: TextCapitalization.words,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _SuggestionRow(
-                                    label: 'Roastery',
-                                    stacked: true,
-                                    marked: _aiFilled.contains('roaster'),
-                                    controller: _roaster,
-                                    suggestions: _suggestions.roasters,
-                                    capitalization: TextCapitalization.words,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Fill from packaging/link — only if AI is set up AND the
-                      // feature is turned on. Otherwise the row isn't there; a
-                      // button that first explains it doesn't work is no
-                      // button.
-                      if (context.watch<AiSettings>().isEnabled(
-                        AiFeature.beanForm,
-                      ))
-                        _fillRow(context),
-                      // Order and visibility come from Settings → Beans → Form.
-                      for (final field in visibleFields) ...[
-                        _dividerOf(context),
-                        _fieldRow(field),
-                      ],
-                    ],
-                  ),
-                ),
-                // Snowflake in the top-right card corner (opposite the photo):
-                // beans frozen yes/no, pauses the freshness ring.
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: _FreezeButton(frozen: _isFrozen, onTap: _toggleFrozen),
-                ),
-              ],
-            ),
-            if (editing)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: AppButton(
-                  label: 'New bag',
-                  icon: Icons.add,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: _newBag,
-                ),
+          title: _editing ? Text(_isNew ? 'New coffee' : 'Edit coffee') : null,
+          actions: [
+            if (_editing)
+              TextButton(
+                onPressed: _name.text.trim().isEmpty ? null : _save,
+                style: TextButton.styleFrom(foregroundColor: colors.accent),
+                child: const Text('Save'),
+              )
+            else
+              IconButton(
+                tooltip: 'Edit',
+                icon: Icon(Icons.edit_outlined, color: colors.textSecondary),
+                onPressed: coffee == null ? null : _startEditing,
               ),
-            if (editing)
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.tileOuterMargin,
+            0,
+            AppSpacing.tileOuterMargin,
+            AppSpacing.tileOuterMargin * 3,
+          ),
+          children: [
+            Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: colors.card,
+                borderRadius: BorderRadius.circular(AppRadii.tile),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _hero(),
+                  // Fill from packaging/link — only if AI is set up AND the
+                  // feature is turned on, and only while editing.
+                  if (_editing &&
+                      context.watch<AiSettings>().isEnabled(AiFeature.beanForm))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _fillRow(context),
+                    ),
+                  _fieldGrid(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _bagCarousel(coffee),
+            if (_editing && !_isNew)
               Padding(
-                padding: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.only(top: 16),
                 child: AppButton(
-                  label: 'Delete bean',
+                  label: 'Delete coffee',
                   icon: Icons.delete_outline,
                   variant: AppButtonVariant.destructive,
-                  onPressed: _delete,
+                  onPressed: _deleteCoffee,
                 ),
               ),
-            const SizedBox(height: 24),
           ],
         ),
       ),
+    );
+  }
+
+  bool _visible(BeanFormField field) =>
+      context.watch<AppSettings>().visibleBeanFormFields.contains(field);
+
+  // Photo with name on it, like the header of the profile view: it starts
+  // below the app bar.
+  Widget _hero() {
+    final colors = context.colors;
+    final path = _photoPath;
+    final file = path == null ? null : File(path);
+    final hasPhoto = file != null && file.existsSync();
+    final showTaste =
+        _visible(BeanFormField.taste) &&
+        (_editing || _taste.text.trim().isNotEmpty);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 260),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: hasPhoto
+                ? Image.file(
+                    file,
+                    fit: BoxFit.cover,
+                    cacheWidth: 1000,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  )
+                : ColoredBox(
+                    color: profilePlaceholderColor(
+                      _key ?? (_name.text.isEmpty ? 'new' : _name.text),
+                    ),
+                  ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.4, 1],
+                  colors: [colors.card.withValues(alpha: 0), colors.card],
+                ),
+              ),
+            ),
+          ),
+          if (_editing)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Material(
+                color: Colors.black38,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  tooltip: path == null ? 'Add photo' : 'Change photo',
+                  icon: const Icon(
+                    Icons.add_a_photo_outlined,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  onPressed: _photoActions,
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 170, 16, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: _editing
+                  ? [
+                      _SuggestionRow(
+                        label: 'Roastery',
+                        hint: 'Roastery',
+                        marked: _aiFilled.contains('roaster'),
+                        controller: _roaster,
+                        suggestions: _suggestions.roasters,
+                        capitalization: TextCapitalization.words,
+                        showLabel: false,
+                        fontSize: 15,
+                        weight: FontWeight.w400,
+                      ),
+                      _SuggestionRow(
+                        label: 'Name',
+                        hint: 'Name',
+                        marked: _aiFilled.contains('name'),
+                        controller: _name,
+                        suggestions: _suggestions.names,
+                        capitalization: TextCapitalization.words,
+                        showLabel: false,
+                        fontSize: 30,
+                        weight: FontWeight.w700,
+                      ),
+                      if (showTaste)
+                        _SuggestionRow(
+                          label: 'Taste',
+                          hint: 'Taste, e.g. blackcurrant, grapefruit',
+                          marked: _aiFilled.contains(BeanFormField.taste.name),
+                          controller: _taste,
+                          suggestions: _suggestions.tastes,
+                          tokenMode: true,
+                          showLabel: false,
+                          fontSize: 15,
+                          weight: FontWeight.w400,
+                        ),
+                    ]
+                  : [
+                      if (_roaster.text.trim().isNotEmpty)
+                        Text(
+                          _roaster.text,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      Text(
+                        _name.text,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5,
+                          height: 1.1,
+                        ),
+                      ),
+                      if (showTaste)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            splitTaste(_taste.text).join(', '),
+                            style: TextStyle(
+                              color: colors.textSecondary,
+                              fontSize: 15,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                    ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // The fields in two columns, in the order from Settings → Beans → Form.
+  // Roast date, weight and cost belong to the bags, taste to the photo.
+  Widget _fieldGrid() {
+    final fields = [
+      for (final f in context.watch<AppSettings>().visibleBeanFormFields)
+        if (f != BeanFormField.taste &&
+            f != BeanFormField.roastDate &&
+            f != BeanFormField.weight &&
+            f != BeanFormField.cost &&
+            (_editing || _readValue(f) != null))
+          f,
+    ];
+    if (fields.isEmpty) return const SizedBox(height: 12);
+    final rows = <Widget>[];
+    for (var i = 0; i < fields.length; i += 2) {
+      final pair = fields.sublist(
+        i,
+        i + 2 > fields.length ? fields.length : i + 2,
+      );
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _fieldCell(pair[0])),
+              const SizedBox(width: 18),
+              Expanded(
+                child: pair.length > 1
+                    ? _fieldCell(pair[1])
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      );
+      final open = _openMenu;
+      if (open != null && pair.any((f) => _selectOf(f) == open)) {
+        rows.add(_menuPanel(open));
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: rows,
+      ),
+    );
+  }
+
+  static _SelectField? _selectOf(BeanFormField f) => switch (f) {
+    BeanFormField.type => _SelectField.type,
+    BeanFormField.roastLevel => _SelectField.roastLevel,
+    BeanFormField.roastedFor => _SelectField.roastedFor,
+    _ => null,
+  };
+
+  String? get _typeLabel => switch (_isBlend) {
+    null => null,
+    true => 'Blend',
+    false => 'Single origin',
+  };
+
+  String? _readValue(BeanFormField f) {
+    String? text(TextEditingController c) => _nullIfEmpty(c.text);
+    return switch (f) {
+      BeanFormField.processing => text(_processing),
+      BeanFormField.roastLevel => roastLevelLabel(_roastLevel),
+      BeanFormField.country => text(_country),
+      BeanFormField.region => text(_region),
+      BeanFormField.variety => text(_variety),
+      BeanFormField.producer => text(_producer),
+      BeanFormField.altitude => text(_altitude),
+      BeanFormField.roastedFor => roastedForLabel(_roastedFor),
+      BeanFormField.type => _typeLabel,
+      _ => null,
+    };
+  }
+
+  Widget _fieldCell(BeanFormField f) {
+    final colors = context.colors;
+    final marked = _aiFilled.contains(f.name);
+    final label = f.label;
+    final select = _selectOf(f);
+    if (!_editing || select != null) {
+      final value = _readValue(f);
+      final cell = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: marked ? colors.accent : colors.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  value ?? '—',
+                  style: TextStyle(
+                    color: value == null
+                        ? colors.textTertiary
+                        : colors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (_editing) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  _openMenu == select ? Icons.expand_less : Icons.expand_more,
+                  size: 18,
+                  color: colors.textSecondary,
+                ),
+              ],
+            ],
+          ),
+        ],
+      );
+      if (!_editing) return cell;
+      return InkWell(
+        key: ValueKey('select-${f.name}'),
+        onTap: () =>
+            setState(() => _openMenu = _openMenu == select ? null : select),
+        child: cell,
+      );
+    }
+    final (controller, suggestions) = switch (f) {
+      BeanFormField.processing => (_processing, _suggestions.processings),
+      BeanFormField.country => (_country, _suggestions.countries),
+      BeanFormField.region => (_region, const <String>[]),
+      BeanFormField.variety => (_variety, _suggestions.varieties),
+      BeanFormField.producer => (_producer, _suggestions.producers),
+      _ => (_altitude, const <String>[]),
+    };
+    return _SuggestionRow(
+      label: label,
+      marked: marked,
+      controller: controller,
+      suggestions: suggestions,
+      capitalization: TextCapitalization.words,
+    );
+  }
+
+  // Inline list with a tick, like ValueSelectRow. Tapping the chosen one takes
+  // it away again.
+  Widget _menuPanel(_SelectField field) {
+    final colors = context.colors;
+    final List<({Object value, String label})> options = switch (field) {
+      _SelectField.type => const [
+        (value: false, label: 'Single origin'),
+        (value: true, label: 'Blend'),
+      ],
+      _SelectField.roastLevel => [
+        for (final o in roastLevelOptions) (value: o.value, label: o.label),
+      ],
+      _SelectField.roastedFor => [
+        for (final o in roastedForOptions) (value: o.value, label: o.label),
+      ],
+    };
+    final Object? current = switch (field) {
+      _SelectField.type => _isBlend,
+      _SelectField.roastLevel => _roastLevel,
+      _SelectField.roastedFor => _roastedFor,
+    };
+    void pick(Object? value) {
+      final key = switch (field) {
+        _SelectField.type => BeanFormField.type,
+        _SelectField.roastLevel => BeanFormField.roastLevel,
+        _SelectField.roastedFor => BeanFormField.roastedFor,
+      };
+      _clearMark(key.name);
+      setState(() {
+        switch (field) {
+          case _SelectField.type:
+            _isBlend = value as bool?;
+          case _SelectField.roastLevel:
+            _roastLevel = value as String?;
+          case _SelectField.roastedFor:
+            _roastedFor = value as String?;
+        }
+        _openMenu = null;
+      });
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        border: Border.all(color: colors.divider, width: 0.5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          for (final o in options)
+            InkWell(
+              onTap: () => pick(current == o.value ? null : o.value),
+              child: SizedBox(
+                height: 44,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          o.label,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      if (current == o.value)
+                        Icon(Icons.check, size: 18, color: colors.accent),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ----- Bag carousel -------------------------------------------------------
+
+  Widget _bagCarousel(Coffee? coffee) {
+    final colors = context.colors;
+    final saved = coffee?.bags ?? const <Bean>[];
+    final tiles = <Widget>[
+      for (final bag in saved) _bagTile(coffee, bag, _drafts[bag.id]),
+      for (var i = 0; i < _newBags.length; i++)
+        _bagTile(coffee, null, _newBags[i], newNumber: saved.length + i + 1),
+      _addBagTile(),
+    ];
+    final current = _page.clamp(0, tiles.length - 1);
+    return Column(
+      children: [
+        SizedBox(
+          height: _editing ? 262 : 190,
+          child: PageView(
+            controller: _pages,
+            padEnds: false,
+            onPageChanged: (i) => setState(() => _page = i),
+            children: [
+              for (final t in tiles)
+                Padding(padding: const EdgeInsets.only(right: 8), child: t),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < tiles.length; i++)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i == current ? colors.accent : colors.textTertiary,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _addBagTile() {
+    final colors = context.colors;
+    return InkWell(
+      key: const ValueKey('add-bag'),
+      borderRadius: BorderRadius.circular(AppRadii.tile),
+      onTap: _addBag,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.divider),
+          borderRadius: BorderRadius.circular(AppRadii.tile),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add, color: colors.accent, size: 28),
+            const SizedBox(height: 6),
+            Text(
+              'Add bag',
+              style: TextStyle(
+                color: colors.accent,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bagTile(
+    Coffee? coffee,
+    Bean? bag,
+    _BagDraft? draft, {
+    int? newNumber,
+  }) {
+    final colors = context.colors;
+    final state = bag != null
+        ? coffee!.stateOf(bag)
+        : (draft?.openedAt == null ? BagState.sealed : BagState.open);
+    final (statusColor, status) = switch (state) {
+      BagState.open => (colors.success, 'Open'),
+      BagState.sealed => (colors.sealed, 'Sealed'),
+      BagState.frozen => (colors.ice, 'Frozen'),
+      BagState.empty => (colors.textSecondary, 'Empty'),
+    };
+    final number = bag != null ? coffee!.numberOf(bag) : newNumber;
+    final grams = _parseNumber(draft?.weight.text ?? '') ?? bag?.weightGrams;
+    final title = _editing || grams == null
+        ? 'Bag $number'
+        : 'Bag $number · ${_formatNumber(grams)} g';
+    final remaining = bag == null ? null : beanRemaining(bag, _usage);
+    final sub = [
+      if (state == BagState.open && remaining != null)
+        '≈ ${_formatNumber(remaining.roundToDouble())} g left',
+      if (state == BagState.frozen && bag?.frozenDate != null)
+        'since ${_shortDate(bag!.frozenDate!)}',
+    ].join();
+    final days = bag == null ? null : daysSinceFreshnessStart(bag);
+    final ring = switch (state) {
+      BagState.sealed => const SealedRing(),
+      BagState.frozen => const FrozenRing(),
+      BagState.open when days != null => FreshnessRing(
+        days: days,
+        roastLevel: bag?.roastLevel,
+      ),
+      _ => Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: colors.divider, width: 2),
+        ),
+      ),
+    };
+    return Container(
+      key: ValueKey('bag-${bag?.id ?? 'new-$number'}'),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(AppRadii.tile),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              ring,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: status,
+                            style: TextStyle(color: statusColor),
+                          ),
+                          if (sub.isNotEmpty)
+                            TextSpan(
+                              text: ' · $sub',
+                              style: TextStyle(color: colors.textSecondary),
+                            ),
+                        ],
+                      ),
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              if (bag != null && state != BagState.empty)
+                _FreezeButton(
+                  frozen: bag.isFrozen,
+                  onTap: () => _toggleFreeze(bag),
+                ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: colors.divider),
+          ),
+          if (_editing && draft != null)
+            _bagForm(bag, draft)
+          else if (bag != null)
+            _bagFacts(bag, state),
+          const Spacer(),
+          if (_editing && draft != null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (bag != null)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      foregroundColor: colors.textSecondary,
+                      padding: EdgeInsets.zero,
+                    ),
+                    onPressed: () => _toggleEmpty(bag),
+                    child: Text(
+                      bag.emptiedAt == null ? 'Mark as empty' : 'Not empty',
+                    ),
+                  )
+                else
+                  const SizedBox.shrink(),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: colors.danger,
+                    padding: EdgeInsets.zero,
+                  ),
+                  onPressed: bag != null
+                      ? () => _deleteBag(bag)
+                      : () => setState(() {
+                          _newBags.remove(draft);
+                          draft.dispose();
+                        }),
+                  child: const Text('Delete bag'),
+                ),
+              ],
+            )
+          else if (bag != null && bag.emptiedAt != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.textSecondary,
+                  padding: EdgeInsets.zero,
+                ),
+                onPressed: () => _toggleEmpty(bag),
+                child: const Text('Not empty'),
+              ),
+            )
+          else if (bag != null && state == BagState.sealed)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: colors.accent,
+                  padding: EdgeInsets.zero,
+                ),
+                onPressed: () => _openToday(bag, draft),
+                child: const Text('Open today'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _shortDate(DateTime d) => '${d.day} ${_months[d.month - 1]}';
+
+  Widget _bagCell(String label, Widget value, {String? mark}) {
+    final colors = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: mark != null && _aiFilled.contains(mark)
+                ? colors.accent
+                : colors.textSecondary,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 3),
+        value,
+      ],
+    );
+  }
+
+  TextStyle get _bagValueStyle => TextStyle(
+    color: context.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: FontWeight.w500,
+  );
+
+  Widget _bagFacts(Bean bag, BagState state) {
+    final cells = [
+      if (_visible(BeanFormField.roastDate))
+        _bagCell(
+          'Roasted',
+          Text(
+            bag.roastDate == null ? '—' : _shortDate(bag.roastDate!),
+            style: _bagValueStyle,
+          ),
+        ),
+      _bagCell(
+        'Opened',
+        Text(
+          bag.openedAt == null ? '—' : _shortDate(bag.openedAt!),
+          style: _bagValueStyle,
+        ),
+      ),
+      if (_visible(BeanFormField.cost))
+        _bagCell(
+          'Cost',
+          Text(
+            bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €',
+            style: _bagValueStyle,
+          ),
+        ),
+    ];
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [for (final c in cells) Expanded(child: c)],
+    );
+  }
+
+  Widget _bagForm(Bean? bag, _BagDraft d) {
+    final colors = context.colors;
+    Widget date(
+      DateTime? value,
+      String empty,
+      ValueChanged<DateTime?> onChanged,
+    ) => InkWell(
+      onTap: () async {
+        final picked = await _pickDate(value);
+        if (picked != null && mounted) setState(() => onChanged(picked));
+      },
+      child: Row(
+        children: [
+          Flexible(
+            child: Text(
+              value == null ? empty : _formatDate(value),
+              style: value == null
+                  ? _bagValueStyle.copyWith(color: colors.textTertiary)
+                  : _bagValueStyle,
+            ),
+          ),
+          if (value != null)
+            GestureDetector(
+              onTap: () => setState(() => onChanged(null)),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(Icons.close, size: 15, color: colors.textTertiary),
+              ),
+            ),
+        ],
+      ),
+    );
+    Widget number(TextEditingController c, String suffix, String key) =>
+        TextField(
+          key: ValueKey('bag-$key'),
+          controller: c,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+          ],
+          onChanged: (_) {
+            _clearMark(key);
+            setState(() {});
+          },
+          style: _bagValueStyle,
+          decoration: _fieldDecoration(
+            context,
+            suffix: suffix,
+            padding: EdgeInsets.zero,
+          ),
+        );
+    final cells = <Widget>[
+      if (_visible(BeanFormField.roastDate))
+        _bagCell(
+          'Roast date',
+          date(d.roastDate, 'Not set', (v) => d.roastDate = v),
+          mark: BeanFormField.roastDate.name,
+        ),
+      _bagCell(
+        'Opened',
+        d.openedAt == null
+            ? InkWell(
+                onTap: () => _openToday(bag, d),
+                child: Text(
+                  'Open today',
+                  style: _bagValueStyle.copyWith(color: colors.accent),
+                ),
+              )
+            : date(d.openedAt, '', (v) => d.openedAt = v),
+      ),
+      if (_visible(BeanFormField.weight))
+        _bagCell(
+          'Weight',
+          number(d.weight, 'g', BeanFormField.weight.name),
+          mark: BeanFormField.weight.name,
+        ),
+      if (_visible(BeanFormField.cost))
+        _bagCell(
+          'Cost',
+          number(d.cost, '€', BeanFormField.cost.name),
+          mark: BeanFormField.cost.name,
+        ),
+    ];
+    return Column(
+      children: [
+        for (var i = 0; i < cells.length; i += 2)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: cells[i]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: i + 1 < cells.length
+                      ? cells[i + 1]
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  static InputDecoration _fieldDecoration(
+    BuildContext context, {
+    String? hint,
+    String? suffix,
+    EdgeInsets padding = const EdgeInsets.symmetric(vertical: 2),
+  }) {
+    return InputDecoration(
+      isDense: true,
+      border: InputBorder.none,
+      contentPadding: padding,
+      hintText: hint,
+      hintStyle: TextStyle(color: context.colors.textTertiary),
+      suffixText: suffix,
+      suffixStyle: TextStyle(color: context.colors.textSecondary, fontSize: 14),
     );
   }
 
@@ -1010,228 +2096,6 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       ],
     );
   }
-
-  Widget _fieldRow(BeanFormField field) {
-    switch (field) {
-      case BeanFormField.country:
-        return _SuggestionRow(
-          label: 'Country',
-          marked: _aiFilled.contains(field.name),
-          controller: _country,
-          suggestions: _suggestions.countries,
-          capitalization: TextCapitalization.words,
-        );
-      case BeanFormField.region:
-        return _SuggestionRow(
-          label: 'Region',
-          marked: _aiFilled.contains(field.name),
-          controller: _region,
-          suggestions: const [],
-          capitalization: TextCapitalization.words,
-        );
-      case BeanFormField.altitude:
-        return _SuggestionRow(
-          label: 'Altitude',
-          marked: _aiFilled.contains(field.name),
-          controller: _altitude,
-          suggestions: const [],
-        );
-      case BeanFormField.producer:
-        return _SuggestionRow(
-          label: 'Producer',
-          marked: _aiFilled.contains(field.name),
-          controller: _producer,
-          suggestions: _suggestions.producers,
-          capitalization: TextCapitalization.words,
-        );
-      case BeanFormField.variety:
-        return _SuggestionRow(
-          label: 'Variety',
-          marked: _aiFilled.contains(field.name),
-          controller: _variety,
-          suggestions: _suggestions.varieties,
-          capitalization: TextCapitalization.words,
-        );
-      case BeanFormField.processing:
-        return _SuggestionRow(
-          label: 'Processing',
-          marked: _aiFilled.contains(field.name),
-          controller: _processing,
-          suggestions: _suggestions.processings,
-          capitalization: TextCapitalization.words,
-        );
-      // Both as the app's dropdown (inline list, tick in the accent).
-      case BeanFormField.type:
-        return ValueSelectRow<bool>(
-          label: 'Type',
-          labelWidth: _labelWidth,
-          labelSize: 12,
-          labelColor: _aiFilled.contains(field.name)
-              ? context.colors.accent
-              : null,
-          horizontalPadding: AppSpacing.dividerInset,
-          isLast: true,
-          placeholder: '—',
-          value: _isBlend,
-          options: const [
-            ValueOption(value: false, title: 'Single Origin'),
-            ValueOption(value: true, title: 'Blend'),
-          ],
-          onChanged: (value) {
-            _clearMark(field.name);
-            setState(() => _isBlend = value);
-          },
-        );
-      case BeanFormField.roastedFor:
-        return ValueSelectRow<String>(
-          label: 'Roasted for',
-          labelWidth: _labelWidth,
-          labelSize: 12,
-          labelColor: _aiFilled.contains(field.name)
-              ? context.colors.accent
-              : null,
-          horizontalPadding: AppSpacing.dividerInset,
-          isLast: true,
-          placeholder: '—',
-          value: _roastedFor,
-          options: [
-            for (final option in roastedForOptions)
-              ValueOption(value: option.value, title: option.label),
-          ],
-          onChanged: (value) {
-            _clearMark(field.name);
-            setState(() => _roastedFor = value);
-          },
-        );
-      case BeanFormField.roastLevel:
-        return ValueSelectRow<String>(
-          label: 'Roast level',
-          labelWidth: _labelWidth,
-          labelSize: 12,
-          labelColor: _aiFilled.contains(field.name)
-              ? context.colors.accent
-              : null,
-          horizontalPadding: AppSpacing.dividerInset,
-          isLast: true,
-          placeholder: '—',
-          value: _roastLevel,
-          options: [
-            for (final option in roastLevelOptions)
-              ValueOption(value: option.value, title: option.label),
-          ],
-          onChanged: (value) {
-            _clearMark(field.name);
-            setState(() => _roastLevel = value);
-          },
-        );
-      case BeanFormField.roastDate:
-        return _FormRow(
-          label: 'Roast date',
-          marked: _aiFilled.contains(field.name),
-          onTap: () {
-            _clearMark(field.name);
-            _pickDate();
-          },
-          trailing: _roastDate == null
-              ? Icon(
-                  Icons.calendar_today_outlined,
-                  color: context.colors.textTertiary,
-                  size: 18,
-                )
-              : GestureDetector(
-                  onTap: () {
-                    _clearMark(field.name);
-                    setState(() => _roastDate = null);
-                  },
-                  child: Icon(
-                    Icons.close,
-                    color: context.colors.textTertiary,
-                    size: 18,
-                  ),
-                ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Text(
-              _roastDate == null ? 'Not set' : _formatDate(_roastDate!),
-              style: TextStyle(
-                color: _roastDate == null
-                    ? context.colors.textTertiary
-                    : context.colors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        );
-      case BeanFormField.weight:
-        return _FormRow(
-          label: 'Weight',
-          marked: _aiFilled.contains(field.name),
-          child: _plainField(_weight, suffix: 'g', numeric: true),
-        );
-      case BeanFormField.cost:
-        return _FormRow(
-          label: 'Cost',
-          marked: _aiFilled.contains(field.name),
-          child: _plainField(_cost, suffix: '€', numeric: true),
-        );
-      case BeanFormField.taste:
-        return _SuggestionRow(
-          label: 'Taste',
-          marked: _aiFilled.contains(field.name),
-          controller: _taste,
-          suggestions: _suggestions.tastes,
-          tokenMode: true,
-          hint: 'e.g. blackcurrant, grapefruit',
-        );
-    }
-  }
-
-  static Widget _dividerOf(BuildContext context) => Divider(
-    height: 1,
-    indent: AppSpacing.dividerInset,
-    endIndent: AppSpacing.dividerInset,
-    color: context.colors.divider,
-  );
-
-  Widget _plainField(
-    TextEditingController controller, {
-    String? suffix,
-    bool numeric = false,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: numeric
-          ? const TextInputType.numberWithOptions(decimal: true)
-          : null,
-      inputFormatters: numeric
-          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))]
-          : null,
-      style: TextStyle(
-        color: context.colors.textPrimary,
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-      ),
-      decoration: _fieldDecoration(context, suffix: suffix),
-    );
-  }
-
-  static InputDecoration _fieldDecoration(
-    BuildContext context, {
-    String? hint,
-    String? suffix,
-    EdgeInsets padding = const EdgeInsets.symmetric(vertical: 14),
-  }) {
-    return InputDecoration(
-      isDense: true,
-      border: InputBorder.none,
-      contentPadding: padding,
-      hintText: hint,
-      hintStyle: TextStyle(color: context.colors.textTertiary, fontSize: 14),
-      suffixText: suffix,
-      suffixStyle: TextStyle(color: context.colors.textSecondary, fontSize: 14),
-    );
-  }
 }
 
 class _FreezeButton extends StatelessWidget {
@@ -1249,12 +2113,12 @@ class _FreezeButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 34,
-          height: 34,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             color: frozen
-                ? context.colors.ice.withValues(alpha: 0.18)
-                : context.colors.bg,
+                ? context.colors.ice.withValues(alpha: 0.12)
+                : Colors.transparent,
             shape: BoxShape.circle,
             border: Border.all(
               color: frozen ? context.colors.ice : context.colors.divider,
@@ -1271,133 +2135,6 @@ class _FreezeButton extends StatelessWidget {
   }
 }
 
-class _PhotoTile extends StatelessWidget {
-  const _PhotoTile({required this.path, required this.onTap});
-
-  final String? path;
-  final VoidCallback onTap;
-
-  static const _size = 120.0;
-  static const _radius = 16.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: path == null ? 'Add photo' : 'Change photo',
-      child: GestureDetector(
-        onTap: onTap,
-        child: SizedBox(
-          width: _size,
-          height: _size,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (path == null)
-                Container(
-                  decoration: BoxDecoration(
-                    color: context.colors.bg,
-                    borderRadius: BorderRadius.circular(_radius),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_a_photo_outlined,
-                        color: context.colors.textTertiary,
-                        size: 30,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Add photo',
-                        style: TextStyle(
-                          color: context.colors.textTertiary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                BeanThumbnail(path: path, size: _size, radius: _radius),
-              if (path != null)
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: const BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.edit,
-                      color: Colors.white,
-                      size: 12,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Label on the left (fixed width), content on the right, optional trailing
-// icon.
-class _FormRow extends StatelessWidget {
-  const _FormRow({
-    required this.label,
-    required this.child,
-    this.trailing,
-    this.onTap,
-    this.marked = false,
-  });
-
-  final String label;
-  final Widget child;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  /// The value came from packaging or a web page and is not confirmed yet.
-  /// This is shown only through the label color — no border, no fill, no
-  /// badge. That's the house rule (color only on text) and also the quietest
-  /// thing that still stands out.
-  final bool marked;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.dividerInset,
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: _BeanFormScreenState._labelWidth,
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: marked
-                      ? context.colors.accent
-                      : context.colors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            Expanded(child: child),
-            if (trailing != null) ...[const SizedBox(width: 8), trailing!],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // Text row with suggestion chips below while the field has focus and letters
 // have been typed that match the start of a suggestion.
 // [tokenMode]: the field holds a comma list; suggestions apply to the word
@@ -1408,7 +2145,9 @@ class _SuggestionRow extends StatefulWidget {
     required this.controller,
     required this.suggestions,
     this.tokenMode = false,
-    this.stacked = false,
+    this.showLabel = true,
+    this.fontSize = 17,
+    this.weight = FontWeight.w500,
     this.marked = false,
     this.capitalization = TextCapitalization.none,
     this.hint,
@@ -1419,11 +2158,14 @@ class _SuggestionRow extends StatefulWidget {
   final List<String> suggestions;
   final bool tokenMode;
 
-  /// See [_FormRow.marked].
+  /// The value came from packaging or a web page and is not confirmed yet:
+  /// shown only through the label color (on the photo: the text color).
   final bool marked;
-  // Label above the field instead of to the left (header block next to the
-  // photo).
-  final bool stacked;
+
+  // On the photo the field stands alone, like its text when reading.
+  final bool showLabel;
+  final double fontSize;
+  final FontWeight weight;
   final TextCapitalization capitalization;
   final String? hint;
 
@@ -1510,14 +2252,15 @@ class _SuggestionRowState extends State<_SuggestionRow> {
       // keyboard during autoscroll.
       scrollPadding: const EdgeInsets.only(bottom: 100),
       style: TextStyle(
-        color: context.colors.textPrimary,
-        fontSize: widget.stacked ? 15 : 14,
-        fontWeight: FontWeight.w500,
+        color: !widget.showLabel && widget.marked
+            ? context.colors.accent
+            : context.colors.textPrimary,
+        fontSize: widget.fontSize,
+        fontWeight: widget.weight,
       ),
       decoration: _BeanFormScreenState._fieldDecoration(
         context,
         hint: widget.hint,
-        padding: EdgeInsets.symmetric(vertical: widget.stacked ? 6 : 14),
       ),
     );
   }
@@ -1548,10 +2291,10 @@ class _SuggestionRowState extends State<_SuggestionRow> {
     final taken = _taken();
     return Column(
       children: [
-        if (widget.stacked)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (widget.showLabel)
               Text(
                 widget.label,
                 style: TextStyle(
@@ -1561,11 +2304,9 @@ class _SuggestionRowState extends State<_SuggestionRow> {
                   fontSize: 12,
                 ),
               ),
-              _field(),
-            ],
-          )
-        else
-          _FormRow(label: widget.label, marked: widget.marked, child: _field()),
+            _field(),
+          ],
+        ),
         // Suggestions as underline options in a wrap (no chips): not yet
         // taken in textSecondary with a thin divider line, the typed letters
         // in textPrimary. A comma list (taste) also shows the words already
@@ -1579,14 +2320,7 @@ class _SuggestionRowState extends State<_SuggestionRow> {
               // "outside" and takes focus from the field.
               : TextFieldTapRegion(
                   child: Padding(
-                    padding: widget.stacked
-                        ? const EdgeInsets.only(bottom: 2)
-                        : const EdgeInsets.fromLTRB(
-                            AppSpacing.dividerInset,
-                            0,
-                            AppSpacing.dividerInset,
-                            4,
-                          ),
+                    padding: const EdgeInsets.only(bottom: 2),
                     child: Wrap(
                       spacing: UnderlineSelect.spacing,
                       children: [
@@ -1645,7 +2379,7 @@ class _FormSnapshot {
     isBlend: state._isBlend,
     roastedFor: state._roastedFor,
     roastLevel: state._roastLevel,
-    roastDate: state._roastDate,
+    roastDate: state._bagOnScreen?.roastDate,
     photoPath: state._photoPath,
   );
 
@@ -1656,9 +2390,11 @@ class _FormSnapshot {
     state._isBlend = isBlend;
     state._roastedFor = roastedFor;
     state._roastLevel = roastLevel;
-    state._roastDate = roastDate;
+    state._bagOnScreen?.roastDate = roastDate;
     state._photoPath = photoPath;
   }
 }
 
 enum _DeleteChoice { usedUp, delete }
+
+enum _ClashChoice { sameCoffee, newCoffee }
