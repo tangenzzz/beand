@@ -81,12 +81,43 @@ class FreshnessRing extends StatelessWidget {
   }
 }
 
+// The freshness ring without its days, in one color: an open bag as a choice
+// while the bag is something else.
+class PlainFreshnessRing extends StatelessWidget {
+  const PlainFreshnessRing({
+    super.key,
+    required this.color,
+    this.days,
+    this.size = 40,
+  });
+
+  final Color color;
+  final int? days;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: CustomPaint(
+      painter: _RingPainter(
+        progress: days == null ? 0.6 : freshnessProgress(days!),
+        color: color,
+        track: color.withValues(alpha: 0.25),
+      ),
+    ),
+  );
+}
+
 // Ring of a frozen bean: closed, gradient light blue ↔ white, a snowflake in
 // the middle. The freshness ring goes on after thawing.
 class FrozenRing extends StatelessWidget {
-  const FrozenRing({super.key, this.size = 40});
+  const FrozenRing({super.key, this.size = 40, this.color});
 
   final double size;
+
+  /// In place of the ice colors, e.g. while it is not the current status.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -98,13 +129,13 @@ class FrozenRing extends StatelessWidget {
         height: size,
         child: CustomPaint(
           painter: _FrozenRingPainter(
-            ice: context.colors.ice,
-            iceLight: context.colors.iceLight,
+            ice: color ?? context.colors.ice,
+            iceLight: color ?? context.colors.iceLight,
           ),
           child: Center(
             child: Icon(
               Icons.ac_unit,
-              color: context.colors.ice,
+              color: color ?? context.colors.ice,
               size: size * 0.5,
             ),
           ),
@@ -116,13 +147,16 @@ class FrozenRing extends StatelessWidget {
 
 // A closed bag: a dashed ring with a lock, instead of the days.
 class SealedRing extends StatelessWidget {
-  const SealedRing({super.key, this.size = 40});
+  const SealedRing({super.key, this.size = 40, this.color});
 
   final double size;
 
+  /// In place of the sealed color, e.g. while it is not the current status.
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
-    final color = context.colors.sealed;
+    final color = this.color ?? context.colors.sealed;
     return Semantics(
       label: 'Sealed',
       excludeSemantics: true,

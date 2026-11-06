@@ -311,6 +311,24 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('a new bag can be frozen, and the date can be changed', (
+      tester,
+    ) async {
+      await show(tester, null);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(1), 'Cold');
+      await settle(tester);
+      await tester.tap(find.text('Frozen').first);
+      await settle(tester);
+      expect(find.text('Frozen'), findsNWidgets(2), reason: 'symbol and date');
+      await tester.tap(find.text('Save'));
+      await settle(tester);
+      final rows = await tester.runAsync(db.allBeans);
+      expect(rows!.single.isFrozen, isTrue);
+      expect(rows.single.frozenDate, isNotNull);
+      await finish(tester);
+    });
+
     testWidgets('a bag with shots cannot go back to sealed', (tester) async {
       late Bean bag;
       await tester.runAsync(() async {

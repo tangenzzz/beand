@@ -19,6 +19,7 @@ import '../../services/ai/ai_settings.dart';
 import '../../services/ai/bean_extraction.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
+import '../live/tile_title.dart';
 import 'bean_stock.dart';
 import 'bean_suggestions.dart';
 import 'bean_widgets.dart';
@@ -52,6 +53,8 @@ class _BagDraft {
     double? cost,
   }) : roastDate = roastDate ?? bean?.roastDate,
        openedAt = openedAt ?? bean?.openedAt,
+       isFrozen = bean?.isFrozen ?? false,
+       frozenDate = bean?.frozenDate,
        weight = TextEditingController(
          text: _BeanFormScreenState._formatNumber(weight ?? bean?.weightGrams),
        ),
@@ -62,7 +65,8 @@ class _BagDraft {
   final Bean? bean;
   DateTime? roastDate;
   DateTime? openedAt;
-  bool isFrozen = false;
+  bool isFrozen;
+  DateTime? frozenDate;
   final TextEditingController weight;
   final TextEditingController cost;
 
@@ -350,6 +354,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     if (b == null) return true;
     return d.roastDate != b.roastDate ||
         d.openedAt != b.openedAt ||
+        d.frozenDate != b.frozenDate ||
         _parseNumber(d.weight.text) != b.weightGrams ||
         _parseNumber(d.cost.text) != b.cost;
   }
@@ -432,16 +437,24 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     BagState current,
     BagState target,
   ) async {
-    // A bag not saved yet can only be open or sealed.
+    // A bag not saved yet: nothing to be empty of.
     if (bag == null) {
       if (draft == null) return;
-      if (target == BagState.open || target == BagState.sealed) {
-        setState(() {
-          draft.openedAt = target == BagState.open
-              ? (draft.openedAt ?? DateTime.now())
-              : null;
-        });
-      }
+      setState(() {
+        switch (target) {
+          case BagState.frozen:
+            draft.isFrozen = !draft.isFrozen;
+            draft.frozenDate = draft.isFrozen ? DateTime.now() : null;
+          case BagState.open:
+            draft.isFrozen = false;
+            draft.openedAt ??= DateTime.now();
+          case BagState.sealed:
+            draft.isFrozen = false;
+            draft.openedAt = null;
+          case BagState.empty:
+            break;
+        }
+      });
       return;
     }
     final again = target == current;
@@ -459,7 +472,13 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       BagState.sealed => null,
       _ => bag.openedAt,
     };
-    if (draft != null) setState(() => draft.openedAt = opened);
+    if (draft != null) {
+      setState(() {
+        draft.openedAt = opened;
+        draft.isFrozen = freeze;
+        if (freeze) draft.frozenDate = now;
+      });
+    }
     _followBag = (bag.id, again ? null : target);
     await context.read<AppDatabase>().updateBean(
       bag.id,
@@ -724,6 +743,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         BeansCompanion(
           roastDate: Value(d.roastDate),
           openedAt: Value(d.openedAt),
+          frozenDate: Value(d.frozenDate),
           weightGrams: Value(_parseNumber(d.weight.text)),
           cost: Value(_parseNumber(d.cost.text)),
         ),
@@ -737,6 +757,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         full.copyWith(
           roastDate: Value(d.roastDate),
           openedAt: Value(d.openedAt),
+          isFrozen: Value(d.isFrozen),
+          frozenDate: Value(d.isFrozen ? d.frozenDate : null),
           weightGrams: Value(_parseNumber(d.weight.text)),
           cost: Value(_parseNumber(d.cost.text)),
         ),
@@ -1239,7 +1261,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
             _bagCarousel(coffee),
             if (_editing && !_isNew)
               Padding(
@@ -1653,7 +1675,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     return Column(
       children: [
         SizedBox(
-          height: _editing ? 336 : 232,
+          height: _editing ? 340 : 236,
           child: PageView(
             controller: _pages,
             onPageChanged: (i) => setState(() => _page = i),
@@ -1725,6 +1747,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     final colors = context.colors;
     final state = bag != null
         ? coffee!.stateOf(bag)
+        : draft?.isFrozen == true
+        ? BagState.frozen
         : (draft?.openedAt == null ? BagState.sealed : BagState.open);
     final number = bag != null ? coffee!.numberOf(bag) : newNumber;
     final remaining = bag == null ? null : beanRemaining(bag, _usage);
@@ -1742,20 +1766,13 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Bag $number',
-            style: TextStyle(
-              color: colors.textSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          PrefixedTitle(prefix: 'Bag', title: '$number'),
           const SizedBox(height: 4),
           Row(
             children: [
               for (final target in const [
-                BagState.sealed,
                 BagState.open,
+                BagState.sealed,
                 BagState.frozen,
                 BagState.empty,
               ])
@@ -1890,7 +1907,11 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         children: [
           Flexible(
             child: Text(
-              value == null ? empty : _formatDate(value),
+              value == null
+                  ? empty
+                  : d.isFrozen
+                  ? _shortDate(value)
+                  : _formatDate(value),
               style: value == null
                   ? _bagValueStyle.copyWith(color: colors.textTertiary)
                   : _bagValueStyle,
@@ -1968,7 +1989,12 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
             'Opened',
             date(d.openedAt, 'Not set', (v) => d.openedAt = v),
           ),
-        ], 2),
+          if (d.isFrozen)
+            _bagCell(
+              'Frozen',
+              date(d.frozenDate, 'Not set', (v) => d.frozenDate = v),
+            ),
+        ], d.isFrozen ? 3 : 2),
       ],
     );
   }
@@ -2093,21 +2119,12 @@ class _BagStateButton extends StatelessWidget {
         days: days!,
         roastLevel: roastLevel,
       ),
-      BagState.open => SizedBox(
-        width: 22,
-        height: 22,
-        child: CircularProgressIndicator(
-          value: 0.6,
-          strokeWidth: 2.4,
-          color: color,
-          backgroundColor: color.withValues(alpha: 0.25),
-        ),
-      ),
-      BagState.sealed => Icon(Icons.lock_outline, size: 24, color: color),
-      BagState.frozen => Icon(Icons.ac_unit, size: 24, color: color),
+      BagState.open => PlainFreshnessRing(color: color, days: days),
+      BagState.sealed => SealedRing(color: color),
+      BagState.frozen => FrozenRing(color: active ? null : color),
       BagState.empty => Container(
-        width: 22,
-        height: 22,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(color: color, width: 2),
