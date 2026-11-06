@@ -29,7 +29,7 @@ bool beanUsedUp(Bean bean, Map<int, double> usage, {required bool stock}) =>
     bean.emptiedAt != null || (stock && beanIsEmpty(bean, usage));
 
 /// Finished = used up (see [beanUsedUp]); frozen = in the freezer and not
-/// finished; open = neither.
+/// finished; sealed = not opened yet; open = none of these.
 bool beanHasStatus(
   Bean bean,
   BeanStatus status,
@@ -41,7 +41,8 @@ bool beanHasStatus(
     BeanStatus.all => true,
     BeanStatus.finished => finished,
     BeanStatus.frozen => bean.isFrozen && !finished,
-    BeanStatus.open => !bean.isFrozen && !finished,
+    BeanStatus.sealed => !bean.isFrozen && !finished && bean.openedAt == null,
+    BeanStatus.open => !bean.isFrozen && !finished && bean.openedAt != null,
   };
 }
 

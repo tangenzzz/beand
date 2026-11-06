@@ -59,6 +59,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   late final TextEditingController _name;
   late final TextEditingController _roaster;
   late final TextEditingController _country;
+  late final TextEditingController _region;
+  late final TextEditingController _altitude;
   late final TextEditingController _processing;
   late final TextEditingController _variety;
   late final TextEditingController _producer;
@@ -105,6 +107,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     _name = TextEditingController(text: b?.name)..addListener(_onNameChanged);
     _roaster = TextEditingController(text: b?.roaster);
     _country = TextEditingController(text: b?.country);
+    _region = TextEditingController(text: b?.region);
+    _altitude = TextEditingController(text: b?.altitude);
     _processing = TextEditingController(text: b?.processing);
     _variety = TextEditingController(text: b?.variety);
     _producer = TextEditingController(text: b?.producer);
@@ -147,6 +151,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       _name,
       _roaster,
       _country,
+      _region,
+      _altitude,
       _processing,
       _variety,
       _producer,
@@ -194,6 +200,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     'name': _name,
     'roaster': _roaster,
     BeanFormField.country.name: _country,
+    BeanFormField.region.name: _region,
+    BeanFormField.altitude.name: _altitude,
     BeanFormField.processing.name: _processing,
     BeanFormField.variety.name: _variety,
     BeanFormField.producer.name: _producer,
@@ -565,6 +573,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     setText('name', _name, draft.name);
     setText('roaster', _roaster, draft.roaster);
     setText(BeanFormField.country.name, _country, draft.country);
+    setText(BeanFormField.region.name, _region, draft.region);
+    setText(BeanFormField.altitude.name, _altitude, draft.altitude);
     setText(BeanFormField.processing.name, _processing, draft.processing);
     setText(BeanFormField.variety.name, _variety, draft.variety);
     setText(BeanFormField.producer.name, _producer, draft.producer);
@@ -713,6 +723,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       roastedFor: Value(_roastedFor),
       roastLevel: Value(_roastLevel),
       country: Value(_nullIfEmpty(_country.text)),
+      region: Value(_nullIfEmpty(_region.text)),
+      altitude: Value(_nullIfEmpty(_altitude.text)),
       processing: Value(_nullIfEmpty(_processing.text)),
       variety: Value(_nullIfEmpty(_variety.text)),
       producer: Value(_nullIfEmpty(_producer.text)),
@@ -1008,6 +1020,21 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           controller: _country,
           suggestions: _suggestions.countries,
           capitalization: TextCapitalization.words,
+        );
+      case BeanFormField.region:
+        return _SuggestionRow(
+          label: 'Region',
+          marked: _aiFilled.contains(field.name),
+          controller: _region,
+          suggestions: const [],
+          capitalization: TextCapitalization.words,
+        );
+      case BeanFormField.altitude:
+        return _SuggestionRow(
+          label: 'Altitude',
+          marked: _aiFilled.contains(field.name),
+          controller: _altitude,
+          suggestions: const [],
         );
       case BeanFormField.producer:
         return _SuggestionRow(

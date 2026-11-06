@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../database/database.dart';
+import '../../models/coffee.dart';
 import '../../models/profile_detail.dart';
 import '../../screens/beans/bean_widgets.dart'
     show calendarDaysSince, daysSinceFreshnessStart;
@@ -635,7 +636,8 @@ Future<ShotAnalysisInput?> loadShotAnalysisInput(
   final history = bean == null
       ? const <Shot>[]
       : await db.earlierShotsOfBean(
-          bean.id,
+          // Across all bags of the coffee.
+          coffeeBagIds(await db.allBeans(), bean),
           before: shot.timestamp,
           limit: analysisHistoryShots,
         );

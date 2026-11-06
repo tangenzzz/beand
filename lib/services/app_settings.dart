@@ -17,17 +17,19 @@ enum HomeMode {
 // Configurable fields of the bean form (photo, name and roastery are
 // fixed). The order of the values is the default order.
 enum BeanFormField {
-  country('Country'),
-  producer('Producer'),
-  variety('Variety'),
   processing('Processing'),
-  type('Type'),
-  roastedFor('Roasted for'),
   roastLevel('Roast level'),
+  country('Country'),
+  region('Region'),
+  variety('Variety'),
+  producer('Producer'),
+  altitude('Altitude'),
+  roastedFor('Roasted for'),
+  type('Type'),
+  taste('Taste'),
   roastDate('Roast date'),
   weight('Weight'),
-  cost('Cost'),
-  taste('Taste');
+  cost('Cost');
 
   const BeanFormField(this.label);
 
@@ -50,6 +52,7 @@ enum HistoryAvatar {
 enum BeanStatus {
   all('All'),
   open('Open'),
+  sealed('Sealed'),
   frozen('Frozen'),
   finished('Finished');
 
@@ -103,7 +106,9 @@ class AppSettings extends ChangeNotifier {
   static const expandProfileCurvePrefKey = 'profile_expand_curve';
   static const homeModePrefKey = 'home_mode_selected';
   static const homeModeOrderPrefKey = 'home_mode_order';
-  static const beanFormOrderPrefKey = 'beans_form_order';
+  // New key with the bean card (2026-11-06): its first row is Processing and
+  // Roast level, a saved order from before would keep them apart.
+  static const beanFormOrderPrefKey = 'beans_form_order_card';
   static const beanFormHiddenPrefKey = 'beans_form_hidden';
   static const historyAvatarPrefKey = 'history_avatar';
   // Per device, not synced: what this device looks at right now.

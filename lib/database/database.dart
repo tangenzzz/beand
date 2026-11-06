@@ -55,9 +55,17 @@ class Beans extends Table with SyncColumns {
   // 'ultra-light' | 'light' | 'medium' | 'dark', null = not specified.
   TextColumn get roastLevel => text().nullable()();
   TextColumn get country => text().nullable()();
+  TextColumn get region => text().nullable()();
   TextColumn get processing => text().nullable()();
   TextColumn get variety => text().nullable()();
   TextColumn get producer => text().nullable()();
+  TextColumn get altitude => text().nullable()();
+  // Each row is one bag; the bags of a coffee share name and roaster. Set only
+  // for a coffee kept apart from another of the same name (a new harvest),
+  // see models/coffee.dart.
+  TextColumn get coffeeId => text().nullable()();
+  // When the bag was opened. Null = still sealed.
+  DateTimeColumn get openedAt => dateTime().nullable()();
   RealColumn get weightGrams => real().nullable()();
   // Comma-separated tasting notes ("blackcurrant, grapefruit").
   TextColumn get taste => text().nullable()();
@@ -294,7 +302,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 28;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -446,6 +454,30 @@ class AppDatabase extends _$AppDatabase {
         }
         if (!existing.contains(beans.frozenDays.name)) {
           await m.addColumn(beans, beans.frozenDays);
+        }
+      }
+      if (from < 28) {
+        // Bean card: a coffee with several bags. Only where missing (the
+        // rebuild of schema 15 below and tests create current tables).
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(beans)',
+          ).get())
+            row.read<String>('name'),
+        };
+        if (!existing.contains(beans.region.name)) {
+          await m.addColumn(beans, beans.region);
+        }
+        if (!existing.contains(beans.altitude.name)) {
+          await m.addColumn(beans, beans.altitude);
+        }
+        if (!existing.contains(beans.coffeeId.name)) {
+          await m.addColumn(beans, beans.coffeeId);
+        }
+        if (!existing.contains(beans.openedAt.name)) {
+          await m.addColumn(beans, beans.openedAt);
+          // Everything so far counts as opened: nothing changes for it.
+          await customStatement('UPDATE beans SET opened_at = created_at');
         }
       }
       if (from < 26) {
@@ -651,9 +683,13 @@ class AppDatabase extends _$AppDatabase {
     roastedFor: Value(null),
     roastLevel: Value(null),
     country: Value(null),
+    region: Value(null),
     processing: Value(null),
     variety: Value(null),
     producer: Value(null),
+    altitude: Value(null),
+    coffeeId: Value(null),
+    openedAt: Value(null),
     weightGrams: Value(null),
     taste: Value(null),
     cost: Value(null),
@@ -715,6 +751,25 @@ class AppDatabase extends _$AppDatabase {
       beans,
     )..where((b) => b.id.equals(id))).write(_stampBean(bean));
     return (select(beans)..where((b) => b.id.equals(id))).getSingle();
+  }
+
+  /// The same change on several bags at once (the fields of their coffee).
+  Future<void> updateBeans(Iterable<int> ids, BeansCompanion bean) =>
+      transaction(() async {
+        await (update(
+          beans,
+        )..where((b) => b.id.isIn(ids.toList()))).write(_stampBean(bean));
+      });
+
+  // A sealed bag is opened by its first shot.
+  Future<void> _openBagIfSealed(int beanId) async {
+    await (update(beans)..where(
+          (b) =>
+              b.id.equals(beanId) &
+              b.openedAt.isNull() &
+              b.deleted.equals(false),
+        ))
+        .write(_stampBean(BeansCompanion(openedAt: Value(DateTime.now()))));
   }
 
   // ---- Stored profiles ----
@@ -980,7 +1035,7 @@ class AppDatabase extends _$AppDatabase {
   // size doesn't help prefilling, so it is skipped.
   Future<Shot?> lastShotWithSetup({
     required String profileName,
-    int? beanId,
+    Iterable<int>? beanIds,
     String? machine,
   }) {
     final query = select(shots)
@@ -992,7 +1047,7 @@ class AppDatabase extends _$AppDatabase {
       )
       ..orderBy([(s) => OrderingTerm.desc(s.timestamp)])
       ..limit(1);
-    if (beanId != null) query.where((s) => s.beanId.equals(beanId));
+    if (beanIds != null) query.where((s) => s.beanId.isIn(beanIds.toList()));
     if (machine != null) query.where((s) => s.machine.equals(machine));
     return query.getSingleOrNull();
   }
@@ -1108,8 +1163,10 @@ class AppDatabase extends _$AppDatabase {
     ),
   );
 
-  Future<void> setShotBean(int id, int? beanId) =>
-      _writeShot(id, ShotsCompanion(beanId: Value(beanId)));
+  Future<void> setShotBean(int id, int? beanId) async {
+    await _writeShot(id, ShotsCompanion(beanId: Value(beanId)));
+    if (beanId != null) await _openBagIfSealed(beanId);
+  }
 
   Future<void> setShotNotes(int id, String? notes) {
     final trimmed = notes?.trim();
@@ -1139,7 +1196,7 @@ class AppDatabase extends _$AppDatabase {
   /// Earlier shots of the same bean before [before], newest first — the
   /// history passed to the shot analysis.
   Future<List<Shot>> earlierShotsOfBean(
-    int beanId, {
+    Iterable<int> beanIds, {
     required DateTime before,
     int limit = 5,
   }) =>
@@ -1147,7 +1204,7 @@ class AppDatabase extends _$AppDatabase {
             ..where(
               (s) =>
                   s.deletedAt.isNull() &
-                  s.beanId.equals(beanId) &
+                  s.beanId.isIn(beanIds.toList()) &
                   s.timestamp.isSmallerThanValue(before),
             )
             ..orderBy([(s) => OrderingTerm.desc(s.timestamp)])
@@ -1281,6 +1338,9 @@ class AppDatabase extends _$AppDatabase {
     await batch((b) {
       b.insertAll(shotReadings, [for (final r in readings) r(id)]);
     });
+    if (shot.beanId.present && shot.beanId.value != null) {
+      await _openBagIfSealed(shot.beanId.value!);
+    }
     return id;
   });
 

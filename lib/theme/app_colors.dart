@@ -73,6 +73,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.heroRingHeating,
     required this.heroRingReady,
     required this.ice,
+    required this.sealed,
     required this.iceLight,
   });
 
@@ -131,6 +132,9 @@ class AppColors extends ThemeExtension<AppColors> {
   /// Frozen bean: ring
   final Color ice;
 
+  /// A bag that is still closed.
+  final Color sealed;
+
   /// Frozen bean: light part of the ring
   final Color iceLight;
 
@@ -153,6 +157,7 @@ class AppColors extends ThemeExtension<AppColors> {
     heroRingHeating: const Color(0xFFBA7517),
     heroRingReady: const Color(0xFF1D9E75),
     ice: const Color(0xFF9ADCFF),
+    sealed: const Color(0xFFE4C49A),
     iceLight: const Color(0xFFE8F6FF),
   );
 
@@ -175,6 +180,7 @@ class AppColors extends ThemeExtension<AppColors> {
     heroRingHeating: const Color(0xFF9D5F0E),
     heroRingReady: const Color(0xFF15795A),
     ice: const Color(0xFF2573A1),
+    sealed: const Color(0xFF8A6530),
     iceLight: const Color(0xFF7CC2E8),
   );
 
@@ -197,6 +203,7 @@ class AppColors extends ThemeExtension<AppColors> {
     heroRingHeating: const Color(0xFFBA7517),
     heroRingReady: const Color(0xFF1D9E75),
     ice: const Color(0xFF9ADCFF),
+    sealed: const Color(0xFFE4C49A),
     iceLight: const Color(0xFFE8F6FF),
   );
 
@@ -232,6 +239,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? heroRingHeating,
     Color? heroRingReady,
     Color? ice,
+    Color? sealed,
     Color? iceLight,
   }) => AppColors(
     bg: bg ?? this.bg,
@@ -252,6 +260,7 @@ class AppColors extends ThemeExtension<AppColors> {
     heroRingHeating: heroRingHeating ?? this.heroRingHeating,
     heroRingReady: heroRingReady ?? this.heroRingReady,
     ice: ice ?? this.ice,
+    sealed: sealed ?? this.sealed,
     iceLight: iceLight ?? this.iceLight,
   );
 
@@ -277,6 +286,7 @@ class AppColors extends ThemeExtension<AppColors> {
       heroRingHeating: Color.lerp(heroRingHeating, other.heroRingHeating, t)!,
       heroRingReady: Color.lerp(heroRingReady, other.heroRingReady, t)!,
       ice: Color.lerp(ice, other.ice, t)!,
+      sealed: Color.lerp(sealed, other.sealed, t)!,
       iceLight: Color.lerp(iceLight, other.iceLight, t)!,
     );
   }

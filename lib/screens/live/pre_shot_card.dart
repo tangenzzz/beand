@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/coffee.dart';
 import '../../database/database.dart';
 import '../../models/grind_scale.dart';
 import '../../models/grinder.dart';
@@ -445,10 +446,7 @@ class _PreShotCardState extends State<PreShotCard> {
   // row even if it has since run empty.
   List<Bean> get _pickableBeans {
     final stock = context.read<AppSettings>().showBeanStock;
-    return [
-      for (final b in _beanList)
-        if (!b.isFrozen && !beanUsedUp(b, _beanUsage, stock: stock)) b,
-    ];
+    return pickableBags(_beanList, _beanUsage, stock: stock);
   }
 
   List<ValueOption<String>> _profileOptions() => [
@@ -578,9 +576,18 @@ class _PreShotCardState extends State<PreShotCard> {
     int? beanId,
   }) async {
     final machineKey = context.read<EspressoMachine>().machineKey;
-    final shot = await context.read<AppDatabase>().lastShotWithSetup(
+    final db = context.read<AppDatabase>();
+    // The coffee's last values, whichever of its bags they were made with.
+    final bag = beanId == null
+        ? null
+        : _beanList.where((b) => b.id == beanId).firstOrNull;
+    final shot = await db.lastShotWithSetup(
       profileName: profileName,
-      beanId: beanId,
+      beanIds: beanId == null
+          ? null
+          : bag == null
+          ? [beanId]
+          : coffeeBagIds(_beanList, bag),
       machine: machineKey,
     );
     if (shot == null || !mounted) return;

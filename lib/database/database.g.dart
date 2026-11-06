@@ -145,6 +145,15 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _regionMeta = const VerificationMeta('region');
+  @override
+  late final GeneratedColumn<String> region = GeneratedColumn<String>(
+    'region',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _processingMeta = const VerificationMeta(
     'processing',
   );
@@ -176,6 +185,39 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
     aliasedName,
     true,
     type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _altitudeMeta = const VerificationMeta(
+    'altitude',
+  );
+  @override
+  late final GeneratedColumn<String> altitude = GeneratedColumn<String>(
+    'altitude',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coffeeIdMeta = const VerificationMeta(
+    'coffeeId',
+  );
+  @override
+  late final GeneratedColumn<String> coffeeId = GeneratedColumn<String>(
+    'coffee_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _openedAtMeta = const VerificationMeta(
+    'openedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> openedAt = GeneratedColumn<DateTime>(
+    'opened_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _weightGramsMeta = const VerificationMeta(
@@ -330,9 +372,13 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
     roastedFor,
     roastLevel,
     country,
+    region,
     processing,
     variety,
     producer,
+    altitude,
+    coffeeId,
+    openedAt,
     weightGrams,
     taste,
     cost,
@@ -429,6 +475,12 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
         country.isAcceptableOrUnknown(data['country']!, _countryMeta),
       );
     }
+    if (data.containsKey('region')) {
+      context.handle(
+        _regionMeta,
+        region.isAcceptableOrUnknown(data['region']!, _regionMeta),
+      );
+    }
     if (data.containsKey('processing')) {
       context.handle(
         _processingMeta,
@@ -445,6 +497,24 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
       context.handle(
         _producerMeta,
         producer.isAcceptableOrUnknown(data['producer']!, _producerMeta),
+      );
+    }
+    if (data.containsKey('altitude')) {
+      context.handle(
+        _altitudeMeta,
+        altitude.isAcceptableOrUnknown(data['altitude']!, _altitudeMeta),
+      );
+    }
+    if (data.containsKey('coffee_id')) {
+      context.handle(
+        _coffeeIdMeta,
+        coffeeId.isAcceptableOrUnknown(data['coffee_id']!, _coffeeIdMeta),
+      );
+    }
+    if (data.containsKey('opened_at')) {
+      context.handle(
+        _openedAtMeta,
+        openedAt.isAcceptableOrUnknown(data['opened_at']!, _openedAtMeta),
       );
     }
     if (data.containsKey('weight_grams')) {
@@ -579,6 +649,10 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
         DriftSqlType.string,
         data['${effectivePrefix}country'],
       ),
+      region: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}region'],
+      ),
       processing: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}processing'],
@@ -590,6 +664,18 @@ class $BeansTable extends Beans with TableInfo<$BeansTable, Bean> {
       producer: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}producer'],
+      ),
+      altitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}altitude'],
+      ),
+      coffeeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}coffee_id'],
+      ),
+      openedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}opened_at'],
       ),
       weightGrams: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
@@ -661,9 +747,13 @@ class Bean extends DataClass implements Insertable<Bean> {
   final String? roastedFor;
   final String? roastLevel;
   final String? country;
+  final String? region;
   final String? processing;
   final String? variety;
   final String? producer;
+  final String? altitude;
+  final String? coffeeId;
+  final DateTime? openedAt;
   final double? weightGrams;
   final String? taste;
   final double? cost;
@@ -689,9 +779,13 @@ class Bean extends DataClass implements Insertable<Bean> {
     this.roastedFor,
     this.roastLevel,
     this.country,
+    this.region,
     this.processing,
     this.variety,
     this.producer,
+    this.altitude,
+    this.coffeeId,
+    this.openedAt,
     this.weightGrams,
     this.taste,
     this.cost,
@@ -734,6 +828,9 @@ class Bean extends DataClass implements Insertable<Bean> {
     if (!nullToAbsent || country != null) {
       map['country'] = Variable<String>(country);
     }
+    if (!nullToAbsent || region != null) {
+      map['region'] = Variable<String>(region);
+    }
     if (!nullToAbsent || processing != null) {
       map['processing'] = Variable<String>(processing);
     }
@@ -742,6 +839,15 @@ class Bean extends DataClass implements Insertable<Bean> {
     }
     if (!nullToAbsent || producer != null) {
       map['producer'] = Variable<String>(producer);
+    }
+    if (!nullToAbsent || altitude != null) {
+      map['altitude'] = Variable<String>(altitude);
+    }
+    if (!nullToAbsent || coffeeId != null) {
+      map['coffee_id'] = Variable<String>(coffeeId);
+    }
+    if (!nullToAbsent || openedAt != null) {
+      map['opened_at'] = Variable<DateTime>(openedAt);
     }
     if (!nullToAbsent || weightGrams != null) {
       map['weight_grams'] = Variable<double>(weightGrams);
@@ -802,6 +908,9 @@ class Bean extends DataClass implements Insertable<Bean> {
       country: country == null && nullToAbsent
           ? const Value.absent()
           : Value(country),
+      region: region == null && nullToAbsent
+          ? const Value.absent()
+          : Value(region),
       processing: processing == null && nullToAbsent
           ? const Value.absent()
           : Value(processing),
@@ -811,6 +920,15 @@ class Bean extends DataClass implements Insertable<Bean> {
       producer: producer == null && nullToAbsent
           ? const Value.absent()
           : Value(producer),
+      altitude: altitude == null && nullToAbsent
+          ? const Value.absent()
+          : Value(altitude),
+      coffeeId: coffeeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coffeeId),
+      openedAt: openedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(openedAt),
       weightGrams: weightGrams == null && nullToAbsent
           ? const Value.absent()
           : Value(weightGrams),
@@ -858,9 +976,13 @@ class Bean extends DataClass implements Insertable<Bean> {
       roastedFor: serializer.fromJson<String?>(json['roastedFor']),
       roastLevel: serializer.fromJson<String?>(json['roastLevel']),
       country: serializer.fromJson<String?>(json['country']),
+      region: serializer.fromJson<String?>(json['region']),
       processing: serializer.fromJson<String?>(json['processing']),
       variety: serializer.fromJson<String?>(json['variety']),
       producer: serializer.fromJson<String?>(json['producer']),
+      altitude: serializer.fromJson<String?>(json['altitude']),
+      coffeeId: serializer.fromJson<String?>(json['coffeeId']),
+      openedAt: serializer.fromJson<DateTime?>(json['openedAt']),
       weightGrams: serializer.fromJson<double?>(json['weightGrams']),
       taste: serializer.fromJson<String?>(json['taste']),
       cost: serializer.fromJson<double?>(json['cost']),
@@ -891,9 +1013,13 @@ class Bean extends DataClass implements Insertable<Bean> {
       'roastedFor': serializer.toJson<String?>(roastedFor),
       'roastLevel': serializer.toJson<String?>(roastLevel),
       'country': serializer.toJson<String?>(country),
+      'region': serializer.toJson<String?>(region),
       'processing': serializer.toJson<String?>(processing),
       'variety': serializer.toJson<String?>(variety),
       'producer': serializer.toJson<String?>(producer),
+      'altitude': serializer.toJson<String?>(altitude),
+      'coffeeId': serializer.toJson<String?>(coffeeId),
+      'openedAt': serializer.toJson<DateTime?>(openedAt),
       'weightGrams': serializer.toJson<double?>(weightGrams),
       'taste': serializer.toJson<String?>(taste),
       'cost': serializer.toJson<double?>(cost),
@@ -922,9 +1048,13 @@ class Bean extends DataClass implements Insertable<Bean> {
     Value<String?> roastedFor = const Value.absent(),
     Value<String?> roastLevel = const Value.absent(),
     Value<String?> country = const Value.absent(),
+    Value<String?> region = const Value.absent(),
     Value<String?> processing = const Value.absent(),
     Value<String?> variety = const Value.absent(),
     Value<String?> producer = const Value.absent(),
+    Value<String?> altitude = const Value.absent(),
+    Value<String?> coffeeId = const Value.absent(),
+    Value<DateTime?> openedAt = const Value.absent(),
     Value<double?> weightGrams = const Value.absent(),
     Value<String?> taste = const Value.absent(),
     Value<double?> cost = const Value.absent(),
@@ -950,9 +1080,13 @@ class Bean extends DataClass implements Insertable<Bean> {
     roastedFor: roastedFor.present ? roastedFor.value : this.roastedFor,
     roastLevel: roastLevel.present ? roastLevel.value : this.roastLevel,
     country: country.present ? country.value : this.country,
+    region: region.present ? region.value : this.region,
     processing: processing.present ? processing.value : this.processing,
     variety: variety.present ? variety.value : this.variety,
     producer: producer.present ? producer.value : this.producer,
+    altitude: altitude.present ? altitude.value : this.altitude,
+    coffeeId: coffeeId.present ? coffeeId.value : this.coffeeId,
+    openedAt: openedAt.present ? openedAt.value : this.openedAt,
     weightGrams: weightGrams.present ? weightGrams.value : this.weightGrams,
     taste: taste.present ? taste.value : this.taste,
     cost: cost.present ? cost.value : this.cost,
@@ -984,11 +1118,15 @@ class Bean extends DataClass implements Insertable<Bean> {
           ? data.roastLevel.value
           : this.roastLevel,
       country: data.country.present ? data.country.value : this.country,
+      region: data.region.present ? data.region.value : this.region,
       processing: data.processing.present
           ? data.processing.value
           : this.processing,
       variety: data.variety.present ? data.variety.value : this.variety,
       producer: data.producer.present ? data.producer.value : this.producer,
+      altitude: data.altitude.present ? data.altitude.value : this.altitude,
+      coffeeId: data.coffeeId.present ? data.coffeeId.value : this.coffeeId,
+      openedAt: data.openedAt.present ? data.openedAt.value : this.openedAt,
       weightGrams: data.weightGrams.present
           ? data.weightGrams.value
           : this.weightGrams,
@@ -1027,9 +1165,13 @@ class Bean extends DataClass implements Insertable<Bean> {
           ..write('roastedFor: $roastedFor, ')
           ..write('roastLevel: $roastLevel, ')
           ..write('country: $country, ')
+          ..write('region: $region, ')
           ..write('processing: $processing, ')
           ..write('variety: $variety, ')
           ..write('producer: $producer, ')
+          ..write('altitude: $altitude, ')
+          ..write('coffeeId: $coffeeId, ')
+          ..write('openedAt: $openedAt, ')
           ..write('weightGrams: $weightGrams, ')
           ..write('taste: $taste, ')
           ..write('cost: $cost, ')
@@ -1060,9 +1202,13 @@ class Bean extends DataClass implements Insertable<Bean> {
     roastedFor,
     roastLevel,
     country,
+    region,
     processing,
     variety,
     producer,
+    altitude,
+    coffeeId,
+    openedAt,
     weightGrams,
     taste,
     cost,
@@ -1092,9 +1238,13 @@ class Bean extends DataClass implements Insertable<Bean> {
           other.roastedFor == this.roastedFor &&
           other.roastLevel == this.roastLevel &&
           other.country == this.country &&
+          other.region == this.region &&
           other.processing == this.processing &&
           other.variety == this.variety &&
           other.producer == this.producer &&
+          other.altitude == this.altitude &&
+          other.coffeeId == this.coffeeId &&
+          other.openedAt == this.openedAt &&
           other.weightGrams == this.weightGrams &&
           other.taste == this.taste &&
           other.cost == this.cost &&
@@ -1122,9 +1272,13 @@ class BeansCompanion extends UpdateCompanion<Bean> {
   final Value<String?> roastedFor;
   final Value<String?> roastLevel;
   final Value<String?> country;
+  final Value<String?> region;
   final Value<String?> processing;
   final Value<String?> variety;
   final Value<String?> producer;
+  final Value<String?> altitude;
+  final Value<String?> coffeeId;
+  final Value<DateTime?> openedAt;
   final Value<double?> weightGrams;
   final Value<String?> taste;
   final Value<double?> cost;
@@ -1150,9 +1304,13 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     this.roastedFor = const Value.absent(),
     this.roastLevel = const Value.absent(),
     this.country = const Value.absent(),
+    this.region = const Value.absent(),
     this.processing = const Value.absent(),
     this.variety = const Value.absent(),
     this.producer = const Value.absent(),
+    this.altitude = const Value.absent(),
+    this.coffeeId = const Value.absent(),
+    this.openedAt = const Value.absent(),
     this.weightGrams = const Value.absent(),
     this.taste = const Value.absent(),
     this.cost = const Value.absent(),
@@ -1179,9 +1337,13 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     this.roastedFor = const Value.absent(),
     this.roastLevel = const Value.absent(),
     this.country = const Value.absent(),
+    this.region = const Value.absent(),
     this.processing = const Value.absent(),
     this.variety = const Value.absent(),
     this.producer = const Value.absent(),
+    this.altitude = const Value.absent(),
+    this.coffeeId = const Value.absent(),
+    this.openedAt = const Value.absent(),
     this.weightGrams = const Value.absent(),
     this.taste = const Value.absent(),
     this.cost = const Value.absent(),
@@ -1208,9 +1370,13 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     Expression<String>? roastedFor,
     Expression<String>? roastLevel,
     Expression<String>? country,
+    Expression<String>? region,
     Expression<String>? processing,
     Expression<String>? variety,
     Expression<String>? producer,
+    Expression<String>? altitude,
+    Expression<String>? coffeeId,
+    Expression<DateTime>? openedAt,
     Expression<double>? weightGrams,
     Expression<String>? taste,
     Expression<double>? cost,
@@ -1237,9 +1403,13 @@ class BeansCompanion extends UpdateCompanion<Bean> {
       if (roastedFor != null) 'roasted_for': roastedFor,
       if (roastLevel != null) 'roast_level': roastLevel,
       if (country != null) 'country': country,
+      if (region != null) 'region': region,
       if (processing != null) 'processing': processing,
       if (variety != null) 'variety': variety,
       if (producer != null) 'producer': producer,
+      if (altitude != null) 'altitude': altitude,
+      if (coffeeId != null) 'coffee_id': coffeeId,
+      if (openedAt != null) 'opened_at': openedAt,
       if (weightGrams != null) 'weight_grams': weightGrams,
       if (taste != null) 'taste': taste,
       if (cost != null) 'cost': cost,
@@ -1268,9 +1438,13 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     Value<String?>? roastedFor,
     Value<String?>? roastLevel,
     Value<String?>? country,
+    Value<String?>? region,
     Value<String?>? processing,
     Value<String?>? variety,
     Value<String?>? producer,
+    Value<String?>? altitude,
+    Value<String?>? coffeeId,
+    Value<DateTime?>? openedAt,
     Value<double?>? weightGrams,
     Value<String?>? taste,
     Value<double?>? cost,
@@ -1297,9 +1471,13 @@ class BeansCompanion extends UpdateCompanion<Bean> {
       roastedFor: roastedFor ?? this.roastedFor,
       roastLevel: roastLevel ?? this.roastLevel,
       country: country ?? this.country,
+      region: region ?? this.region,
       processing: processing ?? this.processing,
       variety: variety ?? this.variety,
       producer: producer ?? this.producer,
+      altitude: altitude ?? this.altitude,
+      coffeeId: coffeeId ?? this.coffeeId,
+      openedAt: openedAt ?? this.openedAt,
       weightGrams: weightGrams ?? this.weightGrams,
       taste: taste ?? this.taste,
       cost: cost ?? this.cost,
@@ -1354,6 +1532,9 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     if (country.present) {
       map['country'] = Variable<String>(country.value);
     }
+    if (region.present) {
+      map['region'] = Variable<String>(region.value);
+    }
     if (processing.present) {
       map['processing'] = Variable<String>(processing.value);
     }
@@ -1362,6 +1543,15 @@ class BeansCompanion extends UpdateCompanion<Bean> {
     }
     if (producer.present) {
       map['producer'] = Variable<String>(producer.value);
+    }
+    if (altitude.present) {
+      map['altitude'] = Variable<String>(altitude.value);
+    }
+    if (coffeeId.present) {
+      map['coffee_id'] = Variable<String>(coffeeId.value);
+    }
+    if (openedAt.present) {
+      map['opened_at'] = Variable<DateTime>(openedAt.value);
     }
     if (weightGrams.present) {
       map['weight_grams'] = Variable<double>(weightGrams.value);
@@ -1417,9 +1607,13 @@ class BeansCompanion extends UpdateCompanion<Bean> {
           ..write('roastedFor: $roastedFor, ')
           ..write('roastLevel: $roastLevel, ')
           ..write('country: $country, ')
+          ..write('region: $region, ')
           ..write('processing: $processing, ')
           ..write('variety: $variety, ')
           ..write('producer: $producer, ')
+          ..write('altitude: $altitude, ')
+          ..write('coffeeId: $coffeeId, ')
+          ..write('openedAt: $openedAt, ')
           ..write('weightGrams: $weightGrams, ')
           ..write('taste: $taste, ')
           ..write('cost: $cost, ')
@@ -6783,9 +6977,13 @@ typedef $$BeansTableCreateCompanionBuilder = BeansCompanion Function({
   Value<String?> roastedFor,
   Value<String?> roastLevel,
   Value<String?> country,
+  Value<String?> region,
   Value<String?> processing,
   Value<String?> variety,
   Value<String?> producer,
+  Value<String?> altitude,
+  Value<String?> coffeeId,
+  Value<DateTime?> openedAt,
   Value<double?> weightGrams,
   Value<String?> taste,
   Value<double?> cost,
@@ -6812,9 +7010,13 @@ typedef $$BeansTableUpdateCompanionBuilder = BeansCompanion Function({
   Value<String?> roastedFor,
   Value<String?> roastLevel,
   Value<String?> country,
+  Value<String?> region,
   Value<String?> processing,
   Value<String?> variety,
   Value<String?> producer,
+  Value<String?> altitude,
+  Value<String?> coffeeId,
+  Value<DateTime?> openedAt,
   Value<double?> weightGrams,
   Value<String?> taste,
   Value<double?> cost,
@@ -6921,6 +7123,11 @@ class $$BeansTableFilterComposer extends Composer<_$AppDatabase, $BeansTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get region => $composableBuilder(
+    column: $table.region,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get processing => $composableBuilder(
     column: $table.processing,
     builder: (column) => ColumnFilters(column),
@@ -6933,6 +7140,21 @@ class $$BeansTableFilterComposer extends Composer<_$AppDatabase, $BeansTable> {
 
   ColumnFilters<String> get producer => $composableBuilder(
     column: $table.producer,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get altitude => $composableBuilder(
+    column: $table.altitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coffeeId => $composableBuilder(
+    column: $table.coffeeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get openedAt => $composableBuilder(
+    column: $table.openedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7091,6 +7313,11 @@ class $$BeansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get region => $composableBuilder(
+    column: $table.region,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get processing => $composableBuilder(
     column: $table.processing,
     builder: (column) => ColumnOrderings(column),
@@ -7103,6 +7330,21 @@ class $$BeansTableOrderingComposer
 
   ColumnOrderings<String> get producer => $composableBuilder(
     column: $table.producer,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get altitude => $composableBuilder(
+    column: $table.altitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coffeeId => $composableBuilder(
+    column: $table.coffeeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get openedAt => $composableBuilder(
+    column: $table.openedAt,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -7216,6 +7458,9 @@ class $$BeansTableAnnotationComposer
   GeneratedColumn<String> get country =>
       $composableBuilder(column: $table.country, builder: (column) => column);
 
+  GeneratedColumn<String> get region =>
+      $composableBuilder(column: $table.region, builder: (column) => column);
+
   GeneratedColumn<String> get processing => $composableBuilder(
     column: $table.processing,
     builder: (column) => column,
@@ -7226,6 +7471,15 @@ class $$BeansTableAnnotationComposer
 
   GeneratedColumn<String> get producer =>
       $composableBuilder(column: $table.producer, builder: (column) => column);
+
+  GeneratedColumn<String> get altitude =>
+      $composableBuilder(column: $table.altitude, builder: (column) => column);
+
+  GeneratedColumn<String> get coffeeId =>
+      $composableBuilder(column: $table.coffeeId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get openedAt =>
+      $composableBuilder(column: $table.openedAt, builder: (column) => column);
 
   GeneratedColumn<double> get weightGrams => $composableBuilder(
     column: $table.weightGrams,
@@ -7337,9 +7591,13 @@ class $$BeansTableTableManager
                 Value<String?> roastedFor = const Value.absent(),
                 Value<String?> roastLevel = const Value.absent(),
                 Value<String?> country = const Value.absent(),
+                Value<String?> region = const Value.absent(),
                 Value<String?> processing = const Value.absent(),
                 Value<String?> variety = const Value.absent(),
                 Value<String?> producer = const Value.absent(),
+                Value<String?> altitude = const Value.absent(),
+                Value<String?> coffeeId = const Value.absent(),
+                Value<DateTime?> openedAt = const Value.absent(),
                 Value<double?> weightGrams = const Value.absent(),
                 Value<String?> taste = const Value.absent(),
                 Value<double?> cost = const Value.absent(),
@@ -7365,9 +7623,13 @@ class $$BeansTableTableManager
                 roastedFor: roastedFor,
                 roastLevel: roastLevel,
                 country: country,
+                region: region,
                 processing: processing,
                 variety: variety,
                 producer: producer,
+                altitude: altitude,
+                coffeeId: coffeeId,
+                openedAt: openedAt,
                 weightGrams: weightGrams,
                 taste: taste,
                 cost: cost,
@@ -7395,9 +7657,13 @@ class $$BeansTableTableManager
                 Value<String?> roastedFor = const Value.absent(),
                 Value<String?> roastLevel = const Value.absent(),
                 Value<String?> country = const Value.absent(),
+                Value<String?> region = const Value.absent(),
                 Value<String?> processing = const Value.absent(),
                 Value<String?> variety = const Value.absent(),
                 Value<String?> producer = const Value.absent(),
+                Value<String?> altitude = const Value.absent(),
+                Value<String?> coffeeId = const Value.absent(),
+                Value<DateTime?> openedAt = const Value.absent(),
                 Value<double?> weightGrams = const Value.absent(),
                 Value<String?> taste = const Value.absent(),
                 Value<double?> cost = const Value.absent(),
@@ -7423,9 +7689,13 @@ class $$BeansTableTableManager
                 roastedFor: roastedFor,
                 roastLevel: roastLevel,
                 country: country,
+                region: region,
                 processing: processing,
                 variety: variety,
                 producer: producer,
+                altitude: altitude,
+                coffeeId: coffeeId,
+                openedAt: openedAt,
                 weightGrams: weightGrams,
                 taste: taste,
                 cost: cost,

@@ -24,6 +24,8 @@ class BeanDraft {
     this.roastedFor,
     this.roastLevel,
     this.country,
+    this.region,
+    this.altitude,
     this.processing,
     this.variety,
     this.producer,
@@ -45,6 +47,8 @@ class BeanDraft {
   final String? roastLevel;
 
   final String? country;
+  final String? region;
+  final String? altitude;
   final String? processing;
   final String? variety;
   final String? producer;
@@ -66,6 +70,8 @@ class BeanDraft {
       roastedFor == null &&
       roastLevel == null &&
       country == null &&
+      region == null &&
+      altitude == null &&
       processing == null &&
       variety == null &&
       producer == null &&
@@ -100,6 +106,8 @@ class BeanDraft {
       'dark',
     ]),
     country: _text(json['country']),
+    region: _text(json['region']),
+    altitude: _text(json['altitude']),
     processing: _text(json['processing']),
     variety: _text(json['variety']),
     producer: _text(json['producer']),
@@ -211,6 +219,11 @@ Map<String, Object?> beanDraftSchema() => aiObjectSchema({
         'label names the roast level.',
   ),
   'country': aiNullable('string', description: 'Country of origin.'),
+  'region': aiNullable('string', description: 'Growing region.'),
+  'altitude': aiNullable(
+    'string',
+    description: 'Growing altitude as printed, e.g. 790-940 m.',
+  ),
   'processing': aiNullable(
     'string',
     description: 'Washed, Natural, Honey, Anaerobic …',

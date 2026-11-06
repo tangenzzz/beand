@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../models/coffee.dart';
 import '../../../database/database.dart';
 import '../../../models/brew_recipe.dart';
 import '../../../scale/brew_scale.dart';
@@ -76,10 +77,7 @@ class _PreBrewCardState extends State<PreBrewCard> {
 
   List<Bean> get _pickableBeans {
     final stock = context.read<AppSettings>().showBeanStock;
-    return [
-      for (final b in _beanList)
-        if (!b.isFrozen && !beanUsedUp(b, _beanUsage, stock: stock)) b,
-    ];
+    return pickableBags(_beanList, _beanUsage, stock: stock);
   }
 
   double _extraHeight() => switch (_open) {
