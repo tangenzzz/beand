@@ -363,9 +363,7 @@ void main() {
         );
       });
       await show(tester, bag);
-      await tester.drag(find.byType(PageView), const Offset(-400, 0));
-      await settle(tester);
-      await tester.tap(find.byKey(const ValueKey('add-bag')));
+      await tester.tap(find.byTooltip('Add bag'));
       await settle(tester);
       expect(find.text('Save'), findsOneWidget);
       await tester.tap(find.text('Save'));

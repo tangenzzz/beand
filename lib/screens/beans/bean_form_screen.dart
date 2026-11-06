@@ -1214,6 +1214,11 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           ),
           title: _editing ? Text(_isNew ? 'New coffee' : 'Edit coffee') : null,
           actions: [
+            IconButton(
+              tooltip: 'Add bag',
+              icon: Icon(Icons.add, color: colors.textSecondary),
+              onPressed: _addBag,
+            ),
             if (_editing)
               TextButton(
                 onPressed: _name.text.trim().isEmpty ? null : _save,
@@ -1653,8 +1658,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       for (final bag in saved) _bagTile(coffee, bag, _drafts[bag.id]),
       for (var i = 0; i < _newBags.length; i++)
         _bagTile(coffee, null, _newBags[i], newNumber: saved.length + i + 1),
-      _addBagTile(),
     ];
+    if (tiles.isEmpty) return const SizedBox.shrink();
     final current = _page.clamp(0, tiles.length - 1);
     final follow = _followBag;
     if (follow != null) {
@@ -1685,53 +1690,25 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < tiles.length; i++)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i == current ? colors.accent : colors.textTertiary,
+        if (tiles.length > 1) ...[
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < tiles.length; i++)
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: i == current ? colors.accent : colors.textTertiary,
+                  ),
                 ),
-              ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ],
-    );
-  }
-
-  Widget _addBagTile() {
-    final colors = context.colors;
-    return InkWell(
-      key: const ValueKey('add-bag'),
-      borderRadius: BorderRadius.circular(AppRadii.tile),
-      onTap: _addBag,
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: colors.divider),
-          borderRadius: BorderRadius.circular(AppRadii.tile),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add, color: colors.accent, size: 28),
-            const SizedBox(height: 6),
-            Text(
-              'Add bag',
-              style: TextStyle(
-                color: colors.accent,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
