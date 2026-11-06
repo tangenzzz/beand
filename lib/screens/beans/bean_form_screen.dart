@@ -122,6 +122,10 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   final _drafts = <int, _BagDraft>{};
   final _newBags = <_BagDraft>[];
   final _pages = PageController(viewportFraction: 0.94);
+
+  // A bag whose status just changed moves to its place in the order; the
+  // carousel goes along with it (null state: whatever it comes back as).
+  (int, BagState?)? _followBag;
   int _page = 0;
 
   // --- Read from packaging/link -------------------------------------------
@@ -420,39 +424,58 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         (saved.isEmpty ? null : _drafts[saved.last.id]);
   }
 
-  Future<void> _openToday(Bean? bag, _BagDraft? draft) async {
+  // The status symbols of a bag tile. Takes effect at once, also while
+  // reading. Tapping Frozen or Empty again goes back to what the bag was.
+  Future<void> _setBagState(
+    Bean? bag,
+    _BagDraft? draft,
+    BagState current,
+    BagState target,
+  ) async {
+    // A bag not saved yet can only be open or sealed.
+    if (bag == null) {
+      if (draft == null) return;
+      if (target == BagState.open || target == BagState.sealed) {
+        setState(() {
+          draft.openedAt = target == BagState.open
+              ? (draft.openedAt ?? DateTime.now())
+              : null;
+        });
+      }
+      return;
+    }
+    final again = target == current;
+    if (again && target != BagState.frozen && target != BagState.empty) return;
+    if (target == BagState.sealed && (_usage[bag.id] ?? 0) > 0) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('This bag has shots.')));
+      return;
+    }
     final now = DateTime.now();
-    if (draft != null) setState(() => draft.openedAt = now);
-    if (bag != null) {
-      await context.read<AppDatabase>().updateBean(
-        bag.id,
-        BeansCompanion(openedAt: Value(now)),
-      );
-    }
-  }
-
-  // Freezing pauses the freshness ring; thawing goes on where it stopped.
-  Future<void> _toggleFreeze(Bean bag) async {
-    final db = context.read<AppDatabase>();
-    if (bag.isFrozen) {
-      await db.updateBean(
-        bag.id,
-        BeansCompanion(
-          isFrozen: const Value(false),
-          thawedDate: Value(DateTime.now()),
-          frozenDays: Value(frozenDaysWhenThawing(bag)),
-        ),
-      );
-    } else {
-      await db.updateBean(
-        bag.id,
-        BeansCompanion(
-          isFrozen: const Value(true),
-          frozenDate: Value(DateTime.now()),
-          frozenDays: Value(frozenDaysWhenFreezing(bag)),
-        ),
-      );
-    }
+    final freeze = target == BagState.frozen && !again;
+    final thaw = bag.isFrozen && !freeze;
+    final opened = switch (target) {
+      BagState.open => bag.openedAt ?? now,
+      BagState.sealed => null,
+      _ => bag.openedAt,
+    };
+    if (draft != null) setState(() => draft.openedAt = opened);
+    _followBag = (bag.id, again ? null : target);
+    await context.read<AppDatabase>().updateBean(
+      bag.id,
+      BeansCompanion(
+        openedAt: Value(opened),
+        emptiedAt: Value(target == BagState.empty && !again ? now : null),
+        isFrozen: freeze || thaw ? Value(freeze) : const Value.absent(),
+        frozenDate: freeze ? Value(now) : const Value.absent(),
+        thawedDate: thaw ? Value(now) : const Value.absent(),
+        frozenDays: freeze
+            ? Value(frozenDaysWhenFreezing(bag))
+            : thaw
+            ? Value(frozenDaysWhenThawing(bag))
+            : const Value.absent(),
+      ),
+    );
   }
 
   Future<void> _toggleEmpty(Bean bag) => context.read<AppDatabase>().updateBean(
@@ -1614,17 +1637,32 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       _addBagTile(),
     ];
     final current = _page.clamp(0, tiles.length - 1);
+    final follow = _followBag;
+    if (follow != null) {
+      final to = saved.indexWhere((b) => b.id == follow.$1);
+      if (to >= 0 &&
+          (follow.$2 == null || coffee!.stateOf(saved[to]) == follow.$2)) {
+        _followBag = null;
+        if (to != _page) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _pages.hasClients) _pages.jumpToPage(to);
+          });
+        }
+      }
+    }
     return Column(
       children: [
         SizedBox(
-          height: _editing ? 284 : 190,
+          height: _editing ? 336 : 232,
           child: PageView(
             controller: _pages,
-            padEnds: false,
             onPageChanged: (i) => setState(() => _page = i),
             children: [
               for (final t in tiles)
-                Padding(padding: const EdgeInsets.only(right: 8), child: t),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: t,
+                ),
             ],
           ),
         ),
@@ -1688,157 +1726,74 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     final state = bag != null
         ? coffee!.stateOf(bag)
         : (draft?.openedAt == null ? BagState.sealed : BagState.open);
-    final (statusColor, status) = switch (state) {
-      BagState.open => (colors.success, 'Open'),
-      BagState.sealed => (colors.sealed, 'Sealed'),
-      BagState.frozen => (colors.ice, 'Frozen'),
-      BagState.empty => (colors.textSecondary, 'Empty'),
-    };
     final number = bag != null ? coffee!.numberOf(bag) : newNumber;
-    final grams = _parseNumber(draft?.weight.text ?? '') ?? bag?.weightGrams;
-    final title = _editing || grams == null
-        ? 'Bag $number'
-        : 'Bag $number · ${_formatNumber(grams)} g';
     final remaining = bag == null ? null : beanRemaining(bag, _usage);
-    final sub = [
-      if (state == BagState.open && remaining != null)
-        '≈ ${_formatNumber(remaining.roundToDouble())} g left',
-      if (state == BagState.frozen && bag?.frozenDate != null)
-        'since ${_shortDate(bag!.frozenDate!)}',
-    ].join();
+    final left = state == BagState.open && remaining != null
+        ? '≈ ${_formatNumber(remaining.roundToDouble())} g'
+        : null;
     final days = bag == null ? null : daysSinceFreshnessStart(bag);
-    final ring = switch (state) {
-      BagState.sealed => const SealedRing(),
-      BagState.frozen => const FrozenRing(),
-      BagState.open when days != null => FreshnessRing(
-        days: days,
-        roastLevel: bag?.roastLevel,
-      ),
-      _ => Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: colors.divider, width: 2),
-        ),
-      ),
-    };
     return Container(
       key: ValueKey('bag-${bag?.id ?? 'new-$number'}'),
       decoration: BoxDecoration(
         color: colors.card,
         borderRadius: BorderRadius.circular(AppRadii.tile),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            'Bag $number',
+            style: TextStyle(
+              color: colors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
           Row(
             children: [
-              ring,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: colors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: status,
-                            style: TextStyle(color: statusColor),
-                          ),
-                          if (sub.isNotEmpty)
-                            TextSpan(
-                              text: ' · $sub',
-                              style: TextStyle(color: colors.textSecondary),
-                            ),
-                        ],
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-              if (bag != null && state != BagState.empty)
-                _FreezeButton(
-                  frozen: bag.isFrozen,
-                  onTap: () => _toggleFreeze(bag),
+              for (final target in const [
+                BagState.sealed,
+                BagState.open,
+                BagState.frozen,
+                BagState.empty,
+              ])
+                Expanded(
+                  child: _BagStateButton(
+                    state: target,
+                    active: state == target,
+                    days: days,
+                    roastLevel: bag?.roastLevel,
+                    onTap: () => _setBagState(bag, draft, state, target),
+                  ),
                 ),
             ],
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.only(top: 6, bottom: 10),
             child: Divider(height: 1, color: colors.divider),
           ),
           if (_editing && draft != null)
-            _bagForm(bag, draft)
+            _bagForm(bag, draft, left)
           else if (bag != null)
-            _bagFacts(bag, state),
+            _bagFacts(bag, left),
           const Spacer(),
           if (_editing && draft != null)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (bag != null)
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.textSecondary,
-                      padding: EdgeInsets.zero,
-                    ),
-                    onPressed: () => _toggleEmpty(bag),
-                    child: Text(
-                      bag.emptiedAt == null ? 'Mark as empty' : 'Not empty',
-                    ),
-                  )
-                else
-                  const SizedBox.shrink(),
-                TextButton(
-                  style: TextButton.styleFrom(
-                    foregroundColor: colors.danger,
-                    padding: EdgeInsets.zero,
-                  ),
-                  onPressed: bag != null
-                      ? () => _deleteBag(bag)
-                      : () => setState(() {
-                          _newBags.remove(draft);
-                          draft.dispose();
-                        }),
-                  child: const Text('Delete bag'),
-                ),
-              ],
-            )
-          else if (bag != null && bag.emptiedAt != null)
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 style: TextButton.styleFrom(
-                  foregroundColor: colors.textSecondary,
+                  foregroundColor: colors.danger,
                   padding: EdgeInsets.zero,
                 ),
-                onPressed: () => _toggleEmpty(bag),
-                child: const Text('Not empty'),
-              ),
-            )
-          else if (bag != null && state == BagState.sealed)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor: colors.accent,
-                  padding: EdgeInsets.zero,
-                ),
-                onPressed: () => _openToday(bag, draft),
-                child: const Text('Open today'),
+                onPressed: bag != null
+                    ? () => _deleteBag(bag)
+                    : () => setState(() {
+                        _newBags.remove(draft);
+                        draft.dispose();
+                      }),
+                child: const Text('Delete bag'),
               ),
             ),
         ],
@@ -1874,39 +1829,53 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     fontWeight: FontWeight.w500,
   );
 
-  Widget _bagFacts(Bean bag, BagState state) {
-    final cells = [
-      if (_visible(BeanFormField.roastDate))
-        _bagCell(
-          'Roasted',
-          Text(
-            bag.roastDate == null ? '—' : _shortDate(bag.roastDate!),
-            style: _bagValueStyle,
-          ),
-        ),
-      _bagCell(
-        'Opened',
-        Text(
-          bag.openedAt == null ? '—' : _shortDate(bag.openedAt!),
-          style: _bagValueStyle,
-        ),
+  Widget _bagFacts(Bean bag, String? left) {
+    Widget cell(String label, String value) => _bagCell(
+      label,
+      Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _bagValueStyle,
       ),
+    );
+    String day(DateTime? d) => d == null ? '—' : _shortDate(d);
+    final grams = bag.weightGrams;
+    final cells = [
+      if (_visible(BeanFormField.weight))
+        cell('Weight', grams == null ? '—' : '${_formatNumber(grams)} g'),
+      if (left != null) cell('Left', left),
       if (_visible(BeanFormField.cost))
-        _bagCell(
-          'Cost',
-          Text(
-            bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €',
-            style: _bagValueStyle,
-          ),
-        ),
+        cell('Cost', bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €'),
+      if (_visible(BeanFormField.roastDate))
+        cell('Roasted', day(bag.roastDate)),
+      cell('Opened', day(bag.openedAt)),
+      if (bag.isFrozen && bag.emptiedAt == null)
+        cell('Frozen', day(bag.frozenDate)),
+      if (bag.emptiedAt != null) cell('Empty', day(bag.emptiedAt)),
     ];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [for (final c in cells) Expanded(child: c)],
+    return Column(
+      children: [
+        for (var i = 0; i < cells.length; i += 3)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var j = i; j < i + 3; j++)
+                  Expanded(
+                    child: j < cells.length
+                        ? cells[j]
+                        : const SizedBox.shrink(),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
-  Widget _bagForm(Bean? bag, _BagDraft d) {
+  Widget _bagForm(Bean? bag, _BagDraft d, String? left) {
     final colors = context.colors;
     Widget date(
       DateTime? value,
@@ -1957,56 +1926,49 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
             padding: EdgeInsets.zero,
           ),
         );
-    final cells = <Widget>[
-      if (_visible(BeanFormField.roastDate))
-        _bagCell(
-          'Roast date',
-          date(d.roastDate, 'Not set', (v) => d.roastDate = v),
-          mark: BeanFormField.roastDate.name,
-        ),
-      _bagCell(
-        'Opened',
-        d.openedAt == null
-            ? InkWell(
-                onTap: () => _openToday(bag, d),
-                child: Text(
-                  'Open today',
-                  style: _bagValueStyle.copyWith(color: colors.accent),
-                ),
-              )
-            : date(d.openedAt, '', (v) => d.openedAt = v),
+    Widget row(List<Widget> cells, int columns) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < columns; i++) ...[
+            if (i > 0) const SizedBox(width: 12),
+            Expanded(
+              child: i < cells.length ? cells[i] : const SizedBox.shrink(),
+            ),
+          ],
+        ],
       ),
-      if (_visible(BeanFormField.weight))
-        _bagCell(
-          'Weight',
-          number(d.weight, 'g', BeanFormField.weight.name),
-          mark: BeanFormField.weight.name,
-        ),
-      if (_visible(BeanFormField.cost))
-        _bagCell(
-          'Cost',
-          number(d.cost, '€', BeanFormField.cost.name),
-          mark: BeanFormField.cost.name,
-        ),
-    ];
+    );
     return Column(
       children: [
-        for (var i = 0; i < cells.length; i += 2)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: cells[i]),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: i + 1 < cells.length
-                      ? cells[i + 1]
-                      : const SizedBox.shrink(),
-                ),
-              ],
+        row([
+          if (_visible(BeanFormField.weight))
+            _bagCell(
+              'Weight',
+              number(d.weight, 'g', BeanFormField.weight.name),
+              mark: BeanFormField.weight.name,
             ),
+          if (left != null) _bagCell('Left', Text(left, style: _bagValueStyle)),
+          if (_visible(BeanFormField.cost))
+            _bagCell(
+              'Cost',
+              number(d.cost, '€', BeanFormField.cost.name),
+              mark: BeanFormField.cost.name,
+            ),
+        ], 3),
+        row([
+          if (_visible(BeanFormField.roastDate))
+            _bagCell(
+              'Roast date',
+              date(d.roastDate, 'Not set', (v) => d.roastDate = v),
+              mark: BeanFormField.roastDate.name,
+            ),
+          _bagCell(
+            'Opened',
+            date(d.openedAt, 'Not set', (v) => d.openedAt = v),
           ),
+        ], 2),
       ],
     );
   }
@@ -2100,36 +2062,82 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   }
 }
 
-class _FreezeButton extends StatelessWidget {
-  const _FreezeButton({required this.frozen, required this.onTap});
+/// One of the four status symbols at the top of a bag tile.
+class _BagStateButton extends StatelessWidget {
+  const _BagStateButton({
+    required this.state,
+    required this.active,
+    required this.days,
+    required this.roastLevel,
+    required this.onTap,
+  });
 
-  final bool frozen;
+  final BagState state;
+  final bool active;
+  final int? days;
+  final String? roastLevel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+    final (label, activeColor) = switch (state) {
+      BagState.open => ('Open', colors.success),
+      BagState.sealed => ('Sealed', colors.sealed),
+      BagState.frozen => ('Frozen', colors.ice),
+      BagState.empty => ('Empty', colors.textSecondary),
+    };
+    final color = active ? activeColor : colors.textTertiary;
+    final Widget sign = switch (state) {
+      BagState.open when active && days != null => FreshnessRing(
+        days: days!,
+        roastLevel: roastLevel,
+      ),
+      BagState.open => SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          value: 0.6,
+          strokeWidth: 2.4,
+          color: color,
+          backgroundColor: color.withValues(alpha: 0.25),
+        ),
+      ),
+      BagState.sealed => Icon(Icons.lock_outline, size: 24, color: color),
+      BagState.frozen => Icon(Icons.ac_unit, size: 24, color: color),
+      BagState.empty => Container(
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: color, width: 2),
+        ),
+      ),
+    };
     return Semantics(
       button: true,
-      toggled: frozen,
-      label: 'Frozen',
-      child: GestureDetector(
+      selected: active,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: frozen
-                ? context.colors.ice.withValues(alpha: 0.12)
-                : Colors.transparent,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: frozen ? context.colors.ice : context.colors.divider,
-            ),
-          ),
-          child: Icon(
-            Icons.ac_unit,
-            size: 18,
-            color: frozen ? context.colors.ice : context.colors.textTertiary,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: 40, child: Center(child: sign)),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
           ),
         ),
       ),

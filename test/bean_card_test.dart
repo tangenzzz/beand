@@ -1,7 +1,6 @@
 import 'package:beand/database/database.dart';
 import 'package:beand/models/coffee.dart';
 import 'package:beand/screens/beans/bean_form_screen.dart';
-import 'package:beand/screens/beans/freshness.dart';
 import 'package:beand/services/ai/ai_key_store.dart';
 import 'package:beand/services/ai/ai_settings.dart';
 import 'package:beand/services/app_settings.dart';
@@ -264,12 +263,72 @@ void main() {
       await finish(tester);
     });
 
-    testWidgets('Open today works while reading', (tester) async {
+    testWidgets('the status symbols work while reading', (tester) async {
       late Bean bag;
       await tester.runAsync(() async => bag = await db.insertBean(_bag('A')));
       await show(tester, bag);
-      expect(find.byType(SealedRing), findsOneWidget);
-      await tester.tap(find.text('Open today'));
+      expect(find.byTooltip('Edit'), findsOneWidget);
+
+      Future<Bean> tap(String label) async {
+        await tester.tap(find.text(label).first);
+        await settle(tester);
+        return (await tester.runAsync(db.allBeans))!.single;
+      }
+
+      final opened = await tap('Open');
+      expect(opened.openedAt, isNotNull);
+      final frozen = await tap('Frozen');
+      expect(frozen.isFrozen, isTrue);
+      expect(frozen.openedAt, isNotNull, reason: 'freezing keeps it opened');
+      final thawed = await tap('Frozen');
+      expect(thawed.isFrozen, isFalse, reason: 'again: back to what it was');
+      final empty = await tap('Empty');
+      expect(empty.emptiedAt, isNotNull);
+      final sealed = await tap('Sealed');
+      expect(sealed.openedAt, isNull);
+      expect(sealed.emptiedAt, isNull);
+      await finish(tester);
+    });
+
+    testWidgets('the bag tile fits on a phone, reading and editing', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(412, 915);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      late Bean bag;
+      await tester.runAsync(() async {
+        bag = await db.insertBean(
+          _bag('A', opened: DateTime(2026), weight: 1000),
+        );
+      });
+      await show(tester, bag);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Left'), findsOneWidget);
+      await tester.tap(find.byTooltip('Edit'));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    });
+
+    testWidgets('a bag with shots cannot go back to sealed', (tester) async {
+      late Bean bag;
+      await tester.runAsync(() async {
+        bag = await db.insertBean(
+          _bag('A', opened: DateTime(2026), weight: 250),
+        );
+        await db
+            .into(db.shots)
+            .insert(
+              ShotsCompanion.insert(
+                timestamp: DateTime(2026),
+                beanId: Value(bag.id),
+                doseGrams: const Value(18),
+              ),
+            );
+      });
+      await show(tester, bag);
+      await tester.tap(find.text('Sealed'));
       await settle(tester);
       final rows = await tester.runAsync(db.allBeans);
       expect(rows!.single.openedAt, isNotNull);
