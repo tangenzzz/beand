@@ -19,7 +19,6 @@ import '../../services/ai/ai_settings.dart';
 import '../../services/ai/bean_extraction.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
-import '../live/tile_title.dart';
 import 'bean_stock.dart';
 import 'bean_suggestions.dart';
 import 'bean_widgets.dart';
@@ -1261,7 +1260,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             _bagCarousel(coffee),
             if (_editing && !_isNew)
               Padding(
@@ -1766,7 +1765,14 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PrefixedTitle(prefix: 'Bag', title: '$number'),
+          Text(
+            'Bag $number',
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 4),
           Row(
             children: [
@@ -2113,7 +2119,7 @@ class _BagStateButton extends StatelessWidget {
       BagState.frozen => ('Frozen', colors.ice),
       BagState.empty => ('Empty', colors.textSecondary),
     };
-    final color = active ? activeColor : colors.textTertiary;
+    final color = active ? activeColor : colors.divider;
     final Widget sign = switch (state) {
       BagState.open when active && days != null => FreshnessRing(
         days: days!,
