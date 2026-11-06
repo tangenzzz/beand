@@ -1355,6 +1355,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
                         showLabel: false,
                         fontSize: 15,
                         weight: FontWeight.w400,
+                        color: colors.accent,
                       ),
                       _SuggestionRow(
                         label: 'Name',
@@ -1384,10 +1385,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
                       if (_roaster.text.trim().isNotEmpty)
                         Text(
                           _roaster.text,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 15,
-                          ),
+                          style: TextStyle(color: colors.accent, fontSize: 15),
                         ),
                       Text(
                         _name.text,
@@ -1767,11 +1765,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         children: [
           Text(
             'Bag $number',
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: colors.textPrimary, fontSize: 15),
           ),
           const SizedBox(height: 4),
           Row(
@@ -2181,6 +2175,7 @@ class _SuggestionRow extends StatefulWidget {
     this.showLabel = true,
     this.fontSize = 17,
     this.weight = FontWeight.w500,
+    this.color,
     this.marked = false,
     this.capitalization = TextCapitalization.none,
     this.hint,
@@ -2199,6 +2194,7 @@ class _SuggestionRow extends StatefulWidget {
   final bool showLabel;
   final double fontSize;
   final FontWeight weight;
+  final Color? color;
   final TextCapitalization capitalization;
   final String? hint;
 
@@ -2287,7 +2283,7 @@ class _SuggestionRowState extends State<_SuggestionRow> {
       style: TextStyle(
         color: !widget.showLabel && widget.marked
             ? context.colors.accent
-            : context.colors.textPrimary,
+            : widget.color ?? context.colors.textPrimary,
         fontSize: widget.fontSize,
         fontWeight: widget.weight,
       ),
