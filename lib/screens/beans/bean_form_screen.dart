@@ -125,6 +125,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   final _drafts = <int, _BagDraft>{};
   final _newBags = <_BagDraft>[];
   final _pages = PageController(viewportFraction: 0.94);
+  final _scroll = ScrollController();
 
   // A bag whose status just changed moves to its place in the order; the
   // carousel goes along with it (null state: whatever it comes back as).
@@ -212,6 +213,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     }
     _link.dispose();
     _pages.dispose();
+    _scroll.dispose();
     for (final d in [..._drafts.values, ..._newBags]) {
       d.dispose();
     }
@@ -415,7 +417,22 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           curve: Curves.easeOut,
         );
       }
+      _scrollToEnd();
     });
+  }
+
+  // Down to the bags. The list only knows its full length once it has built
+  // what lies further down, so it checks again on arrival.
+  Future<void> _scrollToEnd() async {
+    for (var i = 0; i < 4 && mounted && _scroll.hasClients; i++) {
+      final end = _scroll.position.maxScrollExtent;
+      if (_scroll.offset >= end) return;
+      await _scroll.animateTo(
+        end,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   // The bag whose tile is on screen: there the fill row puts weight and price.
@@ -1235,6 +1252,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           ],
         ),
         body: ListView(
+          controller: _scroll,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.tileOuterMargin,

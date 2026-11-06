@@ -363,8 +363,14 @@ void main() {
         );
       });
       await show(tester, bag);
+      tester.view.physicalSize = const Size(420, 800);
+      await settle(tester);
       await tester.tap(find.byTooltip('Add bag'));
       await settle(tester);
+      await tester.pump(const Duration(seconds: 1));
+      await settle(tester);
+      final list = tester.state<ScrollableState>(find.byType(Scrollable).first);
+      expect(list.position.pixels, list.position.maxScrollExtent);
       expect(find.text('Save'), findsOneWidget);
       await tester.tap(find.text('Save'));
       await settle(tester);
