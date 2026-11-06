@@ -38,7 +38,11 @@ class HomeSettingsScreen extends StatelessWidget {
               SettingsGroup(
                 label: 'Show on Home',
                 children: [
-                  for (final mode in HomeMode.values)
+                  for (final mode in const [
+                    HomeMode.meticulous,
+                    HomeMode.gaggimate,
+                    HomeMode.pourOver,
+                  ])
                     // Pour Over has its own page (switch + profiles) — here
                     // only the way there.
                     if (mode == HomeMode.pourOver)
