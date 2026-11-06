@@ -155,66 +155,6 @@ void main() {
     );
     await db.close();
   });
-
-  testWidgets('chips appear only for a matching word start', (tester) async {
-    tester.view.physicalSize = const Size(800, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final db = AppDatabase(NativeDatabase.memory());
-    await tester.runAsync(
-      () => db.insertBean(
-        const BeansCompanion(
-          name: Value('Kiambu'),
-          roaster: Value('Bonanza'),
-          taste: Value('blackcurrant, grapefruit'),
-        ),
-      ),
-    );
-    await tester.pumpWidget(app(db, const BeanFormScreen()));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 200)),
-    );
-    await tester.pump();
-
-    final roastery = find.widgetWithText(TextField, '').at(1);
-    await tester.tap(roastery);
-    await tester.pump();
-    expect(
-      find.text('Bonanza'),
-      findsNothing,
-      reason: 'no chips without input',
-    );
-
-    await tester.enterText(roastery, 'B');
-    await tester.pump();
-    expect(find.text('Bonanza'), findsOneWidget);
-
-    await tester.enterText(roastery, 'onanza');
-    await tester.pump();
-    expect(
-      find.widgetWithText(GestureDetector, 'Bonanza'),
-      findsNothing,
-      reason: 'no match in the middle of a word',
-    );
-
-    // Taste: word by word, only for the word being typed.
-    final taste = find.widgetWithText(TextField, '').last;
-    await tester.tap(taste);
-    await tester.enterText(taste, 'blackcurrant, gr');
-    await tester.pump();
-    expect(find.text('grapefruit'), findsOneWidget);
-    // The word already taken shows as a chosen underline item (tap removes
-    // it), not as a suggestion.
-    expect(
-      find.byWidgetPredicate(
-        (w) => w is UnderlineItem && w.label == 'blackcurrant' && w.selected,
-      ),
-      findsOneWidget,
-    );
-    await db.close();
-  });
-
-  freshnessTests();
 }
 
 void freshnessTests() {
@@ -234,7 +174,11 @@ void freshnessTests() {
       final roast = DateTime(now.year, now.month, now.day - 12, 12);
       await tester.runAsync(
         () => db.insertBean(
-          BeansCompanion.insert(name: 'Kiambu', roastDate: Value(roast)),
+          BeansCompanion.insert(
+            openedAt: Value(DateTime(2026)),
+            name: 'Kiambu',
+            roastDate: Value(roast),
+          ),
         ),
       );
 

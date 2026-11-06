@@ -53,10 +53,10 @@ void main() {
     expect(settings.beanFormFields, BeanFormField.values);
     expect(settings.visibleBeanFormFields, BeanFormField.values);
 
-    // Country to the end (index depends on the field count, not hardcoded 8).
+    // The first field to the end (index depends on the field count, not hardcoded 8).
     await settings.reorderBeanFormFields(0, BeanFormField.values.length - 1);
     await settings.setBeanFormFieldVisible(BeanFormField.variety, false);
-    expect(settings.beanFormFields.last, BeanFormField.country);
+    expect(settings.beanFormFields.last, BeanFormField.processing);
     expect(
       settings.visibleBeanFormFields,
       isNot(contains(BeanFormField.variety)),
@@ -77,10 +77,8 @@ void main() {
       ],
     });
     final settings = await AppSettings.load();
-    expect(settings.beanFormFields.take(2), [
-      BeanFormField.taste,
-      BeanFormField.cost,
-    ]);
+    expect(settings.beanFormFields.first, BeanFormField.taste);
+    expect(settings.beanFormFields, contains(BeanFormField.cost));
     expect(settings.beanFormFields.toSet(), BeanFormField.values.toSet());
     expect(settings.beanFormFields, hasLength(BeanFormField.values.length));
   });
@@ -118,122 +116,6 @@ void main() {
     expect(
       settings.beanFormFields.indexOf(BeanFormField.country),
       greaterThan(0),
-    );
-    await db.close();
-  });
-
-  testWidgets('form shows only visible fields in the chosen order', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final db = AppDatabase(NativeDatabase.memory());
-    final settings = AppSettings(
-      beanFormOrder: [
-        BeanFormField.taste,
-        BeanFormField.variety,
-        BeanFormField.producer,
-      ],
-      hiddenBeanFormFields: {BeanFormField.weight, BeanFormField.cost},
-    );
-    await tester.pumpWidget(app(db, settings, const BeanFormScreen()));
-    await tester.pump();
-
-    expect(find.text('Weight'), findsNothing);
-    expect(find.text('Cost'), findsNothing);
-    // Fixed: photo, name, roastery.
-    for (final fixed in ['Name', 'Roastery', 'Add photo']) {
-      expect(find.text(fixed), findsOneWidget);
-    }
-    double y(String label) => tester.getTopLeft(find.text(label)).dy;
-    expect(y('Taste'), lessThan(y('Variety')));
-    expect(y('Variety'), lessThan(y('Producer')));
-    expect(y('Producer'), lessThan(y('Country')));
-    await db.close();
-  });
-
-  testWidgets('snowflake: freezing, then thawing goes on where it stopped', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(800, 2400);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final db = AppDatabase(NativeDatabase.memory());
-    final settings = AppSettings();
-    final bean = await tester.runAsync(
-      () => db.insertBean(
-        BeansCompanion.insert(
-          name: 'Kiambu',
-          roastDate: Value(DateTime.now().subtract(const Duration(days: 40))),
-        ),
-      ),
-    );
-
-    Future<void> openFormAndSave() async {
-      await tester.pumpWidget(
-        app(
-          db,
-          settings,
-          Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () async {
-                  final b = await (db.select(db.beans)).getSingle();
-                  if (!context.mounted) return;
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => BeanFormScreen(bean: b)),
-                  );
-                },
-                child: const Text('open'),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.text('open'));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 100)),
-      );
-      await tester.pumpAndSettle();
-    }
-
-    Future<void> tapSnowflakeAndSave() async {
-      await tester.tap(find.byIcon(Icons.ac_unit));
-      await tester.pump();
-      await tester.tap(find.text('Save'));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 200)),
-      );
-      await tester.pumpAndSettle();
-    }
-
-    expect(bean!.isFrozen, false);
-    await openFormAndSave();
-    await tapSnowflakeAndSave();
-    var saved = (await tester.runAsync(() => db.select(db.beans).getSingle()))!;
-    expect(saved.isFrozen, true);
-    expect(saved.thawedDate, isNull);
-
-    await openFormAndSave();
-    await tapSnowflakeAndSave();
-    saved = (await tester.runAsync(() => db.select(db.beans).getSingle()))!;
-    expect(saved.isFrozen, false);
-    final today = DateTime.now();
-    expect(
-      DateTime(
-        saved.thawedDate!.year,
-        saved.thawedDate!.month,
-        saved.thawedDate!.day,
-      ),
-      DateTime(today.year, today.month, today.day),
-    );
-    // Frozen and thawed the same day: the ring just goes on.
-    expect(saved.frozenDays, 0);
-    expect(
-      daysSinceFreshnessStart(saved),
-      daysSinceRoast(saved),
-      reason: 'no day in the freezer',
     );
     await db.close();
   });

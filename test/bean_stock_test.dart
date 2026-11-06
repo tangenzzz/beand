@@ -31,9 +31,15 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final guji = await db.insertBean(
-        BeansCompanion.insert(name: 'Guji', weightGrams: const Value(250)),
+        BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
+          name: 'Guji',
+          weightGrams: const Value(250),
+        ),
       );
-      final other = await db.insertBean(BeansCompanion.insert(name: 'Other'));
+      final other = await db.insertBean(
+        BeansCompanion.insert(openedAt: Value(DateTime(2026)), name: 'Other'),
+      );
       for (final dose in [18.0, 18.5, null]) {
         await db
             .into(db.shots)

@@ -26,6 +26,7 @@ void main() {
     await tester.runAsync(() async {
       await db.insertBean(
         BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
           name: 'Kiambu',
           roaster: const Value('Bonanza'),
           country: const Value('Kenya'),
@@ -33,6 +34,7 @@ void main() {
       );
       await db.insertBean(
         BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
           name: 'Perfecto',
           roaster: const Value('Coffee Collective'),
           isBlend: const Value(true),
@@ -126,16 +128,22 @@ void main() {
       // Two roasters, one of them with two beans — only this shows the
       // difference between "per bean" and "per roaster".
       await db.insertBean(
-        BeansCompanion.insert(name: 'Kiambu', roaster: const Value('Bonanza')),
+        BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
+          name: 'Kiambu',
+          roaster: const Value('Bonanza'),
+        ),
       );
       await db.insertBean(
         BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
           name: 'Lekempti',
           roaster: const Value('Bonanza'),
         ),
       );
       await db.insertBean(
         BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
           name: 'Perfecto',
           roaster: const Value('Coffee Collective'),
         ),
@@ -202,12 +210,19 @@ void main() {
 
     final db = AppDatabase(NativeDatabase.memory());
     await tester.runAsync(() async {
-      await db.insertBean(BeansCompanion.insert(name: 'Kiambu'));
       await db.insertBean(
-        BeansCompanion.insert(name: 'Gesha', isFrozen: const Value(true)),
+        BeansCompanion.insert(openedAt: Value(DateTime(2026)), name: 'Kiambu'),
       );
       await db.insertBean(
         BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
+          name: 'Gesha',
+          isFrozen: const Value(true),
+        ),
+      );
+      await db.insertBean(
+        BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
           name: 'Lekempti',
           emptiedAt: Value(DateTime(2026, 10, 1)),
         ),

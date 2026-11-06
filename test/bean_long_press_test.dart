@@ -79,7 +79,9 @@ void main() {
   ) async {
     await open(tester);
     await tester.runAsync(
-      () => db.insertBean(BeansCompanion.insert(name: 'Kiambu')),
+      () => db.insertBean(
+        BeansCompanion.insert(openedAt: Value(DateTime(2026)), name: 'Kiambu'),
+      ),
     );
     await pump(tester);
 
@@ -116,6 +118,7 @@ void main() {
     await tester.runAsync(
       () => db.insertBean(
         BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
           name: 'Guji',
           roastDate: Value(DateTime(2026, 9, 1)),
           isFrozen: const Value(true),
@@ -146,6 +149,7 @@ void main() {
     await tester.runAsync(
       () => db.insertBean(
         BeansCompanion.insert(
+          openedAt: Value(DateTime(2026)),
           name: 'Guji',
           roastDate: Value(DateTime.now().subtract(const Duration(days: 9))),
         ),
@@ -176,7 +180,9 @@ void main() {
   ) async {
     await open(tester);
     await tester.runAsync(
-      () => db.insertBean(BeansCompanion.insert(name: 'Kiambu')),
+      () => db.insertBean(
+        BeansCompanion.insert(openedAt: Value(DateTime(2026)), name: 'Kiambu'),
+      ),
     );
     await pump(tester);
     await tester.longPress(find.byType(BeanThumbnail));
@@ -191,7 +197,9 @@ void main() {
   testWidgets('short tap on the photo still opens the bean', (tester) async {
     await open(tester);
     await tester.runAsync(
-      () => db.insertBean(BeansCompanion.insert(name: 'Kiambu')),
+      () => db.insertBean(
+        BeansCompanion.insert(openedAt: Value(DateTime(2026)), name: 'Kiambu'),
+      ),
     );
     await pump(tester);
     await tester.tap(find.byType(BeanThumbnail));
