@@ -132,24 +132,28 @@ class _PreBrewCardState extends State<PreBrewCard> {
       ),
   ];
 
-  List<ValueOption<int>> _beanOptions(bool showStock) => [
-    for (final g in groupBeansByRoaster(_pickableBeans))
-      for (final b in g.beans)
-        ValueOption(
-          value: b.id,
-          title: b.name,
-          subtitle: b.roaster,
-          leading: showStock
-              ? BeanStockAvatar(
-                  photoPath: b.photoPath,
-                  remaining: beanRemaining(b, _beanUsage),
-                  total: b.weightGrams,
-                  size: 40,
-                  labelOverhang: 2,
-                )
-              : BeanThumbnail(path: b.photoPath, size: 36, circle: true),
-        ),
-  ];
+  List<ValueOption<int>> _beanOptions(bool showStock) {
+    final shown = _pickableBeans;
+    return [
+      for (final g in groupBeansByRoaster(shown))
+        for (final b in g.beans)
+          ValueOption(
+            value: b.id,
+            title: b.name,
+            subtitle: bagSubtitle(b, shown),
+            subtitleIcon: b.openedAt == null ? Icons.lock_outline : null,
+            leading: showStock
+                ? BeanStockAvatar(
+                    photoPath: b.photoPath,
+                    remaining: beanRemaining(b, _beanUsage),
+                    total: b.weightGrams,
+                    size: 40,
+                    labelOverhang: 2,
+                  )
+                : BeanThumbnail(path: b.photoPath, size: 36, circle: true),
+          ),
+    ];
+  }
 
   Future<void> _addBean() async {
     final created = await Navigator.of(context)

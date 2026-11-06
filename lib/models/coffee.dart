@@ -159,3 +159,33 @@ List<Bean> pickableBags(
         ? c.bags.where((b) => c.stateOf(b) == BagState.open)
         : [?c.firstIn(BagState.sealed)],
 ];
+
+const _monthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+/// The second line of a bag in a bean picker: the roaster, and what tells it
+/// apart from the other bags of its coffee in [shown].
+String? bagSubtitle(Bean bag, Iterable<Bean> shown) {
+  final key = coffeeKey(bag);
+  final twin = shown.any((b) => b.id != bag.id && coffeeKey(b) == key);
+  final roast = bag.roastDate;
+  final parts = [
+    if (bag.roaster?.trim().isNotEmpty ?? false) bag.roaster!.trim(),
+    if (bag.openedAt == null) 'sealed',
+    if (twin && roast != null)
+      'roasted ${roast.day} ${_monthNames[roast.month - 1]}',
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}

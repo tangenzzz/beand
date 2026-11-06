@@ -9,7 +9,6 @@ import 'package:beand/services/ai/ai_settings.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
 import 'package:beand/theme/app_theme.dart';
-import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -167,6 +166,7 @@ void main() {
         id: 2,
         name: 'Thawed',
         isBlend: false,
+        openedAt: DateTime(2026),
         isFrozen: false,
         roastDate: DateTime.now().subtract(const Duration(days: 90)),
         thawedDate: DateTime.now().subtract(const Duration(days: 5)),

@@ -171,14 +171,18 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
                       }),
                     ),
                 ]),
-              if (_options.beans.isNotEmpty)
+              if (_options.coffees.isNotEmpty)
                 _Section('Bean', [
-                  for (final b in _options.beans)
+                  for (final c in _options.coffees)
                     UnderlineItem(
-                      label: b.name,
-                      selected: _beanIds.contains(b.id),
+                      label: c.name,
+                      selected: _beanIds.any(c.bagIds.contains),
                       onTap: () => setState(() {
-                        if (!_beanIds.remove(b.id)) _beanIds.add(b.id);
+                        if (_beanIds.any(c.bagIds.contains)) {
+                          _beanIds.removeAll(c.bagIds);
+                        } else {
+                          _beanIds.addAll(c.bagIds);
+                        }
                       }),
                     ),
                 ]),

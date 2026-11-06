@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/machine_badge.dart';
 
 import '../../database/database.dart';
+import '../../models/coffee.dart';
 import '../../services/app_settings.dart';
 import '../beans/bean_filter.dart';
 
@@ -243,6 +244,14 @@ List<ShotEntry> filterShots(
   ];
 }
 
+// One coffee in the filter: all its bags that have shots.
+class HistoryCoffee {
+  HistoryCoffee(this.name, this.bagIds);
+
+  final String name;
+  final Set<int> bagIds;
+}
+
 // Options for the filter sheet. Machines come from the enabled brew methods
 // (Settings → Home), not just from existing shots — otherwise e.g. a newly
 // enabled brew method without shots would not be offered as a filter.
@@ -252,21 +261,26 @@ class HistoryFilterOptions {
     List<ShotEntry> entries, {
     required List<ShotMachine> enabledMachines,
   }) : machines = enabledMachines,
-       beans = _beans(entries),
+       coffees = _coffees(entries),
        roasters = _distinct(entries.map((e) => _clean(e.bean?.roaster))),
        profiles = _distinct(entries.map((e) => _clean(e.shot.profileName)));
 
   final List<ShotMachine> machines;
-  final List<Bean> beans;
+  final List<HistoryCoffee> coffees;
   final List<String> roasters;
   final List<String> profiles;
 
-  static List<Bean> _beans(List<ShotEntry> entries) {
-    final byId = {
-      for (final e in entries)
-        if (e.bean != null) e.bean!.id: e.bean!,
-    };
-    return byId.values.toList()
+  static List<HistoryCoffee> _coffees(List<ShotEntry> entries) {
+    final byKey = <String, HistoryCoffee>{};
+    for (final e in entries) {
+      final bean = e.bean;
+      if (bean == null) continue;
+      byKey
+          .putIfAbsent(coffeeKey(bean), () => HistoryCoffee(bean.name, <int>{}))
+          .bagIds
+          .add(bean.id);
+    }
+    return byKey.values.toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 

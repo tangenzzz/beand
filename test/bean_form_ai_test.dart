@@ -80,6 +80,11 @@ Color? labelColor(WidgetTester tester, String label) =>
     tester.widget<Text>(find.text(label).first).style?.color;
 
 Future<void> fillFromLink(WidgetTester tester) async {
+  // A saved coffee opens for reading.
+  if (find.byTooltip('Edit').evaluate().isNotEmpty) {
+    await tester.tap(find.byTooltip('Edit'));
+    await tester.pumpAndSettle();
+  }
   await tester.tap(find.text('Fill from packaging or link'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('From a shop link'));
@@ -308,6 +313,8 @@ void main() {
 
     expect(find.textContaining('Nothing readable found'), findsOneWidget);
     expect(find.text('Undo'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 
   // Not an AI test, but noticed here and harmful exactly here: the weight
@@ -328,6 +335,8 @@ void main() {
     await tester.pumpWidget(
       app(db, AiSettings(keyStore: InMemoryAiKeyStore()), bean: bean),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit'));
     await tester.pumpAndSettle();
 
     expect(find.text('250'), findsOneWidget);
@@ -357,6 +366,8 @@ void main() {
 
     expect(find.text('22'), findsNothing);
     expect(find.textContaining('not in euro'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 }
 

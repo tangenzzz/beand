@@ -22,12 +22,16 @@ class ValueOption<T> {
     required this.value,
     required this.title,
     this.subtitle,
+    this.subtitleIcon,
     this.leading,
   });
 
   final T value;
   final String title;
   final String? subtitle;
+
+  /// Small sign after the subtitle, e.g. the lock of a sealed bag.
+  final IconData? subtitleIcon;
 
   /// E.g. the photo circle of a bean or profile.
   final Widget? leading;
@@ -783,14 +787,28 @@ class _OptionRow<T> extends StatelessWidget {
                       ),
                     ),
                     if (option.subtitle != null)
-                      Text(
-                        option.subtitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.textSecondary,
-                          fontSize: 12,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              option.subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          if (option.subtitleIcon != null) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              option.subtitleIcon,
+                              size: 12,
+                              color: colors.textSecondary,
+                            ),
+                          ],
+                        ],
                       ),
                   ],
                 ),

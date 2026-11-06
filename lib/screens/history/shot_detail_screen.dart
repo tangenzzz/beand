@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
+import '../../models/coffee.dart';
 import '../../models/shot_phases.dart';
 import '../../models/taste_profile.dart';
 import '../../models/gear.dart';
@@ -773,7 +774,10 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                     ValueOption(
                       value: b.id,
                       title: b.name,
-                      subtitle: b.roaster,
+                      subtitle: bagSubtitle(b, _beanList),
+                      subtitleIcon: b.openedAt == null
+                          ? Icons.lock_outline
+                          : null,
                       leading: BeanThumbnail(
                         path: b.photoPath,
                         size: 36,

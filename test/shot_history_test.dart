@@ -536,7 +536,7 @@ void main() {
         enabledMachines: const [ShotMachine.meticulous, ShotMachine.pourOver],
       );
       expect(options.machines, [ShotMachine.meticulous, ShotMachine.pourOver]);
-      expect(options.beans.map((b) => b.name), ['Guji Natural', 'Kiambu AA']);
+      expect(options.coffees.map((c) => c.name), ['Guji Natural', 'Kiambu AA']);
       expect(options.roasters, ['Friedhats', 'La Cabra']);
       expect(options.profiles, ["Damian's LRv2", 'Soup', 'V60']);
     });

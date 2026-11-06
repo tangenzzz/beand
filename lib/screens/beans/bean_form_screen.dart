@@ -156,6 +156,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   void initState() {
     super.initState();
     final b = widget.bean;
+    // Until the database answers: at least this bag, so the page has no gap.
+    _beans = [?b];
     _editing = b == null;
     _key = b == null ? null : coffeeKey(b);
     _name = TextEditingController(text: b?.name)..addListener(_onNameChanged);
