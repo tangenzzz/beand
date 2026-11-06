@@ -182,7 +182,14 @@ class BeanRow extends StatelessWidget {
     this.onPhotoLongPress,
     this.onFrozenLongPress,
     this.onFreshLongPress,
+    this.moreBags = 0,
+    this.moreColor,
   });
+
+  /// Further bags of this coffee: „+1“ next to the ring, in [moreColor], the
+  /// state of the next one.
+  final int moreBags;
+  final Color? moreColor;
 
   final Bean bean;
   final VoidCallback onTap;
@@ -270,6 +277,17 @@ class BeanRow extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(Icons.check, color: context.colors.accent, size: 18),
             ],
+            if (moreBags > 0) ...[
+              const SizedBox(width: 8),
+              Text(
+                '+$moreBags',
+                style: TextStyle(
+                  color: moreColor ?? context.colors.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             if (empty)
               const SizedBox.shrink()
             else if (bean.isFrozen) ...[
@@ -279,6 +297,19 @@ class BeanRow extends StatelessWidget {
                 child: showRing
                     ? const FrozenRing()
                     : Icon(Icons.ac_unit, color: context.colors.ice, size: 18),
+              ),
+            ] else if (bean.openedAt == null) ...[
+              const SizedBox(width: 10),
+              // Long press freezes it, like on the freshness ring.
+              _LongPress(
+                onLongPress: onFreshLongPress,
+                child: showRing
+                    ? const SealedRing()
+                    : Icon(
+                        Icons.lock_outline,
+                        color: context.colors.sealed,
+                        size: 18,
+                      ),
               ),
             ] else if (days != null) ...[
               const SizedBox(width: 10),

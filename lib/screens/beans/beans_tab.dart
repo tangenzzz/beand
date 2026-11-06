@@ -1,3 +1,5 @@
+import '../../models/coffee.dart';
+
 import 'dart:async';
 
 import 'package:drift/drift.dart' show Value;
@@ -15,7 +17,6 @@ import '../../widgets/underline_select.dart';
 import 'bean_filter.dart';
 import 'bean_filter_sheet.dart';
 import 'bean_form_screen.dart';
-import 'bean_stock.dart';
 import 'bean_widgets.dart';
 
 class BeansTab extends StatefulWidget {
@@ -193,9 +194,17 @@ class _BeansTabState extends State<BeansTab> {
     final stock = settings.showBeanStock;
     final status = settings.beanStatus;
     final matching = filterBeans(beans, query: _search.text, filter: _filter);
-    final visible = [
-      for (final b in matching)
-        if (beanHasStatus(b, status, _usage, stock: stock)) b,
+    // One row per coffee: a match on one bag brings up the whole coffee, and
+    // the row stands for the bag the chosen status is about.
+    final keys = {for (final b in matching) coffeeKey(b)};
+    final coffees = groupCoffees(
+      beans.where((b) => keys.contains(coffeeKey(b))),
+      _usage,
+      stock: stock,
+    );
+    final visible = <_CoffeeRow>[
+      for (final c in coffees)
+        if (_rowFor(c, status) case final row?) row,
     ];
     if (matching.isEmpty) {
       return _EmptyMessage(
@@ -211,13 +220,44 @@ class _BeansTabState extends State<BeansTab> {
     return _BeanListTile(
       status: status,
       onStatus: settings.setBeanStatus,
-      beans: visible,
+      rows: visible,
       usage: _usage,
       onTap: _openForm,
       onToggleEmpty: _toggleEmpty,
       onThaw: _thaw,
       onFreeze: _freeze,
     );
+  }
+
+  // The row of a coffee under [status], null if it has no such bag. Only All
+  // counts the other bags: under a status the row is about that one.
+  _CoffeeRow? _rowFor(Coffee c, BeanStatus status) {
+    Bean? only(BagState state) => c.firstIn(state);
+    return switch (status) {
+      BeanStatus.all => _CoffeeRow(
+        c.lead,
+        more: c.moreBags.length,
+        moreColor: c.moreBags.isEmpty
+            ? null
+            : _stateColor(c.stateOf(c.moreBags.first)),
+      ),
+      BeanStatus.open => _rowOf(only(BagState.open)),
+      BeanStatus.sealed => _rowOf(only(BagState.sealed)),
+      BeanStatus.frozen => _rowOf(only(BagState.frozen)),
+      BeanStatus.finished => c.activeBags.isEmpty ? _CoffeeRow(c.lead) : null,
+    };
+  }
+
+  static _CoffeeRow? _rowOf(Bean? bag) => bag == null ? null : _CoffeeRow(bag);
+
+  Color _stateColor(BagState state) {
+    final colors = context.colors;
+    return switch (state) {
+      BagState.open => colors.success,
+      BagState.sealed => colors.sealed,
+      BagState.frozen => colors.ice,
+      BagState.empty => colors.textSecondary,
+    };
   }
 
   // Long press on the photo: mark as empty or release again. Empty beans are
@@ -342,11 +382,19 @@ class _EmptyMessage extends StatelessWidget {
   }
 }
 
+class _CoffeeRow {
+  const _CoffeeRow(this.bag, {this.more = 0, this.moreColor});
+
+  final Bean bag;
+  final int more;
+  final Color? moreColor;
+}
+
 class _BeanListTile extends StatelessWidget {
   const _BeanListTile({
     required this.status,
     required this.onStatus,
-    required this.beans,
+    required this.rows,
     required this.usage,
     required this.onTap,
     required this.onToggleEmpty,
@@ -356,7 +404,7 @@ class _BeanListTile extends StatelessWidget {
 
   final BeanStatus status;
   final ValueChanged<BeanStatus> onStatus;
-  final List<Bean> beans;
+  final List<_CoffeeRow> rows;
   final Map<int, double> usage;
   final ValueChanged<Bean> onTap;
   final ValueChanged<Bean> onToggleEmpty;
@@ -365,7 +413,8 @@ class _BeanListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final groups = groupBeansByRoaster(beans);
+    final byBag = {for (final r in rows) r.bag.id: r};
+    final groups = groupBeansByRoaster(rows.map((r) => r.bag));
     return Container(
       padding: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
@@ -405,7 +454,7 @@ class _BeanListTile extends StatelessWidget {
             endIndent: AppSpacing.dividerInset,
             color: context.colors.divider,
           ),
-          if (beans.isEmpty)
+          if (rows.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.dividerInset,
@@ -431,6 +480,8 @@ class _BeanListTile extends StatelessWidget {
               BeanRow(
                 bean: bean,
                 usage: usage,
+                moreBags: byBag[bean.id]?.more ?? 0,
+                moreColor: byBag[bean.id]?.moreColor,
                 onTap: () => onTap(bean),
                 onPhotoLongPress: () => onToggleEmpty(bean),
                 onFrozenLongPress: () => onThaw(bean),

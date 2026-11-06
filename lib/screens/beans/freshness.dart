@@ -114,6 +114,59 @@ class FrozenRing extends StatelessWidget {
   }
 }
 
+// A closed bag: a dashed ring with a lock, instead of the days.
+class SealedRing extends StatelessWidget {
+  const SealedRing({super.key, this.size = 40});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.colors.sealed;
+    return Semantics(
+      label: 'Sealed',
+      excludeSemantics: true,
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(
+          painter: _DashedRingPainter(color),
+          child: Center(
+            child: Icon(Icons.lock_outline, color: color, size: size * 0.45),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedRingPainter extends CustomPainter {
+  const _DashedRingPainter(this.color);
+
+  final Color color;
+
+  static const _dashes = 14;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final rect = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: size.width / 2 - 1,
+    );
+    const step = 2 * math.pi / _dashes;
+    for (var i = 0; i < _dashes; i++) {
+      canvas.drawArc(rect, i * step, step * 0.55, false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedRingPainter old) => old.color != color;
+}
+
 class _FrozenRingPainter extends CustomPainter {
   const _FrozenRingPainter({required this.ice, required this.iceLight});
 
