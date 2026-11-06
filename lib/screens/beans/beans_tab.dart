@@ -202,10 +202,7 @@ class _BeansTabState extends State<BeansTab> {
       _usage,
       stock: stock,
     );
-    final visible = <_CoffeeRow>[
-      for (final c in coffees)
-        if (_rowFor(c, status) case final row?) row,
-    ];
+    final visible = <_CoffeeRow>[for (final c in coffees) ?_rowFor(c, status)];
     if (matching.isEmpty) {
       return _EmptyMessage(
         'No matching beans.',

@@ -312,6 +312,31 @@ class AppDatabase extends _$AppDatabase {
       // definition (i.e. with sync columns).
       var beansHaveSync = false;
       var profilesHaveSync = false;
+      if (from < 28) {
+        // Bean card: a coffee with several bags. First of all, since the
+        // later steps rebuild the table per the current definition. Only where
+        // missing (tests create current tables).
+        final existing = {
+          for (final row in await customSelect(
+            'PRAGMA table_info(beans)',
+          ).get())
+            row.read<String>('name'),
+        };
+        if (!existing.contains(beans.region.name)) {
+          await m.addColumn(beans, beans.region);
+        }
+        if (!existing.contains(beans.altitude.name)) {
+          await m.addColumn(beans, beans.altitude);
+        }
+        if (!existing.contains(beans.coffeeId.name)) {
+          await m.addColumn(beans, beans.coffeeId);
+        }
+        if (!existing.contains(beans.openedAt.name)) {
+          await m.addColumn(beans, beans.openedAt);
+          // Everything so far counts as opened: nothing changes for it.
+          await customStatement('UPDATE beans SET opened_at = created_at');
+        }
+      }
       if (from < 2) {
         // Beans tab: origin -> country, variety (unused) dropped, new fields
         // for the bean form.
@@ -454,30 +479,6 @@ class AppDatabase extends _$AppDatabase {
         }
         if (!existing.contains(beans.frozenDays.name)) {
           await m.addColumn(beans, beans.frozenDays);
-        }
-      }
-      if (from < 28) {
-        // Bean card: a coffee with several bags. Only where missing (the
-        // rebuild of schema 15 below and tests create current tables).
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(beans)',
-          ).get())
-            row.read<String>('name'),
-        };
-        if (!existing.contains(beans.region.name)) {
-          await m.addColumn(beans, beans.region);
-        }
-        if (!existing.contains(beans.altitude.name)) {
-          await m.addColumn(beans, beans.altitude);
-        }
-        if (!existing.contains(beans.coffeeId.name)) {
-          await m.addColumn(beans, beans.coffeeId);
-        }
-        if (!existing.contains(beans.openedAt.name)) {
-          await m.addColumn(beans, beans.openedAt);
-          // Everything so far counts as opened: nothing changes for it.
-          await customStatement('UPDATE beans SET opened_at = created_at');
         }
       }
       if (from < 26) {
