@@ -1742,7 +1742,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         children: [
           Text(
             'Bag $number',
-            style: TextStyle(color: colors.textPrimary, fontSize: 15),
+            style: TextStyle(color: colors.textPrimary, fontSize: 12),
           ),
           const SizedBox(height: 4),
           Row(
