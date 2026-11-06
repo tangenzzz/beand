@@ -37,6 +37,39 @@ void main() {
   });
   tearDown(() => db.close());
 
+  test('picker subtitle: sealed, and the roast date only between twins', () {
+    Bean bag(
+      int id, {
+      String name = 'Guji',
+      DateTime? opened,
+      DateTime? roast,
+    }) => Bean(
+      id: id,
+      name: name,
+      roaster: 'Friedhats',
+      isBlend: false,
+      isFrozen: false,
+      createdAt: DateTime(2026),
+      updatedAt: 0,
+      syncId: 'bag-$id',
+      syncState: 'synced',
+      deleted: false,
+      frozenDays: 0,
+      openedAt: opened,
+      roastDate: roast,
+    );
+    final open = bag(1, opened: DateTime(2026), roast: DateTime(2026, 10, 12));
+    final sealed = bag(2, roast: DateTime(2026, 11, 2));
+    final other = bag(3, name: 'Kiambu', opened: DateTime(2026));
+
+    expect(bagSubtitle(other, [open, sealed, other]), 'Friedhats');
+    expect(bagSubtitle(sealed, [sealed, other]), 'Friedhats · sealed');
+    expect(
+      bagSubtitle(open, [open, sealed, other]),
+      'Friedhats · roasted 12 Oct',
+    );
+  });
+
   group('coffee logic', () {
     test('bags group by name and roaster, ignoring case and spaces', () async {
       final a = await db.insertBean(_bag('Matão', opened: DateTime(2026)));
@@ -303,37 +336,4 @@ Future<void> settle(WidgetTester tester) async {
 Future<void> finish(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox());
   await tester.pump(const Duration(milliseconds: 10));
-
-  test('picker subtitle: sealed, and the roast date only between twins', () {
-    Bean bag(
-      int id, {
-      String name = 'Guji',
-      DateTime? opened,
-      DateTime? roast,
-    }) => Bean(
-      id: id,
-      name: name,
-      roaster: 'Friedhats',
-      isBlend: false,
-      isFrozen: false,
-      createdAt: DateTime(2026),
-      updatedAt: 0,
-      syncId: 'bag-$id',
-      syncState: 'synced',
-      deleted: false,
-      frozenDays: 0,
-      openedAt: opened,
-      roastDate: roast,
-    );
-    final open = bag(1, opened: DateTime(2026), roast: DateTime(2026, 10, 12));
-    final sealed = bag(2, roast: DateTime(2026, 11, 2));
-    final other = bag(3, name: 'Kiambu', opened: DateTime(2026));
-
-    expect(bagSubtitle(other, [open, sealed, other]), 'Friedhats');
-    expect(bagSubtitle(sealed, [sealed, other]), 'Friedhats · sealed');
-    expect(
-      bagSubtitle(open, [open, sealed, other]),
-      'Friedhats · roasted 12 Oct',
-    );
-  });
 }
