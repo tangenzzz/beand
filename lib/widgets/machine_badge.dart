@@ -10,8 +10,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 // It is shown at 17 px, the glyph inside about 11 px. At that size little
 // works: Meticulous therefore gets its initial, GaggiMate "GM" cut from its
 // wordmark (bold G of GAGGI, thin M of MATE, as in the Home pill; used with
-// permission), Pour Over a V60 dripper in thick lines: rim, cone, handle and
-// foot. Thinner lines disappear at 17 px.
+// permission), Pour Over a filled V60 dripper with rim and foot. Thin lines
+// disappear at 17 px.
 enum MachineGlyph { letterM, gaggiMate, v60 }
 
 class MachineBadge extends StatelessWidget {
@@ -81,29 +81,25 @@ class _V60Painter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.scale(size.width / 100);
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 7
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+    final paint = Paint()..color = color;
+    // Rim.
+    canvas.drawRRect(
+      RRect.fromLTRBR(17, 24, 83, 32, const Radius.circular(4)),
+      paint,
+    );
+    // Cone with its tip cut off.
     canvas.drawPath(
       Path()
-        // Rim.
-        ..moveTo(16, 27)
-        ..lineTo(78, 27)
-        // Cone.
-        ..moveTo(20, 28)
-        ..lineTo(39, 66)
-        ..lineTo(57, 66)
-        ..lineTo(75, 28)
-        // Handle.
-        ..moveTo(75, 36)
-        ..cubicTo(84, 32, 91, 36, 90, 43)
-        ..cubicTo(89, 50, 79, 55, 66, 57)
-        // Foot.
-        ..moveTo(27, 74)
-        ..lineTo(69, 74),
+        ..moveTo(22, 32)
+        ..lineTo(78, 32)
+        ..lineTo(59, 68)
+        ..lineTo(41, 68)
+        ..close(),
+      paint,
+    );
+    // Foot, right under the cone.
+    canvas.drawRRect(
+      RRect.fromLTRBR(27.6, 67, 72.4, 77, const Radius.circular(3)),
       paint,
     );
     canvas.restore();
