@@ -10,9 +10,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 // It is shown at 17 px, the glyph inside about 11 px. At that size little
 // works: Meticulous therefore gets its initial, GaggiMate "GM" cut from its
 // wordmark (bold G of GAGGI, thin M of MATE, as in the Home pill; used with
-// permission), Pour Over a V60 dripper — a letter would be arbitrary there,
-// and of the motifs tried (kettle, ribbed cone, cone with foot) only the
-// plain dripper with a rim survived 17 px.
+// permission), Pour Over a V60 dripper in thick lines: rim, cone, handle and
+// foot. Thinner lines disappear at 17 px.
 enum MachineGlyph { letterM, gaggiMate, v60 }
 
 class MachineBadge extends StatelessWidget {
@@ -48,7 +47,7 @@ class MachineBadge extends StatelessWidget {
       alignment: Alignment.center,
       child: switch (glyph) {
         MachineGlyph.v60 => CustomPaint(
-          size: Size.square(size * 0.62),
+          size: Size.square(size),
           painter: const _V60Painter(_glyphColor),
         ),
         // Two letters side by side: as wide as the inner area allows.
@@ -72,8 +71,7 @@ class MachineBadge extends StatelessWidget {
   }
 }
 
-// V60 dripper: wide rim, below it the cone with a narrow outlet. Dimensions
-// in the 24 grid so they match the other icons.
+// V60 dripper, drawn on a 100 grid that fills the badge.
 class _V60Painter extends CustomPainter {
   const _V60Painter(this.color);
 
@@ -81,27 +79,34 @@ class _V60Painter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final u = size.width / 24;
-    final paint = Paint()..color = color;
-    canvas.drawRRect(
-      RRect.fromLTRBR(
-        1.6 * u,
-        3.4 * u,
-        22.4 * u,
-        6.8 * u,
-        Radius.circular(1.6 * u),
-      ),
-      paint,
-    );
+    canvas.save();
+    canvas.scale(size.width / 100);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(
       Path()
-        ..moveTo(3.2 * u, 6.8 * u)
-        ..lineTo(20.8 * u, 6.8 * u)
-        ..lineTo(13.2 * u, 20.6 * u)
-        ..lineTo(10.8 * u, 20.6 * u)
-        ..close(),
+        // Rim.
+        ..moveTo(16, 27)
+        ..lineTo(78, 27)
+        // Cone.
+        ..moveTo(20, 28)
+        ..lineTo(39, 66)
+        ..lineTo(57, 66)
+        ..lineTo(75, 28)
+        // Handle.
+        ..moveTo(75, 36)
+        ..cubicTo(84, 32, 91, 36, 90, 43)
+        ..cubicTo(89, 50, 79, 55, 66, 57)
+        // Foot.
+        ..moveTo(27, 74)
+        ..lineTo(69, 74),
       paint,
     );
+    canvas.restore();
   }
 
   @override

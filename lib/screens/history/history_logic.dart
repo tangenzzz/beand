@@ -16,7 +16,7 @@ enum ShotMachine {
     Color(0xFF3DDBC4),
     MachineGlyph.letterM,
   ),
-  pourOver('pourover', 'Pour Over', Color(0xFFF2C94C), MachineGlyph.v60),
+  pourOver('pourover', 'Pour Over', Color(0xFFCFE870), MachineGlyph.v60),
   gaggiMate(
     'gaggimate',
     'GaggiMate',
