@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../widgets/desk_icon.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/bean_icon.dart';
 import '../root_scaffold.dart';
@@ -45,7 +46,7 @@ class SettingsScreen extends StatelessWidget {
           SettingsList(
             entries: [
               SettingsEntry(
-                icon: Icons.blender_outlined,
+                iconWidget: const DeskIcon(),
                 title: 'My Coffee Desk',
                 builder: (_) => const MyCoffeeDeskScreen(),
               ),
