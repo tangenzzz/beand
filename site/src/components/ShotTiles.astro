@@ -128,11 +128,13 @@ const tiles = [
   .cycle { --tile: min(400px, 80vw); }
   .track {
     position: relative; list-style: none; margin: 2.5rem 0 0; padding: 0 calc(50% - var(--tile) / 2) 0.5rem;
-    display: flex; gap: 1.5rem; align-items: flex-start;
+    display: grid; grid-auto-flow: column; grid-auto-columns: var(--tile); grid-template-rows: auto auto;
+    column-gap: 1.5rem; align-items: start;
     overflow-x: auto; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none;
   }
   .track::-webkit-scrollbar { display: none; }
-  .tile { flex: 0 0 var(--tile); scroll-snap-align: center; }
+  /* Subgrid: the text row is as tall as the longest text, so all cards start at the same height. */
+  .tile { display: grid; grid-row: span 2; grid-template-rows: subgrid; scroll-snap-align: center; }
   .tile .card, .tile .tile-text { transition: opacity 0.3s; }
   .tile:not([data-active]) { cursor: pointer; }
   .tile:not([data-active]) .card { opacity: 0.45; }
