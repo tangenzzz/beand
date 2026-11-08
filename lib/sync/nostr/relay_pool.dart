@@ -5,10 +5,13 @@ import 'package:flutter/foundation.dart';
 import '../identity/identity.dart';
 import 'event.dart';
 import 'relay_connection.dart';
+import 'relay_info.dart';
 
 // Several relays in parallel: connects on demand, remembers the state per
 // relay for display and, after an error, waits with growing backoff before
-// trying the same relay again.
+// trying the same relay again. Events a relay cannot take because of
+// their size (NIP-11 limits, or learned from a "too large" rejection) are
+// not sent to it, and do not count as its fault.
 
 /// What the display shows: the result of the LAST contact, not whether the
 /// connection is currently open (it closes after a minute of idleness —
@@ -30,6 +33,7 @@ class RelayPool extends ChangeNotifier {
     this.connector,
     this.timeout = const Duration(seconds: 15),
     this.minSendInterval = const Duration(milliseconds: 500),
+    this.infoFetcher,
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
@@ -43,6 +47,13 @@ class RelayPool extends ChangeNotifier {
   static const rateLimitedPause = Duration(minutes: 15);
   static const bannedPause = Duration(hours: 6);
 
+  /// Loads each relay's NIP-11 document for its size limits; null = no
+  /// limits known, everything is sent (the relay decides).
+  final RelayInfoFetcher? infoFetcher;
+
+  /// The NIP-11 document is fetched again after this long.
+  static const infoMaxAge = Duration(hours: 24);
+
   final SyncIdentity identity;
   final WebSocketConnector? connector;
   final Duration timeout;
@@ -54,6 +65,11 @@ class RelayPool extends ChangeNotifier {
   final _retryAt = <String, DateTime>{};
   final _holdUntil = <String, DateTime>{};
   final _nextSendAt = <String, DateTime>{};
+  final _info = <String, ({Future<RelayLimits> limits, DateTime at})>{};
+
+  /// Smallest message (bytes) a relay rejected as too large; from then on
+  /// nothing this size or larger goes there (until the app restarts).
+  final _tooLargeFrom = <String, int>{};
   var _urls = <String>[];
 
   List<String> get urls => List.unmodifiable(_urls);
@@ -67,7 +83,36 @@ class RelayPool extends ChangeNotifier {
       if (!_urls.contains(url)) unawaited(_connections.remove(url)!.close());
     }
     _statuses.removeWhere((url, _) => !_urls.contains(url));
+    _info.removeWhere((url, _) => !_urls.contains(url));
+    _tooLargeFrom.removeWhere((url, _) => !_urls.contains(url));
     _notify();
+  }
+
+  /// The relay's limits from NIP-11 (cached for [infoMaxAge]).
+  Future<RelayLimits> limitsOf(String url) {
+    final fetch = infoFetcher;
+    if (fetch == null) return Future.value(RelayLimits.unknown);
+    final cached = _info[url];
+    if (cached != null && _now().difference(cached.at) < infoMaxAge) {
+      return cached.limits;
+    }
+    Future<RelayLimits> load() async {
+      try {
+        return RelayLimits.fromNip11(await fetch(relayInfoUri(url)));
+      } catch (_) {
+        return RelayLimits.unknown;
+      }
+    }
+
+    final limits = load();
+    _info[url] = (limits: limits, at: _now());
+    return limits;
+  }
+
+  bool _fits(String url, RelayLimits limits, EventSize size) {
+    final rejected = _tooLargeFrom[url];
+    if (rejected != null && size.messageBytes >= rejected) return false;
+    return limits.allows(size);
   }
 
   /// Wartezeit nach dem n-ten Fehlschlag in Folge: 5 s, 10 s, 20 s … 5 min.
@@ -110,15 +155,25 @@ class RelayPool extends ChangeNotifier {
     return connection;
   }
 
+  static bool _isBanned(String text) =>
+      text.startsWith('banned') || text.contains('banned:');
+
+  static bool _isLimited(String text) =>
+      text.startsWith('rate-limited') ||
+      text.contains('rate-limit') ||
+      text.contains('rate limit') ||
+      text.contains('too many');
+
+  static bool _isHoldMessage(String raw) {
+    final text = raw.toLowerCase();
+    return _isBanned(text) || _isLimited(text);
+  }
+
   // Did the relay throttle? Then pause without exception, connection closed.
   bool _maybeHold(String url, String raw) {
     final text = raw.toLowerCase();
-    final banned = text.startsWith('banned') || text.contains('banned:');
-    final limited =
-        text.startsWith('rate-limited') ||
-        text.contains('rate-limit') ||
-        text.contains('rate limit') ||
-        text.contains('too many');
+    final banned = _isBanned(text);
+    final limited = _isLimited(text);
     if (!banned && !limited) return false;
     _holdUntil[url] = _now().add(banned ? bannedPause : rateLimitedPause);
     final connection = _connections.remove(url);
@@ -141,22 +196,46 @@ class RelayPool extends ChangeNotifier {
   }
 
   /// Send to all relays. Result per relay; if a relay is missing from the
-  /// map, it was unreachable.
+  /// map, it was unreachable. [PublishResult.tooLarge]: this relay cannot
+  /// take an event of this size — skipped, not an error.
   Future<Map<String, PublishResult>> publish(
     NostrEvent event, {
     bool force = false,
   }) async {
     final results = <String, PublishResult>{};
+    final size = EventSize.of(event);
     await Future.wait([
       for (final url in _urls)
         () async {
+          // NIP-11 and the WebSocket in parallel; only waits the first time.
+          final limits = limitsOf(url);
           final connection = await _connection(url, force: force);
           if (connection == null) return;
+          if (!_fits(url, await limits, size)) {
+            results[url] = PublishResult.oversized(
+              'Too large for this server (${size.messageBytes} bytes).',
+            );
+            return;
+          }
           try {
             await _pace(url);
-            final result = await connection.publish(event);
+            var result = await connection.publish(event);
+            if (!result.accepted &&
+                !_isHoldMessage(result.message) &&
+                isTooLargeMessage(result.message)) {
+              final known = _tooLargeFrom[url];
+              if (known == null || size.messageBytes < known) {
+                _tooLargeFrom[url] = size.messageBytes;
+              }
+              result = PublishResult.oversized(result.message);
+            }
             results[url] = result;
-            if (!result.accepted && _maybeHold(url, result.message)) {
+            if (result.tooLarge) {
+              // The relay answered — it works, it just has a smaller limit.
+              if (statusOf(url).state != RelayState.connected) {
+                _set(url, const RelayStatus(RelayState.connected));
+              }
+            } else if (!result.accepted && _maybeHold(url, result.message)) {
               // paused
             } else if (!result.accepted) {
               _set(

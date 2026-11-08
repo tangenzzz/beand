@@ -6,6 +6,7 @@ import 'package:beand/sync/crypto/nip44.dart';
 import 'package:beand/sync/identity/identity.dart';
 import 'package:beand/sync/nostr/event.dart';
 import 'package:beand/sync/nostr/relay_connection.dart';
+import 'package:beand/sync/nostr/relay_info.dart';
 import 'package:beand/sync/records/sync_envelope.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -45,6 +46,15 @@ void main() {
         await connection.connect();
         addTearDown(connection.close);
         final results = <String, String>{};
+
+        // 0. What the relay says about itself (NIP-11): limits, software.
+        final info = await fetchRelayInfo(relayInfoUri(url));
+        results['nip11'] = info == null
+            ? 'none'
+            : jsonEncode({
+                'software': info['software'],
+                ...RelayLimits.fromNip11(info).toJson(),
+              });
         var clock = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
         NostrEvent event(

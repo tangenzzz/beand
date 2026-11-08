@@ -19,12 +19,22 @@ WebSocketChannel defaultConnector(Uri uri) => WebSocketChannel.connect(uri);
 
 /// A relay's response to a sent event.
 class PublishResult {
-  const PublishResult(this.accepted, this.message);
+  const PublishResult(this.accepted, this.message, {this.tooLarge = false});
+
+  /// Not sent (or rejected) only because of its size: the relay's limit
+  /// (NIP-11 or learned from an earlier rejection). Not an error of the
+  /// relay — the RelayPool sets this, never the connection.
+  const PublishResult.oversized(this.message)
+    : accepted = false,
+      tooLarge = true;
+
   final bool accepted;
 
   /// The relay's reason (prefix like `blocked:`, `invalid:` …), empty on
   /// success.
   final String message;
+
+  final bool tooLarge;
 }
 
 class RelayException implements Exception {

@@ -20,6 +20,7 @@ import 'engine/sync_state_store.dart';
 import 'identity/identity.dart';
 import 'identity/key_store.dart';
 import 'nostr/relay_connection.dart';
+import 'nostr/relay_info.dart';
 import 'nostr/relay_pool.dart';
 
 // The only place the UI knows about sync. Holds keys, relay list and state
@@ -188,9 +189,16 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
   void _start() {
     final identity = _identity!;
     _pool?.dispose();
-    _pool = RelayPool(identity: identity, connector: connector)
-      ..setUrls(_state.relays)
-      ..addListener(notifyListeners);
+    _pool =
+        RelayPool(
+            identity: identity,
+            connector: connector,
+            // Size limits per server (NIP-11), so a server with a smaller limit
+            // is skipped for large records instead of showing as broken.
+            infoFetcher: (uri) => fetchRelayInfo(uri, client: httpClient),
+          )
+          ..setUrls(_state.relays)
+          ..addListener(notifyListeners);
     final docs = docsDir;
     _blobs = docs == null
         ? null

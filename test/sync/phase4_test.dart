@@ -316,25 +316,54 @@ void main() {
     expect((await b.bean()).photoBlob, isNotNull, reason: 'retry later');
   });
 
-  test('shot over 60 KB goes as a blob and arrives complete', () async {
-    final notes = base64.encode(secureRandomBytes(60000));
-    await at(
-      () => a.db.insertShotWithReadings(
-        ShotsCompanion.insert(
-          timestamp: DateTime(2026, 10, 9),
-          notes: Value(notes),
+  test(
+    'shot over the inline limit goes as a blob and arrives complete',
+    () async {
+      final notes = base64.encode(secureRandomBytes(60000));
+      await at(
+        () => a.db.insertShotWithReadings(
+          ShotsCompanion.insert(
+            timestamp: DateTime(2026, 10, 9),
+            notes: Value(notes),
+          ),
+          const [],
         ),
-        const [],
-      ),
-    );
-    final report = await a.sync();
-    expect(report.tooLarge, 0);
-    expect(report.sent, 1);
-    expect(relay.events.single.content.length, lessThan(2000));
-    await b.sync();
-    final onB = (await b.db.watchShotEntries().first).single.shot;
-    expect(onB.notes, notes);
-  });
+      );
+      final report = await a.sync();
+      expect(report.tooLarge, 0);
+      expect(report.sent, 1);
+      expect(relay.events.single.content.length, lessThan(2000));
+      await b.sync();
+      final onB = (await b.db.watchShotEntries().first).single.shot;
+      expect(onB.notes, notes);
+    },
+  );
+
+  test(
+    'every relay too small for the event: goes as a blob instead of hanging',
+    () async {
+      // Below the inline limit, but above this relay's limit.
+      relay.maxMessageBytes = 6000;
+      final notes = base64.encode(secureRandomBytes(6000));
+      await at(
+        () => a.db.insertShotWithReadings(
+          ShotsCompanion.insert(
+            timestamp: DateTime(2026, 10, 9),
+            notes: Value(notes),
+          ),
+          const [],
+        ),
+      );
+      final report = await a.sync();
+      expect(report.sent, 1);
+      expect(report.tooLarge, 0);
+      expect(report.failedRelays, isEmpty, reason: 'size is not a failure');
+      expect(relay.events.single.content.length, lessThan(2000));
+      await b.sync();
+      final onB = (await b.db.watchShotEntries().first).single.shot;
+      expect(onB.notes, notes);
+    },
+  );
 
   test('photo server added later: existing photos are uploaded then', () async {
     a.blobs.servers.clear();
