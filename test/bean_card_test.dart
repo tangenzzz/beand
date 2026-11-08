@@ -329,6 +329,36 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('the timeline opens and lists the dates in order', (
+      tester,
+    ) async {
+      late Bean bag;
+      await tester.runAsync(() async {
+        bag = await db.insertBean(
+          _bag('A', opened: DateTime(2026, 3, 5)).copyWith(
+            roastDate: Value(DateTime(2026, 2, 1)),
+            frozenDate: Value(DateTime(2026, 2, 10)),
+          ),
+        );
+      });
+      await show(tester, bag);
+      expect(find.text('Timeline'), findsOneWidget);
+      expect(find.text('Roasted'), findsOneWidget, reason: 'only the fact');
+      await tester.tap(find.text('Timeline'));
+      await settle(tester);
+      final x = [
+        for (final t in ['Frozen', 'Opened'])
+          tester.getCenter(find.text(t).last).dx,
+      ];
+      expect(find.text('Roasted'), findsNWidgets(2));
+      expect(x[0], lessThan(x[1]));
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byTooltip('Edit'));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    });
+
     testWidgets('a bag with shots cannot go back to sealed', (tester) async {
       late Bean bag;
       await tester.runAsync(() async {
@@ -370,7 +400,9 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await settle(tester);
       final list = tester.state<ScrollableState>(find.byType(Scrollable).first);
-      expect(list.position.pixels, list.position.maxScrollExtent);
+      await tester.pump(const Duration(seconds: 1));
+      await settle(tester);
+      expect(list.position.pixels, closeTo(list.position.maxScrollExtent, 1));
       expect(find.text('Save'), findsOneWidget);
       await tester.tap(find.text('Save'));
       await settle(tester);

@@ -127,6 +127,9 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   final _pages = PageController(viewportFraction: 0.94);
   final _scroll = ScrollController();
 
+  // One switch for all bags: the carousel has a single height.
+  bool _timelineOpen = false;
+
   // A bag whose status just changed moves to its place in the order; the
   // carousel goes along with it (null state: whatever it comes back as).
   (int, BagState?)? _followBag;
@@ -423,7 +426,11 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   Future<void> _scrollToEnd() async {
     for (var i = 0; i < 4 && mounted && _scroll.hasClients; i++) {
       final end = _scroll.position.maxScrollExtent;
-      if (_scroll.offset >= end) return;
+      if (_scroll.offset >= end) {
+        // The list got shorter on the way: no gap below it.
+        if (_scroll.offset > end) _scroll.jumpTo(end);
+        return;
+      }
       await _scroll.animateTo(
         end,
         duration: const Duration(milliseconds: 250),
@@ -1692,7 +1699,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     return Column(
       children: [
         SizedBox(
-          height: _editing ? 340 : 236,
+          height: (_editing ? 376 : 272) + (_timelineOpen ? 62 : 0),
           child: PageView(
             controller: _pages,
             onPageChanged: (i) => setState(() => _page = i),
@@ -1788,6 +1795,41 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           else if (bag != null)
             _bagFacts(bag, left),
           const Spacer(),
+          InkWell(
+            key: const ValueKey('bag-timeline-toggle'),
+            onTap: () => setState(() => _timelineOpen = !_timelineOpen),
+            child: SizedBox(
+              height: 36,
+              child: Row(
+                children: [
+                  Text(
+                    'Timeline',
+                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _timelineOpen ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: colors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_timelineOpen)
+            SizedBox(
+              height: 62,
+              child: _BagTimeline(
+                steps: [
+                  for (final step in _timelineSteps(bag, draft))
+                    (
+                      label: step.label,
+                      date: _shortDate(step.date),
+                      color: step.color,
+                    ),
+                ],
+              ),
+            ),
           if (_editing && draft != null)
             Align(
               alignment: Alignment.centerRight,
@@ -1808,6 +1850,34 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         ],
       ),
     );
+  }
+
+  // What happened to a bag, oldest first. On the same day: in the order a bag
+  // goes through them.
+  List<({String label, DateTime date, Color color})> _timelineSteps(
+    Bean? bag,
+    _BagDraft? draft,
+  ) {
+    final colors = context.colors;
+    final roast = draft != null ? draft.roastDate : bag?.roastDate;
+    final frozen = draft != null ? draft.frozenDate : bag?.frozenDate;
+    final opened = draft != null ? draft.openedAt : bag?.openedAt;
+    final empty = bag?.emptiedAt;
+    final steps = [
+      if (roast != null) (label: 'Roasted', date: roast, color: colors.sealed),
+      if (frozen != null) (label: 'Frozen', date: frozen, color: colors.ice),
+      if (opened != null)
+        (label: 'Opened', date: opened, color: colors.success),
+      if (empty != null)
+        (label: 'Empty', date: empty, color: colors.textSecondary),
+    ];
+    DateTime day(DateTime d) => DateTime(d.year, d.month, d.day);
+    final order = [for (final step in steps) step];
+    steps.sort((a, b) {
+      final byDay = day(a.date).compareTo(day(b.date));
+      return byDay != 0 ? byDay : order.indexOf(a) - order.indexOf(b);
+    });
+    return steps;
   }
 
   String _shortDate(DateTime d) => '${d.day} ${_months[d.month - 1]}';
@@ -2068,6 +2138,72 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
                       ),
                     ),
                   ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// A bag's dates on a line, evenly spaced.
+class _BagTimeline extends StatelessWidget {
+  const _BagTimeline({required this.steps});
+
+  final List<({String label, String date, Color color})> steps;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    if (steps.isEmpty) {
+      return Align(
+        alignment: Alignment.topLeft,
+        child: Text(
+          'No dates yet.',
+          style: TextStyle(color: colors.textTertiary, fontSize: 13),
+        ),
+      );
+    }
+    Widget line(bool visible) => Expanded(
+      child: Container(height: 2, color: visible ? colors.divider : null),
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < steps.length; i++)
+          Expanded(
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 14,
+                  child: Row(
+                    children: [
+                      line(i > 0),
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: steps[i].color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      line(i < steps.length - 1),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  steps[i].label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 12),
+                ),
+                Text(
+                  steps[i].date,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.textPrimary, fontSize: 13),
+                ),
               ],
             ),
           ),
