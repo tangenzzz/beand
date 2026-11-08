@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:beand/database/database.dart';
@@ -152,17 +153,16 @@ void main() {
           readings: await db2.syncDao.readingsFor(s.id),
         ),
       );
-      sizes.add(envelope.encode().length);
+      sizes.add(utf8.encode(envelope.encode()).length);
     }
     await db2.close();
     sizes.sort();
     // ignore: avoid_print
     print(
       'Shot envelopes: ${sizes.length}, median ${sizes[sizes.length ~/ 2]} B, '
-      'largest ${sizes.last} B, over $maxInlineEnvelopeBytes B: '
-      '${sizes.where((x) => x > maxInlineEnvelopeBytes).length}',
+      'largest ${sizes.last} B, over $maxInlineEnvelopeBytes B '
+      '(go as blob): ${sizes.where((x) => x > maxInlineEnvelopeBytes).length}',
     );
-    expect(sizes.where((x) => x > maxInlineEnvelopeBytes), isEmpty);
     dir.deleteSync(recursive: true);
   }, skip: source == null ? 'BEAND_REAL_DB not set' : false);
 }

@@ -41,11 +41,40 @@ class TestRelay {
   /// Times of received events (for throttling).
   final received = <DateTime>[];
 
+  /// Rejects events whose `["EVENT",…]` message is larger, with strfry's
+  /// wording ("invalid: event too large: …"). null = no limit.
+  int? maxMessageBytes;
+
+  /// NIP-11 document served on a plain GET with
+  /// `Accept: application/nostr+json`; null = 404 (like a relay without).
+  Map<String, Object?>? info;
+
+  /// How often the NIP-11 document was requested.
+  var infoRequests = 0;
+
   String get url => 'ws://127.0.0.1:${_server.port}';
 
   Future<void> _onRequest(HttpRequest request) async {
     if (down) {
       request.response.statusCode = 503;
+      await request.response.close();
+      return;
+    }
+    if (!WebSocketTransformer.isUpgradeRequest(request)) {
+      infoRequests++;
+      final doc = info;
+      final wantsInfo =
+          request.headers.value('accept')?.contains('application/nostr+json') ??
+          false;
+      if (doc == null || !wantsInfo) {
+        request.response.statusCode = 404;
+      } else {
+        request.response.headers.contentType = ContentType(
+          'application',
+          'nostr+json',
+        );
+        request.response.write(jsonEncode(doc));
+      }
       await request.response.close();
       return;
     }
@@ -71,6 +100,18 @@ class TestRelay {
     final message = jsonDecode(raw) as List;
     switch (message[0]) {
       case 'EVENT':
+        final limit = maxMessageBytes;
+        if (limit != null && utf8.encode(raw).length > limit) {
+          final id = (message[1] as Map)['id'];
+          _send(socket, [
+            'OK',
+            id,
+            false,
+            'invalid: event too large: ${utf8.encode(raw).length}',
+          ]);
+          received.add(DateTime.now());
+          return;
+        }
         final NostrEvent event;
         try {
           event = NostrEvent.fromJson(message[1]);

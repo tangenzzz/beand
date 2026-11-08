@@ -1,5 +1,6 @@
 import 'package:beand/sync/identity/identity.dart';
 import 'package:beand/sync/nostr/event.dart';
+import 'package:beand/sync/nostr/relay_info.dart';
 import 'package:beand/sync/nostr/relay_pool.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,13 +14,13 @@ void main() {
   late SyncIdentity identity;
   var clock = DateTime(2026, 10, 10, 12);
 
-  NostrEvent event(int i) => NostrEvent.sign(
+  NostrEvent event(int i, {int contentLength = 1}) => NostrEvent.sign(
     identity: identity,
     kind: kindAppData,
     tags: [
       ['d', 'x$i'],
     ],
-    content: 'x',
+    content: 'x' * contentLength,
     createdAt: 1790000000 + i,
   );
 
@@ -86,4 +87,62 @@ void main() {
       expect(after[relay.url]?.accepted, isTrue);
     });
   }
+
+  group('size limits', () {
+    test('NIP-11 limit: too large is skipped, not sent, not red', () async {
+      relay.info = {
+        'name': 'small',
+        'limitation': {'max_message_length': 2000},
+      };
+      final pool = RelayPool(
+        identity: identity,
+        minSendInterval: Duration.zero,
+        infoFetcher: fetchRelayInfo,
+      )..setUrls([relay.url]);
+      addTearDown(pool.closeAll);
+
+      final small = await pool.publish(event(1));
+      expect(small[relay.url]?.accepted, isTrue);
+      final count = relay.received.length;
+
+      final big = await pool.publish(event(2, contentLength: 5000));
+      expect(big[relay.url]?.accepted, isFalse);
+      expect(big[relay.url]?.tooLarge, isTrue);
+      expect(relay.received.length, count, reason: 'not sent at all');
+      expect(pool.statusOf(relay.url).state, RelayState.connected);
+
+      await pool.publish(event(3));
+      expect(relay.infoRequests, 1, reason: 'NIP-11 is cached');
+    });
+
+    test('learns the limit from a "too large" rejection', () async {
+      relay.maxMessageBytes = 2000;
+      final pool = RelayPool(identity: identity, minSendInterval: Duration.zero)
+        ..setUrls([relay.url]);
+      addTearDown(pool.closeAll);
+
+      final first = await pool.publish(event(1, contentLength: 5000));
+      expect(first[relay.url]?.tooLarge, isTrue);
+      expect(pool.statusOf(relay.url).state, RelayState.connected);
+      final count = relay.received.length;
+
+      final second = await pool.publish(event(2, contentLength: 6000));
+      expect(second[relay.url]?.tooLarge, isTrue);
+      expect(relay.received.length, count, reason: 'known too large');
+
+      final small = await pool.publish(event(3));
+      expect(small[relay.url]?.accepted, isTrue);
+    });
+
+    test('relay without NIP-11: everything is sent', () async {
+      final pool = RelayPool(
+        identity: identity,
+        minSendInterval: Duration.zero,
+        infoFetcher: fetchRelayInfo,
+      )..setUrls([relay.url]);
+      addTearDown(pool.closeAll);
+      final r = await pool.publish(event(1, contentLength: 5000));
+      expect(r[relay.url]?.accepted, isTrue);
+    });
+  });
 }

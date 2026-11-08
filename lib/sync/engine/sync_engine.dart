@@ -605,44 +605,61 @@ class SyncEngine {
     }
     var envelope = built;
     var plain = envelope.encode();
-    if (plain.length > maxInlineEnvelopeBytes) {
-      // Too large for the event: the whole envelope goes to the photo
-      // servers, the event only carries the reference.
-      final ref = await blobs?.uploadBytes(
-        Uint8List.fromList(gzip.encode(utf8.encode(plain))),
-      );
-      if (ref == null) {
-        debugPrint('Sync: ${envelope.type} ${envelope.id} too large');
-        await _dao.markTooLarge(job.table, envelope.id, envelope.updatedAt);
-        report.tooLarge++;
-        return;
+    var asBlob = utf8.encode(plain).length > maxInlineEnvelopeBytes;
+    while (true) {
+      if (asBlob && envelope.blobRef == null) {
+        // Too large for the event: the whole envelope goes to the photo
+        // servers, the event only carries the reference.
+        final ref = await blobs?.uploadBytes(
+          Uint8List.fromList(gzip.encode(utf8.encode(plain))),
+        );
+        if (ref == null) {
+          debugPrint('Sync: ${envelope.type} ${envelope.id} too large');
+          await _dao.markTooLarge(job.table, envelope.id, envelope.updatedAt);
+          report.tooLarge++;
+          return;
+        }
+        envelope = SyncEnvelope(
+          type: envelope.type,
+          id: envelope.id,
+          updatedAt: envelope.updatedAt,
+          deviceId: envelope.deviceId,
+          deleted: envelope.deleted,
+          data: const {},
+          blobRef: ref.toJson(),
+        );
+        plain = envelope.encode();
       }
-      envelope = SyncEnvelope(
-        type: envelope.type,
-        id: envelope.id,
-        updatedAt: envelope.updatedAt,
-        deviceId: envelope.deviceId,
-        deleted: envelope.deleted,
-        data: const {},
-        blobRef: ref.toJson(),
+      final event = await sealEvent(
+        keys: _keys,
+        dTag: identity.dTag(envelope.type, envelope.id),
+        plain: plain,
+        createdAt: _nextCreatedAt(),
       );
-      plain = envelope.encode();
-    }
-    final event = await sealEvent(
-      keys: _keys,
-      dTag: identity.dTag(envelope.type, envelope.id),
-      plain: plain,
-      createdAt: _nextCreatedAt(),
-    );
-    final results = await pool.publish(event, force: force);
-    for (final url in pool.urls) {
-      if (results[url]?.accepted != true) report.failedRelays.add(url);
-    }
-    if (results.values.any((r) => r.accepted)) {
-      await _dao.markSynced(job.table, envelope.id, envelope.updatedAt);
-      report.sent++;
-    } else {
-      report.notSent++;
+      final results = await pool.publish(event, force: force);
+      // Every server says "too large" (all have a smaller limit than the
+      // inline one): once more as a blob reference, which is small.
+      if (!asBlob &&
+          pool.urls.isNotEmpty &&
+          pool.urls.every((u) => results[u]?.tooLarge ?? false)) {
+        asBlob = true;
+        continue;
+      }
+      for (final url in pool.urls) {
+        final r = results[url];
+        // Too large for this one server is not its fault (and the record
+        // is on the others).
+        if (r?.accepted != true && r?.tooLarge != true) {
+          report.failedRelays.add(url);
+        }
+      }
+      if (results.values.any((r) => r.accepted)) {
+        await _dao.markSynced(job.table, envelope.id, envelope.updatedAt);
+        report.sent++;
+      } else {
+        report.notSent++;
+      }
+      return;
     }
   }
 
