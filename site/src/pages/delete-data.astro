@@ -1,0 +1,38 @@
+---
+import Base from '../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../i18n/ui';
+// Linked from the store listings as the data deletion page. Keep in sync
+// with the German version and with "Delete synced data" in the app.
+---
+<Base lang="en" route="deleteData" title="Delete your data" description="How to delete your bean'd sync data and sync key.">
+  <section class="wrap prose" style="padding:4rem 0 0">
+    <h1>Delete your data</h1>
+    <p>bean'd stores your data on your phone. If you turn on sync, it is also stored end-to-end encrypted on public servers, under a sync key the app creates on your phone. You can delete it in the app.</p>
+
+    <h2>In the app</h2>
+    <ol>
+      <li>Turn off sync on your other devices first. They still have the same key.</li>
+      <li>Open bean'd and go to Settings → Sync. If sync is off, turn it on so the next step appears.</li>
+      <li>Open Advanced settings and tap <strong>Delete synced data</strong> at the very bottom.</li>
+      <li>Confirm. This cannot be undone.</li>
+    </ol>
+
+    <h2>What is deleted</h2>
+    <ul>
+      <li>Everything stored under your sync key on the servers and photo servers listed in the app.</li>
+      <li>The sync key on this device. Sync is turned off.</li>
+    </ul>
+
+    <h2>What stays</h2>
+    <ul>
+      <li>The data in the app on your phone. It is removed when you uninstall the app.</li>
+      <li>Copies that public servers keep anyway, and data on servers you removed from the list earlier or that could not be reached. They stay encrypted and unreadable without your key.</li>
+    </ul>
+
+    <h2>If you no longer have the app</h2>
+    <p>Deleting needs your sync key. We do not run these servers and do not have your key, so we cannot delete the data for you. If you still have the key on another device or in a bean'd backup, install the app, restore it and follow the steps above.</p>
+
+    <h2>Questions</h2>
+    <p>Write to <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
+  </section>
+</Base>

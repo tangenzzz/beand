@@ -9,6 +9,7 @@ export const routes = {
   home: { en: '/', de: null },
   imprint: { en: '/imprint/', de: '/de/impressum/' },
   privacy: { en: '/privacy/', de: '/de/datenschutz/' },
+  deleteData: { en: '/delete-data/', de: '/de/daten-loeschen/' },
 } as const satisfies Record<string, { en: string; de: string | null }>;
 export type RouteKey = keyof typeof routes;
 
@@ -22,6 +23,7 @@ export const ui = {
     'footer.legal': 'Legal',
     'footer.imprint': 'Imprint',
     'footer.privacy': 'Privacy',
+    'footer.delete': 'Delete your data',
     'footer.source': 'Source code',
     'footer.trademarks': 'Machine and device names are trademarks of their respective owners. bean’d is an independent project.',
   },
@@ -34,6 +36,7 @@ export const ui = {
     'footer.legal': 'Rechtliches',
     'footer.imprint': 'Impressum',
     'footer.privacy': 'Datenschutz',
+    'footer.delete': 'Daten löschen',
     'footer.source': 'Quellcode',
     'footer.trademarks': 'Maschinen- und Gerätenamen sind Marken ihrer jeweiligen Inhaber. bean’d ist ein unabhängiges Projekt.',
   },

@@ -67,7 +67,7 @@ p { margin: 0 0 1em; }
 .prose { max-width: 68ch; }
 .prose h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); }
 .prose h2 { font-size: 1.4rem; margin-top: 2.2rem; }
-.prose ul { padding-left: 1.2rem; }
+.prose ul, .prose ol { padding-left: 1.2rem; }
 .prose li { margin-bottom: 0.35rem; }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

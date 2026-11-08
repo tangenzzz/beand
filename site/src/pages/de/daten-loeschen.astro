@@ -1,0 +1,36 @@
+---
+import Base from '../../layouts/Base.astro';
+import { CONTACT_EMAIL } from '../../i18n/ui';
+---
+<Base lang="de" route="deleteData" title="Daten löschen" description="So löschst du deine bean'd-Sync-Daten und deinen Sync-Schlüssel.">
+  <section class="wrap prose" style="padding:4rem 0 0">
+    <h1>Daten löschen</h1>
+    <p>bean'd speichert deine Daten auf deinem Handy. Wenn du den Sync aktivierst, liegen sie zusätzlich Ende-zu-Ende-verschlüsselt auf öffentlichen Servern, unter einem Sync-Schlüssel, den die App auf deinem Handy erzeugt. Du kannst sie in der App löschen.</p>
+
+    <h2>In der App</h2>
+    <ol>
+      <li>Schalte zuerst den Sync auf deinen anderen Geräten aus. Sie haben noch denselben Schlüssel.</li>
+      <li>Öffne bean'd und gehe zu Settings → Sync. Ist der Sync aus, schalte ihn ein, damit der nächste Schritt erscheint.</li>
+      <li>Öffne Advanced settings und tippe ganz unten auf <strong>Delete synced data</strong>.</li>
+      <li>Bestätige. Das lässt sich nicht rückgängig machen.</li>
+    </ol>
+
+    <h2>Was gelöscht wird</h2>
+    <ul>
+      <li>Alles, was unter deinem Sync-Schlüssel auf den in der App eingetragenen Servern und Foto-Servern liegt.</li>
+      <li>Der Sync-Schlüssel auf diesem Gerät. Der Sync wird ausgeschaltet.</li>
+    </ul>
+
+    <h2>Was bleibt</h2>
+    <ul>
+      <li>Die Daten in der App auf deinem Handy. Sie verschwinden, wenn du die App deinstallierst.</li>
+      <li>Kopien, die öffentliche Server trotzdem behalten, und Daten auf Servern, die du früher aus der Liste entfernt hast oder die nicht erreichbar waren. Sie bleiben verschlüsselt und ohne deinen Schlüssel unlesbar.</li>
+    </ul>
+
+    <h2>Wenn du die App nicht mehr hast</h2>
+    <p>Zum Löschen braucht es deinen Sync-Schlüssel. Wir betreiben diese Server nicht und haben deinen Schlüssel nicht, deshalb können wir die Daten nicht für dich löschen. Hast du den Schlüssel noch auf einem anderen Gerät oder in einem bean'd-Backup, installiere die App, stelle ihn wieder her und folge den Schritten oben.</p>
+
+    <h2>Fragen</h2>
+    <p>Schreib an <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.</p>
+  </section>
+</Base>
