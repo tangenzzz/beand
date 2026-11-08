@@ -36,9 +36,13 @@ enum SyncPhase { off, idle, syncing, error }
 /// Public relays for everyone who has no server of their own. Content is
 /// encrypted; only metadata (keys, timestamps, size) remains visible.
 const defaultSyncRelays = [
-  'wss://relay.damus.io',
-  'wss://nos.lol',
   'wss://relay.primal.net',
+  'wss://relay.damus.io',
+  'wss://relay.nostr.net',
+  'wss://nostr.oxtr.dev',
+  'wss://nostr-pub.wellorder.net',
+  'wss://relay.snort.social',
+  'wss://nostr-01.yakihonne.com',
 ];
 
 /// Public photo servers (Blossom) that accept encrypted files — checked with
