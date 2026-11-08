@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -54,6 +55,7 @@ class _BagDraft {
        openedAt = openedAt ?? bean?.openedAt,
        isFrozen = bean?.isFrozen ?? false,
        frozenDate = bean?.frozenDate,
+       thawedDate = bean?.thawedDate,
        weight = TextEditingController(
          text: _BeanFormScreenState._formatNumber(weight ?? bean?.weightGrams),
        ),
@@ -66,6 +68,7 @@ class _BagDraft {
   DateTime? openedAt;
   bool isFrozen;
   DateTime? frozenDate;
+  DateTime? thawedDate;
   final TextEditingController weight;
   final TextEditingController cost;
 
@@ -350,12 +353,36 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         _drafts.values.any(_bagChanged);
   }
 
+  // Other freezer dates of a thawed bag: its ring counts the new span.
+  Value<int> _frozenDaysAfterEdit(_BagDraft d) {
+    final now = _beans.where((b) => b.id == d.bean?.id).firstOrNull;
+    final (oldIn, oldOut) = (now?.frozenDate, now?.thawedDate);
+    final (newIn, newOut) = (d.frozenDate, d.thawedDate);
+    if (now == null ||
+        now.isFrozen ||
+        oldIn == null ||
+        oldOut == null ||
+        newIn == null ||
+        newOut == null) {
+      return const Value.absent();
+    }
+    return Value(
+      math.max(
+        0,
+        now.frozenDays +
+            calendarDaysSince(newIn, newOut) -
+            calendarDaysSince(oldIn, oldOut),
+      ),
+    );
+  }
+
   bool _bagChanged(_BagDraft d) {
     final b = d.bean;
     if (b == null) return true;
     return d.roastDate != b.roastDate ||
         d.openedAt != b.openedAt ||
         d.frozenDate != b.frozenDate ||
+        d.thawedDate != b.thawedDate ||
         _parseNumber(d.weight.text) != b.weightGrams ||
         _parseNumber(d.cost.text) != b.cost;
   }
@@ -497,6 +524,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         draft.openedAt = opened;
         draft.isFrozen = freeze;
         if (freeze) draft.frozenDate = now;
+        if (thaw) draft.thawedDate = now;
       });
     }
     _followBag = (bag.id, again ? null : target);
@@ -764,6 +792,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           roastDate: Value(d.roastDate),
           openedAt: Value(d.openedAt),
           frozenDate: Value(d.frozenDate),
+          thawedDate: Value(d.thawedDate),
+          frozenDays: _frozenDaysAfterEdit(d),
           weightGrams: Value(_parseNumber(d.weight.text)),
           cost: Value(_parseNumber(d.cost.text)),
         ),
@@ -1699,7 +1729,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     return Column(
       children: [
         SizedBox(
-          height: (_editing ? 376 : 272) + (_timelineOpen ? 62 : 0),
+          height: (_editing ? 308 : 224) + (_timelineOpen ? 62 : 0),
           child: PageView(
             controller: _pages,
             onPageChanged: (i) => setState(() => _page = i),
@@ -1819,16 +1849,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           if (_timelineOpen)
             SizedBox(
               height: 62,
-              child: _BagTimeline(
-                steps: [
-                  for (final step in _timelineSteps(bag, draft))
-                    (
-                      label: step.label,
-                      date: _shortDate(step.date),
-                      color: step.color,
-                    ),
-                ],
-              ),
+              child: _BagTimeline(steps: _timelineSteps(bag, draft)),
             ),
           if (_editing && draft != null)
             Align(
@@ -1853,26 +1874,62 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   }
 
   // What happened to a bag, oldest first. On the same day: in the order a bag
-  // goes through them.
-  List<({String label, DateTime date, Color color})> _timelineSteps(
-    Bean? bag,
-    _BagDraft? draft,
-  ) {
+  // goes through them. While editing, the dates that have no field of their
+  // own can be changed here.
+  List<_TimelineStep> _timelineSteps(Bean? bag, _BagDraft? draft) {
     final colors = context.colors;
     final roast = draft != null ? draft.roastDate : bag?.roastDate;
     final frozen = draft != null ? draft.frozenDate : bag?.frozenDate;
+    final thawed = draft != null ? draft.thawedDate : bag?.thawedDate;
     final opened = draft != null ? draft.openedAt : bag?.openedAt;
     final empty = bag?.emptiedAt;
+    VoidCallback? edit(DateTime date, void Function(DateTime) apply) {
+      if (!_editing || draft == null) return null;
+      return () async {
+        final picked = await _pickDate(date);
+        if (picked != null && mounted) setState(() => apply(picked));
+      };
+    }
+
+    _TimelineStep step(
+      String label,
+      DateTime date,
+      Color color, [
+      VoidCallback? onTap,
+    ]) => _TimelineStep(label, date, _shortDate(date), color, onTap);
     final steps = [
-      if (roast != null) (label: 'Roasted', date: roast, color: colors.sealed),
-      if (frozen != null) (label: 'Frozen', date: frozen, color: colors.ice),
+      if (roast != null) step('Roasted', roast, colors.sealed),
+      if (frozen != null)
+        step(
+          'Frozen',
+          frozen,
+          colors.ice,
+          edit(frozen, (v) {
+            draft?.frozenDate = v;
+          }),
+        ),
+      if (thawed != null)
+        step(
+          'Thawed',
+          thawed,
+          colors.iceLight,
+          edit(thawed, (v) {
+            draft?.thawedDate = v;
+          }),
+        ),
       if (opened != null)
-        (label: 'Opened', date: opened, color: colors.success),
-      if (empty != null)
-        (label: 'Empty', date: empty, color: colors.textSecondary),
+        step(
+          'Opened',
+          opened,
+          colors.success,
+          edit(opened, (v) {
+            draft?.openedAt = v;
+          }),
+        ),
+      if (empty != null) step('Empty', empty, colors.textSecondary),
     ];
     DateTime day(DateTime d) => DateTime(d.year, d.month, d.day);
-    final order = [for (final step in steps) step];
+    final order = [...steps];
     steps.sort((a, b) {
       final byDay = day(a.date).compareTo(day(b.date));
       return byDay != 0 ? byDay : order.indexOf(a) - order.indexOf(b);
@@ -1928,27 +1985,13 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         cell('Roasted', day(bag.roastDate)),
       if (_visible(BeanFormField.cost))
         cell('Cost', bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €'),
-      cell('Opened', day(bag.openedAt)),
-      if (bag.isFrozen && bag.emptiedAt == null)
-        cell('Frozen', day(bag.frozenDate)),
-      if (bag.emptiedAt != null) cell('Empty', day(bag.emptiedAt)),
     ];
-    return Column(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var i = 0; i < cells.length; i += 3)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (var j = i; j < i + 3; j++)
-                  Expanded(
-                    child: j < cells.length
-                        ? cells[j]
-                        : const SizedBox.shrink(),
-                  ),
-              ],
-            ),
+        for (var i = 0; i < 4; i++)
+          Expanded(
+            child: i < cells.length ? cells[i] : const SizedBox.shrink(),
           ),
       ],
     );
@@ -1970,6 +2013,8 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           Flexible(
             child: Text(
               value == null ? empty : _shortDate(value),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: value == null
                   ? _bagValueStyle.copyWith(color: colors.textTertiary)
                   : _bagValueStyle,
@@ -2019,42 +2064,27 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         ],
       ),
     );
-    return Column(
-      children: [
-        row([
-          if (_visible(BeanFormField.weight))
-            _bagCell(
-              'Weight',
-              number(d.weight, 'g', BeanFormField.weight.name),
-              mark: BeanFormField.weight.name,
-            ),
-          if (left != null) _bagCell('Left', Text(left, style: _bagValueStyle)),
-          if (_visible(BeanFormField.roastDate))
-            _bagCell(
-              'Roast date',
-              date(d.roastDate, 'Not set', (v) => d.roastDate = v),
-              mark: BeanFormField.roastDate.name,
-            ),
-        ], 3),
-        row([
-          if (_visible(BeanFormField.cost))
-            _bagCell(
-              'Cost',
-              number(d.cost, '€', BeanFormField.cost.name),
-              mark: BeanFormField.cost.name,
-            ),
-          _bagCell(
-            'Opened',
-            date(d.openedAt, 'Not set', (v) => d.openedAt = v),
-          ),
-          if (d.isFrozen)
-            _bagCell(
-              'Frozen',
-              date(d.frozenDate, 'Not set', (v) => d.frozenDate = v),
-            ),
-        ], 3),
-      ],
-    );
+    return row([
+      if (_visible(BeanFormField.weight))
+        _bagCell(
+          'Weight',
+          number(d.weight, 'g', BeanFormField.weight.name),
+          mark: BeanFormField.weight.name,
+        ),
+      if (left != null) _bagCell('Left', Text(left, style: _bagValueStyle)),
+      if (_visible(BeanFormField.roastDate))
+        _bagCell(
+          'Roast date',
+          date(d.roastDate, 'Not set', (v) => d.roastDate = v),
+          mark: BeanFormField.roastDate.name,
+        ),
+      if (_visible(BeanFormField.cost))
+        _bagCell(
+          'Cost',
+          number(d.cost, '€', BeanFormField.cost.name),
+          mark: BeanFormField.cost.name,
+        ),
+    ], 4);
   }
 
   static InputDecoration _fieldDecoration(
@@ -2146,11 +2176,23 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   }
 }
 
+class _TimelineStep {
+  const _TimelineStep(this.label, this.date, this.text, this.color, this.onTap);
+
+  final String label;
+  final DateTime date;
+  final String text;
+  final Color color;
+
+  /// Set while the date can be changed.
+  final VoidCallback? onTap;
+}
+
 /// A bag's dates on a line, evenly spaced.
 class _BagTimeline extends StatelessWidget {
   const _BagTimeline({required this.steps});
 
-  final List<({String label, String date, Color color})> steps;
+  final List<_TimelineStep> steps;
 
   @override
   Widget build(BuildContext context) {
@@ -2198,11 +2240,19 @@ class _BagTimeline extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: colors.textSecondary, fontSize: 12),
                 ),
-                Text(
-                  steps[i].date,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: colors.textPrimary, fontSize: 13),
+                InkWell(
+                  onTap: steps[i].onTap,
+                  child: Text(
+                    steps[i].text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: steps[i].onTap != null
+                          ? colors.accent
+                          : colors.textPrimary,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ],
             ),

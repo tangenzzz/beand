@@ -320,7 +320,6 @@ void main() {
       await settle(tester);
       await tester.tap(find.text('Frozen').first);
       await settle(tester);
-      expect(find.text('Frozen'), findsNWidgets(2), reason: 'symbol and date');
       await tester.tap(find.text('Save'));
       await settle(tester);
       final rows = await tester.runAsync(db.allBeans);
@@ -338,6 +337,7 @@ void main() {
           _bag('A', opened: DateTime(2026, 3, 5)).copyWith(
             roastDate: Value(DateTime(2026, 2, 1)),
             frozenDate: Value(DateTime(2026, 2, 10)),
+            thawedDate: Value(DateTime(2026, 2, 20)),
           ),
         );
       });
@@ -347,11 +347,12 @@ void main() {
       await tester.tap(find.text('Timeline'));
       await settle(tester);
       final x = [
-        for (final t in ['Frozen', 'Opened'])
+        for (final t in ['Frozen', 'Thawed', 'Opened'])
           tester.getCenter(find.text(t).last).dx,
       ];
       expect(find.text('Roasted'), findsNWidgets(2));
       expect(x[0], lessThan(x[1]));
+      expect(x[1], lessThan(x[2]));
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('Edit'));
       await settle(tester);
