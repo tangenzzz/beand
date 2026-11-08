@@ -15,9 +15,16 @@ const _encoding = 'gzip+base64';
 /// encrypted on the photo servers; `data` is only the reference (BlobRef).
 const _blobEncoding = 'blob';
 
-/// Largest plain-text length that still fits into an event. NIP-44 takes
-/// 65,535 bytes; beyond that the record goes as a blob.
-const maxInlineEnvelopeBytes = 60000;
+/// Largest plain text (UTF-8 bytes) that still goes inline into an event;
+/// beyond that the record goes as a blob.
+///
+/// Not the NIP-44 maximum (65,535), but what the relays accept: strfry
+/// (damus, nos.lol, primal, …) rejects events over 65,536 bytes of JSON by
+/// default. NIP-44 pads 40,960 bytes to 40,960 and base64 makes that
+/// 54,704 characters of content, plus id/pubkey/sig/tags well under 64 KiB.
+/// One byte more pads to 49,152 → 65,628 characters → rejected.
+/// test/sync/envelope_size_test.dart guards this.
+const maxInlineEnvelopeBytes = 40960;
 
 class SyncEnvelope {
   const SyncEnvelope({

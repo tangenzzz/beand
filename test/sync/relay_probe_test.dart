@@ -10,7 +10,8 @@ import 'package:beand/sync/records/sync_envelope.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Checks whether a relay is suitable: does it accept small and large
-// kind-30078 events, does it replace the same record with the newer one,
+// kind-30078 events (up to the inline limit, plus one over 64 KiB for
+// information), does it replace the same record with the newer one,
 // does it return it on fetch? Only runs on demand — it PUBLISHES encrypted
 // test events (test key, content replaced by tombstones at the end):
 //
@@ -80,6 +81,27 @@ void main() {
 
         final smallId = 'small-${DateTime.now().microsecondsSinceEpoch}';
         final bigId = 'big-${DateTime.now().microsecondsSinceEpoch}';
+        final edgeId = 'edge-${DateTime.now().microsecondsSinceEpoch}';
+        final overId = 'over-${DateTime.now().microsecondsSinceEpoch}';
+
+        // Random noise whose envelope is at most [bytes] long (random data
+        // does not compress, so gzip+base64 keeps the size predictable).
+        Map<String, Object?> sized(String id, int bytes) {
+          var n = bytes * 3 ~/ 4;
+          while (true) {
+            final data = {'curve': base64.encode(secureRandomBytes(n))};
+            final plain = SyncEnvelope(
+              type: 'probe',
+              id: id,
+              updatedAt: 0,
+              deviceId: 'probe',
+              deleted: false,
+              data: data,
+            ).encode();
+            if (utf8.encode(plain).length <= bytes) return data;
+            n -= 256;
+          }
+        }
 
         // 1. small (like a bean)
         final small = event(smallId, {'name': 'probe v1'});
@@ -92,6 +114,19 @@ void main() {
         final r2 = await send(big);
         results['big (${big.content.length} chars)'] =
             '${r2.accepted} ${r2.message}';
+
+        // 2b. at the inline limit: every default relay MUST take this
+        final edge = event(edgeId, sized(edgeId, maxInlineEnvelopeBytes));
+        final rEdge = await send(edge);
+        results['edge (${utf8.encode(jsonEncode(edge.toJson())).length} B)'] =
+            '${rEdge.accepted} ${rEdge.message}';
+
+        // 2c. over 64 KiB (strfry default): only informative — shows which
+        // relays allow more
+        final over = event(overId, sized(overId, 48000));
+        final rOver = await send(over);
+        results['over64k (${utf8.encode(jsonEncode(over.toJson())).length} B)'] =
+            '${rOver.accepted} ${rOver.message}';
 
         // 3. replace: newer version of the same record
         final small2 = event(smallId, {'name': 'probe v2'});
@@ -106,6 +141,7 @@ void main() {
           '#d': [
             identity.dTag('probe', smallId),
             identity.dTag('probe', bigId),
+            identity.dTag('probe', edgeId),
           ],
         });
         final smallVersions = found
@@ -119,15 +155,24 @@ void main() {
         results['query small'] = '$smallVersions';
         results['query big'] =
             '${found.any((e) => e.tag('d') == identity.dTag('probe', bigId))}';
+        results['query edge'] =
+            '${found.any((e) => e.tag('d') == identity.dTag('probe', edgeId))}';
 
         // 5. clean up: tombstones replace the contents
         final t1 = await send(event(smallId, {}, deleted: true));
         final t2 = await send(event(bigId, {}, deleted: true));
-        results['cleanup'] = '${t1.accepted}/${t2.accepted}';
+        final t3 = await send(event(edgeId, {}, deleted: true));
+        if (rOver.accepted) await send(event(overId, {}, deleted: true));
+        results['cleanup'] = '${t1.accepted}/${t2.accepted}/${t3.accepted}';
 
         // ignore: avoid_print
         print('PROBE $url: ${jsonEncode(results)}');
         expect(r1.accepted, isTrue, reason: r1.message);
+        expect(
+          rEdge.accepted,
+          isTrue,
+          reason: 'inline limit rejected: ${rEdge.message}',
+        );
       },
       skip: skip,
       timeout: const Timeout(Duration(minutes: 2)),

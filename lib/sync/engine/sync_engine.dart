@@ -605,7 +605,7 @@ class SyncEngine {
     }
     var envelope = built;
     var plain = envelope.encode();
-    if (plain.length > maxInlineEnvelopeBytes) {
+    if (utf8.encode(plain).length > maxInlineEnvelopeBytes) {
       // Too large for the event: the whole envelope goes to the photo
       // servers, the event only carries the reference.
       final ref = await blobs?.uploadBytes(
