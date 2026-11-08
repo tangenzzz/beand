@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database.dart';
 import '../../models/coffee.dart';
@@ -131,7 +132,15 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   final _scroll = ScrollController();
 
   // One switch for all bags: the carousel has a single height.
+  static const _timelineOpenPrefKey = 'bean_card_timeline_open';
   bool _timelineOpen = false;
+
+  void _setTimelineOpen(bool open) {
+    setState(() => _timelineOpen = open);
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setBool(_timelineOpenPrefKey, open);
+    });
+  }
 
   // A bag whose status just changed moves to its place in the order; the
   // carousel goes along with it (null state: whatever it comes back as).
@@ -169,6 +178,10 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
   @override
   void initState() {
     super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      final saved = prefs.getBool(_timelineOpenPrefKey);
+      if (saved != null && mounted) setState(() => _timelineOpen = saved);
+    });
     final b = widget.bean;
     // Until the database answers: at least this bag, so the page has no gap.
     _beans = [?b];
@@ -1827,7 +1840,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           const Spacer(),
           InkWell(
             key: const ValueKey('bag-timeline-toggle'),
-            onTap: () => setState(() => _timelineOpen = !_timelineOpen),
+            onTap: () => _setTimelineOpen(!_timelineOpen),
             child: SizedBox(
               height: 36,
               child: Row(

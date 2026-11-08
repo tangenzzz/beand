@@ -360,6 +360,26 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('the timeline stays open next time', (tester) async {
+      SharedPreferences.setMockInitialValues({'bean_card_timeline_open': true});
+      late Bean bag;
+      await tester.runAsync(() async {
+        bag = await db.insertBean(_bag('A', opened: DateTime(2026, 3, 5)));
+      });
+      await show(tester, bag);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await settle(tester);
+      expect(find.text('Opened'), findsOneWidget);
+      await tester.tap(find.text('Timeline'));
+      await settle(tester);
+      expect(find.text('Opened'), findsNothing);
+      final prefs = await tester.runAsync(SharedPreferences.getInstance);
+      expect(prefs!.getBool('bean_card_timeline_open'), isFalse);
+      await finish(tester);
+    });
+
     testWidgets('a bag with shots cannot go back to sealed', (tester) async {
       late Bean bag;
       await tester.runAsync(() async {
