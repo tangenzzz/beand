@@ -281,9 +281,6 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     } catch (_) {}
   }
 
-  String _formatDate(DateTime d) =>
-      '${d.day} ${_months[d.month - 1]} ${d.year}';
-
   void _loadFromCoffee() {
     final d = _coffee?.details;
     if (d == null) return;
@@ -1857,10 +1854,10 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       if (_visible(BeanFormField.weight))
         cell('Weight', grams == null ? '—' : '${_formatNumber(grams)} g'),
       if (left != null) cell('Left', left),
-      if (_visible(BeanFormField.cost))
-        cell('Cost', bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €'),
       if (_visible(BeanFormField.roastDate))
         cell('Roasted', day(bag.roastDate)),
+      if (_visible(BeanFormField.cost))
+        cell('Cost', bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €'),
       cell('Opened', day(bag.openedAt)),
       if (bag.isFrozen && bag.emptiedAt == null)
         cell('Frozen', day(bag.frozenDate)),
@@ -1902,11 +1899,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         children: [
           Flexible(
             child: Text(
-              value == null
-                  ? empty
-                  : d.isFrozen
-                  ? _shortDate(value)
-                  : _formatDate(value),
+              value == null ? empty : _shortDate(value),
               style: value == null
                   ? _bagValueStyle.copyWith(color: colors.textTertiary)
                   : _bagValueStyle,
@@ -1966,19 +1959,19 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
               mark: BeanFormField.weight.name,
             ),
           if (left != null) _bagCell('Left', Text(left, style: _bagValueStyle)),
-          if (_visible(BeanFormField.cost))
-            _bagCell(
-              'Cost',
-              number(d.cost, '€', BeanFormField.cost.name),
-              mark: BeanFormField.cost.name,
-            ),
-        ], 3),
-        row([
           if (_visible(BeanFormField.roastDate))
             _bagCell(
               'Roast date',
               date(d.roastDate, 'Not set', (v) => d.roastDate = v),
               mark: BeanFormField.roastDate.name,
+            ),
+        ], 3),
+        row([
+          if (_visible(BeanFormField.cost))
+            _bagCell(
+              'Cost',
+              number(d.cost, '€', BeanFormField.cost.name),
+              mark: BeanFormField.cost.name,
             ),
           _bagCell(
             'Opened',
@@ -1989,7 +1982,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
               'Frozen',
               date(d.frozenDate, 'Not set', (v) => d.frozenDate = v),
             ),
-        ], d.isFrozen ? 3 : 2),
+        ], 3),
       ],
     );
   }
