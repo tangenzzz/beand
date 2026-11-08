@@ -1952,13 +1952,15 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
 
   String _shortDate(DateTime d) => '${d.day} ${_months[d.month - 1]}';
 
+  // One of the four columns below the status symbols.
   Widget _bagCell(String label, Widget value, {String? mark}) {
     final colors = context.colors;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: mark != null && _aiFilled.contains(mark)
                 ? colors.accent
@@ -1990,25 +1992,37 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     );
     String day(DateTime? d) => d == null ? '—' : _shortDate(d);
     final grams = bag.weightGrams;
-    final cells = [
+    return _bagColumns([
       if (_visible(BeanFormField.weight))
-        cell('Weight', grams == null ? '—' : '${_formatNumber(grams)} g'),
-      if (left != null) cell('Left', left),
+        cell('Weight', grams == null ? '—' : '${_formatNumber(grams)} g')
+      else
+        null,
+      cell('Left', left ?? '—'),
       if (_visible(BeanFormField.roastDate))
-        cell('Roasted', day(bag.roastDate)),
+        cell('Roasted', day(bag.roastDate))
+      else
+        null,
       if (_visible(BeanFormField.cost))
-        cell('Cost', bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €'),
-    ];
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < 4; i++)
-          Expanded(
-            child: i < cells.length ? cells[i] : const SizedBox.shrink(),
-          ),
-      ],
-    );
+        cell('Cost', bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €')
+      else
+        null,
+    ]);
   }
+
+  // Weight, Left, Roasted, Cost: each below its status symbol, always in the
+  // same place, also when one of them is switched off.
+  Widget _bagColumns(List<Widget?> cells) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (final cell in cells)
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: cell ?? const SizedBox.shrink(),
+          ),
+        ),
+    ],
+  );
 
   Widget _bagForm(Bean? bag, _BagDraft d, String? left) {
     final colors = context.colors;
@@ -2022,6 +2036,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         if (picked != null && mounted) setState(() => onChanged(picked));
       },
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Flexible(
             child: Text(
@@ -2057,47 +2072,40 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
             setState(() {});
           },
           style: _bagValueStyle,
+          textAlign: TextAlign.center,
           decoration: _fieldDecoration(
             context,
             suffix: suffix,
             padding: EdgeInsets.zero,
           ),
         );
-    Widget row(List<Widget> cells, int columns) => Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < columns; i++) ...[
-            if (i > 0) const SizedBox(width: 12),
-            Expanded(
-              child: i < cells.length ? cells[i] : const SizedBox.shrink(),
-            ),
-          ],
-        ],
-      ),
-    );
-    return row([
+    return _bagColumns([
       if (_visible(BeanFormField.weight))
         _bagCell(
           'Weight',
           number(d.weight, 'g', BeanFormField.weight.name),
           mark: BeanFormField.weight.name,
-        ),
-      if (left != null) _bagCell('Left', Text(left, style: _bagValueStyle)),
+        )
+      else
+        null,
+      _bagCell('Left', Text(left ?? '—', maxLines: 1, style: _bagValueStyle)),
       if (_visible(BeanFormField.roastDate))
         _bagCell(
           'Roast date',
           date(d.roastDate, 'Not set', (v) => d.roastDate = v),
           mark: BeanFormField.roastDate.name,
-        ),
+        )
+      else
+        null,
       if (_visible(BeanFormField.cost))
         _bagCell(
           'Cost',
           number(d.cost, '€', BeanFormField.cost.name),
           mark: BeanFormField.cost.name,
-        ),
-    ], 4);
+        )
+      else
+        null,
+    ]);
   }
 
   static InputDecoration _fieldDecoration(
