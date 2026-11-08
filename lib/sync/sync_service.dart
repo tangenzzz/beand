@@ -53,6 +53,9 @@ const defaultSyncRelays = [
 const defaultBlobServers = [
   'https://nostr.download',
   'https://blossom.yakihonne.com',
+  'https://blossom.ditto.pub',
+  'https://blossom.data.haus',
+  'https://blossom-01.uid.ovh',
 ];
 
 class SyncService extends ChangeNotifier with WidgetsBindingObserver {

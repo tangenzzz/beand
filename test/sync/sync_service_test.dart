@@ -120,7 +120,7 @@ void main() {
     await sync.removeBlobServer(defaultBlobServers.first);
     final again = await service();
     addTearDown(again.dispose);
-    expect(again.blobServers, [defaultBlobServers.last]);
+    expect(again.blobServers, defaultBlobServers.sublist(1));
     expect(
       SyncService.normalizeBlobServerUrl('192.168.1.50:3000'),
       'http://192.168.1.50:3000',
