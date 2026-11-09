@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Network access to the machines (Socket.IO/WebSocket + REST on Wi-Fi).
          Must be in the main manifest: Flutter's template declares INTERNET
          only in the debug/profile manifests, so release builds could not
@@ -16,6 +17,13 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
         android:maxSdkVersion="30"/>
+    <!-- rxandroidble (Bluetooth scales) asks for location on every Android
+         version. Only Android 11 and older need it for scanning, and the
+         line above covers those. -->
+    <uses-permission-sdk-23 android:name="android.permission.ACCESS_FINE_LOCATION"
+        tools:node="remove"/>
+    <uses-permission-sdk-23 android:name="android.permission.ACCESS_COARSE_LOCATION"
+        tools:node="remove"/>
 
     <!-- Machine notifications (lib/services/machine_notifications.dart):
          asked at runtime from Android 13 on. While heating and brewing a
