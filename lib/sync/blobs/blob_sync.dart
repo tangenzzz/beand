@@ -115,7 +115,7 @@ class BlobSync {
       for (final s in servers) BlossomClient.addressOn(s, ref.sha256),
     };
     for (final url in candidates) {
-      final bytes = await client.download(url, ref.sha256);
+      final bytes = await client.download(url, ref.sha256, maxBytes: ref.size);
       if (bytes == null) continue;
       try {
         return await decryptBlob(bytes, ref.key, ref.nonce);

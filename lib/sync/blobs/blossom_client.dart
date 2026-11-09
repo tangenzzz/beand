@@ -131,17 +131,37 @@ class BlossomClient {
     }
   }
 
-  /// Fetches a file; null if it is not (or no longer) there or does not
-  /// match the sha256.
-  Future<Uint8List?> download(Uri url, String sha256) async {
+  /// Fetches a file; null if it is not (or no longer) there, is larger than
+  /// [maxBytes] or does not match the sha256.
+  Future<Uint8List?> download(
+    Uri url,
+    String sha256, {
+    required int maxBytes,
+  }) async {
     try {
-      final response = await _client.get(url).timeout(timeout);
-      if (response.statusCode != 200) return null;
-      final bytes = response.bodyBytes;
+      final bytes = await _read(url, maxBytes).timeout(timeout);
+      if (bytes == null) return null;
       return await sha256HexInBackground(bytes) == sha256 ? bytes : null;
     } catch (_) {
       return null;
     }
+  }
+
+  // The server decides how much it sends, so the body is read piece by piece
+  // and dropped as soon as it is larger than the file can be.
+  Future<Uint8List?> _read(Uri url, int maxBytes) async {
+    final response = await _client.send(http.Request('GET', url));
+    if (response.statusCode != 200 ||
+        (response.contentLength ?? 0) > maxBytes) {
+      await response.stream.listen(null).cancel();
+      return null;
+    }
+    final body = BytesBuilder(copy: false);
+    await for (final chunk in response.stream) {
+      body.add(chunk);
+      if (body.length > maxBytes) return null;
+    }
+    return body.takeBytes();
   }
 
   /// May I upload here? (BUD-06: HEAD /upload with authorization.) null =
