@@ -248,7 +248,7 @@ class _AutoBackupSectionState extends State<AutoBackupSection> {
                 ? 'Choose where the backup goes'
                 : _folderLost
                 ? 'No access any more — choose again'
-                : config.folderName,
+                : SafFolder.pathOf(config.folderUri!) ?? config.folderName,
             danger: _folderLost,
             onTap: _pickFolder,
           ),

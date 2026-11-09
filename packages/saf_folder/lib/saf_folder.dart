@@ -28,6 +28,39 @@ class SafFolder {
     );
   }
 
+  /// The whole path of the folder behind [uri], as a file manager shows it.
+  /// Null where the URI does not spell it out: cloud providers use opaque IDs
+  /// and an iOS bookmark holds no readable path.
+  static String? pathOf(String uri) {
+    final parsed = Uri.tryParse(uri);
+    if (parsed == null ||
+        parsed.pathSegments.length != 2 ||
+        parsed.pathSegments.first != 'tree') {
+      return null;
+    }
+    final id = parsed.pathSegments.last;
+    switch (parsed.authority) {
+      case 'com.android.externalstorage.documents':
+        final colon = id.indexOf(':');
+        if (colon < 0) return null;
+        final volume = id.substring(0, colon);
+        return _joinPath(
+          volume == 'primary' ? _internalStorage : volume,
+          id.substring(colon + 1),
+        );
+      case 'com.android.providers.downloads.documents':
+        if (id == 'downloads') return _joinPath(_internalStorage, 'Download');
+        final raw = RegExp(r'^raw:/storage/emulated/\d+/(.*)$').firstMatch(id);
+        return raw == null ? null : _joinPath(_internalStorage, raw.group(1)!);
+    }
+    return null;
+  }
+
+  static const _internalStorage = 'Internal storage';
+
+  static String _joinPath(String root, String rest) =>
+      rest.isEmpty ? root : '$root/$rest';
+
   /// The folder's name if it is still writable, else null (permission
   /// revoked, folder deleted, SD card removed).
   static Future<String?> nameIfWritable(String uri) =>
