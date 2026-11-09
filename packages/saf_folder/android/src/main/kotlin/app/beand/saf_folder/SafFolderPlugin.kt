@@ -169,26 +169,50 @@ class SafFolderPlugin :
         if (!canWrite(tree)) throw IllegalStateException("No access to the folder any more")
         val folder = folderDoc(tree)
         val partName = "$name.part"
+        val oldName = "old-$name"
+        // Left behind by a run that stopped between the two renames below.
+        findChild(tree, oldName)?.let { old ->
+            if (findChild(tree, name) == null) {
+                rename(tree, old, name)
+            } else {
+                DocumentsContract.deleteDocument(resolver, old)
+            }
+        }
         findChild(tree, partName)?.let { DocumentsContract.deleteDocument(resolver, it) }
         val part = DocumentsContract.createDocument(resolver, folder, OCTET, partName)
             ?: throw IllegalStateException("Could not create a file in the folder")
         copy(source, part)
 
-        findChild(tree, name)?.let { DocumentsContract.deleteDocument(resolver, it) }
-        val renamed = try {
-            DocumentsContract.renameDocument(resolver, part, name)
-        } catch (_: Exception) {
-            null
+        // The old file steps aside instead of being deleted, and goes only
+        // once the new one carries the name.
+        val current = findChild(tree, name)
+        val aside = current?.let { rename(tree, it, oldName) }
+        if (current == null || aside != null) {
+            if (rename(tree, part, name) != null) {
+                aside?.let { DocumentsContract.deleteDocument(resolver, it) }
+                return
+            }
+            aside?.let { rename(tree, it, name) }
         }
-        if (renamed != null) return
 
         // Provider without rename: write the target directly, then drop
-        // the part.
+        // the part, which stays a complete copy until then.
         val target = findChild(tree, name)
             ?: DocumentsContract.createDocument(resolver, folder, OCTET, name)
             ?: throw IllegalStateException("Could not create a file in the folder")
         copy(source, target)
         DocumentsContract.deleteDocument(resolver, part)
+    }
+
+    // A provider whose document IDs survive a rename reports no new URI, so
+    // success is read from the folder.
+    private fun rename(tree: Uri, document: Uri, newName: String): Uri? {
+        val renamed = try {
+            DocumentsContract.renameDocument(resolver, document, newName)
+        } catch (_: Exception) {
+            return null
+        }
+        return renamed ?: findChild(tree, newName)
     }
 
     private fun copy(source: File, target: Uri) {
