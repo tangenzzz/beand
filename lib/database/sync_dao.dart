@@ -207,6 +207,33 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     return ApplyResult.kept;
   }
 
+  // An edit still waiting to be sent, and an older state of this same device
+  // comes back looking newer: the clock was set back in between. The edit is
+  // what the user did last, so it stays and gets a stamp that beats the echo
+  // on every device.
+  Future<bool> _ownEditWaiting(
+    String table,
+    RemoteStamp r,
+    int localUpdatedAt,
+    String? localDeviceId,
+    String localState,
+  ) async {
+    if (localState != SyncState.pending ||
+        localDeviceId != r.deviceId ||
+        r.updatedAt <= localUpdatedAt) {
+      return false;
+    }
+    await customUpdate(
+      'UPDATE $table SET updated_at = ? WHERE sync_id = ?',
+      variables: [
+        Variable.withInt(r.updatedAt + 1),
+        Variable.withString(r.syncId),
+      ],
+      updates: {beans, shots, storedProfiles, syncedSettings},
+    );
+    return true;
+  }
+
   // ---- Beans ----
 
   Future<ApplyResult> applyRemoteBean(RemoteStamp r, BeansCompanion data) =>
@@ -214,6 +241,16 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
         final local = await (select(
           beans,
         )..where((b) => b.syncId.equals(r.syncId))).getSingleOrNull();
+        if (local != null &&
+            await _ownEditWaiting(
+              'beans',
+              r,
+              local.updatedAt,
+              local.deviceId,
+              local.syncState,
+            )) {
+          return ApplyResult.kept;
+        }
         if (local != null && !r.wins(local.updatedAt, local.deviceId)) {
           return _keep(
             'beans',
@@ -282,6 +319,16 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     final local = await (select(
       shots,
     )..where((s) => s.syncId.equals(r.syncId))).getSingleOrNull();
+    if (local != null &&
+        await _ownEditWaiting(
+          'shots',
+          r,
+          local.updatedAt,
+          local.deviceId,
+          local.syncState,
+        )) {
+      return (result: ApplyResult.kept, unresolvedBean: false);
+    }
     if (local != null && !r.wins(local.updatedAt, local.deviceId)) {
       final kept = await _keep(
         'shots',
@@ -366,6 +413,16 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     final local = await (select(
       storedProfiles,
     )..where((p) => p.syncId.equals(r.syncId))).getSingleOrNull();
+    if (local != null &&
+        await _ownEditWaiting(
+          'stored_profiles',
+          r,
+          local.updatedAt,
+          local.deviceId,
+          local.syncState,
+        )) {
+      return ApplyResult.kept;
+    }
     if (local != null && !r.wins(local.updatedAt, local.deviceId)) {
       return _keep(
         'stored_profiles',
@@ -476,23 +533,26 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
 
   /// After adding another photo server: all photos stored here as files are
   /// uploaded again — this time to ALL servers, including the new one. The
-  /// new reference replaces the old one on the other devices.
+  /// new reference replaces the old one on the other devices, which is why
+  /// the stamp moves on: with the same stamp they would keep the old one.
   Future<void> reuploadLocalPhotos() async {
     await (update(
       beans,
     )..where((b) => b.photoPath.isNotNull() & b.deleted.equals(false))).write(
-      const BeansCompanion(
-        photoBlob: Value(null),
-        syncState: Value(SyncState.pending),
+      BeansCompanion.custom(
+        photoBlob: const Constant(null),
+        syncState: const Constant(SyncState.pending),
+        updatedAt: beans.updatedAt + const Constant(1),
       ),
     );
     await (update(storedProfiles)..where(
           (p) => p.customImagePath.isNotNull() & p.deleted.equals(false),
         ))
         .write(
-          const StoredProfilesCompanion(
-            customImageBlob: Value(null),
-            syncState: Value(SyncState.pending),
+          StoredProfilesCompanion.custom(
+            customImageBlob: const Constant(null),
+            syncState: const Constant(SyncState.pending),
+            updatedAt: storedProfiles.updatedAt + const Constant(1),
           ),
         );
   }
@@ -553,6 +613,16 @@ class SyncDao extends DatabaseAccessor<AppDatabase> with _$SyncDaoMixin {
     final local = await (select(
       syncedSettings,
     )..where((s) => s.key.equals(key))).getSingleOrNull();
+    if (local != null &&
+        await _ownEditWaiting(
+          'synced_settings',
+          r,
+          local.updatedAt,
+          local.deviceId,
+          local.syncState,
+        )) {
+      return ApplyResult.kept;
+    }
     if (local != null && !r.wins(local.updatedAt, local.deviceId)) {
       return _keep(
         'synced_settings',
