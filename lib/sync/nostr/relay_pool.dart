@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../services/connection_log.dart';
 import '../identity/identity.dart';
 import 'event.dart';
 import 'relay_connection.dart';
@@ -19,12 +20,35 @@ import 'relay_info.dart';
 /// yet, connected = last contact ok.
 enum RelayState { idle, connecting, connected, error }
 
+/// Why the last contact failed. Only [rejected] asks the user to do
+/// something; the others sort themselves out while other servers carry on.
+enum RelayProblem { temporary, throttled, rejected }
+
+/// After this many sync runs in a row without success, a server that keeps
+/// failing is mentioned in the list (one bad run says nothing).
+const missedRunsUntilNoted = 3;
+
 class RelayStatus {
-  const RelayStatus(this.state, {this.message});
+  const RelayStatus(
+    this.state, {
+    this.message,
+    this.problem = RelayProblem.temporary,
+    this.notReachedLately = false,
+  });
   final RelayState state;
 
   /// Understandable message for the UI (without Nostr jargon).
   final String? message;
+
+  /// Only meaningful with [RelayState.error].
+  final RelayProblem problem;
+
+  /// Temporary problem that has lasted [missedRunsUntilNoted] sync runs.
+  final bool notReachedLately;
+
+  /// The only case the list shows in red.
+  bool get needsAction =>
+      state == RelayState.error && problem == RelayProblem.rejected;
 }
 
 class RelayPool extends ChangeNotifier {
@@ -65,6 +89,10 @@ class RelayPool extends ChangeNotifier {
   final _retryAt = <String, DateTime>{};
   final _holdUntil = <String, DateTime>{};
   final _nextSendAt = <String, DateTime>{};
+  final _missedRuns = <String, int>{};
+
+  /// Last failure written to the connection log, per relay (no repeats).
+  final _loggedFailure = <String, String>{};
   final _info = <String, ({Future<RelayLimits> limits, DateTime at})>{};
 
   /// Smallest message (bytes) a relay rejected as too large; from then on
@@ -73,8 +101,35 @@ class RelayPool extends ChangeNotifier {
   var _urls = <String>[];
 
   List<String> get urls => List.unmodifiable(_urls);
-  RelayStatus statusOf(String url) =>
-      _statuses[url] ?? const RelayStatus(RelayState.idle);
+  RelayStatus statusOf(String url) {
+    final status = _statuses[url] ?? const RelayStatus(RelayState.idle);
+    final lately =
+        (_missedRuns[url] ?? 0) >= missedRunsUntilNoted &&
+        status.state == RelayState.error &&
+        status.problem == RelayProblem.temporary;
+    return lately
+        ? RelayStatus(
+            status.state,
+            message: status.message,
+            notReachedLately: true,
+          )
+        : status;
+  }
+
+  /// A sync run is over: count who has failed for how many runs. A throttled
+  /// relay is left out, it is only waiting for its pause to end.
+  void noteRunFinished() {
+    for (final url in _urls) {
+      final status = _statuses[url];
+      if (status?.state == RelayState.connected) {
+        _missedRuns.remove(url);
+      } else if (status?.state == RelayState.error &&
+          status?.problem == RelayProblem.temporary) {
+        _missedRuns[url] = (_missedRuns[url] ?? 0) + 1;
+      }
+    }
+    _notify();
+  }
 
   /// Set the list of relays; removed ones are disconnected.
   void setUrls(List<String> urls) {
@@ -85,6 +140,8 @@ class RelayPool extends ChangeNotifier {
     _statuses.removeWhere((url, _) => !_urls.contains(url));
     _info.removeWhere((url, _) => !_urls.contains(url));
     _tooLargeFrom.removeWhere((url, _) => !_urls.contains(url));
+    _missedRuns.removeWhere((url, _) => !_urls.contains(url));
+    _loggedFailure.removeWhere((url, _) => !_urls.contains(url));
     _notify();
   }
 
@@ -178,7 +235,7 @@ class RelayPool extends ChangeNotifier {
     _holdUntil[url] = _now().add(banned ? bannedPause : rateLimitedPause);
     final connection = _connections.remove(url);
     if (connection != null) unawaited(connection.close());
-    _set(url, RelayStatus(RelayState.error, message: friendlyMessage(raw)));
+    _setFailure(url, raw);
     return true;
   }
 
@@ -187,10 +244,27 @@ class RelayPool extends ChangeNotifier {
     final failures = (_failures[url] ?? 0) + 1;
     _failures[url] = failures;
     _retryAt[url] = _now().add(backoff(failures));
-    _set(url, RelayStatus(RelayState.error, message: friendlyMessage(message)));
+    _setFailure(url, message);
+  }
+
+  // The list only says what needs doing; the actual reason goes to the
+  // connection log.
+  void _setFailure(String url, String raw) {
+    _set(
+      url,
+      RelayStatus(
+        RelayState.error,
+        message: friendlyMessage(raw),
+        problem: relayProblem(raw),
+      ),
+    );
+    if (_loggedFailure[url] == raw) return;
+    _loggedFailure[url] = raw;
+    ConnectionLog.write('relay', '${Uri.tryParse(url)?.host ?? url} $raw');
   }
 
   void _set(String url, RelayStatus status) {
+    if (status.state == RelayState.connected) _loggedFailure.remove(url);
     _statuses[url] = status;
     _notify();
   }
@@ -238,13 +312,7 @@ class RelayPool extends ChangeNotifier {
             } else if (!result.accepted && _maybeHold(url, result.message)) {
               // paused
             } else if (!result.accepted) {
-              _set(
-                url,
-                RelayStatus(
-                  RelayState.error,
-                  message: friendlyMessage(result.message),
-                ),
-              );
+              _setFailure(url, result.message);
             } else if (statusOf(url).state != RelayState.connected) {
               _set(url, const RelayStatus(RelayState.connected));
             }
@@ -309,6 +377,22 @@ class RelayPool extends ChangeNotifier {
     unawaited(closeAll());
     super.dispose();
   }
+}
+
+/// Does this relay message need the user, or does it pass by itself?
+RelayProblem relayProblem(String raw) {
+  if (RelayPool._isHoldMessage(raw)) return RelayProblem.throttled;
+  final text = raw.toLowerCase();
+  final rejected =
+      text.contains('pubkey not allowed') ||
+      text.startsWith('blocked:') ||
+      text.startsWith('restricted:') ||
+      text.startsWith('auth-required:') ||
+      text.contains('created_at') ||
+      text.contains('too late') ||
+      text.contains('too early') ||
+      text.contains('in the future');
+  return rejected ? RelayProblem.rejected : RelayProblem.temporary;
 }
 
 /// Translate relay messages into sentences for the UI. The prefixes come

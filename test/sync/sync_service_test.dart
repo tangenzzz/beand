@@ -402,6 +402,48 @@ void main() {
       expect(find.textContaining('Enter a server address'), findsOneWidget);
       expect(sync.relays, [relay.url]);
     });
+
+    List<Color?> dotColors(WidgetTester tester) => tester
+        .widgetList<Container>(find.byType(Container))
+        .map((c) => c.decoration)
+        .whereType<BoxDecoration>()
+        .where((d) => d.shape == BoxShape.circle)
+        .map((d) => d.color)
+        .toList();
+
+    Future<void> syncWithRejection(WidgetTester tester, String reason) async {
+      final other = await tester.runAsync(TestRelay.start);
+      addTearDown(() => tester.runAsync(other!.close));
+      other!.rejectWith = reason;
+      await tester.runAsync(() async {
+        await sync.enable();
+        await sync.addRelay(other.url);
+        await db.insertBean(BeansCompanion.insert(name: 'Bean'));
+        await sync.syncNow();
+      });
+      await pump(tester);
+      await tester.tap(find.byKey(const ValueKey('sync-advanced')));
+      await tester.pump();
+    }
+
+    testWidgets('a throttling server: gray dot, no text', (tester) async {
+      await syncWithRejection(tester, 'rate-limited: slow down');
+      expect(find.textContaining('slowing'), findsNothing);
+      final colors = buildAppTheme().extension<AppColors>()!;
+      expect(dotColors(tester), isNot(contains(colors.danger)));
+    });
+
+    testWidgets('a server refusing the key: red, with the reason', (
+      tester,
+    ) async {
+      await syncWithRejection(tester, 'blocked: pubkey not allowed');
+      expect(
+        find.text("This server doesn't accept your device key yet."),
+        findsOneWidget,
+      );
+      final colors = buildAppTheme().extension<AppColors>()!;
+      expect(dotColors(tester), contains(colors.danger));
+    });
   });
 
   test('time label of the status line', () {

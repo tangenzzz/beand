@@ -405,6 +405,27 @@ void main() {
     );
   });
 
+  test('photo server list: only a lasting refusal counts', () async {
+    const gone = 'http://127.0.0.1:1';
+    a.blobs.servers.add(gone);
+    blossom.allowedPubkeys = {'0' * 64};
+    await a.blobs.checkServers();
+    expect(isLastingBlossomRejection(a.blobs.errors[blossom.url]!), isTrue);
+    expect(isLastingBlossomRejection(a.blobs.errors[gone]!), isFalse);
+
+    for (var i = 1; i < missedRunsUntilNoted; i++) {
+      a.blobs.noteRunFinished();
+      expect(a.blobs.notReachedLately(gone), isFalse);
+    }
+    a.blobs.noteRunFinished();
+    expect(a.blobs.notReachedLately(gone), isTrue);
+    expect(a.blobs.notReachedLately(blossom.url), isFalse);
+
+    a.blobs.errors.remove(gone);
+    a.blobs.noteRunFinished();
+    expect(a.blobs.notReachedLately(gone), isFalse);
+  });
+
   test('another photo server: existing photos go to all servers', () async {
     await at(
       () => a.db.insertBean(

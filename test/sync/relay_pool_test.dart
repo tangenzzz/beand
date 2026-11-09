@@ -1,3 +1,4 @@
+import 'package:beand/services/connection_log.dart';
 import 'package:beand/sync/identity/identity.dart';
 import 'package:beand/sync/nostr/event.dart';
 import 'package:beand/sync/nostr/relay_info.dart';
@@ -87,6 +88,90 @@ void main() {
       expect(after[relay.url]?.accepted, isTrue);
     });
   }
+
+  group('what the server list shows', () {
+    RelayPool pool() {
+      final p = RelayPool(identity: identity, minSendInterval: Duration.zero)
+        ..setUrls([relay.url]);
+      addTearDown(p.closeAll);
+      return p;
+    }
+
+    test('only a lasting refusal asks for action', () {
+      for (final (raw, problem) in [
+        ('rate-limited: slow down', RelayProblem.throttled),
+        ('banned: too many violations', RelayProblem.throttled),
+        ('blocked: pubkey not allowed', RelayProblem.rejected),
+        ('restricted: sign up first', RelayProblem.rejected),
+        ('invalid: created_at too early', RelayProblem.rejected),
+        ('Could not connect: 503', RelayProblem.temporary),
+        ('No answer from server', RelayProblem.temporary),
+        ('invalid: bad event', RelayProblem.temporary),
+      ]) {
+        expect(relayProblem(raw), problem, reason: raw);
+      }
+    });
+
+    test('throttled: no action needed, not counted as missed', () async {
+      final p = pool();
+      relay.rejectWith = 'rate-limited: slow down';
+      await p.publish(event(1));
+      for (var i = 0; i < missedRunsUntilNoted; i++) {
+        p.noteRunFinished();
+      }
+      final status = p.statusOf(relay.url);
+      expect(status.state, RelayState.error);
+      expect(status.needsAction, isFalse);
+      expect(status.notReachedLately, isFalse);
+    });
+
+    test('refused: asks for action, with its message', () async {
+      final p = pool();
+      relay.rejectWith = 'blocked: pubkey not allowed';
+      await p.publish(event(1));
+      expect(p.statusOf(relay.url).needsAction, isTrue);
+      expect(
+        p.statusOf(relay.url).message,
+        "This server doesn't accept your device key yet.",
+      );
+    });
+
+    test(
+      'unreachable: mentioned only after several runs, then clears',
+      () async {
+        final p = pool();
+        relay.down = true;
+        await p.publish(event(1), force: true);
+        for (var i = 1; i < missedRunsUntilNoted; i++) {
+          p.noteRunFinished();
+          expect(p.statusOf(relay.url).notReachedLately, isFalse);
+        }
+        p.noteRunFinished();
+        expect(p.statusOf(relay.url).notReachedLately, isTrue);
+        expect(p.statusOf(relay.url).needsAction, isFalse);
+
+        relay.down = false;
+        await p.publish(event(2), force: true);
+        p.noteRunFinished();
+        expect(p.statusOf(relay.url).state, RelayState.connected);
+        expect(p.statusOf(relay.url).notReachedLately, isFalse);
+      },
+    );
+
+    test('the real reason goes to the connection log, once', () async {
+      final lines = <String>[];
+      ConnectionLog.sink = lines.add;
+      addTearDown(() => ConnectionLog.sink = null);
+      final p = pool();
+      relay.rejectWith = 'invalid: bad event';
+      await p.publish(event(1));
+      await p.publish(event(2));
+      expect(
+        lines.where((l) => l.contains('invalid: bad event')),
+        hasLength(1),
+      );
+    });
+  });
 
   group('size limits', () {
     test('NIP-11 limit: too large is skipped, not sent, not red', () async {

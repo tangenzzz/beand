@@ -393,6 +393,8 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
       );
       debugPrint('Sync: $report');
       await _blobs?.checkServers();
+      _blobs?.noteRunFinished();
+      _pool?.noteRunFinished();
       final allFailed =
           relays.isNotEmpty && report.failedRelays.length == relays.length;
       incomplete = allFailed || report.notSent > 0;
@@ -533,8 +535,24 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
 
   List<String> get blobServers => List.unmodifiable(_state.blobServers);
 
-  /// Last error message of a photo server, null = ok/unknown.
-  String? blobServerError(String url) => _blobs?.errors[url];
+  /// What the list shows for a photo server, in the same terms as a relay.
+  RelayStatus blobServerStatus(String url) {
+    final blobs = _blobs;
+    final error = blobs?.errors[url];
+    if (blobs != null && error != null) {
+      return RelayStatus(
+        RelayState.error,
+        message: error,
+        problem: isLastingBlossomRejection(error)
+            ? RelayProblem.rejected
+            : RelayProblem.temporary,
+        notReachedLately: blobs.notReachedLately(url),
+      );
+    }
+    return RelayStatus(
+      blobServerOk(url) ? RelayState.connected : RelayState.idle,
+    );
+  }
 
   /// Photo server worked last time (display green).
   bool blobServerOk(String url) => _blobs?.ok.contains(url) ?? false;

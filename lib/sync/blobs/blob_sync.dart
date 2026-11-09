@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../nostr/relay_pool.dart' show missedRunsUntilNoted;
 import 'blob_crypto.dart';
 import 'blob_ref.dart';
 import 'blossom_client.dart';
@@ -30,6 +31,23 @@ class BlobSync {
 
   /// Servers that worked last time (display: green).
   final ok = <String>{};
+
+  final _missedRuns = <String, int>{};
+
+  /// A sync run is over: count who has failed for how many runs.
+  void noteRunFinished() {
+    for (final server in servers) {
+      final error = errors[server];
+      if (error == null) {
+        _missedRuns.remove(server);
+      } else if (!isLastingBlossomRejection(error)) {
+        _missedRuns[server] = (_missedRuns[server] ?? 0) + 1;
+      }
+    }
+  }
+
+  bool notReachedLately(String server) =>
+      (_missedRuns[server] ?? 0) >= missedRunsUntilNoted;
 
   /// Briefly ask each server whether it accepts uploads.
   Future<void> checkServers() async {

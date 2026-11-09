@@ -441,14 +441,7 @@ class _PhotoServersSectionState extends State<_PhotoServersSection> {
           for (final url in sync.blobServers)
             _ServerRow(
               url: url,
-              status: sync.blobServerError(url) != null
-                  ? RelayStatus(
-                      RelayState.error,
-                      message: sync.blobServerError(url),
-                    )
-                  : sync.blobServerOk(url)
-                  ? const RelayStatus(RelayState.connected)
-                  : const RelayStatus(RelayState.idle),
+              status: sync.blobServerStatus(url),
               onRemove: () => sync.removeBlobServer(url),
             ),
           const SizedBox(height: 8),
@@ -514,7 +507,10 @@ class _ServerRow extends StatelessWidget {
     final colors = context.colors;
     final dot = switch (status.state) {
       RelayState.connected => colors.success,
-      RelayState.error => colors.danger,
+      // Red only when the user has to do something: a server that is busy
+      // or briefly away does not stop the others.
+      RelayState.error =>
+        status.needsAction ? colors.danger : colors.textTertiary,
       RelayState.connecting => colors.accent,
       RelayState.idle => colors.textTertiary,
     };
@@ -575,10 +571,15 @@ class _ServerRow extends StatelessWidget {
                       ),
                   ],
                 ),
-                if (status.state == RelayState.error && status.message != null)
+                if (status.needsAction && status.message != null)
                   Text(
                     status.message!,
                     style: TextStyle(color: colors.danger, fontSize: 12),
+                  )
+                else if (status.notReachedLately)
+                  Text(
+                    'Not reached lately',
+                    style: TextStyle(color: colors.textTertiary, fontSize: 12),
                   ),
               ],
             ),

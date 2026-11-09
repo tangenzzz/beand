@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../../services/connection_log.dart';
 import '../identity/identity.dart';
 import '../nostr/event.dart';
 import 'blob_crypto.dart';
@@ -14,6 +15,14 @@ import 'blob_crypto.dart';
 // https://github.com/hzrd149/blossom
 
 const kindBlossomAuth = 24242;
+
+const _keyRejected = "This photo server doesn't accept your device key yet.";
+const _noEncryptedFiles = "This photo server doesn't take encrypted files.";
+
+/// Will this server keep refusing until the user changes something? Everything
+/// else (timeouts, server errors, a busy phone) passes by itself.
+bool isLastingBlossomRejection(String message) =>
+    message == _keyRejected || message == _noEncryptedFiles;
 
 class BlossomException implements Exception {
   const BlossomException(this.message);
@@ -34,6 +43,19 @@ class BlossomClient {
   final http.Client _client;
   final DateTime Function() _now;
   static const timeout = Duration(seconds: 60);
+
+  /// Last failure written to the connection log, per server (no repeats).
+  final _logged = <String, String>{};
+
+  // The list only says what needs doing; the actual reason goes here.
+  void _log(String server, String detail) {
+    if (_logged[server] == detail) return;
+    _logged[server] = detail;
+    ConnectionLog.write(
+      'photo',
+      '${Uri.tryParse(server)?.host ?? server} $detail',
+    );
+  }
 
   // Signs in a background isolate (~11 ms on a PC), like the relay login.
   Future<String> _auth(String verb, [String? sha256]) async {
@@ -80,12 +102,17 @@ class BlossomClient {
           )
           .timeout(timeout);
     } catch (e) {
+      _log(server, 'upload: $e');
       throw const BlossomException("Can't reach this photo server.");
     }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final reason = response.headers['x-reason'] ?? '';
+      _log(server, 'upload: HTTP ${response.statusCode} $reason'.trim());
+    } else {
+      _logged.remove(server);
+    }
     if (response.statusCode == 401 || response.statusCode == 403) {
-      throw const BlossomException(
-        "This photo server doesn't accept your device key yet.",
-      );
+      throw const BlossomException(_keyRejected);
     }
     if (response.statusCode == 413) {
       throw const BlossomException('The photo is too large for this server.');
@@ -138,12 +165,19 @@ class BlossomClient {
             },
           )
           .timeout(const Duration(seconds: 15));
+      if (response.statusCode >= 400) {
+        final reason = response.headers['x-reason'] ?? '';
+        _log(server, 'check: HTTP ${response.statusCode} $reason'.trim());
+      } else {
+        _logged.remove(server);
+      }
       return switch (response.statusCode) {
-        401 || 403 => "This photo server doesn't accept your device key yet.",
-        415 || 400 => "This photo server doesn't take encrypted files.",
+        401 || 403 => _keyRejected,
+        415 || 400 => _noEncryptedFiles,
         _ => null,
       };
-    } catch (_) {
+    } catch (e) {
+      _log(server, 'check: $e');
       return "Can't reach this photo server.";
     }
   }
