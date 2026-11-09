@@ -352,7 +352,8 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
             const SizedBox(height: 14),
             Text(
               'Everything currently in the app is replaced and cannot be '
-              'recovered afterwards.',
+              'recovered afterwards.'
+              '${_sync()?.enabled ?? false ? ' Your synced devices get this state too.' : ''}',
               style: TextStyle(color: context.colors.danger, height: 1.4),
             ),
           ],
