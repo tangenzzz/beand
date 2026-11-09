@@ -155,6 +155,14 @@ class SyncEngine {
   int _nowSeconds() => _now().millisecondsSinceEpoch ~/ 1000;
   int _nowMs() => _now().millisecondsSinceEpoch;
 
+  /// Set by [cancel]. What is under way may finish, but nothing new goes out
+  /// and nothing is marked as sent.
+  bool get cancelled => _cancelled;
+  bool _cancelled = false;
+
+  /// Sync was turned off or the key changed: this engine is done.
+  void cancel() => _cancelled = true;
+
   /// How many syncs wait for an outsourced record whose blob cannot be
   /// fetched before giving up on it.
   static const maxBlobRetries = 50;
@@ -195,8 +203,11 @@ class SyncEngine {
     }
     await captureSettings();
     await pull(report, force: force, onProgress: onProgress);
+    if (_cancelled) return report;
     await push(report, force: force);
+    if (_cancelled) return report;
     if (devicePresence) await presence(report, force: force);
+    if (_cancelled) return report;
     await fetchMissingPhotos(report);
     return report;
   }
@@ -254,6 +265,7 @@ class SyncEngine {
           onProgress?.call(events.length);
         }),
     ]);
+    if (_cancelled) return;
     report.received = events.length;
 
     final candidates = [for (final copies in events.values) ...copies];
@@ -350,6 +362,7 @@ class SyncEngine {
     try {
       final complete = await pageThroughEvents(
         pageSize: pageSize,
+        cancelled: () => _cancelled,
         query: (until, limit) => pool.queryOne(url, {
           'kinds': [kindAppData],
           'authors': [identity.publicKeyHex],
@@ -645,7 +658,9 @@ class SyncEngine {
     SyncReport report, {
     required bool force,
   }) async {
+    if (_cancelled) return;
     final built = await job.build();
+    if (_cancelled) return;
     if (built == null) {
       report.notSent++;
       return;
@@ -677,6 +692,7 @@ class SyncEngine {
         );
         plain = envelope.encode();
       }
+      if (_cancelled) return;
       final event = await sealEvent(
         keys: _keys,
         dTag: identity.dTag(envelope.type, envelope.id),
@@ -700,6 +716,7 @@ class SyncEngine {
           report.failedRelays.add(url);
         }
       }
+      if (_cancelled) return;
       if (results.values.any((r) => r.accepted)) {
         await _dao.markSynced(job.table, envelope.id, envelope.updatedAt);
         report.sent++;

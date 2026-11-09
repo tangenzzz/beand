@@ -236,6 +236,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
     _pool?.removeListener(notifyListeners);
     _pool?.dispose();
     _pool = null;
+    _engine?.cancel();
     _engine = null;
     _phase = SyncPhase.off;
     _error = null;
@@ -393,6 +394,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
         },
       );
       debugPrint('Sync: $report');
+      if (engine.cancelled) return;
       await _blobs?.checkServers();
       _blobs?.noteRunFinished();
       _pool?.noteRunFinished();
@@ -411,6 +413,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
       }
     } catch (e) {
       ConnectionLog.failure('sync', e);
+      if (engine.cancelled) return;
       _phase = SyncPhase.error;
       _error = 'Sync failed.';
       incomplete = true;
@@ -673,6 +676,10 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
         s.pendingLinks.clear();
         s.presence = null;
       });
+    } else {
+      // A run still under way belongs to the old key. Left alone it would
+      // mark records as sent that the new key has yet to receive.
+      _stop();
     }
     await keyStore.writeIdentity(identity);
     _identity = identity;
