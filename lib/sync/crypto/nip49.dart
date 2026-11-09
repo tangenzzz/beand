@@ -23,6 +23,11 @@ const _version = 0x02;
 /// Default cost factor: 2^16 rounds, ~64 MiB.
 const nip49DefaultLogN = 16;
 
+/// Highest cost factor accepted from a file or code: 256 MiB. The value is
+/// read before anything can be authenticated, and a phone may not survive
+/// more. bean'd itself writes [nip49DefaultLogN].
+const nip49MaxLogN = 18;
+
 /// KEY_SECURITY_BYTE: 0x00 handled insecurely, 0x01 never insecure, 0x02
 /// unknown. bean'd doesn't keep track of it.
 const nip49KeySecurityUnknown = 0x02;
@@ -89,8 +94,7 @@ Future<Uint8List> nip49Decrypt(String ncryptsec, String password) async {
     throw Nip49Exception('Unsupported version ${data[0]}');
   }
   final logN = data[1];
-  // Guard against absurd costs from a foreign file (2^22 = 4 GiB).
-  if (logN > 22) throw const Nip49Exception('Cost factor too high');
+  if (logN > nip49MaxLogN) throw const Nip49Exception('Cost factor too high');
   final salt = data.sublist(2, 18);
   final nonce = data.sublist(18, 42);
   final keySecurity = data[42];

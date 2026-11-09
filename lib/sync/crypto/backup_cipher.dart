@@ -130,8 +130,7 @@ Future<void> decryptBackupFile(
       );
     }
     final logN = header[9];
-    // Protection against absurd costs from a foreign file.
-    if (logN > 22) {
+    if (logN > nip49MaxLogN) {
       throw const BackupCipherException('This backup is damaged.');
     }
     final key = SecretKey(passwordKey(password, header.sublist(10, 26), logN));
