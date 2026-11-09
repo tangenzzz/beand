@@ -308,238 +308,245 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) => m.createAll(),
     onUpgrade: (m, from, to) async {
-      // Whether an earlier step already rebuilt the table per the current
-      // definition (i.e. with sync columns).
-      var beansHaveSync = false;
-      var profilesHaveSync = false;
-      if (from < 28) {
-        // Bean card: a coffee with several bags. First of all, since the
-        // later steps rebuild the table per the current definition. Only where
-        // missing (tests create current tables).
+      // Without this check nothing below would run and the file would be
+      // relabelled as older than it is.
+      if (from > to) throw DatabaseTooNewException(from, to);
+      // All or nothing: the steps cannot run twice, so a half-finished upgrade
+      // would stop every later start. The version is part of the transaction
+      // for the same reason.
+      await transaction(() async {
+        await _upgradeFrom(m, from);
+        await customStatement('PRAGMA user_version = $to');
+      });
+    },
+  );
+
+  Future<void> _upgradeFrom(Migrator m, int from) async {
+    // Whether an earlier step already rebuilt the table per the current
+    // definition (i.e. with sync columns).
+    var beansHaveSync = false;
+    var profilesHaveSync = false;
+    if (from < 28) {
+      // Bean card: a coffee with several bags. First of all, since the
+      // later steps rebuild the table per the current definition. Only where
+      // missing (tests create current tables).
+      final existing = {
+        for (final row in await customSelect('PRAGMA table_info(beans)').get())
+          row.read<String>('name'),
+      };
+      if (!existing.contains(beans.region.name)) {
+        await m.addColumn(beans, beans.region);
+      }
+      if (!existing.contains(beans.altitude.name)) {
+        await m.addColumn(beans, beans.altitude);
+      }
+      if (!existing.contains(beans.coffeeId.name)) {
+        await m.addColumn(beans, beans.coffeeId);
+      }
+      if (!existing.contains(beans.openedAt.name)) {
+        await m.addColumn(beans, beans.openedAt);
+        // Everything so far counts as opened: nothing changes for it.
+        await customStatement('UPDATE beans SET opened_at = created_at');
+      }
+    }
+    if (from < 2) {
+      // Beans tab: origin -> country, variety (unused) dropped, new fields
+      // for the bean form.
+      await m.renameColumn(beans, 'origin', beans.country);
+      await m.dropColumn(beans, 'variety');
+      await m.addColumn(beans, beans.isBlend);
+      await m.addColumn(beans, beans.processing);
+      await m.addColumn(beans, beans.weightGrams);
+      await m.addColumn(beans, beans.taste);
+      await m.addColumn(beans, beans.cost);
+    }
+    if (from < 3) {
+      // Form extension: variety/producer + freezing/thawing.
+      await m.addColumn(beans, beans.variety);
+      await m.addColumn(beans, beans.producer);
+      await m.addColumn(beans, beans.isFrozen);
+      await m.addColumn(beans, beans.thawedDate);
+    }
+    if (from < 4) {
+      // History tab: import shots from the machine (externalId, profile
+      // color/image, machine, temperature) + stage per data point.
+      await m.addColumn(shots, shots.externalId);
+      await m.addColumn(shots, shots.machine);
+      await m.addColumn(shots, shots.profileColor);
+      await m.addColumn(shots, shots.profileImagePath);
+      await m.addColumn(shots, shots.brewTemp);
+      await m.addColumn(shotReadings, shotReadings.stage);
+      await m.createIndex(shotReadingsShotId);
+      await m.createIndex(shotsExternalId);
+    }
+    if (from < 5) {
+      // Profile target temperature instead of measured temperature +
+      // deleting shots.
+      await m.addColumn(shots, shots.profileTemp);
+      await m.addColumn(shots, shots.deletedAt);
+    }
+    if (from < 6) {
+      // Store profiles locally (available offline).
+      await m.createTable(storedProfiles);
+    } else if (from == 6) {
+      // (When created from schema 6 on, the table already has the columns.)
+      await m.addColumn(storedProfiles, storedProfiles.customDescription);
+      await m.addColumn(storedProfiles, storedProfiles.customImagePath);
+    }
+    if (from < 8) {
+      // Bean form: new "Roasted for", and "Type" may stay empty.
+      // Switching to nullable requires rebuilding the table (alterTable
+      // copies the existing rows, so previously saved beans keep their
+      // type).
+      await m.addColumn(beans, beans.roastedFor);
+      // Rebuilds the table per the CURRENT definition — including the
+      // sync columns from schema 15, which therefore must already be
+      // filled with values here.
+      await m.alterTable(_beansWithSyncColumns());
+      beansHaveSync = true;
+    }
+    if (from < 9) {
+      // Rating flower: eight taste axes per shot.
+      for (final column in [
+        shots.tasteFinish,
+        shots.tasteBody,
+        shots.tasteAcidity,
+        shots.tasteSweetness,
+        shots.tasteHollow,
+        shots.tasteSalty,
+        shots.tasteAstringent,
+        shots.tasteBitter,
+      ]) {
+        await m.addColumn(shots, column);
+      }
+    }
+    if (from < 10) {
+      // Rating chips: free extra attributes per shot.
+      await m.addColumn(shots, shots.tasteExtras);
+    }
+    // Only for databases where the profile table existed BEFORE this
+    // step: anyone coming from below 6 created it fresh above per the
+    // current definition — including column and key.
+    if (from >= 6 && from < 11) {
+      // Second machine: profiles now belong to a machine. The primary key
+      // becomes the pair (id, machine), which requires rebuilding the
+      // table — alterTable copies the existing rows, which get 'meticulous'
+      // via the column default.
+      await m.addColumn(storedProfiles, storedProfiles.machine);
+      // As with beans above: rebuilt per the current definition, i.e.
+      // including the sync columns.
+      await m.alterTable(_profilesWithSyncColumns());
+      profilesHaveSync = true;
+    }
+    if (from < 12) {
+      // Store the AI shot analysis on the shot.
+      await m.addColumn(shots, shots.aiAnalysis);
+      await m.addColumn(shots, shots.aiAnalysisModel);
+      await m.addColumn(shots, shots.aiAnalysedAt);
+    }
+    if (from < 13) {
+      // Profile at brew time on the shot (backfilled for old shots on the
+      // next sync with the machine).
+      await m.addColumn(shots, shots.profileJson);
+    }
+    if (from < 14) {
+      // GaggiMate exit reasons per stage.
+      await m.addColumn(shots, shots.stageExits);
+    }
+    if (from < 19) {
+      // Grinder + burrs per shot. Before the sync rebuild of schema 15,
+      // which copies the shots per the current definition and so needs
+      // the columns to exist.
+      await m.addColumn(shots, shots.grinder);
+      await m.addColumn(shots, shots.burrs);
+    }
+    if (from < 20) {
+      // Brew chain's gear per shot — before the rebuild of schema 15 for
+      // the same reason as grinder and burrs.
+      await m.addColumn(shots, shots.brewedWith);
+    }
+    if (from < 21) {
+      // Brew chain ID per shot — before the rebuild of schema 15 as well.
+      await m.addColumn(shots, shots.brewChainId);
+    }
+    if (from < 23) {
+      // Zero point per shot — before the rebuild of schema 15 as well.
+      await m.addColumn(shots, shots.grindZero);
+    }
+    if (from < 24) {
+      // Index mark per shot — before the rebuild of schema 15 as well.
+      await m.addColumn(shots, shots.grindMarker);
+    }
+    if (from < 27) {
+      // Freezing pauses the ring instead of restarting it. Only where
+      // missing (tests create current tables).
+      final existing = {
+        for (final row in await customSelect('PRAGMA table_info(beans)').get())
+          row.read<String>('name'),
+      };
+      if (!existing.contains(beans.frozenDate.name)) {
+        await m.addColumn(beans, beans.frozenDate);
+      }
+      if (!existing.contains(beans.frozenDays.name)) {
+        await m.addColumn(beans, beans.frozenDays);
+      }
+    }
+    if (from < 26) {
+      // Beverage weight of Pour Over brews — before the rebuild of schema
+      // 15 as well; only where missing (tests create current tables).
+      final existing = {
+        for (final row in await customSelect('PRAGMA table_info(shots)').get())
+          row.read<String>('name'),
+      };
+      if (!existing.contains(shots.beverageGrams.name)) {
+        await m.addColumn(shots, shots.beverageGrams);
+      }
+      if (from < 15) {
+        // Sync foundation: syncId, updatedAt, deviceId, syncState; beans and
+        // profiles also get the `deleted` tombstone. syncId is NOT NULL +
+        // UNIQUE, hence a rebuild instead of addColumn.
+        if (!beansHaveSync) await m.alterTable(_beansWithSyncColumns());
+        if (!profilesHaveSync) await m.alterTable(_profilesWithSyncColumns());
+        await m.alterTable(_shotsWithSyncColumns());
+        await _deterministicSyncIds();
+      }
+      if (from < 16) {
+        // Sync: settings.
+        await m.createTable(syncedSettings);
+      }
+      if (from >= 15 && from < 17) {
+        // Sync: references to encrypted photos. Anyone coming from below 15
+        // already rebuilt (or created) both tables above per the current
+        // definition — including these columns.
+        await m.addColumn(beans, beans.photoBlob);
+        await m.addColumn(storedProfiles, storedProfiles.customImageBlob);
+      }
+      if (from >= 15 && from < 18) {
+        // Bean manually marked as empty (below 15: rebuilt above).
+        await m.addColumn(beans, beans.emptiedAt);
+      }
+      if (from >= 15 && from < 22) {
+        // Roast level (below 15: rebuilt above).
+        await m.addColumn(beans, beans.roastLevel);
+      }
+      if (from < 25) {
+        // Mix and goal temperature from Decent shot files. Only where
+        // missing: databases set up at an older version by the current
+        // table definition (tests) already have them.
         final existing = {
           for (final row in await customSelect(
-            'PRAGMA table_info(beans)',
+            'PRAGMA table_info(shot_readings)',
           ).get())
             row.read<String>('name'),
         };
-        if (!existing.contains(beans.region.name)) {
-          await m.addColumn(beans, beans.region);
-        }
-        if (!existing.contains(beans.altitude.name)) {
-          await m.addColumn(beans, beans.altitude);
-        }
-        if (!existing.contains(beans.coffeeId.name)) {
-          await m.addColumn(beans, beans.coffeeId);
-        }
-        if (!existing.contains(beans.openedAt.name)) {
-          await m.addColumn(beans, beans.openedAt);
-          // Everything so far counts as opened: nothing changes for it.
-          await customStatement('UPDATE beans SET opened_at = created_at');
-        }
-      }
-      if (from < 2) {
-        // Beans tab: origin -> country, variety (unused) dropped, new fields
-        // for the bean form.
-        await m.renameColumn(beans, 'origin', beans.country);
-        await m.dropColumn(beans, 'variety');
-        await m.addColumn(beans, beans.isBlend);
-        await m.addColumn(beans, beans.processing);
-        await m.addColumn(beans, beans.weightGrams);
-        await m.addColumn(beans, beans.taste);
-        await m.addColumn(beans, beans.cost);
-      }
-      if (from < 3) {
-        // Form extension: variety/producer + freezing/thawing.
-        await m.addColumn(beans, beans.variety);
-        await m.addColumn(beans, beans.producer);
-        await m.addColumn(beans, beans.isFrozen);
-        await m.addColumn(beans, beans.thawedDate);
-      }
-      if (from < 4) {
-        // History tab: import shots from the machine (externalId, profile
-        // color/image, machine, temperature) + stage per data point.
-        await m.addColumn(shots, shots.externalId);
-        await m.addColumn(shots, shots.machine);
-        await m.addColumn(shots, shots.profileColor);
-        await m.addColumn(shots, shots.profileImagePath);
-        await m.addColumn(shots, shots.brewTemp);
-        await m.addColumn(shotReadings, shotReadings.stage);
-        await m.createIndex(shotReadingsShotId);
-        await m.createIndex(shotsExternalId);
-      }
-      if (from < 5) {
-        // Profile target temperature instead of measured temperature +
-        // deleting shots.
-        await m.addColumn(shots, shots.profileTemp);
-        await m.addColumn(shots, shots.deletedAt);
-      }
-      if (from < 6) {
-        // Store profiles locally (available offline).
-        await m.createTable(storedProfiles);
-      } else if (from == 6) {
-        // (When created from schema 6 on, the table already has the columns.)
-        await m.addColumn(storedProfiles, storedProfiles.customDescription);
-        await m.addColumn(storedProfiles, storedProfiles.customImagePath);
-      }
-      if (from < 8) {
-        // Bean form: new "Roasted for", and "Type" may stay empty.
-        // Switching to nullable requires rebuilding the table (alterTable
-        // copies the existing rows, so previously saved beans keep their
-        // type).
-        await m.addColumn(beans, beans.roastedFor);
-        // Rebuilds the table per the CURRENT definition — including the
-        // sync columns from schema 15, which therefore must already be
-        // filled with values here.
-        await m.alterTable(_beansWithSyncColumns());
-        beansHaveSync = true;
-      }
-      if (from < 9) {
-        // Rating flower: eight taste axes per shot.
-        for (final column in [
-          shots.tasteFinish,
-          shots.tasteBody,
-          shots.tasteAcidity,
-          shots.tasteSweetness,
-          shots.tasteHollow,
-          shots.tasteSalty,
-          shots.tasteAstringent,
-          shots.tasteBitter,
-        ]) {
-          await m.addColumn(shots, column);
-        }
-      }
-      if (from < 10) {
-        // Rating chips: free extra attributes per shot.
-        await m.addColumn(shots, shots.tasteExtras);
-      }
-      // Only for databases where the profile table existed BEFORE this
-      // step: anyone coming from below 6 created it fresh above per the
-      // current definition — including column and key.
-      if (from >= 6 && from < 11) {
-        // Second machine: profiles now belong to a machine. The primary key
-        // becomes the pair (id, machine), which requires rebuilding the
-        // table — alterTable copies the existing rows, which get 'meticulous'
-        // via the column default.
-        await m.addColumn(storedProfiles, storedProfiles.machine);
-        // As with beans above: rebuilt per the current definition, i.e.
-        // including the sync columns.
-        await m.alterTable(_profilesWithSyncColumns());
-        profilesHaveSync = true;
-      }
-      if (from < 12) {
-        // Store the AI shot analysis on the shot.
-        await m.addColumn(shots, shots.aiAnalysis);
-        await m.addColumn(shots, shots.aiAnalysisModel);
-        await m.addColumn(shots, shots.aiAnalysedAt);
-      }
-      if (from < 13) {
-        // Profile at brew time on the shot (backfilled for old shots on the
-        // next sync with the machine).
-        await m.addColumn(shots, shots.profileJson);
-      }
-      if (from < 14) {
-        // GaggiMate exit reasons per stage.
-        await m.addColumn(shots, shots.stageExits);
-      }
-      if (from < 19) {
-        // Grinder + burrs per shot. Before the sync rebuild of schema 15,
-        // which copies the shots per the current definition and so needs
-        // the columns to exist.
-        await m.addColumn(shots, shots.grinder);
-        await m.addColumn(shots, shots.burrs);
-      }
-      if (from < 20) {
-        // Brew chain's gear per shot — before the rebuild of schema 15 for
-        // the same reason as grinder and burrs.
-        await m.addColumn(shots, shots.brewedWith);
-      }
-      if (from < 21) {
-        // Brew chain ID per shot — before the rebuild of schema 15 as well.
-        await m.addColumn(shots, shots.brewChainId);
-      }
-      if (from < 23) {
-        // Zero point per shot — before the rebuild of schema 15 as well.
-        await m.addColumn(shots, shots.grindZero);
-      }
-      if (from < 24) {
-        // Index mark per shot — before the rebuild of schema 15 as well.
-        await m.addColumn(shots, shots.grindMarker);
-      }
-      if (from < 27) {
-        // Freezing pauses the ring instead of restarting it. Only where
-        // missing (tests create current tables).
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(beans)',
-          ).get())
-            row.read<String>('name'),
-        };
-        if (!existing.contains(beans.frozenDate.name)) {
-          await m.addColumn(beans, beans.frozenDate);
-        }
-        if (!existing.contains(beans.frozenDays.name)) {
-          await m.addColumn(beans, beans.frozenDays);
-        }
-      }
-      if (from < 26) {
-        // Beverage weight of Pour Over brews — before the rebuild of schema
-        // 15 as well; only where missing (tests create current tables).
-        final existing = {
-          for (final row in await customSelect(
-            'PRAGMA table_info(shots)',
-          ).get())
-            row.read<String>('name'),
-        };
-        if (!existing.contains(shots.beverageGrams.name)) {
-          await m.addColumn(shots, shots.beverageGrams);
-        }
-        if (from < 15) {
-          // Sync foundation: syncId, updatedAt, deviceId, syncState; beans and
-          // profiles also get the `deleted` tombstone. syncId is NOT NULL +
-          // UNIQUE, hence a rebuild instead of addColumn.
-          if (!beansHaveSync) await m.alterTable(_beansWithSyncColumns());
-          if (!profilesHaveSync) await m.alterTable(_profilesWithSyncColumns());
-          await m.alterTable(_shotsWithSyncColumns());
-          await _deterministicSyncIds();
-        }
-        if (from < 16) {
-          // Sync: settings.
-          await m.createTable(syncedSettings);
-        }
-        if (from >= 15 && from < 17) {
-          // Sync: references to encrypted photos. Anyone coming from below 15
-          // already rebuilt (or created) both tables above per the current
-          // definition — including these columns.
-          await m.addColumn(beans, beans.photoBlob);
-          await m.addColumn(storedProfiles, storedProfiles.customImageBlob);
-        }
-        if (from >= 15 && from < 18) {
-          // Bean manually marked as empty (below 15: rebuilt above).
-          await m.addColumn(beans, beans.emptiedAt);
-        }
-        if (from >= 15 && from < 22) {
-          // Roast level (below 15: rebuilt above).
-          await m.addColumn(beans, beans.roastLevel);
-        }
-        if (from < 25) {
-          // Mix and goal temperature from Decent shot files. Only where
-          // missing: databases set up at an older version by the current
-          // table definition (tests) already have them.
-          final existing = {
-            for (final row in await customSelect(
-              'PRAGMA table_info(shot_readings)',
-            ).get())
-              row.read<String>('name'),
-          };
-          for (final column in [shotReadings.tempMix, shotReadings.tempGoal]) {
-            if (!existing.contains(column.name)) {
-              await m.addColumn(shotReadings, column);
-            }
+        for (final column in [shotReadings.tempMix, shotReadings.tempGoal]) {
+          if (!existing.contains(column.name)) {
+            await m.addColumn(shotReadings, column);
           }
         }
       }
-    },
-  );
+    }
+  }
 
   // Existing rows count as the user's state at migration time — NOT as 0
   // like a fresh import, otherwise an empty copy on a new device could
@@ -1370,6 +1377,18 @@ class AppDatabase extends _$AppDatabase {
             .getSingle();
     return row.read(count) ?? 0;
   }
+}
+
+/// The database file was written by a newer version of the app.
+class DatabaseTooNewException implements Exception {
+  const DatabaseTooNewException(this.found, this.supported);
+
+  final int found;
+  final int supported;
+
+  @override
+  String toString() =>
+      'Database version $found is newer than this app ($supported).';
 }
 
 LazyDatabase _openConnection() {
