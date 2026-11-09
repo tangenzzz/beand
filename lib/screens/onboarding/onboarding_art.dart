@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -72,7 +74,7 @@ class BeansArt extends StatelessWidget {
     (112, 356, 34, -64, .2),
     (248, 372, 44, 34, .18),
     (92, 132, 24, 18, .34),
-    (342, 158, 26, 70, .24),
+    (356, 176, 26, 70, .24),
   ];
 
   @override
@@ -222,9 +224,77 @@ class CupArt extends StatelessWidget {
           Positioned(
             left: 116 / 240 * 290 - 20,
             top: 124 / 240 * 290 - 20,
-            child: BeanIcon(size: 40, color: colors.textPrimary),
+            // Always teal, the brand color: with the near-white Oat accent
+            // the bean would disappear into the cup's outline.
+            child: _GlowingBean(
+              size: 40,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? AppAccent.teal.light
+                  : AppAccent.teal.dark,
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// The bean on the cup breathes in teal, on the same 1100 ms beat
+// as PulsingGlow, so the app keeps its one speed. That widget concentrates
+// its glow along the edge of a wide button; a halo around a bean this small
+// has to go nearly from off to full before the pulse can be seen at all.
+class _GlowingBean extends StatefulWidget {
+  const _GlowingBean({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  State<_GlowingBean> createState() => _GlowingBeanState();
+}
+
+class _GlowingBeanState extends State<_GlowingBean>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, bean) {
+          final t = _controller.value;
+          final blur = 4 + t * 6;
+          return Transform.scale(
+            scale: 1 + t * 0.05,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Transform.scale(
+                  scale: 1.05 + t * 0.2,
+                  child: Opacity(
+                    opacity: 0.15 + t * 0.85,
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                      child: bean,
+                    ),
+                  ),
+                ),
+                bean!,
+              ],
+            ),
+          );
+        },
+        child: BeanIcon(size: widget.size, color: widget.color),
       ),
     );
   }

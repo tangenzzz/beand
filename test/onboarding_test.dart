@@ -1,4 +1,5 @@
 import 'package:beand/models/gear.dart';
+import 'package:beand/screens/onboarding/onboarding_art.dart';
 import 'package:beand/screens/onboarding/onboarding_screen.dart';
 import 'package:beand/screens/settings/my_coffee_desk_screen.dart';
 import 'package:beand/services/first_run.dart';
@@ -6,6 +7,7 @@ import 'package:beand/services/gear_store.dart';
 import 'package:beand/services/grinder_store.dart';
 import 'package:beand/services/water_store.dart';
 import 'package:beand/theme/app_theme.dart';
+import 'package:beand/theme/bean_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -48,6 +50,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    Future<void> tapPulsing(WidgetTester tester, String text) async {
+      await tester.tap(find.text(text));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
     setUp(() {
       opened = [];
       saved = true;
@@ -72,14 +80,27 @@ void main() {
       await tapText(tester, 'Add gear');
       expect(find.text('Create brew chains'), findsOneWidget);
 
-      await tapText(tester, 'Create brew chain');
+      // The last page pulses forever, pumpAndSettle would never return.
+      await tapPulsing(tester, 'Create brew chain');
       expect(find.text('Ready for brewing'), findsOneWidget);
       expect(find.text('Skip'), findsNothing);
       expect(find.byTooltip('Back'), findsNothing);
       expect(opened, ['machine', 'bean', 'gear', 'chain']);
 
+      double glow() => tester
+          .widget<Opacity>(
+            find.descendant(
+              of: find.byType(CupArt),
+              matching: find.byType(Opacity),
+            ),
+          )
+          .opacity;
+      final before = glow();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(glow(), isNot(before));
+
       expect(finished, 0);
-      await tapText(tester, "Let's go");
+      await tapPulsing(tester, "Let's go");
       expect(finished, 1);
     });
 
@@ -109,6 +130,20 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('Add machine'), findsOneWidget);
     });
+  });
+
+  testWidgets('the bean on the cup stays teal with any accent', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(accent: AppAccent.oat),
+        home: const Scaffold(body: CupArt()),
+      ),
+    );
+    final beans = tester.widgetList<BeanIcon>(find.byType(BeanIcon));
+    expect(beans, isNotEmpty);
+    for (final bean in beans) {
+      expect(bean.color, AppAccent.teal.dark);
+    }
   });
 
   group('desk opened from the introduction', () {
