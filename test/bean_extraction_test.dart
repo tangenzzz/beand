@@ -236,6 +236,7 @@ void main() {
       final settings = AiSettings(keyStore: InMemoryAiKeyStore());
       await settings.setProvider(AiProvider.claude);
       await settings.setKey(AiProvider.claude, 'sk-ant');
+      await settings.grantConsent();
       return settings;
     }
 

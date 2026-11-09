@@ -54,6 +54,17 @@ class AiService {
     return AiClient.forConnection(connection, httpClient: _httpClient);
   }
 
+  /// The backstop behind the consent dialog: whatever the UI does, personal
+  /// data does not leave without permission. [ping] and [listModels] carry
+  /// none, so they don't need this.
+  void _requireConsent() {
+    if (settings.hasConsent) return;
+    throw AiFailure(
+      AiFailureKind.notConfigured,
+      'Allow sending data to ${settings.recipientName} first.',
+    );
+  }
+
   /// Ask the provider for its models. The key is enough, a model does not
   /// need to be chosen yet — otherwise one could never get out of an empty
   /// picker.
@@ -87,6 +98,7 @@ class AiService {
   /// schema should know whether it really applied.
   Future<BeanExtraction> extractBean({AiImage? image, Uri? url}) async {
     assert((image == null) != (url == null), 'exactly one input: image or URL');
+    _requireConsent();
 
     final AiPrompt prompt;
     if (image != null) {
@@ -136,6 +148,7 @@ class AiService {
   /// [AppDatabase.setShotAnalysis], so this service does not need to know
   /// about the DB.
   Future<ShotAnalysisResult> analyseShot(ShotAnalysisInput input) async {
+    _requireConsent();
     final client = await this.client();
     try {
       final result = await client.completeJson(

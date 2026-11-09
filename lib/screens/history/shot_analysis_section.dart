@@ -8,6 +8,7 @@ import '../../services/ai/ai_settings.dart';
 import '../../services/ai/shot_analysis.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
+import '../settings/ai_consent_dialog.dart';
 import 'history_logic.dart';
 import 'section_header.dart';
 
@@ -63,6 +64,7 @@ class _ShotAnalysisSectionState extends State<ShotAnalysisSection> {
 
   Future<void> _analyse() async {
     if (_busy) return;
+    if (!await ensureAiConsent(context) || !mounted) return;
     final db = context.read<AppDatabase>();
     final ai = context.read<AiService>();
     setState(() {

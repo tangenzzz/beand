@@ -40,15 +40,18 @@ class AiSettings extends ChangeNotifier {
     String baseUrl = '',
     Set<AiFeature> disabledFeatures = const {},
     Set<AiProvider> providersWithKey = const {},
+    Set<String> consentedRecipients = const {},
   }) : _keyStore = keyStore,
        _enabled = enabled,
        _provider = provider,
        _models = {...models},
        _baseUrl = baseUrl,
        _disabledFeatures = {...disabledFeatures},
-       _providersWithKey = {...providersWithKey};
+       _providersWithKey = {...providersWithKey},
+       _consentedRecipients = {...consentedRecipients};
 
   static const enabledPrefKey = 'ai_enabled';
+  static const consentPrefKey = 'ai_consented_recipients';
   static const providerPrefKey = 'ai_provider';
   static const baseUrlPrefKey = 'ai_base_url';
   static String modelPrefKey(AiProvider p) => 'ai_model_${p.name}';
@@ -98,6 +101,7 @@ class AiSettings extends ChangeNotifier {
           if (prefs.getBool(featurePrefKey(feature)) == false) feature,
       },
       providersWithKey: withKey,
+      consentedRecipients: {...?prefs.getStringList(consentPrefKey)},
     );
   }
 
@@ -132,6 +136,7 @@ class AiSettings extends ChangeNotifier {
   String _baseUrl;
   final Set<AiFeature> _disabledFeatures;
   final Set<AiProvider> _providersWithKey;
+  final Set<String> _consentedRecipients;
 
   /// The main switch. Off means: the settings page only shows the switch
   /// itself, and nothing AI-related shows up anywhere in the app — without
@@ -145,6 +150,38 @@ class AiSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(enabledPrefKey, value);
+    // Switching AI off is how you take the permission back.
+    if (!value) {
+      _consentedRecipients.clear();
+      await prefs.remove(consentPrefKey);
+    }
+  }
+
+  /// The server that would receive the data. Consent is tied to this rather
+  /// than to the provider, so pointing "Custom" somewhere else asks again.
+  String get recipientAddress {
+    final raw = _provider.requiresBaseUrl ? _baseUrl : _provider.defaultBaseUrl;
+    final uri = Uri.tryParse(raw);
+    if (uri == null || uri.host.isEmpty) return raw;
+    return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+  }
+
+  /// The recipient as the user knows it.
+  String get recipientName =>
+      _provider.requiresBaseUrl ? recipientAddress : _provider.vendor;
+
+  /// Has the user allowed sending personal data to the current recipient?
+  /// Belongs to the device, like the main switch: it is not in the sync list.
+  bool get hasConsent =>
+      recipientAddress.isNotEmpty &&
+      _consentedRecipients.contains(recipientAddress);
+
+  Future<void> grantConsent() async {
+    if (recipientAddress.isEmpty) return;
+    _consentedRecipients.add(recipientAddress);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(consentPrefKey, _consentedRecipients.toList());
   }
 
   AiProvider get provider => _provider;

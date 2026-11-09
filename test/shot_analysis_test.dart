@@ -251,10 +251,14 @@ void main() {
       );
     });
 
-    Future<AiSettings> settings({bool enabled = true}) async {
+    Future<AiSettings> settings({
+      bool enabled = true,
+      bool consent = true,
+    }) async {
       final s = AiSettings(keyStore: InMemoryAiKeyStore(), enabled: enabled);
       await s.setProvider(AiProvider.claude);
       await s.setKey(AiProvider.claude, 'sk-ant');
+      if (consent) await s.grantConsent();
       return s;
     }
 
@@ -360,6 +364,46 @@ void main() {
       expect(stored.aiAnalysisModel, 'claude-opus-5');
       expect(ShotAnalysis.decode(stored.aiAnalysis)!.steps, hasLength(2));
       expect(stored.aiAnalysedAt, isNotNull);
+      await teardown(tester);
+    });
+
+    testWidgets('first analysis asks; "Not now" sends nothing', (tester) async {
+      bigScreen(tester);
+      final id = await insert(tester);
+      final ai = await settings(consent: false);
+      await tester.pumpWidget(app(ai, ShotDetailScreen(shotId: id)));
+      await settle(tester);
+
+      await tester.tap(find.text('Analyse this shot'));
+      await settle(tester);
+      expect(find.text('Send data to Anthropic?'), findsOneWidget);
+
+      await tester.tap(find.text('Not now'));
+      await settle(tester);
+      expect(requests, 0);
+      expect(ai.hasConsent, isFalse);
+      expect(find.text('Analyse this shot'), findsOneWidget);
+      await teardown(tester);
+    });
+
+    testWidgets('"Allow" sends, and is not asked again', (tester) async {
+      bigScreen(tester);
+      final id = await insert(tester);
+      final ai = await settings(consent: false);
+      await tester.pumpWidget(app(ai, ShotDetailScreen(shotId: id)));
+      await settle(tester);
+
+      await tester.tap(find.text('Analyse this shot'));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('ai-consent-allow')));
+      await settle(tester);
+      expect(requests, 1);
+      expect(ai.hasConsent, isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('reanalyse')));
+      await settle(tester);
+      expect(find.text('Send data to Anthropic?'), findsNothing);
+      expect(requests, 2);
       await teardown(tester);
     });
 

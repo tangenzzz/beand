@@ -17,6 +17,7 @@ import '../../models/machine_profile.dart' show profilePlaceholderColor;
 import '../../models/profile_draft.dart' show newUuid;
 import '../../services/ai/ai_prompt.dart';
 import '../../services/ai/ai_service.dart';
+import '../settings/ai_consent_dialog.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../services/ai/bean_extraction.dart';
 import '../../services/app_settings.dart';
@@ -1117,6 +1118,10 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       p.extension(path).toLowerCase() == '.png' ? 'image/png' : 'image/jpeg';
 
   Future<void> _read({AiImage? image, Uri? url, String? newPhotoPath}) async {
+    if (!await ensureAiConsent(context) || !mounted) {
+      if (newPhotoPath != null) _deleteFile(newPhotoPath);
+      return;
+    }
     setState(() {
       _aiBusy = true;
       _aiNote = null;
