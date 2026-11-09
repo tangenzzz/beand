@@ -707,6 +707,10 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Bean>> watchBeans() =>
       (select(beans)..where((b) => b.deleted.equals(false))).watch();
 
+  /// At least one shot stored? (First start: a new install has none.)
+  Future<bool> hasAnyShot() async =>
+      (await (select(shots)..limit(1)).get()).isNotEmpty;
+
   Future<List<Bean>> allBeans() =>
       (select(beans)..where((b) => b.deleted.equals(false))).get();
 

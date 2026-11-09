@@ -18,6 +18,7 @@ import 'scale/brew_scale.dart';
 import 'scale/meticulous_scale.dart';
 import 'scale/scale_selector.dart';
 import 'scale/simulated_scale.dart';
+import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/root_scaffold.dart';
 import 'screens/settings/gaggimate_settings_screen.dart';
 import 'screens/settings/meticulous_settings_screen.dart';
@@ -26,6 +27,7 @@ import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
 import 'services/auto_backup.dart';
 import 'services/connection_log.dart';
+import 'services/first_run.dart';
 import 'services/bundled_licenses.dart';
 import 'services/gear_store.dart';
 import 'services/grinder_store.dart';
@@ -313,6 +315,19 @@ Future<void> main() async {
   AutoBackup.appDatabase = database;
   unawaited(_startAutoBackup());
 
+  final firstRun = FirstRun(prefs);
+  final showOnboarding = await firstRun.needsOnboarding(
+    () async =>
+        gear.gear.isNotEmpty ||
+        (await database.allBeans()).isNotEmpty ||
+        await database.hasAnyShot(),
+  );
+  final autoBackup = await (await AutoBackupStore.platform()).load();
+  final showBackupReminder = await firstRun.takeBackupReminder(
+    autoBackupOn: autoBackup.enabled,
+    now: DateTime.now(),
+  );
+
   runApp(
     MultiProvider(
       providers: [
@@ -351,13 +366,38 @@ Future<void> main() async {
         ChangeNotifierProvider<PourOverBrewService>.value(value: pourOver),
         ChangeNotifierProvider<SyncService>.value(value: deviceSync),
       ],
-      child: const BeandApp(),
+      child: BeandApp(
+        firstRun: firstRun,
+        showOnboarding: showOnboarding,
+        showBackupReminder: showBackupReminder,
+      ),
     ),
   );
 }
 
-class BeandApp extends StatelessWidget {
-  const BeandApp({super.key});
+class BeandApp extends StatefulWidget {
+  const BeandApp({
+    super.key,
+    required this.firstRun,
+    required this.showOnboarding,
+    required this.showBackupReminder,
+  });
+
+  final FirstRun firstRun;
+  final bool showOnboarding;
+  final bool showBackupReminder;
+
+  @override
+  State<BeandApp> createState() => _BeandAppState();
+}
+
+class _BeandAppState extends State<BeandApp> {
+  late var _onboarding = widget.showOnboarding;
+
+  void _finishOnboarding() {
+    unawaited(widget.firstRun.finishOnboarding());
+    setState(() => _onboarding = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -373,7 +413,9 @@ class BeandApp extends StatelessWidget {
       title: "bean'd",
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(variant: variant, accent: settings.accent),
-      home: const RootScaffold(),
+      home: _onboarding
+          ? OnboardingScreen(onFinished: _finishOnboarding)
+          : RootScaffold(showBackupReminder: widget.showBackupReminder),
     );
   }
 }

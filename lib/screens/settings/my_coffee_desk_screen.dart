@@ -33,7 +33,18 @@ import 'settings_widgets.dart';
 // everything else the generic gear form (gear_dialogs.dart).
 
 class MyCoffeeDeskScreen extends StatefulWidget {
-  const MyCoffeeDeskScreen({super.key});
+  const MyCoffeeDeskScreen({
+    super.key,
+    this.startOnChains = false,
+    this.closeAfterAdding = false,
+  });
+
+  /// Opens on the "Brew chains" tab.
+  final bool startOnChains;
+
+  /// Goes back with true once something was added (the introduction moves
+  /// on after the first save).
+  final bool closeAfterAdding;
 
   @override
   State<MyCoffeeDeskScreen> createState() => _MyCoffeeDeskScreenState();
@@ -43,7 +54,7 @@ class MyCoffeeDeskScreen extends StatefulWidget {
 enum _DeskTab { shelf, chains }
 
 class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
-  _DeskTab _tab = _DeskTab.shelf;
+  late _DeskTab _tab = widget.startOnChains ? _DeskTab.chains : _DeskTab.shelf;
   DeskFilter _filter = DeskFilter.empty;
   final _search = TextEditingController();
   bool _searching = false;
@@ -100,11 +111,22 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     }
   }
 
-  Future<void> _add() => showAddToDeskSheet(
-    context,
-    chain: _tab == _DeskTab.chains,
-    onPhoto: _photoFor,
-  );
+  int get _storedCount {
+    final store = context.read<GearStore>();
+    return store.gear.length + store.chains.length;
+  }
+
+  Future<void> _add() async {
+    final before = _storedCount;
+    await showAddToDeskSheet(
+      context,
+      chain: _tab == _DeskTab.chains,
+      onPhoto: _photoFor,
+    );
+    if (mounted && widget.closeAfterAdding && _storedCount > before) {
+      Navigator.of(context).pop(true);
+    }
+  }
 
   // The photo choice from a dialog's head; a new piece is already saved
   // by then (user 2026-10-22: photo while adding, not only afterwards).

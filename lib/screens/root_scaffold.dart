@@ -5,6 +5,7 @@ import '../theme/bean_icon.dart';
 import 'beans/beans_tab.dart';
 import 'history/history_tab.dart';
 import 'live/live_tab.dart';
+import 'settings/backup_settings_screen.dart';
 import 'settings/settings_screen.dart';
 
 // Access to the root navigation. The tabs open the settings over it instead
@@ -45,7 +46,10 @@ class ScrollToTopRequest extends ChangeNotifier {
 }
 
 class RootScaffold extends StatefulWidget {
-  const RootScaffold({super.key});
+  const RootScaffold({super.key, this.showBackupReminder = false});
+
+  /// Asks once whether to turn on auto backup, right after the start.
+  final bool showBackupReminder;
 
   @override
   State<RootScaffold> createState() => _RootScaffoldState();
@@ -68,6 +72,50 @@ class _RootScaffoldState extends State<RootScaffold> {
     HistoryTab(scrollToTop: _historyToTop),
     BeansTab(scrollToTop: _beansToTop),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.showBackupReminder) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _askForBackup());
+    }
+  }
+
+  Future<void> _askForBackup() async {
+    if (!mounted) return;
+    final colors = context.colors;
+    final turnOn = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colors.card,
+        title: Text(
+          'Turn on auto backup?',
+          style: TextStyle(color: colors.textPrimary),
+        ),
+        content: Text(
+          'Keeps your beans and shots safe if something happens to your '
+          'phone.',
+          style: TextStyle(color: colors.textSecondary, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Not now',
+              style: TextStyle(color: colors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Turn on', style: TextStyle(color: colors.accent)),
+          ),
+        ],
+      ),
+    );
+    if (turnOn == true && mounted) {
+      _openSettingsPage((_) => const BackupSettingsScreen());
+    }
+  }
 
   @override
   void dispose() {
