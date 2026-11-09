@@ -5,6 +5,7 @@ import '../identity/identity.dart';
 import '../nostr/event.dart';
 import '../nostr/relay_connection.dart';
 import '../nostr/relay_pool.dart';
+import 'event_pager.dart';
 
 // Delete everything of a sync key from the servers (Settings → Sync →
 // Advanced, at the very bottom): whoever gives up the key no longer needs
@@ -134,25 +135,23 @@ class AccountWipe {
   }
 
   Future<void> _collect(String url, Map<String, NostrEvent> events) async {
-    int? until;
-    while (true) {
-      final page = await pool.queryOne(url, {
+    final complete = await pageThroughEvents(
+      pageSize: pageSize,
+      query: (until, limit) => pool.queryOne(url, {
         'kinds': [kindAppData],
         'authors': [identity.publicKeyHex],
-        'limit': pageSize,
+        'limit': limit,
         'until': ?until,
-      }, force: true);
-      for (final e in page) {
-        if (e.pubkey == identity.publicKeyHex) {
-          events.putIfAbsent(e.id, () => e);
+      }, force: true),
+      onPage: (page) {
+        for (final e in page) {
+          if (e.pubkey == identity.publicKeyHex) {
+            events.putIfAbsent(e.id, () => e);
+          }
         }
-      }
-      if (page.length < pageSize) return;
-      final oldest = page
-          .map((e) => e.createdAt)
-          .reduce((a, b) => a < b ? a : b);
-      until = (until != null && oldest >= until) ? until - 1 : oldest;
-    }
+      },
+    );
+    if (!complete) throw StateError('Too many events on $url');
   }
 
   // A relay only counts as done if it accepted ALL batches.

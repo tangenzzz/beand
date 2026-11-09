@@ -84,13 +84,15 @@ class SyncStateData {
     this.lastSuccessAt,
     this.resendAll = false,
     Map<String, String>? pendingLinks,
+    Map<String, int>? blobRetries,
     List<String>? blobServers,
     this.blobDefaultsApplied = false,
     this.presence,
   }) : relays = relays ?? [],
        blobServers = blobServers ?? [],
        lastSync = lastSync ?? {},
-       pendingLinks = pendingLinks ?? {};
+       pendingLinks = pendingLinks ?? {},
+       blobRetries = blobRetries ?? {};
 
   bool enabled;
   List<String> relays;
@@ -121,6 +123,10 @@ class SyncStateData {
   /// Filled in as soon as the bean is there.
   Map<String, String> pendingLinks;
 
+  /// Outsourced records whose blob could not be fetched yet: event ID → how
+  /// many syncs have tried.
+  Map<String, int> blobRetries;
+
   /// Device announcement; null = never.
   PresenceState? presence;
 
@@ -139,6 +145,7 @@ class SyncStateData {
     'lastSuccessAt': lastSuccessAt?.millisecondsSinceEpoch,
     'resendAll': resendAll,
     'pendingLinks': pendingLinks,
+    'blobRetries': blobRetries,
     'blobServers': blobServers,
     'blobDefaultsApplied': blobDefaultsApplied,
     if (presence != null) 'presence': presence!.toJson(),
@@ -168,6 +175,10 @@ class SyncStateData {
       for (final e in ((json['pendingLinks'] as Map?) ?? const {}).entries)
         if (e.key is String && e.value is String)
           e.key as String: e.value as String,
+    },
+    blobRetries: {
+      for (final e in ((json['blobRetries'] as Map?) ?? const {}).entries)
+        if (e.key is String && e.value is int) e.key as String: e.value as int,
     },
     presence: PresenceState.fromJson(json['presence']),
   );

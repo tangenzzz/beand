@@ -19,6 +19,7 @@ import '../records/profile_codec.dart';
 import '../records/setting_codec.dart';
 import '../records/shot_codec.dart';
 import '../records/sync_envelope.dart';
+import 'event_pager.dart';
 import 'event_worker.dart';
 import 'lww.dart';
 import 'sync_state_store.dart';
@@ -154,6 +155,10 @@ class SyncEngine {
   int _nowSeconds() => _now().millisecondsSinceEpoch ~/ 1000;
   int _nowMs() => _now().millisecondsSinceEpoch;
 
+  /// How many syncs wait for an outsourced record whose blob cannot be
+  /// fetched before giving up on it.
+  static const maxBlobRetries = 50;
+
   // created_at of sent events: strictly increasing per device. Of two
   // versions of the same record, relays keep the one with the later time,
   // with the SAME second the one with the smaller event ID — i.e. random.
@@ -242,7 +247,7 @@ class SyncEngine {
     final reset = state.typesVersion != typesVersion;
     if (reset) state.lastSync.clear();
     final done = <String, int>{};
-    final events = <String, NostrEvent>{};
+    final events = <String, List<NostrEvent>>{};
     await Future.wait([
       for (final url in pool.urls)
         _collect(url, state.lastSync[url], done, events, report, force, () {
@@ -251,9 +256,30 @@ class SyncEngine {
     ]);
     report.received = events.length;
 
+    final candidates = [for (final copies in events.values) ...copies];
+    final opened = await openEvents(candidates, _keys);
     final records = <SyncEnvelope>[];
-    for (var envelope in await openEvents(events.values.toList(), _keys)) {
-      if (envelope?.blobRef != null) envelope = await _unpack(envelope!);
+    final blobRetries = <String, int>{};
+    int? holdCursorAt;
+    for (final (i, open) in opened.indexed) {
+      var envelope = open;
+      if (envelope?.blobRef != null) {
+        envelope = await _unpack(envelope!);
+        if (envelope == null) {
+          // The photo server may just be away. Without the event there is
+          // nothing left to retry from, so the cursor waits for it, but not
+          // forever: a blob that is really gone must not hold up the rest.
+          final event = candidates[i];
+          final tries = (state.blobRetries[event.id] ?? 0) + 1;
+          if (tries < maxBlobRetries) {
+            blobRetries[event.id] = tries;
+            final held = holdCursorAt;
+            holdCursorAt = held == null || event.createdAt < held
+                ? event.createdAt
+                : held;
+          }
+        }
+      }
       if (envelope == null) {
         report.skipped++;
       } else {
@@ -291,10 +317,14 @@ class SyncEngine {
     }
     for (final entry in done.entries) {
       if (fresh.relays.contains(entry.key)) {
-        fresh.lastSync[entry.key] = entry.value;
+        final held = holdCursorAt;
+        fresh.lastSync[entry.key] = held != null && held < entry.value
+            ? held
+            : entry.value;
       }
     }
     fresh.pendingLinks = links;
+    fresh.blobRetries = blobRetries;
     await stateStore.save(fresh);
   }
 
@@ -310,42 +340,58 @@ class SyncEngine {
     String url,
     int? last,
     Map<String, int> done,
-    Map<String, NostrEvent> events,
+    Map<String, List<NostrEvent>> events,
     SyncReport report,
     bool force,
     void Function() progress,
   ) async {
     final startedAt = _nowSeconds();
     final since = last == null ? null : last - sinceSlack;
-    int? until;
     try {
-      while (true) {
-        final filter = <String, Object>{
+      final complete = await pageThroughEvents(
+        pageSize: pageSize,
+        query: (until, limit) => pool.queryOne(url, {
           'kinds': [kindAppData],
           'authors': [identity.publicKeyHex],
-          'limit': pageSize,
+          'limit': limit,
           'since': ?since,
           'until': ?until,
-        };
-        final page = await pool.queryOne(url, filter, force: force);
-        for (final e in page) {
-          events.putIfAbsent(e.id, () => e);
-        }
-        progress();
-        if (page.length < pageSize) break;
-        // Next page: older events. If all have the same second, the bound
-        // must move one second further, otherwise the same page would come
-        // again.
-        final oldest = page
-            .map((e) => e.createdAt)
-            .reduce((a, b) => a < b ? a : b);
-        until = (until != null && oldest >= until) ? until - 1 : oldest;
+        }, force: force),
+        onPage: (page) {
+          for (final e in page) {
+            _addCandidate(events, e);
+          }
+          progress();
+        },
+      );
+      if (complete) {
+        done[url] = startedAt;
+      } else {
+        report.failedRelays.add(url);
       }
-      done[url] = startedAt;
     } catch (e) {
       ConnectionLog.failure('sync pull', e);
       report.failedRelays.add(url);
     }
+  }
+
+  // Event IDs are not verified yet at this point, so a relay can send anything
+  // under the ID of a real event. Different copies are kept side by side until
+  // the signature check tells them apart.
+  static void _addCandidate(
+    Map<String, List<NostrEvent>> events,
+    NostrEvent event,
+  ) {
+    final copies = events.putIfAbsent(event.id, () => []);
+    final known = copies.any(
+      (c) =>
+          c.sig == event.sig &&
+          c.content == event.content &&
+          c.createdAt == event.createdAt &&
+          c.pubkey == event.pubkey &&
+          c.kind == event.kind,
+    );
+    if (!known) copies.add(event);
   }
 
   // Fetch an outsourced envelope from the photo servers. It must match its
