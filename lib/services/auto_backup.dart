@@ -407,11 +407,12 @@ class AutoBackup {
         fileName: name,
         sync: secret == null ? null : await _syncInfo(secret),
         encryptPassword: config.encrypt ? secret : null,
-        snapshotDb: true,
       );
       final bytes = zip.lengthSync();
       await _writeToFolder(uri, name, zip.path);
-      config = config.copyWith(
+      // Reloaded because the settings may have changed during the run; only
+      // its outcome is written here.
+      config = (await store.load()).copyWith(
         lastAt: _now(),
         lastBytes: bytes,
         clearError: true,
@@ -420,7 +421,10 @@ class AutoBackup {
       await reschedule(config);
     } catch (e) {
       ConnectionLog.failure('auto backup', e);
-      config = config.copyWith(lastError: _describe(e), lastErrorAt: _now());
+      config = (await store.load()).copyWith(
+        lastError: _describe(e),
+        lastErrorAt: _now(),
+      );
       await store.save(config);
       if (config.enabled) {
         await _schedule(retryDelay);

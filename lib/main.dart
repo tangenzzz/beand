@@ -26,6 +26,7 @@ import 'services/ai/ai_service.dart';
 import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
 import 'services/auto_backup.dart';
+import 'services/restore_swap.dart';
 import 'services/connection_log.dart';
 import 'services/first_run.dart';
 import 'services/bundled_licenses.dart';
@@ -82,6 +83,12 @@ Future<void> main() async {
   // briefly appears and disappears; the keys themselves stay in the
   // keystore and are fetched per call.
   final aiSettings = await AiSettings.load();
+  // A restore that was cut off has to be sorted out before the database opens.
+  try {
+    recoverInterruptedRestore(await getApplicationDocumentsDirectory());
+  } catch (e) {
+    debugPrint('Could not clean up after a restore: $e');
+  }
   final database = AppDatabase();
   // Device id for sync (which device changed something last). Lives in the
   // keystore, not in the prefs, so a backup never carries it to another

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
 import 'package:drift/native.dart';
@@ -11,6 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database.dart';
 import '../sync/crypto/backup_cipher.dart';
+import 'ai/ai_settings.dart';
+import 'restore_swap.dart';
 
 /// Version of the backup format. Written into manifest.json; a backup with
 /// a higher version is rejected on restore instead of being half read.
@@ -206,13 +209,24 @@ class BackupService {
   /// in the next backup. There is only ever the newest one; without the sync
   /// key (the device's key is exactly what changes during linking).
   Future<File> createSafetyCopy(Directory dir, {DateTime? now}) async {
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
+    final fresh = Directory('${dir.path}.new');
+    if (fresh.existsSync()) fresh.deleteSync(recursive: true);
     final t = now ?? DateTime.now();
-    return createBackup(
-      targetDir: dir,
-      now: t,
-      fileName: suggestedFileName(t).replaceFirst('backup', 'before-replace'),
-    );
+    final File copy;
+    try {
+      copy = await createBackup(
+        targetDir: fresh,
+        now: t,
+        fileName: suggestedFileName(t).replaceFirst('backup', 'before-replace'),
+      );
+    } catch (_) {
+      if (fresh.existsSync()) fresh.deleteSync(recursive: true);
+      rethrow;
+    }
+    // The previous copy goes only now that a new one exists.
+    if (dir.existsSync()) dir.deleteSync(recursive: true);
+    fresh.renameSync(dir.path);
+    return File(p.join(dir.path, p.basename(copy.path)));
   }
 
   /// The safety copy in [dir], if there is one.
@@ -233,29 +247,17 @@ class BackupService {
     DateTime? now,
     BackupSyncInfo? sync,
     String? encryptPassword,
-    bool snapshotDb = false,
   }) async {
-    // Write open WAL transactions into the main file, otherwise the copied
-    // file misses the latest changes. Fails silently if the DB is not in
-    // WAL mode — then everything is in there already anyway.
-    try {
-      await db.customStatement('PRAGMA wal_checkpoint(TRUNCATE)');
-    } catch (_) {}
-
     targetDir.createSync(recursive: true);
 
-    // [snapshotDb]: the database goes in as a consistent copy made by
-    // SQLite itself (VACUUM INTO) instead of the raw file. For the auto
-    // backup, which may run from a background task with its own connection
-    // while the app is open — then the checkpoint above can be blocked and
-    // the raw file would miss what still sits in the WAL.
-    File? snapshot;
-    if (snapshotDb) {
-      snapshot = File(p.join(targetDir.path, '$backupDbFileName.snapshot'));
-      if (snapshot.existsSync()) snapshot.deleteSync();
-      final escaped = snapshot.path.replaceAll("'", "''");
-      await db.customStatement("VACUUM INTO '$escaped'");
-    }
+    // The database goes in as a consistent copy made by SQLite itself instead
+    // of the raw file, which can lag behind its journal while another
+    // connection (the background auto backup, the app) is reading.
+    final snapshot = File(p.join(targetDir.path, '$backupDbFileName.snapshot'));
+    if (snapshot.existsSync()) snapshot.deleteSync();
+    final escaped = snapshot.path.replaceAll("'", "''");
+    await db.customStatement("VACUUM INTO '$escaped'");
+
     final zipFile = File(
       p.join(
         targetDir.path,
@@ -291,11 +293,11 @@ class BackupService {
         final relative = p.relative(file.path, from: docsDir.path);
         final name = p.url.joinAll([_filesPrefix, ...p.split(relative)]);
         final isDb = relative == backupDbFileName;
-        await encoder.addFile(isDb ? (snapshot ?? file) : file, name);
+        await encoder.addFile(isDb ? snapshot : file, name);
       }
     } finally {
       await encoder.close();
-      if (snapshot?.existsSync() ?? false) snapshot!.deleteSync();
+      if (snapshot.existsSync()) snapshot.deleteSync();
     }
     if (encryptPassword == null) return zipFile;
 
@@ -389,33 +391,106 @@ class BackupService {
   Future<BackupManifest> _restoreFrom(Archive archive) async {
     final manifest = _manifestOf(archive);
 
-    await db.close();
-
-    // Clear out old content (incl. -wal/-shm of the old DB), so no leftover
-    // beans/profiles remain that are not in the backup.
-    if (docsDir.existsSync()) {
-      for (final entity in docsDir.listSync()) {
-        entity.deleteSync(recursive: true);
-      }
-    } else {
-      docsDir.createSync(recursive: true);
+    // Everything that can reject the backup happens on a separate copy, while
+    // the current data and its open connection stay as they are.
+    final staging = restoreStagingDir(docsDir);
+    try {
+      if (staging.existsSync()) staging.deleteSync(recursive: true);
+      staging.createSync(recursive: true);
+      _extractFiles(archive, staging);
+      await _prepareDatabase(
+        File(p.join(staging.path, backupDbFileName)),
+        manifest.docsPath,
+      );
+    } catch (_) {
+      if (staging.existsSync()) staging.deleteSync(recursive: true);
+      rethrow;
     }
 
+    await db.close();
+    try {
+      swapInRestoredFiles(docsDir);
+    } catch (e) {
+      recoverInterruptedRestore(docsDir);
+      throw BackupException('Restore failed, nothing was replaced: $e');
+    }
+
+    await _restorePrefs(archive);
+    return manifest;
+  }
+
+  void _extractFiles(Archive archive, Directory target) {
     for (final entry in archive.files) {
       if (!entry.isFile || !entry.name.startsWith(_filesPrefix)) continue;
       final relative = entry.name.substring(_filesPrefix.length);
       // Zip entries must not lead outside the target folder.
-      final target = File(
-        p.join(docsDir.path, p.joinAll(p.url.split(relative))),
-      );
-      if (!p.isWithin(docsDir.path, target.path)) continue;
-      target.parent.createSync(recursive: true);
-      target.writeAsBytesSync(entry.content as List<int>, flush: true);
+      final file = File(p.join(target.path, p.joinAll(p.url.split(relative))));
+      if (!p.isWithin(target.path, file.path)) continue;
+      final bytes = entry.content as List<int>;
+      final crc = entry.crc32;
+      if (bytes.length != entry.size ||
+          (crc != null && getCrc32(bytes) != crc)) {
+        throw const BackupException('This backup is damaged.');
+      }
+      file.parent.createSync(recursive: true);
+      file.writeAsBytesSync(bytes, flush: true);
+      entry.clear();
     }
+  }
 
-    await _restorePrefs(archive);
-    await _rewritePaths(manifest.docsPath);
-    return manifest;
+  /// Checks the unpacked database, brings it up to the current schema and
+  /// redirects its image paths from the backup's app folder to the local one.
+  Future<void> _prepareDatabase(File dbFile, String oldDocsPath) async {
+    if (_sqliteUserVersion(dbFile) > db.schemaVersion) {
+      throw const BackupException(
+        'This backup has a newer database version than this app.',
+      );
+    }
+    final restored = _openRestoredDb(dbFile);
+    try {
+      final check = await restored.customSelect('PRAGMA quick_check').get();
+      if (check.first.data.values.first != 'ok') {
+        throw const BackupException('This backup is damaged.');
+      }
+      if (oldDocsPath.isNotEmpty && oldDocsPath != docsDir.path) {
+        for (final table in _pathColumns.entries) {
+          for (final column in table.value) {
+            await restored.customStatement(
+              'UPDATE ${table.key} SET $column = '
+              'replace($column, ?, ?) WHERE $column LIKE ? || \'%\'',
+              [oldDocsPath, docsDir.path, oldDocsPath],
+            );
+          }
+        }
+      }
+    } on BackupException {
+      rethrow;
+    } catch (_) {
+      throw const BackupException('This backup is damaged.');
+    } finally {
+      await restored.close();
+    }
+  }
+
+  /// The schema version stored in the file itself. A manifest only claims one.
+  int _sqliteUserVersion(File dbFile) {
+    final Uint8List header;
+    try {
+      final file = dbFile.openSync();
+      try {
+        header = file.readSync(100);
+      } finally {
+        file.closeSync();
+      }
+    } on FileSystemException {
+      throw const BackupException('This backup is damaged.');
+    }
+    if (header.length < 100 ||
+        ascii.decode(header.sublist(0, 15), allowInvalid: true) !=
+            'SQLite format 3') {
+      throw const BackupException('This backup is damaged.');
+    }
+    return ByteData.sublistView(header).getUint32(60);
   }
 
   List<File> _filesToBackup() {
@@ -423,9 +498,12 @@ class BackupService {
     return docsDir
         .listSync(recursive: true)
         .whereType<File>()
-        // -wal/-shm are redundant after the checkpoint and would override
+        // -wal/-shm are redundant next to the snapshot and would override
         // the copied main file on restore.
         .where((f) => !f.path.endsWith('-wal') && !f.path.endsWith('-shm'))
+        .where(
+          (f) => !isRestoreWorkPath(p.relative(f.path, from: docsDir.path)),
+        )
         .toList()
       ..sort((a, b) => a.path.compareTo(b.path));
   }
@@ -433,6 +511,7 @@ class BackupService {
   Map<String, Object?> _prefsToJson() {
     final out = <String, Object?>{};
     for (final key in prefs.getKeys()) {
+      if (key == AiSettings.consentPrefKey) continue;
       final value = prefs.get(key);
       if (value is bool) {
         out[key] = {'type': 'bool', 'value': value};
@@ -461,6 +540,9 @@ class BackupService {
     }
     await prefs.clear();
     for (final entry in json.entries) {
+      // Permission to send data to an AI server is given on this device, not
+      // by whoever made the file.
+      if (entry.key == AiSettings.consentPrefKey) continue;
       final spec = (entry.value as Map?)?.cast<String, Object?>();
       final value = spec?['value'];
       switch (spec?['type']) {
@@ -480,34 +562,6 @@ class BackupService {
             );
           }
       }
-    }
-  }
-
-  /// Redirects image paths from the backup's app folder to the local one.
-  /// Opens the restored file once fresh — which also runs the drift
-  /// migration if the backup comes from an older schema version.
-  Future<void> _rewritePaths(String oldDocsPath) async {
-    final restored = _openRestoredDb(
-      File(p.join(docsDir.path, backupDbFileName)),
-    );
-    try {
-      if (oldDocsPath.isNotEmpty && oldDocsPath != docsDir.path) {
-        for (final table in _pathColumns.entries) {
-          for (final column in table.value) {
-            await restored.customStatement(
-              'UPDATE ${table.key} SET $column = '
-              'replace($column, ?, ?) WHERE $column LIKE ? || \'%\'',
-              [oldDocsPath, docsDir.path, oldDocsPath],
-            );
-          }
-        }
-      } else {
-        // Open once even without a path change, so a pending migration
-        // happens here and not only on the next app start.
-        await restored.customSelect('SELECT 1').get();
-      }
-    } finally {
-      await restored.close();
     }
   }
 
