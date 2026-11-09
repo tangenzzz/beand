@@ -469,11 +469,22 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
     return result;
   }
 
+  // Loopback, unique local (fc00::/7, also Tailscale) and link local
+  // (fe80::/10). Everything else is on the public internet.
+  static bool _isLocalIpv6(String host) {
+    final h = host.replaceAll(RegExp(r'[\[\]]'), '').toLowerCase();
+    return h == '::1' ||
+        h.startsWith('fc') ||
+        h.startsWith('fd') ||
+        RegExp(r'^fe[89ab]').hasMatch(h);
+  }
+
   /// Address on the local network: home network, Tailscale, *.local, or a
   /// bare host name.
   static bool isLocalHost(String host) {
     if (host.isEmpty) return false;
     if (host == 'localhost' || host.endsWith('.local')) return true;
+    if (host.contains(':')) return _isLocalIpv6(host);
     if (!host.contains('.')) return true; // bare host name
     final parts = host.split('.').map(int.tryParse).toList();
     if (parts.length != 4 || parts.any((p) => p == null)) return false;
