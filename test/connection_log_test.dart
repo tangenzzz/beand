@@ -75,7 +75,7 @@ void main() {
       ('email', 'mail from someone@example.com failed', 'someone@'),
       (
         'LAN address',
-        'SocketException address = 192.168.1.67, port',
+        'SocketException address = 192.168.1.50, port',
         '192.168',
       ),
       ('IPv6', 'address 2606:4700:3037::ac43:ce80 refused', '2606:4700'),
@@ -114,7 +114,7 @@ void main() {
         ConnectionLog.hostLabel('wss://relay.primal.net'),
         'relay.primal.net',
       );
-      expect(ConnectionLog.hostLabel('ws://192.168.1.67:7777'), '<own server>');
+      expect(ConnectionLog.hostLabel('ws://192.168.1.50:7777'), '<own server>');
       expect(
         ConnectionLog.sanitize('to wss://relay.primal.net/x'),
         'to wss://relay.primal.net',
