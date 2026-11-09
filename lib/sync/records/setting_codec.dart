@@ -12,7 +12,9 @@ import '../../services/gear_store.dart';
 // Which settings travel between devices (whitelist). Everything not listed
 // here stays on the device — above all machine addresses, the currently
 // selected view/bean/dose, AI keys and the AI main switch (without a key on
-// the other device, "on" there would just mean "No key").
+// the other device, "on" there would just mean "No key"). The Custom AI
+// address stays too: taken over from another device, it would receive this
+// device's key.
 
 const settingType = 'setting';
 
@@ -38,7 +40,6 @@ List<String> syncedSettingKeys() => [
   // Own Pour Over profiles; their photos stay on each device.
   BrewRecipeStore.importedPrefKey,
   AiSettings.providerPrefKey,
-  AiSettings.baseUrlPrefKey,
   for (final p in AiProvider.values) AiSettings.modelPrefKey(p),
   for (final f in AiFeature.values) AiSettings.featurePrefKey(f),
 ];

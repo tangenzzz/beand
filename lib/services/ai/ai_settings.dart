@@ -106,7 +106,7 @@ class AiSettings extends ChangeNotifier {
   }
 
   /// After taking over from sync: read the synced values fresh from the
-  /// prefs (provider, models, base URL, features). Key and main switch
+  /// prefs (provider, models, features). Key, base URL and main switch
   /// belong to the device and stay as they are.
   Future<void> reload() async {
     final prefs = await SharedPreferences.getInstance();
@@ -119,7 +119,6 @@ class AiSettings extends ChangeNotifier {
         for (final provider in AiProvider.values)
           provider: ?prefs.getString(modelPrefKey(provider)),
       });
-    _baseUrl = prefs.getString(baseUrlPrefKey) ?? '';
     _disabledFeatures
       ..clear()
       ..addAll({
