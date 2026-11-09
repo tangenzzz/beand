@@ -17,6 +17,7 @@ import '../sync/crypto/nip49.dart';
 import '../sync/engine/sync_state_store.dart';
 import '../sync/identity/key_store.dart';
 import 'backup_service.dart';
+import 'connection_log.dart';
 
 // Auto backup (Settings → Backup): at set times the app writes a backup on
 // its own and overwrites the same file each time, `beand-auto-backup.zip`
@@ -418,6 +419,7 @@ class AutoBackup {
       await store.save(config);
       await reschedule(config);
     } catch (e) {
+      ConnectionLog.failure('auto backup', e);
       config = config.copyWith(lastError: _describe(e), lastErrorAt: _now());
       await store.save(config);
       if (config.enabled) {
@@ -501,7 +503,7 @@ void autoBackupDispatcher() {
       }
       await backup.run();
     } catch (e) {
-      debugPrint('Auto backup failed: $e');
+      ConnectionLog.failure('auto backup', e);
     } finally {
       if (opened != null) {
         AutoBackup.appDatabase = null;

@@ -149,6 +149,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
       _pool?.statusOf(url) ?? const RelayStatus(RelayState.idle);
 
   Future<void> init() async {
+    ConnectionLog.allowHosts([...defaultSyncRelays, ...defaultBlobServers]);
     _state = await stateStore.load();
     _deviceId = db.deviceId ?? await keyStore.deviceId();
     _identity = await keyStore.readIdentity();
@@ -409,7 +410,7 @@ class SyncService extends ChangeNotifier with WidgetsBindingObserver {
         await _update((s) => s.lastSuccessAt = DateTime.now());
       }
     } catch (e) {
-      debugPrint('Sync failed: $e');
+      ConnectionLog.failure('sync', e);
       _phase = SyncPhase.error;
       _error = 'Sync failed.';
       incomplete = true;

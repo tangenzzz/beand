@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/app_theme.dart';
+import 'connection_log_screen.dart';
 import 'settings_widgets.dart';
 
 const sourceCodeUrl = 'https://github.com/tangenzzz/beand';
@@ -161,6 +162,15 @@ class AboutSettingsScreen extends StatelessWidget {
                     icon: Icons.description_outlined,
                     title: 'Open-source licenses',
                     onTap: () => _showLicenses(context),
+                  ),
+                  SettingsRow(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'Diagnostics log',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ConnectionLogScreen(),
+                      ),
+                    ),
                   ),
                 ],
               ),

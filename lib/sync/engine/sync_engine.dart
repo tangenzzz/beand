@@ -22,6 +22,7 @@ import '../records/sync_envelope.dart';
 import 'event_worker.dart';
 import 'lww.dart';
 import 'sync_state_store.dart';
+import '../../services/connection_log.dart';
 
 // The actual sync, without UI and without triggers (those are handled by
 // SyncService):
@@ -342,7 +343,7 @@ class SyncEngine {
       }
       done[url] = startedAt;
     } catch (e) {
-      debugPrint('Sync pull from $url failed: $e');
+      ConnectionLog.failure('sync pull', e);
       report.failedRelays.add(url);
     }
   }

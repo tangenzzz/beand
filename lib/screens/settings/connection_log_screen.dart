@@ -1,14 +1,18 @@
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../services/connection_log.dart';
 import '../../theme/app_theme.dart';
 import 'settings_widgets.dart';
 
-/// Settings → Connections → Connection log: what happened to the connection
-/// to the Meticulous, newest first; share it as a file, or clear it.
+/// Settings → About → Diagnostics log: connections, commands, sync and
+/// errors, newest first; share it as a file, or clear it.
 class ConnectionLogScreen extends StatefulWidget {
   const ConnectionLogScreen({super.key, this.load});
 
@@ -37,14 +41,39 @@ class _ConnectionLogScreenState extends State<ConnectionLogScreen> {
   }
 
   Future<void> _share() async {
-    final file = await ConnectionLog.file();
-    if (!await file.exists()) return;
+    // A copy with the app and device on top; every line is filtered again.
+    final dir = await getTemporaryDirectory();
+    final file = File(p.join(dir.path, 'beand-diagnostics.txt'));
+    await file.writeAsString(
+      await ConnectionLog.shareText(await _header()),
+      flush: true,
+    );
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path, mimeType: 'text/plain')],
-        subject: "bean'd connection log",
+        subject: "bean'd diagnostics log",
       ),
     );
+  }
+
+  Future<String> _header() async {
+    final info = await PackageInfo.fromPlatform();
+    return "bean'd ${info.version} (${info.buildNumber})\n${await _device()}";
+  }
+
+  Future<String> _device() async {
+    try {
+      final device = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final a = await device.androidInfo;
+        return 'Android ${a.version.release}, ${a.manufacturer} ${a.model}';
+      }
+      if (Platform.isIOS) {
+        final i = await device.iosInfo;
+        return 'iOS ${i.systemVersion}, ${i.utsname.machine}';
+      }
+    } catch (_) {}
+    return Platform.operatingSystem;
   }
 
   Future<void> _clear() async {
@@ -56,18 +85,18 @@ class _ConnectionLogScreenState extends State<ConnectionLogScreen> {
   Widget build(BuildContext context) {
     final lines = _lines;
     return Scaffold(
-      appBar: AppBar(title: const Text('Connection log')),
+      appBar: AppBar(title: const Text('Diagnostics log')),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [
           SettingsCard(
             children: [
               SettingsGroup(
-                label: 'Meticulous',
+                label: 'Log',
                 info:
-                    'Every drop of the connection, every reconnect and every '
-                    'command, with time and reason. Share it to find out '
-                    'whether the Wi-Fi or the app is to blame.',
+                    'Connections, commands, sync and errors, with time and '
+                    'reason. It stays on this phone until you share it. '
+                    'Addresses, keys and serial numbers are left out.',
                 children: [
                   if (lines == null)
                     const SizedBox(height: 48)
@@ -143,7 +172,14 @@ class _LogLine extends StatelessWidget {
 
   final String line;
 
-  static const _trouble = {'reconnect', 'disconnected', 'error', 'stall'};
+  static const _trouble = {
+    'reconnect',
+    'disconnected',
+    'error',
+    'stall',
+    'crash',
+    'failed',
+  };
 
   @override
   Widget build(BuildContext context) {

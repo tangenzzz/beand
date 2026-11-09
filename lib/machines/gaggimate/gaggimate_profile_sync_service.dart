@@ -68,7 +68,7 @@ class GaggiMateProfileSyncService implements ProfileStore {
         debugPrint('GaggiMateProfileSync: ${raw.length} profiles');
       } catch (e) {
         // Unreachable: the local copy stays valid.
-        debugPrint('GaggiMate profile sync failed: $e');
+        ConnectionLog.failure('GaggiMate profile sync', e);
       } finally {
         _running = null;
       }
@@ -84,7 +84,7 @@ class GaggiMateProfileSyncService implements ProfileStore {
       await _store(json, known[id]?.position ?? 0, known);
       return true;
     } catch (e) {
-      debugPrint('GaggiMate profile refresh failed ($id): $e');
+      ConnectionLog.failure('GaggiMate profile refresh', e);
       return false;
     }
   }

@@ -158,12 +158,12 @@ class GaggiMateShotSyncService {
           // pass instead of being silently lost.
           if (attach != null) _pending = null;
         } catch (e) {
-          debugPrint('GaggiMate shot import failed (${missing[i].id}): $e');
+          ConnectionLog.failure('GaggiMate shot import', e);
         }
       }
     } catch (e) {
       // Machine unreachable or similar: retry on next connect.
-      debugPrint('GaggiMate history sync failed: $e');
+      ConnectionLog.failure('GaggiMate history sync', e);
     }
   }
 

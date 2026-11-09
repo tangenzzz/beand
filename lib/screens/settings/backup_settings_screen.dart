@@ -18,6 +18,7 @@ import '../../theme/app_theme.dart';
 import 'auto_backup_section.dart';
 import 'backup_dialogs.dart';
 import 'settings_widgets.dart';
+import '../../services/connection_log.dart';
 
 /// Settings → Backup: create a backup as a zip file (database, all photos,
 /// settings) and restore from such a file.
@@ -161,6 +162,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     } on BackupException catch (e) {
       _say(e.message);
     } catch (e) {
+      ConnectionLog.failure('backup', e);
       _say('Backup failed: $e');
     } finally {
       // The copy in the cache is no longer needed.
@@ -299,6 +301,7 @@ class _BackupSettingsScreenState extends State<BackupSettingsScreen> {
     } on BackupException catch (e) {
       _say(e.message);
     } catch (e) {
+      ConnectionLog.failure('restore', e);
       _say('Restore failed: $e');
     } finally {
       _deleteQuietly(decrypted);

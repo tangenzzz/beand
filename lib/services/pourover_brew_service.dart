@@ -1140,7 +1140,7 @@ class PourOverBrewService extends LiveShotService {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('PourOverBrewService: save failed $e');
+      ConnectionLog.failure('pour over save', e);
       _lastError = 'Could not save the brew.';
       _runningPlan = null;
       applyStage(ShotStage.idle);

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/brew_recipe.dart';
 import 'brew_recipes_source.dart';
 import 'meticulous_pourover_profiles.dart';
+import 'connection_log.dart';
 
 const brewRecipesAsset = 'assets/brew_recipes.json';
 
@@ -205,7 +206,7 @@ class BrewRecipeStore extends ChangeNotifier {
           .catchError((Object _) => false);
     } catch (e) {
       _machineError = 'Could not load the profiles from the Meticulous.';
-      debugPrint('BrewRecipeStore: machine profiles failed: $e');
+      ConnectionLog.failure('machine profiles', e);
     } finally {
       _machineLoading = false;
       _machineFetch = null;
@@ -275,7 +276,7 @@ class BrewRecipeStore extends ChangeNotifier {
       ];
       notifyListeners();
     } catch (e) {
-      debugPrint('BrewRecipeStore: reload failed: $e');
+      ConnectionLog.failure('recipes reload', e);
     }
   }
 

@@ -181,12 +181,12 @@ class ShotSyncService {
             attachSetup: isNewest ? _takePending() : null,
           );
         } catch (e) {
-          debugPrint('Shot import failed (${missing[i]['id']}): $e');
+          ConnectionLog.failure('shot import', e);
         }
       }
     } catch (e) {
       // Machine unreachable or similar: retry on next connect.
-      debugPrint('History sync failed: $e');
+      ConnectionLog.failure('history sync', e);
     }
   }
 

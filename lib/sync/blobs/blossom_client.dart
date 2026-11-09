@@ -51,10 +51,7 @@ class BlossomClient {
   void _log(String server, String detail) {
     if (_logged[server] == detail) return;
     _logged[server] = detail;
-    ConnectionLog.write(
-      'photo',
-      '${Uri.tryParse(server)?.host ?? server} $detail',
-    );
+    ConnectionLog.write('photo', '${ConnectionLog.hostLabel(server)} $detail');
   }
 
   // Signs in a background isolate (~11 ms on a PC), like the relay login.

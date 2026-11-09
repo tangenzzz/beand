@@ -25,6 +25,16 @@ void _log(String message) {
   ConnectionLog.write('scale', message);
 }
 
+// Many scales put their serial number into the Bluetooth name (LUNAR-A1B2C3);
+// the log keeps the model only.
+String _modelOnly(String? name) {
+  final model = (name ?? '').replaceFirst(
+    RegExp(r'[-_ ]?[A-Za-z0-9]*\d[A-Za-z0-9]*$'),
+    '',
+  );
+  return model.isEmpty ? 'scale' : model;
+}
+
 /// A Bluetooth scale via flutter_reactive_ble: scan, connect, reconnect and
 /// permissions are the same for every scale; what a scale speaks is in its
 /// [ScaleDriver] — Acaia (Lunar/Pearl, old and new firmware), Decent and
@@ -389,7 +399,7 @@ class BleScale extends BrewScale {
       _deviceName = target.name;
       await _remember(target.id, target.name);
       if (!current()) return;
-      _log('connecting to ${target.name}');
+      _log('connecting to ${_modelOnly(target.name)}');
       // Android often fails the first try right after a scan or another
       // scale's connection (GATT error 133): worth a second one.
       for (var attempt = 1; ; attempt++) {
@@ -655,7 +665,7 @@ class BleScale extends BrewScale {
                   await _setUp(id, session);
                   _reconnects = 0;
                   _addKnown(id, _deviceName ?? id);
-                  _log('connected to $_deviceName');
+                  _log('connected to ${_modelOnly(_deviceName)}');
                   _set(ScaleConnection.connected);
                   if (!ready.isCompleted) ready.complete();
                 } catch (e) {
@@ -948,7 +958,7 @@ class BleScale extends BrewScale {
             final next = await _searchAfterLost(_deviceId!);
             if (next == null || !current()) continue;
             if (next.id != _deviceId) {
-              _log('switching to ${next.name}');
+              _log('switching to ${_modelOnly(next.name)}');
               _deviceId = next.id;
               _deviceName = next.name;
               await _remember(next.id, next.name);

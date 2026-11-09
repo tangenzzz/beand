@@ -67,6 +67,7 @@ const _defaultRecipeId = 'tetsu-kasuya-4-6-method';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _logUncaughtErrors();
   registerBundledLicenses();
 
   final prefs = await SharedPreferences.getInstance();
@@ -420,6 +421,24 @@ class _BeandAppState extends State<BeandApp> {
   }
 }
 
+// Errors nothing caught go to the diagnostics log; what happens with them
+// besides stays as it was.
+void _logUncaughtErrors() {
+  final presentError = FlutterError.onError;
+  FlutterError.onError = (details) {
+    ConnectionLog.crash(
+      details.exception,
+      details.stack,
+      source: details.library,
+    );
+    presentError?.call(details);
+  };
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+    ConnectionLog.crash(error, stack);
+    return false;
+  };
+}
+
 // Registers the background entry point, then catches up on a slot that was
 // missed (phone off, Doze) and queues the next one. A little after the
 // start, so it does not compete with the first frames.
@@ -430,6 +449,6 @@ Future<void> _startAutoBackup() async {
     final backup = await AutoBackup.platform();
     await backup.run();
   } catch (e) {
-    debugPrint('Auto backup check failed: $e');
+    ConnectionLog.failure('auto backup check', e);
   }
 }

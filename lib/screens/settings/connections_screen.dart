@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import '../../widgets/gaggimate_icons.dart';
-import 'connection_log_screen.dart';
 import 'gaggimate_settings_screen.dart';
 import 'meticulous_settings_screen.dart';
 import 'scale_settings_screen.dart';
@@ -35,10 +34,6 @@ class ConnectionsScreen extends StatelessWidget {
               SettingsEntry(
                 title: 'Scales',
                 builder: (_) => const ScaleSettingsScreen(),
-              ),
-              SettingsEntry(
-                title: 'Connection log',
-                builder: (_) => const ConnectionLogScreen(),
               ),
             ],
           ),

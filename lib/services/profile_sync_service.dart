@@ -90,7 +90,7 @@ class ProfileSyncService implements ProfileStore {
         debugPrint('ProfileSync: ${list.length} profiles on the machine');
       } catch (e) {
         // Machine unreachable or similar: the local copy stays valid.
-        debugPrint('Profile sync failed: $e');
+        ConnectionLog.failure('profile sync', e);
       } finally {
         _running = null;
       }
@@ -112,7 +112,7 @@ class ProfileSyncService implements ProfileStore {
       );
       return true;
     } catch (e) {
-      debugPrint('Profile refresh failed ($id): $e');
+      ConnectionLog.failure('profile refresh', e);
       return false;
     }
   }

@@ -260,7 +260,7 @@ class RelayPool extends ChangeNotifier {
     );
     if (_loggedFailure[url] == raw) return;
     _loggedFailure[url] = raw;
-    ConnectionLog.write('relay', '${Uri.tryParse(url)?.host ?? url} $raw');
+    ConnectionLog.write('relay', '${ConnectionLog.hostLabel(url)} $raw');
   }
 
   void _set(String url, RelayStatus status) {
