@@ -74,7 +74,6 @@ dependencies:
   bech32: ^0.2.2
   unorm_dart: ^0.3.3
   qr_flutter: ^4.1.0
-  mobile_scanner: ^7.4.2
   local_auth: ^3.0.2
   flutter_svg: ^2.3.0
   image: ^4.3.0
@@ -86,6 +85,7 @@ dependencies:
   # Planned notifications (iOS: "Should be ready" while the app is closed).
   timezone: ^0.11.2
   device_info_plus: ^13.3.0
+  flutter_zxing: ^3.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_zxing/flutter_zxing.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../sync/secure_screen.dart';
@@ -101,36 +101,34 @@ class ScanKeyScreen extends StatefulWidget {
 }
 
 class _ScanKeyScreenState extends State<ScanKeyScreen> {
-  final _controller = MobileScannerController(
-    formats: const [BarcodeFormat.qrCode],
-  );
   bool _done = false;
   bool _wrongCode = false;
   bool _noKeyInPhoto = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  Exception? _cameraError;
 
   // true if a key was found — the page is already closed then.
-  bool _accept(BarcodeCapture capture) {
-    for (final code in capture.barcodes) {
-      final value = code.rawValue?.trim() ?? '';
-      if (value.startsWith('ncryptsec1') || value.startsWith('nsec1')) {
-        _done = true;
-        Navigator.of(context).pop(value);
-        return true;
-      }
+  bool _accept(String? text) {
+    final value = text?.trim() ?? '';
+    if (!value.startsWith('ncryptsec1') && !value.startsWith('nsec1')) {
+      return false;
     }
-    return false;
+    _done = true;
+    Navigator.of(context).pop(value);
+    return true;
   }
 
-  void _onDetect(BarcodeCapture capture) {
-    if (_done || _accept(capture)) return;
-    if (!_wrongCode && mounted) setState(() => _wrongCode = true);
+  void _onScan(Code code) {
+    if (_done || !mounted || _accept(code.text)) return;
+    if (!_wrongCode) setState(() => _wrongCode = true);
   }
+
+  void _onCamera(CameraController? controller, Exception? error) {
+    if (mounted) setState(() => _cameraError = error);
+  }
+
+  // flutter_zxing does not export CameraException; its text holds the code
+  // (CameraAccessDenied and its variants).
+  bool get _cameraDenied => '$_cameraError'.contains('AccessDenied');
 
   // QR from a photo (e.g. taken of another device's screen). Also works
   // without camera permission — the system image picker needs none.
@@ -142,17 +140,23 @@ class _ScanKeyScreenState extends State<ScanKeyScreen> {
       return;
     }
     if (picked == null || _done || !mounted) return;
-    BarcodeCapture? capture;
+    Code? code;
     try {
-      capture = await _controller.analyzeImage(
-        picked.path,
-        formats: const [BarcodeFormat.qrCode],
+      code = await zx.readBarcodeImagePath(
+        picked,
+        DecodeParams(
+          format: Format.qrCode,
+          tryHarder: true,
+          // The reader shrinks photos to this size first. Its default of
+          // 768 is too small for a QR code that fills only part of a photo.
+          maxSize: 2048,
+        ),
       );
     } catch (_) {
       // No readable code — same as "nothing found".
     }
     if (_done || !mounted) return;
-    if (capture != null && _accept(capture)) return;
+    if (code != null && code.isValid && _accept(code.text)) return;
     setState(() => _noKeyInPhoto = true);
   }
 
@@ -172,17 +176,28 @@ class _ScanKeyScreenState extends State<ScanKeyScreen> {
       ),
       body: Stack(
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-            errorBuilder: (context, error) => Center(
+          if (_cameraError == null)
+            ReaderWidget(
+              codeFormat: Format.qrCode,
+              onScan: _onScan,
+              onControllerCreated: _onCamera,
+              cropPercent: 0.8,
+              scanDelay: const Duration(milliseconds: 300),
+              showFlashlight: false,
+              showToggleCamera: false,
+              // Photos are chosen with the app bar button.
+              showGallery: false,
+              allowPinchZoom: false,
+            )
+          else
+            Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      error.errorCode == MobileScannerErrorCode.permissionDenied
+                      _cameraDenied
                           ? 'Camera access is off. Allow it in the system '
                                 'settings.'
                           : 'Camera not available.',
@@ -199,7 +214,6 @@ class _ScanKeyScreenState extends State<ScanKeyScreen> {
                 ),
               ),
             ),
-          ),
           Positioned(
             left: 16,
             right: 16,
