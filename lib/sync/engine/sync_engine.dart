@@ -275,6 +275,11 @@ class SyncEngine {
     int? holdCursorAt;
     for (final (i, open) in opened.indexed) {
       var envelope = open;
+      // Our next event must be later than what the relays hold, or they keep
+      // the old one. Also after a restart, or if our clock was set back.
+      if (open != null && candidates[i].createdAt > _lastCreatedAt) {
+        _lastCreatedAt = candidates[i].createdAt;
+      }
       if (envelope?.blobRef != null) {
         envelope = await _unpack(envelope!);
         if (envelope == null) {
