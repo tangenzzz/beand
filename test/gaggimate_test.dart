@@ -574,8 +574,31 @@ void main() {
     test('start and stop go to the process of the machine', () async {
       await live.startShot();
       expect(transport.sent.last['tp'], 'req:process:activate');
+      await status({
+        'm': 1,
+        'process': {'a': 1, 's': 'brew', 'l': 'Brew', 'e': 3000, 'u': 0},
+      });
       await live.stopShot();
       expect(transport.sent.last['tp'], 'req:process:deactivate');
+    });
+
+    // A friend's report (2026-11-10): Brew tapped by mistake, the machine
+    // heated and Stop wasn't taken for a long time. Without a running
+    // process deactivate does nothing on the machine; standby stops heating.
+    test('stop while heating goes back to standby', () async {
+      await status({'m': 1, 'ct': 60.0, 'tt': 93.0});
+      expect(live.stage, ShotStage.heating);
+      await live.stopShot();
+      expect(transport.sent.last, {'tp': 'req:change-mode', 'mode': 0});
+      await status({'m': 0, 'tt': 0.0});
+      expect(live.stage, ShotStage.idle);
+    });
+
+    test('stop when ready, before the shot, also goes to standby', () async {
+      await status({'m': 1, 'ct': 92.5, 'tt': 93.0});
+      expect(live.stage, ShotStage.ready);
+      await live.stopShot();
+      expect(transport.sent.last, {'tp': 'req:change-mode', 'mode': 0});
     });
   });
 }

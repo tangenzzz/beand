@@ -166,8 +166,21 @@ class GaggiMateLiveShotService extends LiveShotService {
   @override
   Future<bool> startShot() => _machine.sendCommand(MachineCommand.start);
 
+  // Stop means two things on the GaggiMate. While a brew runs it ends the
+  // process. Before that — heating or ready in brew mode, after "Start
+  // Profile" or a tap on Brew — there is no process: the firmware's
+  // deactivate() returns without doing anything, the boiler keeps heating to
+  // the profile's target until the standby timeout. Going back to standby is
+  // what turns the heater off (target 0 in Controller::getTargetTemp).
   @override
-  Future<bool> stopShot() => _machine.sendCommand(MachineCommand.stop);
+  Future<bool> stopShot() async {
+    final process = _machine.status.process;
+    if (process != null && process.active) {
+      return _machine.sendCommand(MachineCommand.stop);
+    }
+    _machine.changeMode(GaggiMateMode.standby);
+    return true;
+  }
 
   // The GaggiMate doesn't purge after the brew — the final step is clearing
   // the finished process.

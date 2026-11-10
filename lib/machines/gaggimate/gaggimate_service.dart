@@ -545,7 +545,8 @@ class GaggiMateService extends ChangeNotifier implements EspressoMachine {
         _send({'tp': 'req:process:deactivate'});
         return true;
       // The GaggiMate has neither a tare action over the channel nor its
-      // own preheat — it holds the temperature in standby anyway.
+      // own preheat: switching to brew mode is what heats (in standby the
+      // heater is off).
       case MachineCommand.tare:
       case MachineCommand.preheat:
         return false;
