@@ -1,8 +1,8 @@
 """Google Play store graphics from the wordmark.
 
 Run from the repository root: python3 tool/make_store_graphics.py OUT_DIR
-Writes icon-512.png (32-bit PNG, opaque) and two feature graphics
-(1024 x 500, 24-bit PNG): one with the wordmark only, one with a tagline.
+Writes icon-512.png (32-bit PNG, opaque) and feature graphics
+(1024 x 500, 24-bit PNG): the wordmark alone and with each tagline.
 """
 import os
 import sys
@@ -12,7 +12,11 @@ from PIL import Image, ImageDraw, ImageFont
 sys.path.insert(0, os.path.dirname(__file__))
 from make_app_icons import BG, CREAM, fitted, on_dark, wordmark_rgba  # noqa: E402
 
-TAGLINE = 'Espresso & pour-over journal'
+# File suffix and text; 'From bag to cup.' is the website's slogan.
+TAGLINES = {
+    'tagline': 'Espresso & pour-over journal',
+    'bag-to-cup': 'From bag to cup.',
+}
 # The website's first choice of font, so the graphic matches beand.app.
 FONT = '/System/Library/Fonts/SFNS.ttf'
 MUTED = (168, 162, 152)
@@ -40,16 +44,17 @@ def main(out):
     plain.alpha_composite(layer)
     plain.convert('RGB').save(f'{out}/feature-graphic-plain.png')
 
-    tagged = Image.new('RGBA', size, (*BG, 255))
-    layer, h = placed(mark, size, 0.46, size[1] / 2 - 28)
-    tagged.alpha_composite(layer)
-    draw = ImageDraw.Draw(tagged)
-    font = ImageFont.truetype(FONT, 34)
-    font.set_variation_by_name('Regular')
-    tw = draw.textlength(TAGLINE, font=font)
-    draw.text(((size[0] - tw) / 2, size[1] / 2 - 28 + h / 2 + 34), TAGLINE,
-              font=font, fill=MUTED)
-    tagged.convert('RGB').save(f'{out}/feature-graphic-tagline.png')
+    for suffix, text in TAGLINES.items():
+        tagged = Image.new('RGBA', size, (*BG, 255))
+        layer, h = placed(mark, size, 0.46, size[1] / 2 - 28)
+        tagged.alpha_composite(layer)
+        draw = ImageDraw.Draw(tagged)
+        font = ImageFont.truetype(FONT, 34)
+        font.set_variation_by_name('Regular')
+        tw = draw.textlength(text, font=font)
+        draw.text(((size[0] - tw) / 2, size[1] / 2 - 28 + h / 2 + 34), text,
+                  font=font, fill=MUTED)
+        tagged.convert('RGB').save(f'{out}/feature-graphic-{suffix}.png')
     print('written to', out)
 
 
