@@ -60,9 +60,17 @@ class GaggiMateCommandRow extends StatelessWidget {
                   icon: null,
                   label: 'Brew',
                   active: mode == GaggiMateMode.brew,
-                  onTap: connected
-                      ? () => service.changeMode(GaggiMateMode.brew)
-                      : null,
+                  // Brew mode heats. Tapping it again while nothing runs
+                  // goes back to standby, which turns the heater off — the
+                  // way out after a tap by mistake. A running shot is
+                  // stopped on the shot card, not here.
+                  onTap: !connected
+                      ? null
+                      : mode == GaggiMateMode.brew
+                      ? (process != null && process.active
+                            ? null
+                            : () => service.changeMode(GaggiMateMode.standby))
+                      : () => service.changeMode(GaggiMateMode.brew),
                 ),
                 _CommandButton(
                   glyph: drawing && mode == GaggiMateMode.steam

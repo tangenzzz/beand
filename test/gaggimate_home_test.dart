@@ -426,6 +426,45 @@ void main() {
     await disposeTree(tester);
   });
 
+  testWidgets('Brew heats, tapped again it goes back to standby', (
+    tester,
+  ) async {
+    await tester.pumpWidget(wrap());
+    answerProfileList();
+    transport.receive({
+      'tp': 'evt:status',
+      'ct': 40.0,
+      'tt': 0.0,
+      'm': 0, // Standby
+      'sys': {'s': 'ready', 'm': '', 'c': 0},
+    });
+    await tester.pump();
+
+    await tester.tap(find.text('Brew'));
+    await tester.pump();
+    expect(transport.sent.last, {'tp': 'req:change-mode', 'mode': 1});
+
+    transport.receive({'tp': 'evt:status', 'm': 1, 'tt': 93.0});
+    await tester.pump();
+    await tester.tap(find.text('Brew'));
+    await tester.pump();
+    expect(transport.sent.last, {'tp': 'req:change-mode', 'mode': 0});
+
+    // While a shot runs the button does nothing; it stops on the shot card.
+    transport.receive({
+      'tp': 'evt:status',
+      'm': 1,
+      'process': {'a': 1, 's': 'brew', 'l': 'Infusion', 'e': 2000, 'u': 0},
+    });
+    await tester.pump();
+    final before = transport.sent.length;
+    await tester.tap(find.text('Brew').first);
+    await tester.pump();
+    expect(transport.sent.length, before);
+
+    await disposeTree(tester);
+  });
+
   testWidgets('water: first mode, then water runs, then stop', (tester) async {
     await tester.pumpWidget(wrap());
     answerProfileList();
