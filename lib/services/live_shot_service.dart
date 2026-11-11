@@ -185,11 +185,15 @@ abstract class LiveShotService extends ChangeNotifier {
   // out per cycle anyway.
   bool autoStartEnabled = false;
   bool _autoStartFired = false;
+  // The shot that Auto Start asked for has begun. Only then does a return to
+  // heating or ready mean a new cycle; before, it is the machine catching up
+  // with the start, and a second start would skip a stage.
+  bool _autoStartedShotRan = false;
 
   void setAutoStart(bool enabled) {
     if (enabled == autoStartEnabled) return;
     autoStartEnabled = enabled;
-    if (!enabled) _autoStartFired = false;
+    if (!enabled) _rearmAutoStart();
     notifyListeners();
   }
 
@@ -254,10 +258,11 @@ abstract class LiveShotService extends ChangeNotifier {
       case ShotStage.heating:
       case ShotStage.ready:
         activeCard = ActiveCard.pre;
-        _autoStartFired = false;
+        if (_autoStartedShotRan) _rearmAutoStart();
       case ShotStage.running:
       case ShotStage.awaitingPurge:
         activeCard = ActiveCard.live;
+        if (_autoStartFired) _autoStartedShotRan = true;
       case ShotStage.purging:
         if (postAfterPurge) {
           // Still purging: the Live card stays up ("Purging…").
@@ -274,8 +279,13 @@ abstract class LiveShotService extends ChangeNotifier {
         } else if (activeCard == ActiveCard.live) {
           activeCard = ActiveCard.pre;
         }
-        _autoStartFired = false;
+        _rearmAutoStart();
     }
+  }
+
+  void _rearmAutoStart() {
+    _autoStartFired = false;
+    _autoStartedShotRan = false;
   }
 
   // ---- Machine actions ----

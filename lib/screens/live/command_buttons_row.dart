@@ -53,6 +53,10 @@ class _CommandButtonsRowState extends State<CommandButtonsRow> {
   String? _pending;
   Timer? _pendingTimer;
 
+  // Requests still on their way: a second tap on the same button sends
+  // nothing until the first one has an answer.
+  final _inFlight = <String>{};
+
   @override
   void dispose() {
     _pendingTimer?.cancel();
@@ -139,8 +143,14 @@ class _CommandButtonsRowState extends State<CommandButtonsRow> {
     required String action,
     required String label,
   }) async {
+    if (!_inFlight.add(action)) return;
     final service = context.read<MeticulousSocketService>();
-    final ok = await service.triggerAction(action);
+    final bool ok;
+    try {
+      ok = await service.triggerAction(action);
+    } finally {
+      _inFlight.remove(action);
+    }
     if (!mounted) return;
     if (ok && _phaseOfAction.containsKey(action)) {
       // The glow IS the feedback — a snackbar would only claim what you
