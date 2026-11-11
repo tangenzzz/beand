@@ -158,10 +158,13 @@ class AiSettings extends ChangeNotifier {
 
   /// The server that would receive the data. Consent is tied to this rather
   /// than to the provider, so pointing "Custom" somewhere else asks again.
-  String get recipientAddress {
-    final raw = _provider.requiresBaseUrl ? _baseUrl : _provider.defaultBaseUrl;
-    final uri = Uri.tryParse(raw);
-    if (uri == null || uri.host.isEmpty) return raw;
+  String get recipientAddress => recipientAddressOf(
+    _provider.requiresBaseUrl ? _baseUrl : _provider.defaultBaseUrl,
+  );
+
+  static String recipientAddressOf(String baseUrl) {
+    final uri = Uri.tryParse(baseUrl);
+    if (uri == null || uri.host.isEmpty) return baseUrl;
     return uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
   }
 
@@ -174,6 +177,13 @@ class AiSettings extends ChangeNotifier {
   bool get hasConsent =>
       recipientAddress.isNotEmpty &&
       _consentedRecipients.contains(recipientAddress);
+
+  /// The same question for a connection taken earlier: the settings may have
+  /// changed since, but the data goes where [connection] points.
+  bool hasConsentFor(AiConnection connection) {
+    final address = recipientAddressOf(connection.baseUrl);
+    return address.isNotEmpty && _consentedRecipients.contains(address);
+  }
 
   Future<void> grantConsent() async {
     if (recipientAddress.isEmpty) return;
@@ -269,10 +279,20 @@ class AiSettings extends ChangeNotifier {
 
   /// The full connection including the key. Only here is the key fetched
   /// from the keystore — it isn't kept in memory permanently.
-  Future<AiConnection> connection() async => AiConnection(
-    provider: _provider,
-    apiKey: await _keyStore.read(_provider) ?? '',
-    model: modelFor(_provider),
-    baseUrl: _provider.requiresBaseUrl ? _baseUrl : _provider.defaultBaseUrl,
-  );
+  /// Everything but the key is taken before the keystore answers, so a
+  /// change in the meantime cannot pair one provider's key with another's
+  /// address.
+  Future<AiConnection> connection() async {
+    final provider = _provider;
+    final model = modelFor(provider);
+    final baseUrl = provider.requiresBaseUrl
+        ? _baseUrl
+        : provider.defaultBaseUrl;
+    return AiConnection(
+      provider: provider,
+      apiKey: await _keyStore.read(provider) ?? '',
+      model: model,
+      baseUrl: baseUrl,
+    );
+  }
 }

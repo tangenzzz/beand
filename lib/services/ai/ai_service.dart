@@ -39,7 +39,12 @@ class AiService {
   /// Builds the client for the current settings. Throws [AiFailure] if
   /// something is still missing — instead of being sent with partial data
   /// and ending in a meaningless 400 at the provider.
-  Future<AiClient> client() async {
+  Future<AiClient> client() async => AiClient.forConnection(
+    await _completeConnection(),
+    httpClient: _httpClient,
+  );
+
+  Future<AiConnection> _completeConnection() async {
     final connection = await settings.connection();
     if (!connection.isComplete) {
       throw AiFailure(
@@ -51,19 +56,25 @@ class AiService {
             : 'No API key stored for ${connection.provider.label}.',
       );
     }
-    return AiClient.forConnection(connection, httpClient: _httpClient);
+    return connection;
   }
 
   /// The backstop behind the consent dialog: whatever the UI does, personal
   /// data does not leave without permission. [ping] and [listModels] carry
-  /// none, so they don't need this.
-  void _requireConsent() {
-    if (settings.hasConsent) return;
-    throw AiFailure(
-      AiFailureKind.notConfigured,
-      'Allow sending data to ${settings.recipientName} first.',
-    );
+  /// none, so they don't need this. The connection is taken once, at the
+  /// start, and used to the end: the permission checked is the one for the
+  /// server that gets the data.
+  Future<AiConnection> _consentedConnection() async {
+    if (!settings.hasConsent) throw _noConsent();
+    final connection = await _completeConnection();
+    if (!settings.hasConsentFor(connection)) throw _noConsent();
+    return connection;
   }
+
+  AiFailure _noConsent() => AiFailure(
+    AiFailureKind.notConfigured,
+    'Allow sending data to ${settings.recipientName} first.',
+  );
 
   /// Ask the provider for its models. The key is enough, a model does not
   /// need to be chosen yet — otherwise one could never get out of an empty
@@ -98,7 +109,7 @@ class AiService {
   /// schema should know whether it really applied.
   Future<BeanExtraction> extractBean({AiImage? image, Uri? url}) async {
     assert((image == null) != (url == null), 'exactly one input: image or URL');
-    _requireConsent();
+    final connection = await _consentedConnection();
 
     final AiPrompt prompt;
     if (image != null) {
@@ -131,7 +142,7 @@ class AiService {
       );
     }
 
-    final client = await this.client();
+    final client = AiClient.forConnection(connection, httpClient: _httpClient);
     try {
       final result = await client.completeJson(prompt);
       return BeanExtraction(
@@ -148,8 +159,10 @@ class AiService {
   /// [AppDatabase.setShotAnalysis], so this service does not need to know
   /// about the DB.
   Future<ShotAnalysisResult> analyseShot(ShotAnalysisInput input) async {
-    _requireConsent();
-    final client = await this.client();
+    final client = AiClient.forConnection(
+      await _consentedConnection(),
+      httpClient: _httpClient,
+    );
     try {
       final result = await client.completeJson(
         AiPrompt(

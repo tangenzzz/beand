@@ -75,11 +75,10 @@ abstract class HttpAiClient implements AiClient {
     Map<String, Object?> body,
   ) async {
     return _send(
-      () => _http.post(
-        Uri.parse('$baseUrl$path'),
-        headers: {'content-type': 'application/json', ...headers},
-        body: jsonEncode(body),
-      ),
+      () => _request('POST', path, {
+        'content-type': 'application/json',
+        ...headers,
+      }, jsonEncode(body)),
     );
   }
 
@@ -87,7 +86,23 @@ abstract class HttpAiClient implements AiClient {
     String path,
     Map<String, String> headers,
   ) async {
-    return _send(() => _http.get(Uri.parse('$baseUrl$path'), headers: headers));
+    return _send(() => _request('GET', path, headers));
+  }
+
+  // Redirects are not followed: the key headers would go along to wherever
+  // the answer points, and Dart only strips its own standard headers on the
+  // way.
+  Future<http.Response> _request(
+    String method,
+    String path,
+    Map<String, String> headers, [
+    String? body,
+  ]) async {
+    final request = http.Request(method, Uri.parse('$baseUrl$path'))
+      ..followRedirects = false
+      ..headers.addAll(headers);
+    if (body != null) request.body = body;
+    return http.Response.fromStream(await _http.send(request));
   }
 
   Future<Map<String, Object?>> _send(
