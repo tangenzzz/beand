@@ -870,7 +870,8 @@ class _AboutSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = recipe;
-    final url = r.sourceUrl;
+    // A recipe file says where it is from; only a web address is opened.
+    final url = _webAddress(r.sourceUrl);
     return _Section(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -936,4 +937,11 @@ class _AboutSection extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _webAddress(String? url) {
+  final uri = url == null ? null : Uri.tryParse(url);
+  return uri != null && (uri.isScheme('https') || uri.isScheme('http'))
+      ? url
+      : null;
 }

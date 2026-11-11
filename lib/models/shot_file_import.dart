@@ -395,11 +395,15 @@ List<double> _numbers(Object? list) => [
     for (final v in list) _number(v) ?? 0,
 ];
 
-double? _number(Object? v) => switch (v) {
-  num n => n.toDouble(),
-  String s => double.tryParse(s.trim().replaceAll(',', '.')),
-  _ => null,
-};
+// "NaN" and "Infinity" parse too, but are no measurement.
+double? _number(Object? v) {
+  final n = switch (v) {
+    num n => n.toDouble(),
+    String s => double.tryParse(s.trim().replaceAll(',', '.')),
+    _ => null,
+  };
+  return n != null && n.isFinite ? n : null;
+}
 
 String? _text(Object? v) {
   final s = v?.toString().trim();

@@ -73,6 +73,9 @@ class AcaiaCommands {
   ]);
 }
 
+/// More than any Acaia scale holds; a larger reading is a broken packet.
+const maxAcaiaGrams = 5000.0;
+
 const acaiaHeartbeatPeriod = Duration(milliseconds: 2750);
 
 /// If no packet arrives for this long, the connection counts as dead.
@@ -124,9 +127,20 @@ class AcaiaFrameParser {
       if (_buf.length < 5) break; // header present, rest still coming
       final cmd = _buf[2];
       if (cmd == 0x0c && _buf[4] == 0x05) {
-        if (_buf.length < 11) break;
+        // The whole message first: <len> counts itself and the payload, two
+        // checksum bytes follow. A weight read from a fragment would be
+        // whatever bytes happen to come next, so a message that a new header
+        // cuts short is dropped.
+        final length = _buf[3];
+        final end = 3 + length + 2;
+        final next = _header(2);
+        if (length < 8 || (next >= 0 && next < end)) {
+          _buf.removeRange(0, next >= 0 ? next : 2);
+          continue;
+        }
+        if (_buf.length < end) break;
         final g = _weightAt(_buf, 5);
-        if (g != null) out.add(g);
+        if (g != null && g.abs() <= maxAcaiaGrams) out.add(g);
       }
       // On to the next message.
       final next = _header(2);
@@ -160,7 +174,8 @@ class AcaiaFrameParser {
 /// nothing.
 double? parseHeaderlessWeight(List<int> p) {
   if ((p.length == 10 || p.length == 14) && p[1] == 0x05) {
-    return _weightAt(p, 2);
+    final g = _weightAt(p, 2);
+    return g != null && g.abs() <= maxAcaiaGrams ? g : null;
   }
   return null;
 }

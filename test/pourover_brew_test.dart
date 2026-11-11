@@ -126,14 +126,15 @@ void main() {
     test('joins frames split across packets (older firmware)', () {
       final parser = AcaiaFrameParser();
       expect(parser.feed([0xef, 0xdd, 0x0c]), isEmpty);
-      // Rest: len 05 | 10000 / 100 = 100 g | more bytes, then the next
-      // header already cut off.
-      expect(parser.feed([0x09, 0x05, 0x10, 0x27, 0, 0, 2, 0, 0, 0, 0xef]), [
+      // Rest: len 08 | type 05 | 10000 / 100 = 100 g | sign | two checksum
+      // bytes, then the next header already cut off.
+      expect(parser.feed([0x08, 0x05, 0x10, 0x27, 0, 0, 2, 0, 0, 0, 0xef]), [
         100,
       ]);
-      expect(parser.feed([0xdd, 0x0c, 0x09, 0x05, 0x20, 0x4e, 0, 0, 2, 2, 0]), [
-        -200,
-      ]);
+      expect(
+        parser.feed([0xdd, 0x0c, 0x08, 0x05, 0x20, 0x4e, 0, 0, 2, 2, 0, 0]),
+        [-200],
+      );
     });
 
     test('several frames in one packet, junk in between', () {
