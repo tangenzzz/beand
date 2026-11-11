@@ -21,6 +21,7 @@ import '../history/history_logic.dart';
 import 'editor/profile_editor_screen.dart';
 import 'setpoint_curve_chart.dart';
 import '../../widgets/app_button.dart';
+import '../../services/meticulous_urls.dart';
 
 // View into a machine profile (tapping a profile card in the Home tab):
 // image + description, key facts, stage breakdown modeled on the Meticulous
@@ -582,9 +583,9 @@ class _Header extends StatelessWidget {
                   cacheWidth: 1000,
                   errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 )
-              else if (imagePath != null)
+              else if (isProfileImagePath(imagePath))
                 Image.network(
-                  'http://$hostname$imagePath',
+                  profileImageUri(hostname, imagePath)!.toString(),
                   fit: BoxFit.cover,
                   cacheWidth: 1000,
                   errorBuilder: (_, _, _) => const SizedBox.shrink(),

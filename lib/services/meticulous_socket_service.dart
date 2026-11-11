@@ -14,6 +14,7 @@ import '../models/profile_detail.dart';
 import '../models/machine_sensors.dart';
 import '../models/machine_status.dart';
 import 'machine_address_fallback.dart';
+import 'meticulous_urls.dart';
 
 // MachineConnectionState now lives with the shared interface
 // (lib/machines/espresso_machine.dart), but is still re-exported here: the
@@ -200,7 +201,7 @@ class MeticulousSocketService extends ChangeNotifier
     connectionState = MachineConnectionState.connecting;
     lastError = null;
     notifyListeners();
-    ConnectionLog.write('connect', _hostname);
+    ConnectionLog.write('connect', ConnectionLog.machineLabel(_hostname));
 
     _socket = io.io(
       'http://$_hostname',
@@ -214,7 +215,7 @@ class MeticulousSocketService extends ChangeNotifier
     _socket!
       ..onConnect((_) {
         connectionState = MachineConnectionState.connected;
-        ConnectionLog.write('connected', _hostname);
+        ConnectionLog.write('connected', ConnectionLog.machineLabel(_hostname));
         // Clear the message of the last failed attempt: otherwise "timeout"
         // still shows under the green dot in the settings, although the
         // connection has long been up.
@@ -301,7 +302,11 @@ class MeticulousSocketService extends ChangeNotifier
   Future<void> _fetchTargetTemperature(String profileId) async {
     try {
       final response = await http
-          .get(Uri.parse('http://$_hostname/api/v1/profile/get/$profileId'))
+          .get(
+            Uri.parse(
+              'http://$_hostname/api/v1/profile/get/${plainPathSegment(profileId)}',
+            ),
+          )
           .timeout(const Duration(seconds: 5));
       if (response.statusCode != 200) return;
       final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -341,7 +346,11 @@ class MeticulousSocketService extends ChangeNotifier
   // Read-only access — loads/heats nothing (unlike loadProfile).
   Future<ProfileDetail> fetchProfileDetail(String id) async {
     final response = await http
-        .get(Uri.parse('http://$_hostname/api/v1/profile/get/$id'))
+        .get(
+          Uri.parse(
+            'http://$_hostname/api/v1/profile/get/${plainPathSegment(id)}',
+          ),
+        )
         .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) {
       throw Exception('Profile: HTTP ${response.statusCode}');
@@ -360,7 +369,11 @@ class MeticulousSocketService extends ChangeNotifier
   Future<bool> loadProfile(String id) async {
     try {
       final response = await http
-          .get(Uri.parse('http://$_hostname/api/v1/profile/load/$id'))
+          .get(
+            Uri.parse(
+              'http://$_hostname/api/v1/profile/load/${plainPathSegment(id)}',
+            ),
+          )
           .timeout(const Duration(seconds: 5));
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (_) {
@@ -415,7 +428,11 @@ class MeticulousSocketService extends ChangeNotifier
   Future<ProfileSaveResult> deleteProfile(String id) async {
     try {
       final response = await http
-          .delete(Uri.parse('http://$_hostname/api/v1/profile/delete/$id'))
+          .delete(
+            Uri.parse(
+              'http://$_hostname/api/v1/profile/delete/${plainPathSegment(id)}',
+            ),
+          )
           .timeout(const Duration(seconds: 15));
       if ((response.statusCode >= 200 && response.statusCode < 300) ||
           response.statusCode == 404) {
@@ -547,7 +564,10 @@ class MeticulousSocketService extends ChangeNotifier
     // Has someone entered an address by hand meanwhile? Then the result
     // belongs to a question that has been settled.
     if (next == null || next == _hostname || attemptedHost != _hostname) return;
-    ConnectionLog.write('address', '$attemptedHost → $next');
+    ConnectionLog.write(
+      'address',
+      '${ConnectionLog.machineLabel(attemptedHost)} → ${ConnectionLog.machineLabel(next)}',
+    );
     onAddressChanged?.call(next, fallback.lastIp);
     updateHostname(next);
   }

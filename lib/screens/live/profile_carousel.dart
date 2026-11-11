@@ -12,6 +12,7 @@ import '../../widgets/reorderable_tile_row.dart';
 import '../profile/profile_detail_screen.dart';
 import 'add_profile_dialog.dart';
 import '../../theme/app_theme.dart';
+import '../../services/meticulous_urls.dart';
 
 // Swipeable profile cards below the Pre-Shot card. Reads the local copy of
 // the profiles (ProfileStore), so it works without a connection to the
@@ -220,7 +221,7 @@ class _ProfileTile extends StatelessWidget {
                       cacheWidth: (_width * 3).round(),
                     ),
                   )
-                : imagePath == null
+                : !isProfileImagePath(imagePath)
                 ? Icon(
                     Icons.coffee,
                     color: context.colors.textSecondary,
@@ -229,7 +230,7 @@ class _ProfileTile extends StatelessWidget {
                 : ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.network(
-                      'http://$hostname$imagePath',
+                      profileImageUri(hostname, imagePath)!.toString(),
                       width: _width,
                       height: 110,
                       fit: BoxFit.cover,

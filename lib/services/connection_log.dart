@@ -77,6 +77,15 @@ class ConnectionLog {
     return _shareableHosts.contains(host) ? host : '<own server>';
   }
 
+  /// A machine's address for a log line. The default names and anything the
+  /// filter already shortens stay readable; a name the user chose is theirs.
+  static String machineLabel(String host) {
+    final shown = sanitize(host);
+    if (shown != host) return shown;
+    const generic = {'meticulous.local', 'gaggimate.local'};
+    return generic.contains(host.toLowerCase()) ? host : '<machine>';
+  }
+
   static const _maxDetail = 2000;
   static const _maxMessage = 200;
 

@@ -26,6 +26,7 @@ import 'chain_choice.dart';
 import 'grind_from_zero.dart';
 import 'grind_panel.dart';
 import '../../widgets/value_select_row.dart';
+import '../../services/meticulous_urls.dart';
 
 // Pre-Shot card. "Bean" is real: picks from the beans created in the Beans
 // tab (purely local, not sent to the machine). "Profile" is real: picks from
@@ -710,10 +711,10 @@ class _ProfileAvatar extends StatelessWidget {
               errorBuilder: (context, error, stackTrace) =>
                   const SizedBox.shrink(),
             )
-          : imagePath == null
+          : !isProfileImagePath(imagePath)
           ? null
           : Image.network(
-              'http://$hostname$imagePath',
+              profileImageUri(hostname, imagePath)!.toString(),
               fit: BoxFit.cover,
               cacheWidth: (_size * 3).round(),
               loadingBuilder: (context, child, progress) =>

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../database/database.dart';
+import '../services/meticulous_urls.dart';
 
 // Short profile form from `GET /api/v1/profile/list` (without ?full=true,
 // i.e. without the stages — enough for the overview cards and much lighter
@@ -41,7 +42,9 @@ class MachineProfile {
         display['accentColor'] as String?,
         (json['id'] ?? json['name'] ?? '').toString(),
       ),
-      imagePath: (image != null && image.isNotEmpty) ? image : null,
+      // Only a real image path: the machine stores whatever a shared profile
+      // file put there, and a GET on an action path heats the machine.
+      imagePath: isProfileImagePath(image) ? image : null,
     );
   }
 

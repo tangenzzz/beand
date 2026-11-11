@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../models/brew_recipe.dart';
+import 'meticulous_urls.dart';
 
 // Pour Over profiles stored on the Meticulous (since the 2026-10 software,
 // `pour_over_profiles_supported` in /api/v1/machine). They live apart from
@@ -281,7 +282,9 @@ class MeticulousPourOverProfiles {
   Future<void> delete(String id) async {
     final response = await _client
         .delete(
-          Uri.parse('http://${host()}/api/v1/pour-over/profile/delete/$id'),
+          Uri.parse(
+            'http://${host()}/api/v1/pour-over/profile/delete/${plainPathSegment(id)}',
+          ),
         )
         .timeout(const Duration(seconds: 15));
     final ok = response.statusCode >= 200 && response.statusCode < 300;
@@ -294,12 +297,16 @@ class MeticulousPourOverProfiles {
   /// null (no image on the machine, no folder, network error).
   Future<File?> fetchPhoto(String id, {bool refresh = false}) async {
     final dir = photoDir?.call();
-    if (dir == null) return null;
+    if (dir == null || !isPlainPathSegment(id)) return null;
     final file = File(p.join(dir.path, photoName(id)));
     if (!refresh && file.existsSync()) return file;
     try {
       final response = await _client
-          .get(Uri.parse('http://${host()}/api/v1/pour-over/profile/image/$id'))
+          .get(
+            Uri.parse(
+              'http://${host()}/api/v1/pour-over/profile/image/${plainPathSegment(id)}',
+            ),
+          )
           .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
         return file.existsSync() ? file : null;
