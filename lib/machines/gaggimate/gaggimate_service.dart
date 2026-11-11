@@ -449,6 +449,10 @@ class GaggiMateService extends ChangeNotifier implements EspressoMachine {
   // is overwritten).
   @override
   Future<ProfileSaveResult> uploadProfile(Map<String, dynamic> json) async {
+    // Without a connection the request would only wait for its timeout.
+    if (connectionState != MachineConnectionState.connected) {
+      return const ProfileSaveResult.failed('the GaggiMate is not connected');
+    }
     try {
       final response = await _request('req:profiles:save', {'profile': json});
       final error = response['error'];

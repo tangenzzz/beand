@@ -702,6 +702,19 @@ void main() {
     });
   });
 
+  test('a GaggiMate that is not connected refuses an upload at once', () async {
+    final machine = GaggiMateService(
+      host: 'machine.invalid',
+      autoReconnect: false,
+    );
+    addTearDown(machine.dispose);
+    final result = await machine
+        .uploadProfile(_fixture('gaggimate_profile_pro.json'))
+        .timeout(const Duration(seconds: 1));
+    expect(result.isOk, isFalse);
+    expect(result.error, contains('not connected'));
+  });
+
   test('a profile chosen on one GaggiMate does not heat the next', () async {
     final a = _Transport(), b = _Transport();
     final machine = GaggiMateService(
