@@ -335,14 +335,15 @@ void main() {
       );
 
       expect(
-        await fallback.nextAddress('alt.local'),
+        await fallback.nextAddress(_other.host),
         '192.168.1.20',
         reason: 'the remembered IP costs no search',
       );
       expect(discovery.askedTypes, isEmpty);
 
-      // The IP does not answer either -> search.
-      expect(await fallback.nextAddress('192.168.1.20'), _other.host);
+      // The IP does not answer either -> search, still for the stored name.
+      // Its name was tried already, so its new IP.
+      expect(await fallback.nextAddress('192.168.1.20'), _other.ip);
       expect(discovery.askedTypes, [meticulousServiceType]);
       // And the found machine's IP is now the remembered one.
       expect(fallback.lastIp, _other.ip);

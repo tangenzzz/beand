@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../machines/espresso_machine.dart';
+import '../../machines/gaggimate/gaggimate_profile_codec.dart';
 import '../../models/profile_rules.dart';
 import '../../services/profile_store.dart';
 import '../../theme/app_theme.dart';
@@ -320,6 +321,10 @@ class _Option extends StatelessWidget {
 /// rules; the GaggiMate's own format only their setpoint limits.
 String? importProblem(EspressoMachine machine, Map<String, dynamic> profile) {
   try {
+    if (machine.machineKey == 'gaggimate') {
+      final problem = gaggiMateFileProblem(profile);
+      if (problem != null) return problem;
+    }
     final draft = machine.draftFromProfile(profile);
     final findings = machine.machineKey == 'gaggimate'
         ? checkSetpoints(draft)

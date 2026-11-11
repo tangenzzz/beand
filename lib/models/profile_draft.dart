@@ -78,6 +78,10 @@ double? _num(dynamic v) {
   return null;
 }
 
+// Like [_num], but a value that is there and is no number stays visible to
+// the rules as NaN instead of disappearing (a raw file is uploaded as it is).
+double? _numOrNaN(dynamic v) => v == null ? null : _num(v) ?? double.nan;
+
 // Everything except the keys we manage ourselves — so unknown fields of a
 // foreign profile are preserved.
 Map<String, dynamic> _rest(Map<String, dynamic> json, Set<String> known) => {
@@ -349,7 +353,7 @@ class DraftStage {
           for (final l in (json['limits'] as List? ?? const []))
             if (l is Map) ?DraftLimit.fromJson(Map<String, dynamic>.from(l)),
         ],
-        temperatureDelta: _num(json['temperature_delta']),
+        temperatureDelta: _numOrNaN(json['temperature_delta']),
       )
       ..extra = _rest(json, _known)
       ..dynamicsExtra = _rest(dynamics, {'points', 'over', 'interpolation'});
@@ -551,8 +555,8 @@ class ProfileDraft {
         author: (json['author'] ?? '').toString(),
         authorId: clean(json['author_id']) ?? newUuid(),
         version: _num(json['version'])?.toInt(),
-        temperature: _num(json['temperature']) ?? 92,
-        finalWeight: _num(json['final_weight']) ?? 40,
+        temperature: _numOrNaN(json['temperature']) ?? 92,
+        finalWeight: _numOrNaN(json['final_weight']) ?? 40,
         image: clean(display['image']),
         accentColor: clean(display['accentColor']) ?? '#C8793F',
         shortDescription: clean(display['shortDescription']),

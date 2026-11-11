@@ -32,11 +32,23 @@ class MachineAddressFallback {
   final Duration cooldown;
 
   final Set<String> _tried = {};
+  // The address the user chose, i.e. the first one that failed in this
+  // dropout. Later calls report the stand-ins tried since (the last IP), but
+  // which machine is wanted is decided by this one.
+  String? _chosenHost;
+  String? _standIn;
+
+  /// Whether [address] is only the last seen IP standing in for the chosen
+  /// address. It is not a new address to remember: the next start should
+  /// still look for the chosen machine.
+  bool isStandIn(String address) => address == _standIn;
+
   DateTime? _lastScanAt;
   bool _scanning = false;
 
-  // The connection is back: reset everything so the next dropout again has
-  // both options at hand.
+  // The connection is back: reset so the next dropout again has both
+  // options at hand. Which machine is wanted is kept: connected through the
+  // stand-in IP, the next dropout still looks for the chosen one.
   void reset() {
     _tried.clear();
     _lastScanAt = null;
@@ -44,11 +56,17 @@ class MachineAddressFallback {
 
   // Next address worth trying — or null.
   Future<String?> nextAddress(String currentHost) async {
+    if (_tried.isEmpty && !isStandIn(currentHost)) {
+      _chosenHost = currentHost;
+      _standIn = null;
+    }
     _tried.add(currentHost);
+    final chosen = _chosenHost ?? currentHost;
 
     final ip = lastIp;
     if (ip != null && !_tried.contains(ip)) {
       _tried.add(ip);
+      _standIn = ip;
       return ip;
     }
 
@@ -61,9 +79,9 @@ class MachineAddressFallback {
     _lastScanAt = DateTime.now();
     try {
       final found = await discovery.scan(serviceType);
-      final byIp = looksLikeIpAddress(currentHost);
+      final byIp = looksLikeIpAddress(chosen);
       for (final machine in found) {
-        final same = _hostName(machine.address) == _hostName(currentHost);
+        final same = _hostName(machine.address) == _hostName(chosen);
         if (!same && !(byIp && found.length == 1)) continue;
         if (machine.ipAddress != null) lastIp = machine.ipAddress;
         // The name first: it stays correct if the machine later gets a
@@ -71,7 +89,7 @@ class MachineAddressFallback {
         for (final candidate in [machine.address, machine.ipAddress]) {
           if (candidate == null ||
               _tried.contains(candidate) ||
-              _hostName(candidate) == _hostName(currentHost)) {
+              _hostName(candidate) == _hostName(chosen)) {
             continue;
           }
           _tried.add(candidate);

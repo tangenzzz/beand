@@ -230,7 +230,9 @@ class GaggiMateService extends ChangeNotifier implements EspressoMachine {
     final attemptedHost = _host;
     final next = await fallback.nextAddress(attemptedHost);
     if (next == null || next == _host || attemptedHost != _host) return;
-    onAddressChanged?.call(next, fallback.lastIp);
+    if (!fallback.isStandIn(next)) {
+      onAddressChanged?.call(next, fallback.lastIp);
+    }
     updateHost(next);
   }
 
@@ -423,13 +425,16 @@ class GaggiMateService extends ChangeNotifier implements EspressoMachine {
   Future<bool> selectProfile(String id) async {
     try {
       final transport = _transport;
+      final modeChanges = _modeChanges;
       final response = await _request('req:profiles:select', {'id': id});
       final ok = response['error'] == null;
       // Heating belongs to the machine that took the profile: after a switch
       // to another machine in the meantime, it is not sent anywhere.
       if (!identical(transport, _transport)) return false;
       if (ok) {
-        changeMode(GaggiMateMode.brew);
+        // A mode chosen while the answer was on its way (Stop sends standby)
+        // is the newer wish and stays.
+        if (modeChanges == _modeChanges) changeMode(GaggiMateMode.brew);
         unawaited(refreshProfiles());
       }
       return ok;
@@ -571,8 +576,14 @@ class GaggiMateService extends ChangeNotifier implements EspressoMachine {
   // (so "finished" survives an app restart).
   void clearProcess() => _send({'tp': 'req:process:clear'});
 
-  void changeMode(GaggiMateMode mode) =>
-      _send({'tp': 'req:change-mode', 'mode': mode.code});
+  void changeMode(GaggiMateMode mode) {
+    _modeChanges++;
+    _send({'tp': 'req:change-mode', 'mode': mode.code});
+  }
+
+  // Counts mode changes, so a late profile selection can tell that one
+  // happened while it waited.
+  int _modeChanges = 0;
 
   // Answer to evt:brew:confirm: start despite an active error warning.
   void confirmBrew() {

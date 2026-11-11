@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show min;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
@@ -259,11 +260,21 @@ class SyncEngine {
     if (reset) state.lastSync.clear();
     final done = <String, int>{};
     final events = <String, List<NostrEvent>>{};
+    // Per relay what it delivered (event ID → created_at), so its cursor can
+    // follow the newest event that turns out to be real.
+    final delivered = <String, Map<String, Set<int>>>{};
     await Future.wait([
       for (final url in pool.urls)
-        _collect(url, state.lastSync[url], done, events, report, force, () {
-          onProgress?.call(events.length);
-        }),
+        _collect(
+          url,
+          state.lastSync[url],
+          done,
+          events,
+          delivered.putIfAbsent(url, () => {}),
+          report,
+          force,
+          () => onProgress?.call(events.length),
+        ),
     ]);
     if (_cancelled) return;
     report.received = events.length;
@@ -273,6 +284,10 @@ class SyncEngine {
     final records = <SyncEnvelope>[];
     final blobRetries = <String, int>{};
     int? holdCursorAt;
+    final verifiedAt = <String, int>{};
+    for (final (i, open) in opened.indexed) {
+      if (open != null) verifiedAt[candidates[i].id] = candidates[i].createdAt;
+    }
     for (final (i, open) in opened.indexed) {
       var envelope = open;
       // Our next event must be later than what the relays hold, or they keep
@@ -333,12 +348,26 @@ class SyncEngine {
       fresh.typesVersion = typesVersion;
     }
     for (final entry in done.entries) {
-      if (fresh.relays.contains(entry.key)) {
-        final held = holdCursorAt;
-        fresh.lastSync[entry.key] = held != null && held < entry.value
-            ? held
-            : entry.value;
+      if (!fresh.relays.contains(entry.key)) continue;
+      // The cursor is a relay's time, not ours: the newest real event it
+      // sent, and never later than now. A clock that runs ahead would
+      // otherwise put it past events other devices make later.
+      int? newest;
+      for (final MapEntry(key: id, value: times)
+          in (delivered[entry.key] ?? const {}).entries) {
+        final at = verifiedAt[id];
+        if (at != null &&
+            times.contains(at) &&
+            (newest == null || at > newest)) {
+          newest = at;
+        }
       }
+      var cursor = newest == null
+          ? state.lastSync[entry.key]
+          : min(newest, entry.value);
+      final held = holdCursorAt;
+      if (held != null && (cursor == null || held < cursor)) cursor = held;
+      if (cursor != null) fresh.lastSync[entry.key] = cursor;
     }
     fresh.pendingLinks = links;
     fresh.blobRetries = blobRetries;
@@ -358,6 +387,7 @@ class SyncEngine {
     int? last,
     Map<String, int> done,
     Map<String, List<NostrEvent>> events,
+    Map<String, Set<int>> delivered,
     SyncReport report,
     bool force,
     void Function() progress,
@@ -378,6 +408,7 @@ class SyncEngine {
         onPage: (page) {
           for (final e in page) {
             _addCandidate(events, e);
+            delivered.putIfAbsent(e.id, () => {}).add(e.createdAt);
           }
           progress();
         },
@@ -407,7 +438,8 @@ class SyncEngine {
           c.content == event.content &&
           c.createdAt == event.createdAt &&
           c.pubkey == event.pubkey &&
-          c.kind == event.kind,
+          c.kind == event.kind &&
+          jsonEncode(c.tags) == jsonEncode(event.tags),
     );
     if (!known) copies.add(event);
   }
@@ -610,7 +642,11 @@ class SyncEngine {
         ),
       );
     }
+    // Only keys that sync today: a row from before a key was taken off the
+    // list (the Custom AI address) may still wait for upload.
+    final allowedSettings = (settings?.keys ?? syncedSettingKeys()).toSet();
     for (final s in await _dao.pendingSettings()) {
+      if (!allowedSettings.contains(s.key)) continue;
       jobs.add(
         _Outgoing(
           'synced_settings',
@@ -704,6 +740,8 @@ class SyncEngine {
         plain: plain,
         createdAt: _nextCreatedAt(),
       );
+      // Signing runs in a worker; the sync may have been stopped meanwhile.
+      if (_cancelled) return;
       final results = await pool.publish(event, force: force);
       // Every server says "too large" (all have a smaller limit than the
       // inline one): once more as a blob reference, which is small.
@@ -839,6 +877,8 @@ class SyncEngine {
         plain: envelope.encode(),
         createdAt: _nextCreatedAt(),
       );
+      // Signing runs in a worker; the sync may have been stopped meanwhile.
+      if (_cancelled) return;
       final results = await pool.publish(event, force: force);
       for (final url in pool.urls) {
         if (results[url]?.accepted ?? false) p.relays.add(url);

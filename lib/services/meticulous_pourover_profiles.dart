@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../models/brew_recipe.dart';
 import 'meticulous_urls.dart';
+import 'profile_image_cache.dart';
 
 // Pour Over profiles stored on the Meticulous (since the 2026-10 software,
 // `pour_over_profiles_supported` in /api/v1/machine). They live apart from
@@ -302,17 +303,22 @@ class MeticulousPourOverProfiles {
     if (!refresh && file.existsSync()) return file;
     try {
       final response = await _client
-          .get(
-            Uri.parse(
-              'http://${host()}/api/v1/pour-over/profile/image/${plainPathSegment(id)}',
+          .send(
+            imageRequest(
+              Uri.parse(
+                'http://${host()}/api/v1/pour-over/profile/image/${plainPathSegment(id)}',
+              ),
             ),
           )
           .timeout(const Duration(seconds: 8));
-      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+      final bytes = response.statusCode == 200
+          ? await readAtMost(response.stream, maxImageBytes)
+          : null;
+      if (bytes == null || bytes.isEmpty) {
         return file.existsSync() ? file : null;
       }
       await dir.create(recursive: true);
-      await file.writeAsBytes(response.bodyBytes);
+      await file.writeAsBytes(bytes);
       return file;
     } catch (_) {
       return file.existsSync() ? file : null;

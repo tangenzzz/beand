@@ -568,7 +568,9 @@ class MeticulousSocketService extends ChangeNotifier
       'address',
       '${ConnectionLog.machineLabel(attemptedHost)} → ${ConnectionLog.machineLabel(next)}',
     );
-    onAddressChanged?.call(next, fallback.lastIp);
+    if (!fallback.isStandIn(next)) {
+      onAddressChanged?.call(next, fallback.lastIp);
+    }
     updateHostname(next);
   }
 

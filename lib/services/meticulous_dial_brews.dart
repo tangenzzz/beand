@@ -92,8 +92,7 @@ class DialBrew {
     }
     final recipe = j['recipe'] is Map ? j['recipe'] as Map : const {};
     final m = j['measurements'] is Map ? j['measurements'] as Map : const {};
-    final name = (recipe['profileName'] ?? j['name'] ?? 'Free Pour')
-        .toString();
+    final name = (recipe['profileName'] ?? j['name'] ?? 'Free Pour').toString();
     return DialBrew(
       id: id,
       startedAt: started.toLocal(),
@@ -119,11 +118,7 @@ class DialBrew {
       samples: [
         for (final s in (j['samples'] as List? ?? const []))
           if (s is Map && _num(s['t']) != null && _num(s['w']) != null)
-            DialSample(
-              _num(s['t'])!.round(),
-              _num(s['w'])!,
-              _num(s['f']) ?? 0,
-            ),
+            DialSample(_num(s['t'])!.round(), _num(s['w'])!, _num(s['f']) ?? 0),
       ],
       raw: raw ?? jsonEncode(j),
     );
@@ -150,8 +145,11 @@ class MeticulousDialBrews {
     }
     final file = (jsonDecode(meta.body) as Map)['file'];
     if (file is! String || file.isEmpty) return null;
+    // The name comes from the machine; it may only ever name a file there.
+    final name = Uri(pathSegments: [file]).path;
+    if (file == '.' || file == '..') return null;
     final body = await _client
-        .get(Uri.parse('$base/files/$file'))
+        .get(Uri.parse('$base/files/$name'))
         .timeout(const Duration(seconds: 10));
     if (body.statusCode != 200) {
       throw HttpException('Pour Over brew: HTTP ${body.statusCode}');

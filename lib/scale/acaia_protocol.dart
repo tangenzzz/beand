@@ -131,16 +131,29 @@ class AcaiaFrameParser {
         // checksum bytes follow. A weight read from a fragment would be
         // whatever bytes happen to come next, so a message that a new header
         // cuts short is dropped.
+        //
+        // EF DD can also stand inside a weight. A message with such bytes
+        // counts if it is complete and its checksum holds; a fragment
+        // followed by a new message almost never passes that.
         final length = _buf[3];
         final end = 3 + length + 2;
         final next = _header(2);
-        if (length < 8 || (next >= 0 && next < end)) {
+        final inner = next >= 0 && next < end;
+        if (length < 8 || (inner && _buf.length >= end && !_checksumOk(end))) {
           _buf.removeRange(0, next >= 0 ? next : 2);
           continue;
         }
-        if (_buf.length < end) break;
+        if (_buf.length < end) {
+          // Still coming, unless the buffer could never hold it.
+          if (end <= _maxBuffer) break;
+          _buf.removeRange(0, next >= 0 ? next : 2);
+          continue;
+        }
         final g = _weightAt(_buf, 5);
         if (g != null && g.abs() <= maxAcaiaGrams) out.add(g);
+        // Its own bytes are used up, header-like ones included.
+        _buf.removeRange(0, end);
+        continue;
       }
       // On to the next message.
       final next = _header(2);
@@ -159,6 +172,19 @@ class AcaiaFrameParser {
   }
 
   void reset() => _buf.clear();
+
+  // Two sums over <len> and payload: bytes at even and at odd positions.
+  bool _checksumOk(int end) {
+    var even = 0, odd = 0;
+    for (var i = 3; i < end - 2; i++) {
+      if ((i - 3).isEven) {
+        even = (even + _buf[i]) & 0xff;
+      } else {
+        odd = (odd + _buf[i]) & 0xff;
+      }
+    }
+    return _buf[end - 2] == even && _buf[end - 1] == odd;
+  }
 
   int _header(int from) {
     for (var i = from; i + 1 < _buf.length; i++) {

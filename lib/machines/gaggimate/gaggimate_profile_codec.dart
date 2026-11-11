@@ -1,4 +1,5 @@
 import '../../models/profile_draft.dart';
+import '../../models/profile_rules.dart' show maxPressureBar;
 
 // GaggiMate profile <-> [ProfileDraft], so the profile editor stays the same
 // for both machines.
@@ -75,6 +76,43 @@ double? _num(dynamic v) {
 
 Map<String, dynamic> _map(dynamic v) =>
     v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
+
+/// What in a GaggiMate profile file the machine would be asked to reach
+/// but the draft does not show: a file is uploaded as it is, so its phases
+/// are checked here. Null when nothing is out of range.
+String? gaggiMateFileProblem(Map<String, dynamic> json) {
+  bool within(dynamic v, double lo, double hi) =>
+      v is num && v >= lo && v <= hi;
+  if (json.containsKey('temperature') && !within(json['temperature'], 0, 100)) {
+    return 'the temperature must be between 0 and 100 °C.';
+  }
+  final phases = json['phases'];
+  if (phases != null && phases is! List) return 'the phases are unreadable.';
+  for (final (i, raw) in (phases as List? ?? const []).indexed) {
+    if (raw is! Map) return 'phase ${i + 1} is unreadable.';
+    final label = 'phase ${i + 1}';
+    // 0 means "the profile's temperature".
+    if (raw.containsKey('temperature') && !within(raw['temperature'], 0, 100)) {
+      return '$label must stay between 0 and 100 °C.';
+    }
+    if (raw.containsKey('duration') && !within(raw['duration'], 0, 3600)) {
+      return '$label has no usable duration.';
+    }
+    final pump = raw['pump'];
+    if (pump is Map) {
+      // -1 holds the value measured at the start of the phase.
+      for (final key in const ['pressure', 'flow']) {
+        final v = pump[key];
+        if (v == null || v == -1) continue;
+        final hi = key == 'pressure' ? maxPressureBar : 20.0;
+        if (!within(v, 0, hi)) return '$label asks for $key $v.';
+      }
+    } else if (pump != null && pump != -1 && !within(pump, 0, 100)) {
+      return '$label asks for pump power $pump.';
+    }
+  }
+  return null;
+}
 
 // ------------------------------------------------------------------ Reading
 
