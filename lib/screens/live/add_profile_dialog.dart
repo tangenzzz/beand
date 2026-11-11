@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../machines/espresso_machine.dart';
+import '../../models/profile_rules.dart';
 import '../../services/profile_store.dart';
 import '../../theme/app_theme.dart';
 import '../profile/editor/profile_editor_screen.dart';
@@ -119,6 +120,13 @@ class _AddProfileDialogState extends State<AddProfileDialog> {
         return;
       }
       if (!mounted) return;
+      // A file from anywhere passes the same rules as the editor before it
+      // reaches the machine.
+      final problem = importProblem(widget.machine, profile);
+      if (problem != null) {
+        _say('Not uploaded: $problem');
+        return;
+      }
       final result = await widget.machine.uploadProfile(profile);
       if (!result.isOk) {
         _say('Upload failed — ${result.error}');
@@ -304,5 +312,21 @@ class _Option extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Why [profile] must not go onto [machine], or null if it may: the first
+/// finding that blocks saving. A Meticulous profile meets the editor's full
+/// rules; the GaggiMate's own format only their setpoint limits.
+String? importProblem(EspressoMachine machine, Map<String, dynamic> profile) {
+  try {
+    final draft = machine.draftFromProfile(profile);
+    final findings = machine.machineKey == 'gaggimate'
+        ? checkSetpoints(draft)
+        : checkProfile(draft);
+    final blocking = findings.where((f) => f.blocksSaving);
+    return blocking.isEmpty ? null : blocking.first.message;
+  } catch (_) {
+    return 'this file is not a profile for this machine.';
   }
 }

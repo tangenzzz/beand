@@ -436,3 +436,18 @@ double _num(Object? v, [double fallback = 0]) =>
     v is num ? v.toDouble() : fallback;
 
 double _round(double v) => (v * 100).roundToDouble() / 100;
+
+/// Why [draft] must not go onto the machine, or null if it may: water is
+/// heated to these temperatures, so they stay within what water can be.
+String? pourOverTemperatureProblem(PourOverDraft draft) {
+  bool bad(double? t) => t != null && !(t >= 0 && t <= 100);
+  if (bad(draft.tempC)) {
+    return 'the water temperature is not between 0 and 100 °C.';
+  }
+  for (final pour in draft.pours) {
+    if (bad(pour.tempC)) {
+      return 'a pour asks for ${pour.tempC} °C, not between 0 and 100 °C.';
+    }
+  }
+  return null;
+}

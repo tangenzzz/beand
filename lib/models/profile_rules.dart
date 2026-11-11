@@ -111,6 +111,19 @@ List<RuleFinding> checkStage(ProfileDraft draft, int index) {
     );
   }
 
+  // The stage's temperature is relative to the profile's; together they
+  // stay within the header's range, otherwise a stage could ask for
+  // anything the header check refuses.
+  final delta = stage.temperatureDelta;
+  if (delta != null) {
+    final total = draft.temperature + delta;
+    if (!total.isFinite || total < 0 || total > 100) {
+      error(
+        '$label changes the temperature to ${total.isFinite ? '${total.toStringAsFixed(1)} °C' : 'no number'}. It must stay between 0 and 100 °C.',
+      );
+    }
+  }
+
   // -- Curve ---------------------------------------------------------------
 
   if (stage.points.isEmpty) {
@@ -311,6 +324,9 @@ List<RuleFinding> _checkVariables(ProfileDraft draft) {
     } else if (!keys.add(v.key)) {
       error('Two variables share the key "${v.key}".');
     }
+    if (!v.value.isFinite) {
+      error('Variable $label has no number as its value.');
+    }
     if (!variableTypes.contains(v.type)) {
       error('Variable $label has an unknown type "${v.type}".');
     }
@@ -399,4 +415,48 @@ String _trim(double v) {
   return rounded % 1 == 0
       ? rounded.toStringAsFixed(0)
       : rounded.toStringAsFixed(1);
+}
+
+/// Only what a machine is asked to reach: temperatures, pressures and values
+/// that must be numbers. For profiles in a format the full rules were not
+/// written for (the GaggiMate's own trigger types), so a foreign file is
+/// still held to the limits that matter for the machine.
+List<RuleFinding> checkSetpoints(ProfileDraft draft) {
+  final out = <RuleFinding>[];
+  void error(String m, [int? stage]) =>
+      out.add(RuleFinding(RuleSeverity.error, m, stageIndex: stage));
+
+  if (!(draft.temperature >= 0 && draft.temperature <= 100)) {
+    error('Temperature must be between 0 and 100 °C.');
+  }
+  for (final v in draft.variables) {
+    if (!v.value.isFinite) error('Variable "${v.name}" has no number.');
+  }
+  for (var i = 0; i < draft.stages.length; i++) {
+    final stage = draft.stages[i];
+    final delta = stage.temperatureDelta;
+    if (delta != null) {
+      final total = draft.temperature + delta;
+      if (!(total >= 0 && total <= 100)) {
+        error('Stage ${i + 1} leaves 0 to 100 °C.', i);
+      }
+    }
+    if (stage.type == 'pressure') {
+      for (final point in stage.points) {
+        final v = point.y.resolve(draft.variables);
+        if (v != null && !(v >= 0 && v <= maxPressureBar)) {
+          error('Stage ${i + 1} asks for $v bar.', i);
+        }
+      }
+    }
+    for (final limit in stage.limits) {
+      final v = limit.value.resolve(draft.variables);
+      if (limit.type == 'pressure' &&
+          v != null &&
+          !(v >= 0 && v <= maxPressureBar)) {
+        error('Stage ${i + 1} limits pressure to $v bar.', i);
+      }
+    }
+  }
+  return out;
 }

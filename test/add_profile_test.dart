@@ -181,7 +181,7 @@ void main() {
   testWidgets('Dialog: JSON file is sent to the machine', (tester) async {
     final file = File(
       '${Directory.systemTemp.createTempSync('profile_json').path}/soup.json',
-    )..writeAsStringSync(jsonEncode({'name': 'Soup Test', 'temperature': 82}));
+    )..writeAsStringSync(jsonEncode(_profile(name: 'Soup Test')));
 
     await tester.pumpWidget(
       wrap(
@@ -218,7 +218,7 @@ void main() {
     socket.answer = (ok: false, error: 'HTTP 400: name missing');
     final file = File(
       '${Directory.systemTemp.createTempSync('profile_json').path}/bad.json',
-    )..writeAsStringSync(jsonEncode({'temperature': 82}));
+    )..writeAsStringSync(jsonEncode(_profile(name: 'Bad')));
 
     await tester.pumpWidget(
       wrap(
@@ -344,3 +344,12 @@ void _providersBelowMaterialApp() {
     await db.close();
   });
 }
+
+// A complete profile: the import holds files to the editor's rules.
+Map<String, dynamic> _profile({required String name}) =>
+    (jsonDecode(
+        File('test/fixtures/meticulous_example_profile.json')
+            .readAsStringSync(),
+      ) as Map<String, dynamic>)
+      ..['name'] = name
+      ..['temperature'] = 82;

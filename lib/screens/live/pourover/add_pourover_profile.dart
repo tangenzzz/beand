@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'pourover_profile_editor.dart';
 import '../../../models/brew_recipe.dart';
+import '../../../models/pourover_draft.dart';
 import '../../../services/brew_recipe_store.dart';
 import '../../../services/meticulous_pourover_profiles.dart';
 import '../../../services/pourover_brew_service.dart';
@@ -130,9 +131,17 @@ class _AddPourOverProfileDialogState extends State<AddPourOverProfileDialog> {
       if (widget.brew.dialLeads &&
           json['brew_type'] == 'pour_over' &&
           source != null) {
-        // Machine mode: onto the machine, its dial brews from its list.
+        // Machine mode: onto the machine, its dial brews from its list. What
+        // goes there is the profile as the app's own editor writes it, with
+        // the water temperature checked.
+        final draft = PourOverDraft.fromJson(json);
+        final problem = pourOverTemperatureProblem(draft);
+        if (problem != null) {
+          _say('Not uploaded: $problem');
+          return;
+        }
         try {
-          await source.upload(json);
+          await source.upload(toMachineJson(draft.toJson()));
           await widget.store.refreshMachine();
           _say('"${recipe.name}" is on the Meticulous');
         } catch (e) {

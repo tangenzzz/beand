@@ -70,7 +70,11 @@ String newUuid() {
 
 double? _num(dynamic v) {
   if (v is num) return v.isFinite ? v.toDouble() : null;
-  if (v is String) return double.tryParse(v);
+  if (v is String) {
+    // "NaN" and "Infinity" parse too, but are no setpoint.
+    final parsed = double.tryParse(v);
+    return parsed != null && parsed.isFinite ? parsed : null;
+  }
   return null;
 }
 
@@ -158,7 +162,9 @@ class DraftVariable {
     name: (json['name'] ?? '').toString(),
     key: (json['key'] ?? '').toString(),
     type: (json['type'] ?? 'pressure').toString(),
-    value: _num(json['value']) ?? 0,
+    // A value that is no number stays visible to the rules, which refuse
+    // it, instead of quietly becoming 0 while the file keeps it.
+    value: json['value'] == null ? 0 : _num(json['value']) ?? double.nan,
   )..extra = _rest(json, _known);
 
   Map<String, dynamic> toJson() => {
