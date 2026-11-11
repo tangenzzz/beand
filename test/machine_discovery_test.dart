@@ -355,7 +355,8 @@ void main() {
         cooldown: Duration.zero,
       );
 
-      expect(await fallback.nextAddress('alt.local'), _meticulous.host);
+      // Stored as an IP that no longer answers: the one machine found.
+      expect(await fallback.nextAddress('192.168.1.7'), _meticulous.host);
       // The found hostname does not answer either -> its IP.
       expect(await fallback.nextAddress(_meticulous.host), _meticulous.ip);
       // After that nothing is left.

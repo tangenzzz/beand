@@ -1,3 +1,4 @@
+import 'machine_address_store.dart';
 import 'machine_discovery.dart';
 
 // What happens when the saved address does not answer: silently
@@ -5,7 +6,11 @@ import 'machine_discovery.dart';
 //
 // Order:
 //   1. the last seen IP          -> rescues broken name resolution
-//   2. one short network search  -> rescues a new IP
+//   2. one short network search  -> rescues a new IP, but only for the
+//      machine with the stored name: another machine of the same kind on
+//      the network is a different device, not a new address. Stored as an
+//      IP, the machine has no name to compare; then only a search that
+//      finds a single machine of this kind counts.
 //   3. nothing                   -> the connection error stays
 //
 // Each address is tried only once per dropout, and searching happens at
@@ -56,12 +61,19 @@ class MachineAddressFallback {
     _lastScanAt = DateTime.now();
     try {
       final found = await discovery.scan(serviceType);
+      final byIp = looksLikeIpAddress(currentHost);
       for (final machine in found) {
+        final same = _hostName(machine.address) == _hostName(currentHost);
+        if (!same && !(byIp && found.length == 1)) continue;
         if (machine.ipAddress != null) lastIp = machine.ipAddress;
         // The name first: it stays correct if the machine later gets a
         // different IP.
         for (final candidate in [machine.address, machine.ipAddress]) {
-          if (candidate == null || _tried.contains(candidate)) continue;
+          if (candidate == null ||
+              _tried.contains(candidate) ||
+              _hostName(candidate) == _hostName(currentHost)) {
+            continue;
+          }
           _tried.add(candidate);
           return candidate;
         }
@@ -71,4 +83,15 @@ class MachineAddressFallback {
       _scanning = false;
     }
   }
+}
+
+/// "Meticulous-ABC.local.:80" and "meticulous-abc.local" are one machine.
+String _hostName(String address) {
+  var host = address.trim().toLowerCase();
+  final colon = host.lastIndexOf(':');
+  if (colon > 0 && !host.contains(']')) host = host.substring(0, colon);
+  while (host.endsWith('.')) {
+    host = host.substring(0, host.length - 1);
+  }
+  return host;
 }
