@@ -24,6 +24,17 @@
         tools:node="remove"/>
     <uses-permission-sdk-23 android:name="android.permission.ACCESS_COARSE_LOCATION"
         tools:node="remove"/>
+    <!-- camera_android_camerax (behind the flutter_zxing QR scanner) adds
+         microphone and storage access for video recording. The scanner opens
+         the camera with enableAudio: false and saves nothing. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:node="remove"/>
+    <!-- The merger implies this one from WRITE above; photos come through
+         the system picker, which needs no permission. -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove"/>
 
     <!-- Machine notifications (lib/services/machine_notifications.dart):
          asked at runtime from Android 13 on. While heating and brewing a
