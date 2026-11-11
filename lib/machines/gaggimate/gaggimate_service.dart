@@ -12,6 +12,7 @@ import '../espresso_machine.dart';
 import 'gaggimate_profile.dart';
 import 'gaggimate_profile_codec.dart';
 import 'gaggimate_status.dart';
+import '../../services/connection_log.dart';
 
 // Transport layer so the service stays testable without a real machine:
 // a WebSocket in production, a pair of streams in tests.
@@ -294,7 +295,12 @@ class GaggiMateService extends ChangeNotifier implements EspressoMachine {
 
     switch (type) {
       case 'evt:status':
-        status = status.merge(message);
+        try {
+          status = status.merge(message);
+        } catch (e) {
+          ConnectionLog.write('status', 'unreadable: ${e.runtimeType}');
+          return;
+        }
         if (connectionState != MachineConnectionState.connected) {
           connectionState = MachineConnectionState.connected;
         }
@@ -416,8 +422,12 @@ class GaggiMateService extends ChangeNotifier implements EspressoMachine {
   @override
   Future<bool> selectProfile(String id) async {
     try {
+      final transport = _transport;
       final response = await _request('req:profiles:select', {'id': id});
       final ok = response['error'] == null;
+      // Heating belongs to the machine that took the profile: after a switch
+      // to another machine in the meantime, it is not sent anywhere.
+      if (!identical(transport, _transport)) return false;
       if (ok) {
         changeMode(GaggiMateMode.brew);
         unawaited(refreshProfiles());

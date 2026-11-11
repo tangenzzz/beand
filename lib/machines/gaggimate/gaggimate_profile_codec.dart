@@ -30,6 +30,8 @@ import '../../models/profile_draft.dart';
 //   other exit_triggers          targets[]
 
 const _sourceKey = '_source';
+// The target weight the editor showed when the profile was read.
+const _weightKey = '_finalWeight';
 
 // The substitute value shown for a "-1" (hold value). If it is unchanged
 // on write, the -1 is kept.
@@ -213,7 +215,7 @@ ProfileDraft gaggiMateDraftFromJson(Map<String, dynamic> json) {
     finalWeight: lastWeightTarget ?? 0,
     description: description.isEmpty ? null : description,
     stages: stages,
-  )..extra = {_sourceKey: json};
+  )..extra = {_sourceKey: json, _weightKey: ?lastWeightTarget};
 }
 
 // ------------------------------------------------------------------ Writing
@@ -225,6 +227,7 @@ Map<String, dynamic> gaggiMateJsonFromDraft(ProfileDraft draft) {
   for (final stage in draft.stages) {
     phases.add(_phaseFromStage(stage, draft));
   }
+  _writeTargetWeight(phases, draft);
 
   return {
     // Whatever already existed stays — type, favorite, selected, utility and
@@ -324,6 +327,24 @@ Map<String, dynamic> _phaseFromStage(DraftStage stage, ProfileDraft draft) {
   }
 
   return out;
+}
+
+// The editor shows the last weight target as the profile's target weight.
+// Changed there, it goes back into that target; unchanged, the stages keep
+// whatever was edited in them.
+void _writeTargetWeight(List<Map<String, dynamic>> phases, ProfileDraft draft) {
+  final weight = draft.finalWeight;
+  if (weight <= 0 || weight == _num(draft.extra[_weightKey])) return;
+  for (final phase in phases.reversed) {
+    final targets = phase['targets'];
+    if (targets is! List) continue;
+    for (final target in targets.reversed) {
+      if (target is Map && target['type'] == 'volumetric') {
+        target['value'] = weight;
+        return;
+      }
+    }
+  }
 }
 
 // An empty GaggiMate profile for "Create new profile".
