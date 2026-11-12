@@ -70,6 +70,10 @@ class _BagDraft {
   bool isFrozen;
   DateTime? frozenDate;
   DateTime? thawedDate;
+
+  /// A freezer date was picked in the timeline: the ring then counts that
+  /// stay alone, whatever was stored before.
+  bool freezerEdited = false;
   final TextEditingController weight;
   final TextEditingController cost;
 
@@ -366,25 +370,27 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         _drafts.values.any(_bagChanged);
   }
 
-  // Other freezer dates of a thawed bag, or a freeze date filled in later:
-  // its ring counts the new span.
+  // Freezer dates picked in the timeline of a thawed bag: the ring counts
+  // that one stay, nothing else. Clears freezer days left over from bags
+  // frozen before freeze dates were kept.
   Value<int> _frozenDaysAfterEdit(_BagDraft d) {
     final now = _beans.where((b) => b.id == d.bean?.id).firstOrNull;
     final (newIn, newOut) = (d.frozenDate, d.thawedDate);
     if (now == null ||
         now.isFrozen ||
+        !d.freezerEdited ||
         newIn == null ||
-        newOut == null ||
-        (newIn == now.frozenDate && newOut == now.thawedDate)) {
+        newOut == null) {
       return const Value.absent();
     }
-    return Value(frozenDaysAfterDateEdit(now, newIn, newOut));
+    return Value(pausedDays(newIn, newOut));
   }
 
   bool _bagChanged(_BagDraft d) {
     final b = d.bean;
     if (b == null) return true;
-    return d.roastDate != b.roastDate ||
+    return d.freezerEdited ||
+        d.roastDate != b.roastDate ||
         d.openedAt != b.openedAt ||
         d.frozenDate != b.frozenDate ||
         d.thawedDate != b.thawedDate ||
@@ -1932,7 +1938,9 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           frozen,
           colors.ice,
           edit(frozen, (v) {
-            draft?.frozenDate = v;
+            draft
+              ?..frozenDate = v
+              ..freezerEdited = true;
           }, notAfter: thawed),
         )
       // Thawed, but frozen before freeze dates were kept: while editing the
@@ -1944,7 +1952,9 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           'Add',
           colors.ice,
           edit(thawed, (v) {
-            draft.frozenDate = v;
+            draft
+              ..frozenDate = v
+              ..freezerEdited = true;
           }, notAfter: thawed),
         ),
       if (thawed != null)
@@ -1953,7 +1963,9 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           thawed,
           colors.iceLight,
           edit(thawed, (v) {
-            draft?.thawedDate = v;
+            draft
+              ?..thawedDate = v
+              ..freezerEdited = true;
           }, notBefore: frozen),
         ),
       if (opened != null)

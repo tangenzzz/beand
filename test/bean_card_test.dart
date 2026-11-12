@@ -393,6 +393,40 @@ void main() {
       await finish(tester);
     });
 
+    testWidgets('changing a freezer date clears stale freezer days', (
+      tester,
+    ) async {
+      late Bean bag;
+      await tester.runAsync(() async {
+        bag = await db.insertBean(
+          _bag('A', opened: DateTime(2026, 2, 20)).copyWith(
+            roastDate: Value(DateTime(2026, 2, 1)),
+            frozenDate: Value(DateTime(2026, 2, 19)),
+            thawedDate: Value(DateTime(2026, 2, 20)),
+            // Left over from a bag frozen before freeze dates were kept.
+            frozenDays: const Value(40),
+          ),
+        );
+      });
+      await show(tester, bag);
+      await tester.tap(find.text('Timeline'));
+      await settle(tester);
+      await tester.tap(find.byTooltip('Edit'));
+      await settle(tester);
+      await tester.tap(find.text('19 Feb'));
+      await settle(tester);
+      await tester.tap(find.text('10'));
+      await tester.tap(find.text('OK'));
+      await settle(tester);
+      await tester.tap(find.text('Save'));
+      await settle(tester);
+      final row = (await tester.runAsync(db.allBeans))!.single;
+      expect(row.frozenDate, DateTime(2026, 2, 10));
+      expect(row.frozenDays, 9);
+      expect(daysSinceFreshnessStart(row, DateTime(2026, 2, 21)), 11);
+      await finish(tester);
+    });
+
     testWidgets('the timeline stays open next time', (tester) async {
       SharedPreferences.setMockInitialValues({'bean_card_timeline_open': true});
       late Bean bag;

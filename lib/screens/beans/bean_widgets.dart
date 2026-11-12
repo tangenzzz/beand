@@ -122,6 +122,39 @@ int? daysSinceFreshnessStart(Bean bean, [DateTime? now]) {
   return math.max(0, calendarDaysSince(roast, now) - bean.frozenDays);
 }
 
+// Days off roast when a shot was made at [at], counted like the freshness
+// ring (daysSinceFreshnessStart): freezer days don't count. Of the last stay
+// in the freezer only the part before [at] is taken off; earlier stays (only
+// their sum is known) count as before it. null without a roast date.
+int? daysOffRoastAt(Bean bean, DateTime at) {
+  final roast = bean.roastDate;
+  if (roast == null) return null;
+  final raw = calendarDaysSince(roast, at);
+  final frozen = bean.frozenDate;
+  final thawed = bean.thawedDate;
+  if (frozen == null) {
+    // Thawed before freeze dates were recorded: the ring counts from the
+    // thaw date, so does the shot made after it.
+    if (thawed != null) {
+      return at.isBefore(thawed) ? raw : calendarDaysSince(thawed, at);
+    }
+    return math.max(0, raw - bean.frozenDays);
+  }
+  // Still frozen: [frozenDays] holds only the earlier stays. Thawed: it
+  // includes the last one.
+  final out = bean.isFrozen ? null : thawed;
+  final last = out == null ? 0 : pausedDays(frozen, out);
+  final earlier = math.max(0, bean.frozenDays - last);
+  final inLast = at.isBefore(frozen)
+      ? 0
+      : pausedDays(frozen, out == null || at.isBefore(out) ? at : out);
+  return math.max(0, raw - earlier - inLast);
+}
+
+// "12 d off roast", from two weeks on in weeks ("3 w off roast").
+String daysOffRoastLabel(int days) =>
+    days < 14 ? '$days d off roast' : '${days ~/ 7} w off roast';
+
 // Freezer days to keep when freezing now: a bean thawed before freeze dates
 // were recorded counts from its thaw date, so everything up to then is taken
 // off to go on with the same number.
@@ -147,15 +180,6 @@ int frozenDaysWhenThawing(Bean bean, [DateTime? now]) {
 // thaw day themselves count as fresh days.
 int pausedDays(DateTime frozen, DateTime thawed) =>
     math.max(0, calendarDaysSince(frozen, thawed) - 1);
-
-// Freezer days of a thawed bag after its freeze or thaw date was changed (or
-// a missing freeze date filled in): the last stay is swapped for the new one,
-// earlier stays stay as they are.
-int frozenDaysAfterDateEdit(Bean bean, DateTime frozen, DateTime thawed) {
-  final (oldIn, oldOut) = (bean.frozenDate, bean.thawedDate);
-  final old = oldIn != null && oldOut != null ? pausedDays(oldIn, oldOut) : 0;
-  return math.max(0, bean.frozenDays - old + pausedDays(frozen, thawed));
-}
 
 class BeanGroupHeader extends StatelessWidget {
   const BeanGroupHeader(this.roaster, {super.key});
