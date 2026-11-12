@@ -9,14 +9,15 @@ import '../nostr/event.dart';
 //    costs one repeated event, but skips none.
 //  * A relay can answer forever. Progress is measured in event IDs we have not
 //    seen, and there is a budget for one that invents new ones.
-
-/// How far [pageThroughEvents] raises the limit, as a multiple of the page
-/// size, for a second that has more events than fit on a page.
-const _maxLimitGrowth = 4;
+//  * `until` cannot get inside a second. A second with more events than a
+//    page is read by raising the limit for as long as the relay fills it. A
+//    relay that caps below that second's count cannot be read fully by any
+//    filter; the rest is read, and the run counts as incomplete.
 
 /// Calls [query] until the relay has nothing new, passing each page to
 /// [onPage]. True if the relay was read to the end; false if it was stopped
-/// by [cancelled] or ran into [maxPages] or [maxEvents].
+/// by [cancelled], ran into [maxPages] or [maxEvents], or had to skip part of
+/// a second.
 Future<bool> pageThroughEvents({
   required Future<List<NostrEvent>> Function(int? until, int limit) query,
   required void Function(List<NostrEvent> page) onPage,
@@ -28,10 +29,17 @@ Future<bool> pageThroughEvents({
   final seen = <String>{};
   var limit = pageSize;
   int? until;
+  // A second left behind because the relay would not hand over all of it.
+  // Whether it held more is unknown until the relay shows it has older
+  // events: then its short page was a cap, not the end.
+  var skippedSecond = false;
+  var incomplete = false;
   for (var pages = 0; pages < maxPages; pages++) {
     if (cancelled?.call() ?? false) return false;
     final page = await query(until, limit);
-    if (page.isEmpty) return true;
+    if (page.isEmpty) return !incomplete;
+    if (skippedSecond) incomplete = true;
+    skippedSecond = false;
     onPage(page);
 
     var fresh = 0;
@@ -45,26 +53,32 @@ Future<bool> pageThroughEvents({
       if (event.createdAt > newest) newest = event.createdAt;
     }
     if (seen.length > maxEvents) return false;
+    // A relay that ignores `until` would be asked the same thing forever.
+    final asked = until;
+    if (asked != null && oldest > asked) return false;
 
     if (fresh > 0) {
+      // Still inside the same crowded second: keep the raised limit.
+      if (until != oldest) limit = pageSize;
       until = oldest;
-      limit = pageSize;
       continue;
     }
 
     // Nothing new. Normally that is the end, unless one second has more
-    // events than the page holds: `until` cannot get inside a second, so ask
-    // for more at once and, failing that, give up on the rest of the second.
-    final fullSecond =
-        oldest == newest && ids.length == page.length && page.length >= limit;
-    if (!fullSecond) return true;
-    if (limit < pageSize * _maxLimitGrowth) {
+    // events than the page holds: then ask for more of it at once.
+    final oneSecond = oldest == newest && ids.length == page.length;
+    if (!oneSecond) return !incomplete;
+    if (page.length >= limit) {
+      if (limit > maxEvents) return false;
       limit *= 2;
-    } else {
-      if (oldest <= 0) return true;
-      until = oldest - 1;
-      limit = pageSize;
+      continue;
     }
+    // The relay gave less than asked: the end, or its cap. Look past the
+    // second to tell.
+    if (oldest <= 0) return !incomplete;
+    until = oldest - 1;
+    limit = pageSize;
+    skippedSecond = true;
   }
   return false;
 }

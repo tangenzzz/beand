@@ -390,6 +390,9 @@ class BackupService {
 
   Future<BackupManifest> _restoreFrom(Archive archive) async {
     final manifest = _manifestOf(archive);
+    // Read before anything is replaced: a broken settings file must reject
+    // the backup while the current data is still in place.
+    final restoredPrefs = _readPrefs(archive);
 
     // Everything that can reject the backup happens on a separate copy, while
     // the current data and its open connection stay as they are.
@@ -415,7 +418,7 @@ class BackupService {
       throw BackupException('Restore failed, nothing was replaced: $e');
     }
 
-    await _restorePrefs(archive);
+    await _restorePrefs(restoredPrefs);
     return manifest;
   }
 
@@ -528,24 +531,42 @@ class BackupService {
     return out;
   }
 
-  Future<void> _restorePrefs(Archive archive) async {
+  /// The settings stored in [archive], checked but not yet applied. Null when
+  /// the backup has none, so the current settings stay as they are.
+  List<MapEntry<String, Map<String, Object?>>>? _readPrefs(Archive archive) {
     final entry = archive.findFile(_prefsName);
-    if (entry == null) return;
-    Map<String, Object?> json;
+    if (entry == null) return null;
+    final Object? json;
     try {
-      json = (jsonDecode(utf8.decode(entry.content as List<int>)) as Map)
-          .cast<String, Object?>();
+      json = jsonDecode(utf8.decode(entry.content as List<int>));
     } catch (_) {
-      return;
+      throw const BackupException('This backup is damaged.');
     }
-    await prefs.clear();
-    for (final entry in json.entries) {
+    if (json is! Map) throw const BackupException('This backup is damaged.');
+    final out = <MapEntry<String, Map<String, Object?>>>[];
+    for (final item in json.entries) {
+      final key = item.key;
+      final spec = item.value;
+      if (key is! String || spec is! Map) {
+        throw const BackupException('This backup is damaged.');
+      }
       // Permission to send data to an AI server is given on this device, not
       // by whoever made the file.
-      if (entry.key == AiSettings.consentPrefKey) continue;
-      final spec = (entry.value as Map?)?.cast<String, Object?>();
-      final value = spec?['value'];
-      switch (spec?['type']) {
+      if (key == AiSettings.consentPrefKey) continue;
+      out.add(MapEntry(key, spec.cast<String, Object?>()));
+    }
+    return out;
+  }
+
+  Future<void> _restorePrefs(
+    List<MapEntry<String, Map<String, Object?>>>? restored,
+  ) async {
+    if (restored == null) return;
+    await prefs.clear();
+    for (final entry in restored) {
+      final spec = entry.value;
+      final value = spec['value'];
+      switch (spec['type']) {
         case 'bool':
           if (value is bool) await prefs.setBool(entry.key, value);
         case 'int':

@@ -253,7 +253,8 @@ void main() {
 
       final after = await b.state.load();
       expect(after.blobRetries, isEmpty);
-      expect(after.lastSync[relay.url], b.now.millisecondsSinceEpoch ~/ 1000);
+      // The cursor follows the relay's newest real event, not our clock.
+      expect(after.lastSync[relay.url], relay.events.single.createdAt);
     });
 
     test(

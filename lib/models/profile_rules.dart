@@ -278,7 +278,7 @@ List<RuleFinding> _checkHeader(ProfileDraft draft) {
   if (draft.stages.isEmpty) error('The profile has no stages yet.');
 
   // Schema limits.
-  if (draft.temperature < 0 || draft.temperature > 100) {
+  if (!(draft.temperature >= 0 && draft.temperature <= 100)) {
     error('Temperature must be between 0 and 100 °C.');
   } else if (draft.temperature < 80) {
     warn(
@@ -288,7 +288,7 @@ List<RuleFinding> _checkHeader(ProfileDraft draft) {
     warn('${_c(draft.temperature)} is high — that suits very light roasts.');
   }
 
-  if (draft.finalWeight <= 0 || draft.finalWeight > 2000) {
+  if (!(draft.finalWeight > 0 && draft.finalWeight <= 2000)) {
     error('Target weight must be between 0 and 2000 g.');
   } else if (draft.finalWeight < 20) {
     warn(

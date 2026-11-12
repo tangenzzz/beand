@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'connection_log.dart';
 import '../database/database.dart';
 import 'meticulous_socket_service.dart';
+import 'meticulous_urls.dart';
 import 'profile_image_cache.dart';
 import 'profile_store.dart';
 
@@ -102,7 +103,7 @@ class ProfileSyncService implements ProfileStore {
   @override
   Future<bool> refresh(String id) async {
     try {
-      final json = await _getJson('profile/get/$id');
+      final json = await _getJson('profile/get/${plainPathSegment(id)}');
       if (json is! Map) return false;
       final known = await database.storedProfilesById(machine: machineKey);
       await _store(

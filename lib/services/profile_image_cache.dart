@@ -29,7 +29,7 @@ class ProfileImageCache {
       final file = File(p.join(imageDir.path, p.basename(apiPath!)));
       if (file.existsSync() && file.lengthSync() > 0) return file.path;
       final response = await client
-          .send(http.Request('GET', uri))
+          .send(imageRequest(uri))
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
       final bytes = await readAtMost(response.stream, maxImageBytes);
@@ -42,6 +42,12 @@ class ProfileImageCache {
     }
   }
 }
+
+/// A GET for an image on the machine. It does not follow a redirect: the
+/// machine runs actions on a plain GET, and only the checked address may be
+/// fetched.
+http.Request imageRequest(Uri uri) =>
+    http.Request('GET', uri)..followRedirects = false;
 
 /// Larger than any profile photo the machine makes; a bigger answer is not
 /// one of them.
