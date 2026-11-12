@@ -51,6 +51,7 @@ void main() {
       database: db,
       settings: settings,
       now: () => now,
+      settleDelay: const Duration(milliseconds: 30),
       onEmptied: (bean, left) async => told.add((bean.name, left)),
     );
   });
@@ -121,5 +122,31 @@ void main() {
     await shot(guji.id, 25);
     await settle();
     expect(told, isEmpty);
+  });
+
+  test('setting the amount marks bags already below it, quietly', () async {
+    await settings.setEmptyBelowGrams(0);
+    final low = await bag(30);
+    final full = await bag(250);
+    final loose = await bag(null);
+    await shot(low.id, 25, at: now.subtract(const Duration(days: 30)));
+    await shot(full.id, 18);
+    watcher.start();
+    await settle();
+    // Sliding past 20 g on the way to 4 g: only the end value counts.
+    await settings.setEmptyBelowGrams(20);
+    await settings.setEmptyBelowGrams(4);
+    await settle();
+    expect((await reload(low.id)).emptiedAt, isNull);
+    await settings.setEmptyBelowGrams(10);
+    await settle();
+    expect((await reload(low.id)).emptiedAt, now);
+    expect((await reload(full.id)).emptiedAt, isNull);
+    expect((await reload(loose.id)).emptiedAt, isNull);
+    expect(told, isEmpty);
+    // Set back to full by hand: stays so.
+    await db.updateBean(low.id, const BeansCompanion(emptiedAt: Value(null)));
+    await settle();
+    expect((await reload(low.id)).emptiedAt, isNull);
   });
 }
