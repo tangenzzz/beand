@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -367,27 +366,19 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
         _drafts.values.any(_bagChanged);
   }
 
-  // Other freezer dates of a thawed bag: its ring counts the new span.
+  // Other freezer dates of a thawed bag, or a freeze date filled in later:
+  // its ring counts the new span.
   Value<int> _frozenDaysAfterEdit(_BagDraft d) {
     final now = _beans.where((b) => b.id == d.bean?.id).firstOrNull;
-    final (oldIn, oldOut) = (now?.frozenDate, now?.thawedDate);
     final (newIn, newOut) = (d.frozenDate, d.thawedDate);
     if (now == null ||
         now.isFrozen ||
-        oldIn == null ||
-        oldOut == null ||
         newIn == null ||
-        newOut == null) {
+        newOut == null ||
+        (newIn == now.frozenDate && newOut == now.thawedDate)) {
       return const Value.absent();
     }
-    return Value(
-      math.max(
-        0,
-        now.frozenDays +
-            calendarDaysSince(newIn, newOut) -
-            calendarDaysSince(oldIn, oldOut),
-      ),
-    );
+    return Value(frozenDaysAfterDateEdit(now, newIn, newOut));
   }
 
   bool _bagChanged(_BagDraft d) {
@@ -566,13 +557,22 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     ),
   );
 
-  Future<DateTime?> _pickDate(DateTime? current) {
+  Future<DateTime?> _pickDate(
+    DateTime? current, {
+    DateTime? notBefore,
+    DateTime? notAfter,
+  }) {
     final now = DateTime.now();
+    final first = notBefore ?? DateTime(now.year - 3);
+    final last = notAfter ?? now;
+    var initial = current ?? now;
+    if (initial.isBefore(first)) initial = first;
+    if (initial.isAfter(last)) initial = last;
     return showDatePicker(
       context: context,
-      initialDate: current ?? now,
-      firstDate: DateTime(now.year - 3),
-      lastDate: now,
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
     );
   }
 
@@ -1901,10 +1901,19 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     final thawed = draft != null ? draft.thawedDate : bag?.thawedDate;
     final opened = draft != null ? draft.openedAt : bag?.openedAt;
     final empty = bag?.emptiedAt;
-    VoidCallback? edit(DateTime date, void Function(DateTime) apply) {
+    VoidCallback? edit(
+      DateTime date,
+      void Function(DateTime) apply, {
+      DateTime? notBefore,
+      DateTime? notAfter,
+    }) {
       if (!_editing || draft == null) return null;
       return () async {
-        final picked = await _pickDate(date);
+        final picked = await _pickDate(
+          date,
+          notBefore: notBefore,
+          notAfter: notAfter,
+        );
         if (picked != null && mounted) setState(() => apply(picked));
       };
     }
@@ -1924,7 +1933,19 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           colors.ice,
           edit(frozen, (v) {
             draft?.frozenDate = v;
-          }),
+          }, notAfter: thawed),
+        )
+      // Thawed, but frozen before freeze dates were kept: while editing the
+      // date can be added, so the days before the freezer count again.
+      else if (thawed != null && _editing && draft != null)
+        _TimelineStep(
+          'Frozen',
+          thawed,
+          'Add',
+          colors.ice,
+          edit(thawed, (v) {
+            draft.frozenDate = v;
+          }, notAfter: thawed),
         ),
       if (thawed != null)
         step(
@@ -1933,7 +1954,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
           colors.iceLight,
           edit(thawed, (v) {
             draft?.thawedDate = v;
-          }),
+          }, notBefore: frozen),
         ),
       if (opened != null)
         step(

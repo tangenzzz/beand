@@ -85,6 +85,47 @@ void main() {
     expect(daysSinceFreshnessStart(thaw(legacy, 40), day(40)), 0);
   });
 
+  test('freeze date added later: days before the freezer count again', () {
+    // Roasted 21 Oct, frozen 31 Oct (not recorded), thawed 11 Nov.
+    final r = DateTime(2026, 10, 21);
+    final old = bean(roastDate: r, thawed: DateTime(2026, 11, 11));
+    expect(daysSinceFreshnessStart(old, DateTime(2026, 11, 12)), 1);
+    final filled = bean(
+      roastDate: r,
+      thawed: old.thawedDate,
+      frozenAt: DateTime(2026, 10, 31),
+      frozenDays: frozenDaysAfterDateEdit(
+        old,
+        DateTime(2026, 10, 31),
+        DateTime(2026, 11, 11),
+      ),
+    );
+    expect(daysSinceFreshnessStart(filled, DateTime(2026, 11, 11)), 11);
+    expect(daysSinceFreshnessStart(filled, DateTime(2026, 11, 12)), 12);
+  });
+
+  test('moving the freezer dates counts like thawing on that day', () {
+    final first = thaw(
+      bean(roastDate: roast, frozen: true, frozenAt: day(10)),
+      40,
+    );
+    // Thawed on day 30 instead: the same as thawing then.
+    final moved = frozenDaysAfterDateEdit(first, day(10), day(30));
+    final direct = thaw(
+      bean(roastDate: roast, frozen: true, frozenAt: day(10)),
+      30,
+    );
+    expect(moved, direct.frozenDays);
+    // Earlier stays are kept.
+    final twice = bean(
+      roastDate: roast,
+      thawed: day(60),
+      frozenAt: day(45),
+      frozenDays: 29 + pausedDays(day(45), day(60)),
+    );
+    expect(frozenDaysAfterDateEdit(twice, day(50), day(60)), 29 + 9);
+  });
+
   test('no roast date: counts from thawing', () {
     final frozen = bean(frozen: true, frozenAt: day(10));
     expect(daysSinceFreshnessStart(thaw(frozen, 40), day(42)), 2);

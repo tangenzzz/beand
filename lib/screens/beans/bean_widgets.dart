@@ -140,7 +140,21 @@ int frozenDaysWhenFreezing(Bean? bean) {
 int frozenDaysWhenThawing(Bean bean, [DateTime? now]) {
   final frozen = bean.frozenDate;
   if (frozen == null) return bean.frozenDays;
-  return bean.frozenDays + math.max(0, calendarDaysSince(frozen, now) - 1);
+  return bean.frozenDays + pausedDays(frozen, now ?? DateTime.now());
+}
+
+// Days the ring stands still for one stay in the freezer: the freeze and the
+// thaw day themselves count as fresh days.
+int pausedDays(DateTime frozen, DateTime thawed) =>
+    math.max(0, calendarDaysSince(frozen, thawed) - 1);
+
+// Freezer days of a thawed bag after its freeze or thaw date was changed (or
+// a missing freeze date filled in): the last stay is swapped for the new one,
+// earlier stays stay as they are.
+int frozenDaysAfterDateEdit(Bean bean, DateTime frozen, DateTime thawed) {
+  final (oldIn, oldOut) = (bean.frozenDate, bean.thawedDate);
+  final old = oldIn != null && oldOut != null ? pausedDays(oldIn, oldOut) : 0;
+  return math.max(0, bean.frozenDays - old + pausedDays(frozen, thawed));
 }
 
 class BeanGroupHeader extends StatelessWidget {

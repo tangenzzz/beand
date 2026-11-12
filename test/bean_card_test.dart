@@ -1,6 +1,7 @@
 import 'package:beand/database/database.dart';
 import 'package:beand/models/coffee.dart';
 import 'package:beand/screens/beans/bean_form_screen.dart';
+import 'package:beand/screens/beans/bean_widgets.dart';
 import 'package:beand/services/ai/ai_key_store.dart';
 import 'package:beand/services/ai/ai_settings.dart';
 import 'package:beand/services/app_settings.dart';
@@ -357,6 +358,38 @@ void main() {
       await tester.tap(find.byTooltip('Edit'));
       await settle(tester);
       expect(tester.takeException(), isNull);
+      await finish(tester);
+    });
+
+    testWidgets('a missing freeze date can be added on a thawed bag', (
+      tester,
+    ) async {
+      late Bean bag;
+      await tester.runAsync(() async {
+        bag = await db.insertBean(
+          _bag('A', opened: DateTime(2026, 2, 20)).copyWith(
+            roastDate: Value(DateTime(2026, 2, 1)),
+            thawedDate: Value(DateTime(2026, 2, 20)),
+          ),
+        );
+      });
+      await show(tester, bag);
+      await tester.tap(find.text('Timeline'));
+      await settle(tester);
+      expect(find.text('Add'), findsNothing, reason: 'only while editing');
+      await tester.tap(find.byTooltip('Edit'));
+      await settle(tester);
+      await tester.tap(find.text('Add'));
+      await settle(tester);
+      await tester.tap(find.text('10'));
+      await tester.tap(find.text('OK'));
+      await settle(tester);
+      await tester.tap(find.text('Save'));
+      await settle(tester);
+      final row = (await tester.runAsync(db.allBeans))!.single;
+      expect(row.frozenDate, DateTime(2026, 2, 10));
+      expect(row.frozenDays, 9);
+      expect(daysSinceFreshnessStart(row, DateTime(2026, 2, 21)), 11);
       await finish(tester);
     });
 
