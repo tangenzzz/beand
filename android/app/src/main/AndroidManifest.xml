@@ -5,6 +5,19 @@
          only in the debug/profile manifests, so release builds could not
          connect. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Hardware the app can use but does not need. Without these lines
+         Google Play treats the features implied by the permissions (and the
+         camera plugin's own declaration) as required and hides the app on
+         devices without them. Camera: photos also come from the gallery.
+         Bluetooth: only for scales (BleStatus.unsupported is handled).
+         Location: only implied by the pre-Android-12 BLE permission. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.any" android:required="false"
+        tools:replace="android:required"/>
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
+    <uses-feature android:name="android.hardware.location" android:required="false"/>
     <!-- Fingerprint/PIN before showing the sync key (local_auth). -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
 
