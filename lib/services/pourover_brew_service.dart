@@ -649,8 +649,14 @@ class PourOverBrewService extends LiveShotService {
         _phase = BrewState.drawdown;
       } else {
         _phase = BrewState.waiting;
-        _waitUntil = r.at.add(
-          Duration(milliseconds: ((done.waitSeconds ?? 0) * 1000).round()),
+        // Snap the end of the pause to a whole second of brew time, so the
+        // countdown in the ring and the brew clock beside it tick over in
+        // the same moment (off by up to 0.5 s from the exact wait).
+        final endMs = ms + ((done.waitSeconds ?? 0) * 1000).round();
+        _waitUntil = _startedAt!.add(
+          Duration(
+            seconds: math.max((endMs / 1000).round(), (ms / 1000).ceil()),
+          ),
         );
       }
     } else if (_phase == BrewState.waiting && reached > _stepIndex) {

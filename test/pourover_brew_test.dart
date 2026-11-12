@@ -354,6 +354,10 @@ void main() {
         expect(service.stepIndex, 1);
         expect(service.currentStep!.label, 'Main');
         expect(service.waitLeftSeconds, closeTo(30, 0.5));
+        // The pause ends on a whole second of brew time, so the countdown
+        // in the ring and the brew clock tick over together.
+        final sum = service.elapsedMs / 1000 + service.waitLeftSeconds;
+        expect(sum, closeTo(sum.roundToDouble(), 0.001));
 
         // Pause runs out (scale keeps reporting 50 g).
         for (var i = 0; i < 160; i++) {
