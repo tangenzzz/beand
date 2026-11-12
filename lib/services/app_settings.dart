@@ -334,8 +334,8 @@ class AppSettings extends ChangeNotifier {
     await prefs.setBool(showShotFactsPrefKey, value);
   }
 
-  // Under the stars in the shot detail header: how long after roasting the
-  // shot was made ("12 d off roast"), freezer days left out (History
+  // Beside the bean name in the shot detail header: how long after roasting
+  // the shot was made ("12 d off roast"), freezer days left out (History
   // settings).
   bool get showDaysOffRoast => _showDaysOffRoast;
 

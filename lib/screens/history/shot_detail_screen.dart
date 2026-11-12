@@ -688,10 +688,10 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           ),
           const SizedBox(height: 12),
         ],
-        // Header: name (up to two lines) with the stars in its row, the
-        // roaster and profile below on their own lines; under the stars how
-        // long after roasting the shot was made. The stars and that line keep
-        // their own width, the names get all the rest.
+        // Header: name (up to two lines) with how long after roasting the
+        // shot was made in its row, the stars under that; roaster and profile
+        // below the name on their own lines. The right column keeps its own
+        // width, the names get all the rest.
         InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: () => _toggle(_Open.bean),
@@ -743,8 +743,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                           ),
                           if (bean != null &&
                               roaster != null &&
-                              roaster.isNotEmpty) ...[
-                            const SizedBox(height: 2),
+                              roaster.isNotEmpty)
                             Text(
                               roaster,
                               maxLines: 1,
@@ -754,7 +753,6 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                                 fontSize: 12,
                               ),
                             ),
-                          ],
                           if ((bean != null || editable) &&
                               profile.isNotEmpty) ...[
                             const SizedBox(height: 2),
@@ -775,24 +773,27 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        // Less tap space above and below than usual, so the
-                        // stars sit level with the name.
-                        StarRating(
-                          rating: shot.rating ?? 0,
-                          size: 14,
-                          gap: 2,
-                          tapPadding: 6,
-                          onChanged: (n) => _db.setShotRating(shot.id, n),
-                        ),
+                        // In the row of the name, the stars below it (a bit
+                        // larger than in the list, the shot's main mark).
                         if (offRoast != null)
-                          Text(
-                            daysOffRoastLabel(offRoast),
-                            key: const ValueKey('shot-days-off-roast'),
-                            style: TextStyle(
-                              color: context.colors.textSecondary,
-                              fontSize: 12,
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Text(
+                              daysOffRoastLabel(offRoast),
+                              key: const ValueKey('shot-days-off-roast'),
+                              style: TextStyle(
+                                color: context.colors.textSecondary,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
+                        StarRating(
+                          rating: shot.rating ?? 0,
+                          size: 18,
+                          gap: 2,
+                          tapPadding: 4,
+                          onChanged: (n) => _db.setShotRating(shot.id, n),
+                        ),
                       ],
                     ),
                   ],

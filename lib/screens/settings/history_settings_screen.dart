@@ -37,8 +37,8 @@ class HistorySettingsScreen extends StatelessWidget {
                   SettingsSwitchRow(
                     title: 'Days off roast',
                     info:
-                        'Under the stars: how long after roasting the shot '
-                        "was made. Days in the freezer don't count.",
+                        'Next to the bean name: how long after roasting the '
+                        "shot was made. Days in the freezer don't count.",
                     value: settings.showDaysOffRoast,
                     onChanged: settings.setShowDaysOffRoast,
                   ),

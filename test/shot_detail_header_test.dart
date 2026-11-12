@@ -14,8 +14,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Shot detail header: name with the stars in its row, roaster and profile
-// below, "12 d off roast" under the stars (switchable in Settings → History).
+// Shot detail header: name with "12 d off roast" in its row and the stars
+// below that, roaster and profile under the name (the line is switchable in
+// Settings → History).
 
 Widget _app(AppDatabase db, AppSettings settings, int shotId) => MultiProvider(
   providers: [
@@ -95,7 +96,9 @@ void main() {
         find.descendant(of: find.text(text), matching: find.byType(RichText)),
       );
 
-  testWidgets('off-roast line under the stars, in days', (tester) async {
+  testWidgets('off-roast line beside the name, stars below, in days', (
+    tester,
+  ) async {
     phone(tester);
     final id = await shotWith(
       tester,
@@ -109,13 +112,14 @@ void main() {
 
     final line = find.text('12 d off roast');
     expect(line, findsOneWidget);
-    // Under the stars, which sit in the row of the bean name.
+    // In the row of the bean name, the stars below it.
+    final off = tester.getRect(line);
     final stars = tester.getRect(find.byType(StarRating));
     final name = tester.getRect(find.text('Guji Natural'));
-    expect(tester.getRect(line).top, greaterThanOrEqualTo(stars.bottom));
-    expect(stars.top, lessThan(name.bottom));
-    expect(stars.bottom, greaterThan(name.top));
-    expect(stars.left, greaterThan(name.left));
+    expect(off.top, lessThan(name.bottom));
+    expect(off.bottom, greaterThan(name.top));
+    expect(off.left, greaterThan(name.left));
+    expect(stars.top, greaterThanOrEqualTo(off.bottom));
 
     await teardownApp(tester);
   });
