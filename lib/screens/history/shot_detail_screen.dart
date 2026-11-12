@@ -726,8 +726,11 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                                             : profile),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
+                                    // A bit tighter than the font's line,
+                                    // so the roaster sits close below.
                                     style: TextStyle(
                                       fontSize: 16,
+                                      height: 1.1,
                                       fontWeight: FontWeight.w600,
                                       color: bean == null && editable
                                           ? context.colors.textTertiary
