@@ -23,6 +23,7 @@ List<String> syncedSettingKeys() => [
   AppSettings.showBeanStockPrefKey,
   AppSettings.showStageDetailsPrefKey,
   AppSettings.showShotFactsPrefKey,
+  AppSettings.showDaysOffRoastPrefKey,
   AppSettings.showGrindFromZeroPrefKey,
   AppSettings.expandAiAnalysisPrefKey,
   AppSettings.expandProfileCurvePrefKey,

@@ -35,6 +35,14 @@ class HistorySettingsScreen extends StatelessWidget {
                 label: 'Shot detail',
                 children: [
                   SettingsSwitchRow(
+                    title: 'Days off roast',
+                    info:
+                        'Under the stars: how long after roasting the shot '
+                        "was made. Days in the freezer don't count.",
+                    value: settings.showDaysOffRoast,
+                    onChanged: settings.setShowDaysOffRoast,
+                  ),
+                  SettingsSwitchRow(
                     title: 'Local analysis',
                     info:
                         'Findings under the chart, worked out on the phone. '

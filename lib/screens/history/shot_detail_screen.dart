@@ -643,6 +643,14 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
 
     final grindNote = fromZeroNote();
 
+    // Settings → History: how long after roasting, freezer days left out.
+    final showOffRoast = context.select<AppSettings, bool>(
+      (s) => s.showDaysOffRoast,
+    );
+    final offRoast = bean != null && showOffRoast
+        ? daysOffRoastAt(bean, shot.timestamp)
+        : null;
+
     // Shot added by hand: its numbers can be set like dose and grind.
     final editable = widget.isNew;
     final secs =
@@ -680,6 +688,10 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           ),
           const SizedBox(height: 12),
         ],
+        // Header: name (up to two lines) with the stars in its row, the
+        // roaster and profile below on their own lines; under the stars how
+        // long after roasting the shot was made. The stars and that line keep
+        // their own width, the names get all the rest.
         InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: () => _toggle(_Open.bean),
@@ -688,40 +700,52 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               ShotAvatar(shot: shot, bean: bean),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        // A new shot asks for its bean here until one is
-                        // picked (the profile has its own line below).
-                        Flexible(
-                          child: Text(
-                            bean?.name ??
-                                (editable
-                                    ? 'Select bean'
-                                    : profile.isEmpty
-                                    ? (isPourOver ? 'Brew' : 'Shot')
-                                    : profile),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: bean == null && editable
-                                  ? context.colors.textTertiary
-                                  : null,
-                            ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // A new shot asks for its bean here until one is
+                          // picked (the profile has its own line below). The
+                          // chevron follows the name, so it takes no width
+                          // from it beside the stars.
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  bean?.name ??
+                                      (editable
+                                          ? 'Select bean'
+                                          : profile.isEmpty
+                                          ? (isPourOver ? 'Brew' : 'Shot')
+                                          : profile),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: bean == null && editable
+                                        ? context.colors.textTertiary
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                _open == _Open.bean
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                color: context.colors.textTertiary,
+                                size: 18,
+                              ),
+                            ],
                           ),
-                        ),
-                        if (bean != null &&
-                            roaster != null &&
-                            roaster.isNotEmpty) ...[
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
+                          if (bean != null &&
+                              roaster != null &&
+                              roaster.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
                               roaster,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -730,36 +754,49 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                                 fontSize: 12,
                               ),
                             ),
-                          ),
+                          ],
+                          if ((bean != null || editable) &&
+                              profile.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              profile,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: context.colors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Less tap space above and below than usual, so the
+                        // stars sit level with the name.
+                        StarRating(
+                          rating: shot.rating ?? 0,
+                          size: 14,
+                          gap: 2,
+                          tapPadding: 6,
+                          onChanged: (n) => _db.setShotRating(shot.id, n),
+                        ),
+                        if (offRoast != null)
+                          Text(
+                            daysOffRoastLabel(offRoast),
+                            key: const ValueKey('shot-days-off-roast'),
+                            style: TextStyle(
+                              color: context.colors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
                       ],
                     ),
-                    if ((bean != null || editable) && profile.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        profile,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: context.colors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
-              ),
-              Icon(
-                _open == _Open.bean ? Icons.expand_less : Icons.expand_more,
-                color: context.colors.textTertiary,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              StarRating(
-                rating: shot.rating ?? 0,
-                size: 14,
-                gap: 2,
-                onChanged: (n) => _db.setShotRating(shot.id, n),
               ),
             ],
           ),

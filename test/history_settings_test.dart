@@ -62,6 +62,18 @@ void main() {
       isFalse,
     );
 
+    expect(app.showDaysOffRoast, isTrue);
+    expect(findInfo("Days in the freezer don't count"), findsOneWidget);
+    await tester.tap(switchOf('Days off roast'));
+    await tester.pump();
+    expect(app.showDaysOffRoast, isFalse);
+    expect(
+      (await SharedPreferences.getInstance()).getBool(
+        AppSettings.showDaysOffRoastPrefKey,
+      ),
+      isFalse,
+    );
+
     await tester.tap(switchOf('AI analysis'));
     await tester.pump();
     expect(ai.isFeatureOn(AiFeature.shotAnalysis), isFalse);

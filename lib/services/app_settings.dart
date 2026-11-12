@@ -76,6 +76,7 @@ class AppSettings extends ChangeNotifier {
     AppAccent accent = AppAccent.teal,
     bool showStageDetails = true,
     bool showShotFacts = true,
+    bool showDaysOffRoast = true,
     bool showGrindFromZero = false,
     bool expandAiAnalysis = true,
     bool expandProfileCurve = true,
@@ -85,6 +86,7 @@ class AppSettings extends ChangeNotifier {
     _emptyBelowGrams = emptyBelowGrams;
     _showStageDetails = showStageDetails;
     _showShotFacts = showShotFacts;
+    _showDaysOffRoast = showDaysOffRoast;
     _showGrindFromZero = showGrindFromZero;
     _expandAiAnalysis = expandAiAnalysis;
     _expandProfileCurve = expandProfileCurve;
@@ -104,6 +106,7 @@ class AppSettings extends ChangeNotifier {
   static const emptyBelowPrefKey = 'beans_empty_below_grams';
   static const showStageDetailsPrefKey = 'history_show_stage_details';
   static const showShotFactsPrefKey = 'history_show_shot_facts';
+  static const showDaysOffRoastPrefKey = 'history_show_days_off_roast';
   static const showGrindFromZeroPrefKey = 'history_show_grind_from_zero';
   static const expandAiAnalysisPrefKey = 'history_expand_ai_analysis';
   static const expandProfileCurvePrefKey = 'profile_expand_curve';
@@ -137,6 +140,7 @@ class AppSettings extends ChangeNotifier {
       emptyBelowGrams: prefs.getDouble(emptyBelowPrefKey) ?? 0,
       showStageDetails: prefs.getBool(showStageDetailsPrefKey) ?? true,
       showShotFacts: prefs.getBool(showShotFactsPrefKey) ?? true,
+      showDaysOffRoast: prefs.getBool(showDaysOffRoastPrefKey) ?? true,
       showGrindFromZero: prefs.getBool(showGrindFromZeroPrefKey) ?? false,
       expandAiAnalysis: prefs.getBool(expandAiAnalysisPrefKey) ?? true,
       expandProfileCurve: prefs.getBool(expandProfileCurvePrefKey) ?? true,
@@ -233,6 +237,7 @@ class AppSettings extends ChangeNotifier {
     _emptyBelowGrams = fresh._emptyBelowGrams;
     _showStageDetails = fresh._showStageDetails;
     _showShotFacts = fresh._showShotFacts;
+    _showDaysOffRoast = fresh._showDaysOffRoast;
     _showGrindFromZero = fresh._showGrindFromZero;
     _expandAiAnalysis = fresh._expandAiAnalysis;
     _expandProfileCurve = fresh._expandProfileCurve;
@@ -254,6 +259,7 @@ class AppSettings extends ChangeNotifier {
   late double _emptyBelowGrams;
   late bool _showStageDetails;
   late bool _showShotFacts;
+  late bool _showDaysOffRoast;
   late bool _showGrindFromZero;
   late bool _expandAiAnalysis;
   late bool _expandProfileCurve;
@@ -326,6 +332,19 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(showShotFactsPrefKey, value);
+  }
+
+  // Under the stars in the shot detail header: how long after roasting the
+  // shot was made ("12 d off roast"), freezer days left out (History
+  // settings).
+  bool get showDaysOffRoast => _showDaysOffRoast;
+
+  Future<void> setShowDaysOffRoast(bool value) async {
+    if (value == _showDaysOffRoast) return;
+    _showDaysOffRoast = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(showDaysOffRoastPrefKey, value);
   }
 
   // Next to the grind in the history list and the comparison: how far the
