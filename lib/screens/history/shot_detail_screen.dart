@@ -689,8 +689,8 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
           const SizedBox(height: 12),
         ],
         // Header: name (up to two lines) with how long after roasting the
-        // shot was made in its row, the stars under that; roaster and profile
-        // below the name on their own lines. The right column keeps its own
+        // shot was made in its row; roaster and profile below the name on
+        // their own lines, the stars in the profile's line. The right column keeps its own
         // width, the names get all the rest.
         InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -700,103 +700,109 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               ShotAvatar(shot: shot, bean: bean),
               const SizedBox(width: 12),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // A new shot asks for its bean here until one is
-                          // picked (the profile has its own line below). The
-                          // chevron follows the name, so it takes no width
-                          // from it beside the stars.
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  bean?.name ??
-                                      (editable
-                                          ? 'Select bean'
-                                          : profile.isEmpty
-                                          ? (isPourOver ? 'Brew' : 'Shot')
-                                          : profile),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: bean == null && editable
-                                        ? context.colors.textTertiary
-                                        : null,
+                // Same height on both sides, so the stars can sit at the
+                // bottom, in the profile's line.
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // A new shot asks for its bean here until one is
+                            // picked (the profile has its own line below). The
+                            // chevron follows the name, so it takes no width
+                            // from it beside the stars.
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    bean?.name ??
+                                        (editable
+                                            ? 'Select bean'
+                                            : profile.isEmpty
+                                            ? (isPourOver ? 'Brew' : 'Shot')
+                                            : profile),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: bean == null && editable
+                                          ? context.colors.textTertiary
+                                          : null,
+                                    ),
                                   ),
                                 ),
+                                Icon(
+                                  _open == _Open.bean
+                                      ? Icons.expand_less
+                                      : Icons.expand_more,
+                                  color: context.colors.textTertiary,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                            if (bean != null &&
+                                roaster != null &&
+                                roaster.isNotEmpty)
+                              Text(
+                                roaster,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
-                              Icon(
-                                _open == _Open.bean
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                color: context.colors.textTertiary,
-                                size: 18,
+                            if ((bean != null || editable) &&
+                                profile.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                profile,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                ),
                               ),
                             ],
-                          ),
-                          if (bean != null &&
-                              roaster != null &&
-                              roaster.isNotEmpty)
-                            Text(
-                              roaster,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: context.colors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          if ((bean != null || editable) &&
-                              profile.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              profile,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: context.colors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
                           ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          // In the row of the name; the stars (a bit larger
+                          // than in the list, the shot's main mark) at the
+                          // bottom, in the line of the profile.
+                          if (offRoast != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: Text(
+                                daysOffRoastLabel(offRoast),
+                                key: const ValueKey('shot-days-off-roast'),
+                                style: TextStyle(
+                                  color: context.colors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          const Spacer(),
+                          StarRating(
+                            rating: shot.rating ?? 0,
+                            size: 18,
+                            gap: 2,
+                            tapPadding: 2,
+                            onChanged: (n) => _db.setShotRating(shot.id, n),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // In the row of the name, the stars below it (a bit
-                        // larger than in the list, the shot's main mark).
-                        if (offRoast != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 3),
-                            child: Text(
-                              daysOffRoastLabel(offRoast),
-                              key: const ValueKey('shot-days-off-roast'),
-                              style: TextStyle(
-                                color: context.colors.textSecondary,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        StarRating(
-                          rating: shot.rating ?? 0,
-                          size: 18,
-                          gap: 2,
-                          tapPadding: 4,
-                          onChanged: (n) => _db.setShotRating(shot.id, n),
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

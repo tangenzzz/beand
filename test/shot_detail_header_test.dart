@@ -14,8 +14,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Shot detail header: name with "12 d off roast" in its row and the stars
-// below that, roaster and profile under the name (the line is switchable in
+// Shot detail header: name with "12 d off roast" in its row, roaster and
+// profile under the name, the stars in the profile's line (the line is switchable in
 // Settings → History).
 
 Widget _app(AppDatabase db, AppSettings settings, int shotId) => MultiProvider(
@@ -96,7 +96,7 @@ void main() {
         find.descendant(of: find.text(text), matching: find.byType(RichText)),
       );
 
-  testWidgets('off-roast line beside the name, stars below, in days', (
+  testWidgets('off-roast line beside the name, stars by the profile, in days', (
     tester,
   ) async {
     phone(tester);
@@ -120,6 +120,11 @@ void main() {
     expect(off.bottom, greaterThan(name.top));
     expect(off.left, greaterThan(name.left));
     expect(stars.top, greaterThanOrEqualTo(off.bottom));
+    // The stars in the line of the profile.
+    final profile = tester.getRect(find.text("Damian's LRv2"));
+    expect(stars.top, lessThan(profile.bottom));
+    expect(stars.bottom, greaterThan(profile.top));
+    expect(stars.left, greaterThan(profile.right));
 
     await teardownApp(tester);
   });
