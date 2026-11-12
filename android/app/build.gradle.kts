@@ -5,9 +5,18 @@ import java.util.Properties
 // that file (other machine, fresh clone) the release build falls back to the
 // debug key instead of failing; such an APK can NOT be installed over a real
 // release build.
+//
+// Two keys: `key.properties` is the APP signing key (also registered with
+// Play App Signing), used by default — GitHub/sideload APKs must use it so
+// they update over Play installs and vice versa. `upload.properties` is the
+// Play UPLOAD key, used only with `-P beandSigning=upload` (see
+// tool/build_play_bundle.sh). That mode never falls back to another key.
+val useUploadKey = (findProperty("beandSigning") as String?) == "upload"
 val keystoreProperties = Properties().apply {
-    val file = rootProject.file("key.properties")
+    val name = if (useUploadKey) "upload.properties" else "key.properties"
+    val file = rootProject.file(name)
     if (file.exists()) file.inputStream().use { load(it) }
+    else if (useUploadKey) throw GradleException("beandSigning=upload but android/$name is missing")
 }
 
 plugins {
