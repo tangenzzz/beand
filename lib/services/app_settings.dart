@@ -64,6 +64,7 @@ class AppSettings extends ChangeNotifier {
   AppSettings({
     bool showFreshnessRing = true,
     bool showBeanStock = true,
+    double emptyBelowGrams = 0,
     Set<HomeMode> enabledHomeModes = defaultEnabledHomeModes,
     HomeMode homeMode = HomeMode.meticulous,
     List<HomeMode> homeModeOrder = HomeMode.values,
@@ -81,6 +82,7 @@ class AppSettings extends ChangeNotifier {
   }) {
     _showFreshnessRing = showFreshnessRing;
     _showBeanStock = showBeanStock;
+    _emptyBelowGrams = emptyBelowGrams;
     _showStageDetails = showStageDetails;
     _showShotFacts = showShotFacts;
     _showGrindFromZero = showGrindFromZero;
@@ -99,6 +101,7 @@ class AppSettings extends ChangeNotifier {
 
   static const showFreshnessRingPrefKey = 'beans_show_freshness_ring';
   static const showBeanStockPrefKey = 'beans_show_stock';
+  static const emptyBelowPrefKey = 'beans_empty_below_grams';
   static const showStageDetailsPrefKey = 'history_show_stage_details';
   static const showShotFactsPrefKey = 'history_show_shot_facts';
   static const showGrindFromZeroPrefKey = 'history_show_grind_from_zero';
@@ -131,6 +134,7 @@ class AppSettings extends ChangeNotifier {
     return AppSettings(
       showFreshnessRing: prefs.getBool(showFreshnessRingPrefKey) ?? true,
       showBeanStock: prefs.getBool(showBeanStockPrefKey) ?? true,
+      emptyBelowGrams: prefs.getDouble(emptyBelowPrefKey) ?? 0,
       showStageDetails: prefs.getBool(showStageDetailsPrefKey) ?? true,
       showShotFacts: prefs.getBool(showShotFactsPrefKey) ?? true,
       showGrindFromZero: prefs.getBool(showGrindFromZeroPrefKey) ?? false,
@@ -226,6 +230,7 @@ class AppSettings extends ChangeNotifier {
     final fresh = await load();
     _showFreshnessRing = fresh._showFreshnessRing;
     _showBeanStock = fresh._showBeanStock;
+    _emptyBelowGrams = fresh._emptyBelowGrams;
     _showStageDetails = fresh._showStageDetails;
     _showShotFacts = fresh._showShotFacts;
     _showGrindFromZero = fresh._showGrindFromZero;
@@ -246,6 +251,7 @@ class AppSettings extends ChangeNotifier {
 
   late bool _showFreshnessRing;
   late bool _showBeanStock;
+  late double _emptyBelowGrams;
   late bool _showStageDetails;
   late bool _showShotFacts;
   late bool _showGrindFromZero;
@@ -283,6 +289,18 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(showBeanStockPrefKey, value);
+  }
+
+  // A shot or brew that leaves less than this in the bag marks it as empty
+  // (BagEmptyWatcher). 0 = off. Works with the bag level only.
+  double get emptyBelowGrams => _emptyBelowGrams;
+
+  Future<void> setEmptyBelowGrams(double value) async {
+    if (value == _emptyBelowGrams) return;
+    _emptyBelowGrams = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(emptyBelowPrefKey, value);
   }
 
   // Shot detail: target and result of the stage at the cursor below the

@@ -7,7 +7,10 @@ enum MachineAlert {
   reached('Temperature reached'),
   stable('Stable'),
   shotDone('Shot done'),
-  connectionLost('Connection lost');
+  connectionLost('Connection lost'),
+  // Not the machine's: a shot or brew left the bag (nearly) empty
+  // (BagEmptyWatcher). Kept last, the notification ids follow the index.
+  bagEmpty('Bag empty');
 
   const MachineAlert(this.label);
   final String label;

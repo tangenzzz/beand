@@ -741,6 +741,18 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  /// When the newest shot with this bean was made (excluding deleted ones);
+  /// null without one.
+  Future<DateTime?> lastShotOfBean(int beanId) async {
+    final latest = shots.timestamp.max();
+    final row =
+        await (selectOnly(shots)
+              ..addColumns([latest])
+              ..where(shots.beanId.equals(beanId) & shots.deletedAt.isNull()))
+            .getSingleOrNull();
+    return row?.read(latest);
+  }
+
   // Shots per grinder name (excluding deleted ones) — the shot counter on My
   // Coffee Desk. Shots keep the grinder as text, so a renamed grinder
   // starts counting anew.

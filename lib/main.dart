@@ -25,6 +25,7 @@ import 'screens/settings/meticulous_settings_screen.dart';
 import 'services/ai/ai_service.dart';
 import 'services/ai/ai_settings.dart';
 import 'services/app_settings.dart';
+import 'services/bag_empty_watcher.dart';
 import 'services/auto_backup.dart';
 import 'services/restore_swap.dart';
 import 'services/connection_log.dart';
@@ -199,6 +200,13 @@ Future<void> main() async {
   }
   machineNotifications.start();
   NotificationLifecycle(machineNotifications);
+  // A shot or brew that leaves the bag (nearly) empty marks it so
+  // (Settings → Beans → Empty below) and may say so (Settings → Notifications).
+  BagEmptyWatcher(
+    database: database,
+    settings: appSettings,
+    onEmptied: (bean, left) => machineNotifications.bagEmptied(bean.name, left),
+  ).start();
 
   // GaggiMate: only connect if the pill is shown at all — otherwise
   // everyone without a GaggiMate would get a reconnect loop into nowhere.

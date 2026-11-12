@@ -431,6 +431,33 @@ class MachineNotifications {
     unawaited(sink.alert(alert, title, body, action: action));
   }
 
+  /// A shot or brew left [beanName]'s bag with [left] grams and it was
+  /// marked as empty (BagEmptyWatcher). Not tied to a machine cycle: may
+  /// come with every bag.
+  Future<void> bagEmptied(String beanName, double left) async {
+    const alert = MachineAlert.bagEmpty;
+    if (!settings.wants(alert)) {
+      ConnectionLog.write('notify', '${alert.name} skipped (switched off)');
+      return;
+    }
+    if (settings.onlyWhenClosed && inForeground) {
+      ConnectionLog.write('notify', '${alert.name} skipped (app in front)');
+      return;
+    }
+    // A pour-over-only user may never have run a machine cycle.
+    if (!_permissionAsked) {
+      _permissionAsked = true;
+      await sink.requestPermission();
+    }
+    ConnectionLog.write('notify', '${alert.name} sent');
+    final name = beanName.trim().isEmpty ? 'Your coffee' : beanName.trim();
+    await sink.alert(
+      alert,
+      '$name is used up',
+      '${left.round()} g left · bag marked as empty',
+    );
+  }
+
   void _watchConnection() {
     final connected =
         socket.connectionState == MachineConnectionState.connected;
