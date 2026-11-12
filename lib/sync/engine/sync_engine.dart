@@ -260,9 +260,6 @@ class SyncEngine {
     if (reset) state.lastSync.clear();
     final done = <String, int>{};
     final events = <String, List<NostrEvent>>{};
-    // Per relay what it delivered (event ID → created_at), so its cursor can
-    // follow the newest event that turns out to be real.
-    final delivered = <String, Map<String, Set<int>>>{};
     await Future.wait([
       for (final url in pool.urls)
         _collect(
@@ -270,7 +267,6 @@ class SyncEngine {
           state.lastSync[url],
           done,
           events,
-          delivered.putIfAbsent(url, () => {}),
           report,
           force,
           () => onProgress?.call(events.length),
@@ -347,21 +343,17 @@ class SyncEngine {
       fresh.lastSync.clear();
       fresh.typesVersion = typesVersion;
     }
+    // The cursor is the network's time, not ours: the newest real event any
+    // relay sent, and never later than now. A clock that runs ahead would
+    // otherwise put it past events other devices make later. It is the same
+    // for all relays: one that lags (or refuses our writes) must not keep
+    // serving its old copies on every run.
+    final newest = verifiedAt.values.fold<int?>(
+      null,
+      (a, b) => a == null || b > a ? b : a,
+    );
     for (final entry in done.entries) {
       if (!fresh.relays.contains(entry.key)) continue;
-      // The cursor is a relay's time, not ours: the newest real event it
-      // sent, and never later than now. A clock that runs ahead would
-      // otherwise put it past events other devices make later.
-      int? newest;
-      for (final MapEntry(key: id, value: times)
-          in (delivered[entry.key] ?? const {}).entries) {
-        final at = verifiedAt[id];
-        if (at != null &&
-            times.contains(at) &&
-            (newest == null || at > newest)) {
-          newest = at;
-        }
-      }
       var cursor = newest == null
           ? state.lastSync[entry.key]
           : min(newest, entry.value);
@@ -387,7 +379,6 @@ class SyncEngine {
     int? last,
     Map<String, int> done,
     Map<String, List<NostrEvent>> events,
-    Map<String, Set<int>> delivered,
     SyncReport report,
     bool force,
     void Function() progress,
@@ -408,7 +399,6 @@ class SyncEngine {
         onPage: (page) {
           for (final e in page) {
             _addCandidate(events, e);
-            delivered.putIfAbsent(e.id, () => {}).add(e.createdAt);
           }
           progress();
         },

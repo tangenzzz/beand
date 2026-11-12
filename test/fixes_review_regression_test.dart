@@ -530,6 +530,59 @@ void main() {
     expect(await db.allBeans(), hasLength(2));
   });
 
+  test('the receive cursor is the same for a relay that lags behind', () async {
+    final identity = SyncIdentity.fromPrivateKey(Uint8List(32)..[31] = 5);
+    final db = AppDatabase(NativeDatabase.memory());
+    Future<NostrEvent> seal(int time) {
+      final envelope = SyncEnvelope(
+        type: 'bean',
+        id: 'record-$time',
+        updatedAt: time * 1000,
+        deviceId: 'remote',
+        deleted: false,
+        data: {'name': 'bean-$time'},
+      );
+      return sealEvent(
+        keys: SyncKeys.of(identity),
+        dTag: identity.dTag('bean', envelope.id),
+        plain: envelope.encode(),
+        createdAt: time,
+      );
+    }
+
+    final old = await seal(1000);
+    final recent = await seal(2000);
+    final pool =
+        FakePool(
+          identity,
+          (url, filter) async => [if (!url.endsWith('lagging')) recent, old]
+              .where((e) => e.createdAt <= (filter['until'] as int? ?? 100000))
+              .toList(),
+        )..setUrls([
+          'wss://review.invalid/lagging',
+          'wss://review.invalid/current',
+        ]);
+    addTearDown(() async {
+      pool.dispose();
+      await db.close();
+    });
+    final state = InMemorySyncStateStore();
+    await state.save(SyncStateData(relays: pool.urls));
+    await SyncEngine(
+      db: db,
+      identity: identity,
+      pool: pool,
+      deviceId: 'local',
+      stateStore: state,
+      devicePresence: false,
+      now: () => DateTime.fromMillisecondsSinceEpoch(10000 * 1000),
+    ).pull(SyncReport());
+    expect((await state.load()).lastSync, {
+      'wss://review.invalid/lagging': 2000,
+      'wss://review.invalid/current': 2000,
+    });
+  });
+
   test(
     'F14 a complete Acaia weight may contain header bytes in its payload',
     () {
