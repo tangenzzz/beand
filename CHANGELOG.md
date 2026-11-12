@@ -6,4 +6,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-First public release.
+## [0.9.1] - 2026-11-12
+
+First public release (pre-release).
+
+[0.9.1]: https://github.com/tangenzzz/beand/releases/tag/v0.9.1
