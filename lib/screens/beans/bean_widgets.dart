@@ -52,6 +52,37 @@ List<BeanGroup> groupBeansByRoaster(Iterable<Bean> beans) {
   return groups;
 }
 
+/// Bags empty for longer than this are only found via the picker's search.
+const beanPickerEmptyHidden = Duration(days: 30);
+
+/// Bean picker of the shot/brew detail: open bags first, then sealed and
+/// frozen ones, then emptied ones — each part grouped by roaster. Bags empty
+/// for longer than [beanPickerEmptyHidden] are [searchOnly], except the
+/// [selectedId] one.
+List<({Bean bean, bool searchOnly})> beanPickerOrder(
+  Iterable<Bean> beans, {
+  int? selectedId,
+  DateTime? now,
+}) {
+  final cutoff = (now ?? DateTime.now()).subtract(beanPickerEmptyHidden);
+  final open = <Bean>[], rest = <Bean>[], emptied = <Bean>[], old = <Bean>[];
+  for (final b in beans) {
+    final empty = b.emptiedAt;
+    if (empty == null) {
+      (b.openedAt != null && !b.isFrozen ? open : rest).add(b);
+    } else if (empty.isBefore(cutoff) && b.id != selectedId) {
+      old.add(b);
+    } else {
+      emptied.add(b);
+    }
+  }
+  return [
+    for (final part in [open, rest, emptied, old])
+      for (final g in groupBeansByRoaster(part))
+        for (final b in g.beans) (bean: b, searchOnly: identical(part, old)),
+  ];
+}
+
 // What the bean was roasted for — the lowercase value is stored
 // (Beans.roastedFor), the label is displayed.
 const roastedForOptions = [

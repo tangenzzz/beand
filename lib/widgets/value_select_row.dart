@@ -24,6 +24,7 @@ class ValueOption<T> {
     this.subtitle,
     this.subtitleIcon,
     this.leading,
+    this.searchOnly = false,
   });
 
   final T value;
@@ -35,6 +36,10 @@ class ValueOption<T> {
 
   /// E.g. the photo circle of a bean or profile.
   final Widget? leading;
+
+  /// Not listed until the search matches it, e.g. a bag that has long been
+  /// empty.
+  final bool searchOnly;
 }
 
 /// The optional "+" at the right of a list's bottom bar, e.g. a new bean.
@@ -550,7 +555,18 @@ class ValueSelectList<T> extends StatefulWidget {
 
   /// The bottom bar: search at the left, the action's "+" at the right.
   static bool hasBar<T>(List<ValueOption<T>> options, {bool action = false}) =>
-      action || options.length > searchThreshold;
+      action ||
+      options.length > searchThreshold ||
+      options.any((o) => o.searchOnly);
+
+  /// The options listed without a search.
+  static List<ValueOption<T>> listed<T>(List<ValueOption<T>> options) =>
+      options.any((o) => o.searchOnly)
+      ? [
+          for (final o in options)
+            if (!o.searchOnly) o,
+        ]
+      : options;
 
   static double rowHeightFor<T>(List<ValueOption<T>> options) =>
       options.any((o) => o.subtitle != null || o.leading != null)
@@ -563,9 +579,10 @@ class ValueSelectList<T> extends StatefulWidget {
     List<ValueOption<T>> options, {
     bool action = false,
   }) {
-    final rows = options.isEmpty
+    final shown = listed(options);
+    final rows = shown.isEmpty
         ? 1.0
-        : options.length.toDouble().clamp(1.0, visibleRows);
+        : shown.length.toDouble().clamp(1.0, visibleRows);
     return 1 +
         rowHeightFor(options) * rows +
         (hasBar(options, action: action) ? _barHeight : 0);
@@ -587,7 +604,8 @@ class _ValueSelectListState<T> extends State<ValueSelectList<T>> {
   void initState() {
     super.initState();
     // The selected entry is visible on opening.
-    final index = widget.options.indexWhere((o) => o.value == widget.selected);
+    final index = ValueSelectList.listed(widget.options)
+        .indexWhere((o) => o.value == widget.selected);
     final row = ValueSelectList.rowHeightFor(widget.options);
     _scroll = ScrollController(
       initialScrollOffset: index <= 2 ? 0 : (index - 2) * row,
@@ -611,7 +629,7 @@ class _ValueSelectListState<T> extends State<ValueSelectList<T>> {
 
   List<ValueOption<T>> _visible() {
     final q = _search.text.trim().toLowerCase();
-    if (q.isEmpty) return widget.options;
+    if (q.isEmpty) return ValueSelectList.listed(widget.options);
     return [
       for (final o in widget.options)
         if ('${o.title} ${o.subtitle ?? ''}'.toLowerCase().contains(q)) o,
@@ -678,15 +696,21 @@ class _ValueSelectListState<T> extends State<ValueSelectList<T>> {
     final options = widget.options;
     final bar = ValueSelectList.hasBar(options, action: widget.action != null);
     final row = ValueSelectList.rowHeightFor(options);
-    final rows = options.isEmpty
+    final shown = ValueSelectList.listed(options);
+    final rows = shown.isEmpty
         ? 1.0
-        : options.length.toDouble().clamp(1.0, ValueSelectList.visibleRows);
+        : shown.length.toDouble().clamp(1.0, ValueSelectList.visibleRows);
     final visible = _visible();
+    final searching = _search.text.trim().isNotEmpty;
     final message =
         widget.placeholder ??
         (options.isEmpty
             ? widget.emptyText
-            : (visible.isEmpty ? 'No matches.' : null));
+            : visible.isNotEmpty
+            ? null
+            : searching
+            ? 'No matches.'
+            : 'Search to find more.');
 
     return Container(
       decoration: BoxDecoration(

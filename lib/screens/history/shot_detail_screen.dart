@@ -806,21 +806,24 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             padding: const EdgeInsets.only(top: 8),
             child: ValueSelectList<int>(
               options: [
-                for (final g in groupBeansByRoaster(_beanList))
-                  for (final b in g.beans)
-                    ValueOption(
-                      value: b.id,
-                      title: b.name,
-                      subtitle: bagSubtitle(b, _beanList),
-                      subtitleIcon: b.openedAt == null
-                          ? Icons.lock_outline
-                          : null,
-                      leading: BeanThumbnail(
-                        path: b.photoPath,
-                        size: 36,
-                        circle: true,
-                      ),
+                for (final (bean: b, :searchOnly) in beanPickerOrder(
+                  _beanList,
+                  selectedId: bean?.id,
+                ))
+                  ValueOption(
+                    value: b.id,
+                    searchOnly: searchOnly,
+                    title: b.name,
+                    subtitle: bagSubtitle(b, _beanList),
+                    subtitleIcon: b.openedAt == null
+                        ? Icons.lock_outline
+                        : null,
+                    leading: BeanThumbnail(
+                      path: b.photoPath,
+                      size: 36,
+                      circle: true,
                     ),
+                  ),
               ],
               selected: bean?.id,
               onSelected: (id) {
