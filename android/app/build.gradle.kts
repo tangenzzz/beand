@@ -53,6 +53,7 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "bean'd"
     }
 
     signingConfigs {
@@ -67,6 +68,18 @@ android {
     }
 
     buildTypes {
+        // Debug and profile builds are a separate app (app.beand.dev,
+        // "bean'd dev") so they install next to the Play/GitHub version,
+        // which is signed with another key. Data does not move between
+        // them by itself: use Settings → Backup / Restore.
+        debug {
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appLabel"] = "bean'd dev"
+        }
+        getByName("profile") {
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appLabel"] = "bean'd dev"
+        }
         release {
             signingConfig = signingConfigs.findByName("release")
                 ?: signingConfigs.getByName("debug")
