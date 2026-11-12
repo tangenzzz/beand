@@ -643,10 +643,14 @@ class SyncEngine {
       );
     }
     // Only keys that sync today: a row from before a key was taken off the
-    // list (the Custom AI address) may still wait for upload.
+    // list (the Custom AI address) may still wait for upload. It is settled
+    // without sending, or it would count as waiting forever.
     final allowedSettings = (settings?.keys ?? syncedSettingKeys()).toSet();
     for (final s in await _dao.pendingSettings()) {
-      if (!allowedSettings.contains(s.key)) continue;
+      if (!allowedSettings.contains(s.key)) {
+        await _dao.markSynced('synced_settings', s.syncId, s.updatedAt);
+        continue;
+      }
       jobs.add(
         _Outgoing(
           'synced_settings',

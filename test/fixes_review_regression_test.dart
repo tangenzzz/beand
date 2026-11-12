@@ -441,6 +441,8 @@ void main() {
     ).push(SyncReport());
     final opened = await openEvents(pool.sent, SyncKeys.of(identity));
     expect(opened.where((e) => e?.data['key'] == 'ai_base_url'), isEmpty);
+    // Settled without sending, so the status does not show it as waiting.
+    expect(await db.syncDao.watchPendingCount().first, 0);
   });
 
   test('F12 cancellation while sealing must prevent a new publish', () async {
