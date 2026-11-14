@@ -545,8 +545,13 @@ class _PreShotCardState extends State<PreShotCard> {
     });
   }
 
-  // After a profile change: priority 1 is the last shot with this profile,
-  // priority 2 (if a bean is already set) the last shot with exactly this
+  // After a profile change: the coffee last brewed with this profile comes
+  // back (its bag, or another brewable bag of that coffee), and with it the
+  // dose/grind size of the last shot with this profile+coffee. If none of
+  // its bags can be brewed any more, the bean stays as it was but the
+  // values still come from that coffee's shot (user 2026-11-14). Without
+  // any shot naming a bean: priority 1 is the last shot with this profile,
+  // priority 2 (if a bean is already set) the last one with exactly this
   // profile+bean combination. Deliberately in sequence so the more specific
   // match overwrites the general one and not the other way round.
   Future<void> _applyProfileDefaults(String profileName) async {
@@ -556,9 +561,46 @@ class _PreShotCardState extends State<PreShotCard> {
     // after all.
     _clearSetupFields();
     await _applyLastShotSetup(profileName: profileName);
+    if (!mounted) return;
+    final lastCoffee = await _lastCoffeeOf(profileName);
+    if (!mounted || _selectedProfileName != profileName) return;
+    if (lastCoffee != null) {
+      final (:bag, :brewable) = lastCoffee;
+      if (brewable != null && brewable.id != _selectedBeanId) {
+        setState(() => _selectedBeanId = brewable.id);
+        context.read<ShotSetup>().setBean(brewable.id);
+      }
+      await _applyLastShotSetup(
+        profileName: profileName,
+        beanId: bag.id,
+        expectBean: brewable != null,
+      );
+      return;
+    }
     final beanId = _selectedBeanId;
-    if (beanId == null || !mounted) return;
+    if (beanId == null) return;
     await _applyLastShotSetup(profileName: profileName, beanId: beanId);
+  }
+
+  // The bag of the last shot with this profile that names a bean, and the
+  // bag to select for it: that one if it can be brewed, else a brewable bag
+  // of the same coffee (a new pack), else none.
+  Future<({Bean bag, Bean? brewable})?> _lastCoffeeOf(
+    String profileName,
+  ) async {
+    final shot = await context.read<AppDatabase>().lastShotWithBean(
+      profileName: profileName,
+      machine: context.read<EspressoMachine>().machineKey,
+    );
+    if (shot == null || !mounted) return null;
+    final bag = _beanList.where((b) => b.id == shot.beanId).firstOrNull;
+    if (bag == null) return null;
+    final pickable = _pickableBeans;
+    final key = coffeeKey(bag);
+    final brewable =
+        pickable.where((b) => b.id == bag.id).firstOrNull ??
+        pickable.where((b) => coffeeKey(b) == key).firstOrNull;
+    return (bag: bag, brewable: brewable);
   }
 
   void _clearSetupFields() {
@@ -576,9 +618,12 @@ class _PreShotCardState extends State<PreShotCard> {
   // shot. Only fields this shot actually has; if a value is missing, the
   // current one stays.
   // Without a matching shot nothing happens.
+  // [beanId] is the bag whose coffee counts; with [expectBean] false it need
+  // not be the selected one (an empty bag's values on a profile change).
   Future<void> _applyLastShotSetup({
     required String profileName,
     int? beanId,
+    bool expectBean = true,
   }) async {
     final machineKey = context.read<EspressoMachine>().machineKey;
     final db = context.read<AppDatabase>();
@@ -598,7 +643,16 @@ class _PreShotCardState extends State<PreShotCard> {
     if (shot == null || !mounted) return;
     // Changed in the meantime (tapped twice quickly)? Then discard.
     if (_selectedProfileName != profileName) return;
-    if (beanId != null && _selectedBeanId != beanId) return;
+    // The selected bag may be another one of the same coffee (a new pack).
+    if (beanId != null && expectBean) {
+      final selected = _selectedBean;
+      if (selected == null ||
+          (bag != null
+              ? coffeeKey(selected) != coffeeKey(bag)
+              : selected.id != beanId)) {
+        return;
+      }
+    }
     final setup = context.read<ShotSetup>();
     final dose = shot.doseGrams;
     final grind = double.tryParse(shot.grindSize ?? '');

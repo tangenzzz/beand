@@ -281,8 +281,11 @@ void main() {
       expect(find.text('20 g'), findsOneWidget);
       expect(find.text('5.5'), findsOneWidget);
 
+      // The profile brought back its last coffee as well.
+      expect(find.text('Kiambu'), findsOneWidget);
+
       // Priority 2: choose a bean already brewed with this profile.
-      await tester.tap(find.text('Select bean'));
+      await tester.tap(find.text('Kiambu'));
       // Let the list fold out before tapping into it.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
@@ -427,7 +430,7 @@ void main() {
     expect(setup.grindSize, 5.5);
     expect(setup.grindMarker, 'Espresso');
 
-    await pick('Select bean', 'Guji');
+    await pick('Kiambu', 'Guji');
     expect(setup.grindSize, 2.8);
     expect(setup.grindMarker, 'Soup', reason: 'the mark of that shot');
 
@@ -514,4 +517,127 @@ void main() {
       await db.close();
     },
   );
+
+  testWidgets('Pre Shot: a profile change brings back its last coffee with '
+      'that combination\'s dose/grind; an empty bag still gives its values', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final db = AppDatabase(NativeDatabase.memory());
+    await tester.runAsync(() async {
+      // Guji: the first bag is used up, a new pack of it is there.
+      final gujiOld = await db.insertBean(
+        BeansCompanion.insert(
+          name: 'Guji',
+          emptiedAt: Value(DateTime(2026, 9, 25)),
+        ),
+      );
+      await db.insertBean(BeansCompanion.insert(name: 'Guji'));
+      final kiambu = await db.insertBean(BeansCompanion.insert(name: 'Kiambu'));
+      // A coffee whose only bag is used up.
+      final gone = await db.insertBean(
+        BeansCompanion.insert(
+          name: 'Gone',
+          emptiedAt: Value(DateTime(2026, 9, 25)),
+        ),
+      );
+      await insertShot(
+        db,
+        at: DateTime(2026, 9, 22),
+        profile: 'Classic',
+        beanId: gujiOld.id,
+        dose: 17.4,
+        grind: '2.8',
+      );
+      await insertShot(
+        db,
+        at: DateTime(2026, 9, 20),
+        profile: 'Classic',
+        beanId: kiambu.id,
+        dose: 20,
+        grind: '5.5',
+      );
+      await insertShot(
+        db,
+        at: DateTime(2026, 9, 23),
+        profile: 'Soup',
+        beanId: gone.id,
+        dose: 15,
+        grind: '4.0',
+      );
+      // Older Soup shot with Guji: must not win over the last coffee.
+      await insertShot(
+        db,
+        at: DateTime(2026, 9, 10),
+        profile: 'Soup',
+        beanId: gujiOld.id,
+        dose: 19,
+        grind: '6.0',
+      );
+    });
+    final service = FakeService()..setIdle();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(value: AppSettings()),
+          ChangeNotifierProvider<ShotSetup>.value(value: ShotSetup.inMemory()),
+          ChangeNotifierProvider<MeticulousSocketService>.value(value: service),
+          ChangeNotifierProvider<EspressoMachine>.value(value: service),
+          ChangeNotifierProvider<GaggiMateService>.value(
+            value: offlineGaggiMate(),
+          ),
+          ChangeNotifierProvider<LiveShotService>.value(
+            value: MeticulousLiveShotService(service)..start(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const Scaffold(
+            body: SingleChildScrollView(child: PreShotCard()),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+
+    Future<void> pick(String opener, String profile) async {
+      await tester.tap(find.text(opener));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.textContaining(profile).last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+    }
+
+    // Classic: Guji came last; its bag is empty, so the new pack is chosen.
+    await pick('Select profile', 'Classic');
+    expect(find.text('Guji'), findsOneWidget);
+    expect(find.text('17.4 g'), findsOneWidget);
+    expect(find.text('2.8'), findsOneWidget);
+
+    // Soup: its last coffee has no brewable bag left — Guji stays, but the
+    // values are that shot's.
+    await pick('Classic', 'Soup');
+    expect(find.text('Guji'), findsOneWidget);
+    expect(find.text('15 g'), findsOneWidget);
+    expect(find.text('4.0'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(Duration.zero);
+    await db.close();
+  });
 }

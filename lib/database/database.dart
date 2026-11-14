@@ -1054,6 +1054,25 @@ class AppDatabase extends _$AppDatabase {
     return [for (final row in await query.get()) row.read(shots.brewChainId)!];
   }
 
+  // Most recent shot with this profile that names a bean — the coffee a
+  // profile change brings back along with its values.
+  Future<Shot?> lastShotWithBean({
+    required String profileName,
+    String? machine,
+  }) {
+    final query = select(shots)
+      ..where(
+        (s) =>
+            s.deletedAt.isNull() &
+            s.profileName.equals(profileName) &
+            s.beanId.isNotNull(),
+      )
+      ..orderBy([(s) => OrderingTerm.desc(s.timestamp)])
+      ..limit(1);
+    if (machine != null) query.where((s) => s.machine.equals(machine));
+    return query.getSingleOrNull();
+  }
+
   // Most recent shot with this profile (and optionally this bean) that
   // carries any setup values at all — a shot without dose AND without grind
   // size doesn't help prefilling, so it is skipped.
