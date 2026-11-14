@@ -41,6 +41,7 @@ void main() {
   late List<Map<String, dynamic>> onMachine;
   var offline = false;
   var imageDownloads = 0;
+  var listCalls = 0;
 
   setUp(() {
     db = AppDatabase(NativeDatabase.memory());
@@ -49,6 +50,8 @@ void main() {
     onMachine = _profiles();
     offline = false;
     imageDownloads = 0;
+    listCalls = 0;
+    ProfileSyncService.changeDebounce = const Duration(milliseconds: 20);
     service = ProfileSyncService(
       database: db,
       socket: machine,
@@ -58,6 +61,7 @@ void main() {
         final path = request.url.path;
         if (path == '/api/v1/profile/list') {
           expect(request.url.queryParameters['full'], 'true');
+          listCalls++;
           return http.Response(jsonEncode(onMachine), 200);
         }
         if (path.startsWith('/api/v1/profile/get/')) {
@@ -219,6 +223,35 @@ void main() {
       );
     },
   );
+
+  test('a change announced by the machine syncs on its own', () async {
+    service.start();
+    await service.sync();
+    final before = listCalls;
+    onMachine[0]['name'] = 'Renamed on the machine';
+    // A save sends several events in a row: one sync.
+    machine.handleProfileEvent({'change': 'update', 'profile_id': 'x'});
+    machine.handleProfileEvent({'change': 'full_reload'});
+    await until(
+      () async =>
+          (await db.watchStoredProfiles().first).first.name ==
+          'Renamed on the machine',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    expect(listCalls, before + 1);
+  });
+
+  test('delete, load and unknown events do not sync', () async {
+    service.start();
+    await service.sync();
+    final before = listCalls;
+    machine.handleProfileEvent({'change': 'delete', 'profile_id': 'x'});
+    machine.handleProfileEvent({'change': 'load', 'profile_id': 'x'});
+    machine.handleProfileEvent({'change': 'something'});
+    machine.handleProfileEvent('not a map');
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    expect(listCalls, before);
+  });
 
   test('refreshing a profile unknown on the machine changes nothing', () async {
     expect(await service.refresh('does-not-exist'), isFalse);

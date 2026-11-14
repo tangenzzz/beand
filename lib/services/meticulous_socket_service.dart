@@ -76,6 +76,34 @@ class MeticulousSocketService extends ChangeNotifier
   // TemperatureTile stay empty for good, even though sensor data keeps
   // flowing.
   String? _fetchedTargetProfileId;
+
+  // Profile changes the machine announces itself (Socket.IO event
+  // `profile`, meticulous-backend ProfileManager._emit_profile_event):
+  // `create`, `update`, `delete`, `full_reload` (list re-read or new
+  // order), `load`. Passed on here: the three that change what the app's
+  // copy should show. `delete` is left out (profiles stay local, user
+  // 2026-11-14), `load` too — the status already tells which profile is
+  // loaded.
+  static const _profileChangesToSync = {'create', 'update', 'full_reload'};
+  final _profileChanges = StreamController<String>.broadcast();
+
+  /// The kind of change ('create', 'update', 'full_reload').
+  Stream<String> get profileChanges => _profileChanges.stream;
+
+  @visibleForTesting
+  void handleProfileEvent(Object? data) {
+    if (data is! Map) return;
+    final change = data['change'];
+    if (change is! String || !_profileChangesToSync.contains(change)) return;
+    // A changed profile may have a new temperature: fetch it again when it
+    // is the loaded one.
+    if (change == 'update' && data['profile_id'] == _fetchedTargetProfileId) {
+      _fetchedTargetProfileId = null;
+      _lastTargetFetchAttemptAt = null;
+    }
+    _profileChanges.add(change);
+  }
+
   DateTime? _lastTargetFetchAttemptAt;
   static const _targetFetchRetryDelay = Duration(seconds: 5);
 
@@ -274,6 +302,7 @@ class MeticulousSocketService extends ChangeNotifier
         }
         notifyListeners();
       })
+      ..on('profile', handleProfileEvent)
       ..on('heater_status', (data) {
         if (data is num) {
           _lastPreheatCountdown = data.toDouble();
@@ -680,6 +709,7 @@ class MeticulousSocketService extends ChangeNotifier
   void dispose() {
     _staleWatch?.cancel();
     _socket?.dispose();
+    unawaited(_profileChanges.close());
     super.dispose();
   }
 }

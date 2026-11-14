@@ -45,16 +45,39 @@ class ProfileSyncService implements ProfileStore {
   Future<bool>? _running;
   bool _disposed = false;
 
+  StreamSubscription<String>? _changes;
+  Timer? _changeDebounce;
+
   void start() {
     socket.addListener(_onSocket);
+    _changes = socket.profileChanges.listen((_) => _onMachineChange());
     _onSocket();
   }
 
   void dispose() {
     _disposed = true;
     socket.removeListener(_onSocket);
+    unawaited(_changes?.cancel());
+    _changeDebounce?.cancel();
     _client.close();
   }
+
+  // The machine announced a profile change (save, new profile, new
+  // order): sync on its own, without the Reload button. Several events in
+  // a row (a save also re-reads the list) make one sync. A sync already
+  // running may have read the list before the change, so it is waited for
+  // and a fresh one follows.
+  void _onMachineChange() {
+    _changeDebounce?.cancel();
+    _changeDebounce = Timer(changeDebounce, () async {
+      final running = _running;
+      if (running != null) await running;
+      if (!_disposed) await sync();
+    });
+  }
+
+  @visibleForTesting
+  static Duration changeDebounce = const Duration(milliseconds: 500);
 
   void _onSocket() {
     final connected =
