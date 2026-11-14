@@ -34,6 +34,7 @@ void main() {
       tester.widget<TextField>(first).textInputAction,
       TextInputAction.next,
     );
+    expect(tester.widget<TextField>(first).autofillHints, isNull);
     await tester.testTextInput.receiveAction(TextInputAction.next);
     await tester.pump();
     final secondField = tester.widget<TextField>(second);

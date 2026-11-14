@@ -320,6 +320,11 @@ Widget backupPasswordField(
   focusNode: focusNode,
   textInputAction: action,
   onSubmitted: onSubmitted,
+  // Out of autofill: two password fields in a dialog read to Android as a
+  // new-account form, and the autofill offer that pops up on the first
+  // character closed the keyboard (user 2026-11-14; the single key field
+  // in Settings → AI was fine).
+  autofillHints: null,
   obscureText: true,
   autocorrect: false,
   enableSuggestions: false,
