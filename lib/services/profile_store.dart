@@ -15,6 +15,12 @@ abstract class ProfileStore {
   // Sync all profiles of the machine.
   Future<void> sync();
 
+  // "Reload from the machine" (Add profile dialog): the same sync on
+  // request, with the images fetched fresh too, so a change made on the
+  // machine shows up. true = the machine answered with its list.
+  // Profiles deleted on the machine stay, as with every sync.
+  Future<bool> reload();
+
   // Fetch a single profile fresh (when opening the view).
   // false = machine unreachable or profile no longer there;
   // the local copy stays in both cases.

@@ -187,6 +187,39 @@ void main() {
     },
   );
 
+  test('reload fetches the images again and reports whether the machine '
+      'answered', () async {
+    await service.sync();
+    expect(imageDownloads, 3);
+    onMachine[0]['name'] = 'Changed on the machine';
+    expect(await service.reload(), isTrue);
+    expect(imageDownloads, 6, reason: 'a reload loads every image fresh');
+    expect(
+      (await db.watchStoredProfiles().first).first.name,
+      'Changed on the machine',
+    );
+
+    offline = true;
+    expect(await service.reload(), isFalse);
+    expect(await db.storedProfilesById(), hasLength(3), reason: 'copy stays');
+  });
+
+  test(
+    'a new image file name on the machine is fetched by a normal sync',
+    () async {
+      await service.sync();
+      final display = onMachine[1]['display'] as Map;
+      display['image'] = '/api/v1/profile/image/new-picture.jpeg';
+      await service.sync();
+      expect(imageDownloads, 4);
+      final id = onMachine[1]['id'] as String;
+      expect(
+        (await db.storedProfilesById())[id]!.imagePath,
+        endsWith('new-picture.jpeg'),
+      );
+    },
+  );
+
   test('refreshing a profile unknown on the machine changes nothing', () async {
     expect(await service.refresh('does-not-exist'), isFalse);
     expect(await db.storedProfilesById(), isEmpty);

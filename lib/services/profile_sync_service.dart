@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
 
 import 'connection_log.dart';
 import '../database/database.dart';
@@ -41,7 +42,7 @@ class ProfileSyncService implements ProfileStore {
   late final ProfileImageCache _images;
 
   bool _wasConnected = false;
-  Future<void>? _running;
+  Future<bool>? _running;
   bool _disposed = false;
 
   void start() {
@@ -74,29 +75,45 @@ class ProfileSyncService implements ProfileStore {
 
   // Sync all of the machine's profiles (never runs twice).
   @override
-  Future<void> sync() {
-    return _running ??= ConnectionLog.track('profile sync', () async {
-      try {
-        final list = await _getJson('profile/list?full=true');
-        if (list is! List) return;
-        final known = await database.storedProfilesById(machine: machineKey);
-        var position = 0;
-        for (final entry in list) {
-          if (_disposed) return;
-          if (entry is Map) {
-            await _store(Map<String, dynamic>.from(entry), position, known);
-          }
-          position++;
-        }
-        debugPrint('ProfileSync: ${list.length} profiles on the machine');
-      } catch (e) {
-        // Machine unreachable or similar: the local copy stays valid.
-        ConnectionLog.failure('profile sync', e);
-      } finally {
-        _running = null;
-      }
-    });
+  Future<void> sync() => _running ??= _syncAll(freshImages: false);
+
+  // Waits for a sync already running, then runs its own with fresh images.
+  @override
+  Future<bool> reload() async {
+    final running = _running;
+    if (running != null) await running;
+    return _running ??= _syncAll(freshImages: true);
   }
+
+  Future<bool> _syncAll({required bool freshImages}) =>
+      ConnectionLog.track('profile sync', () async {
+        try {
+          final list = await _getJson('profile/list?full=true');
+          if (list is! List) return false;
+          final known = await database.storedProfilesById(machine: machineKey);
+          var position = 0;
+          for (final entry in list) {
+            if (_disposed) return false;
+            if (entry is Map) {
+              await _store(
+                Map<String, dynamic>.from(entry),
+                position,
+                known,
+                freshImage: freshImages,
+              );
+            }
+            position++;
+          }
+          debugPrint('ProfileSync: ${list.length} profiles on the machine');
+          return true;
+        } catch (e) {
+          // Machine unreachable or similar: the local copy stays valid.
+          ConnectionLog.failure('profile sync', e);
+          return false;
+        } finally {
+          _running = null;
+        }
+      });
 
   // Fetch one profile fresh from the machine (when opening the view).
   // false = machine unreachable or profile no longer there.
@@ -125,8 +142,9 @@ class ProfileSyncService implements ProfileStore {
   Future<void> _store(
     Map<String, dynamic> json,
     int position,
-    Map<String, StoredProfile> known,
-  ) async {
+    Map<String, StoredProfile> known, {
+    bool freshImage = false,
+  }) async {
     final id = (json['id'] ?? '').toString();
     if (id.isEmpty) return;
     final encoded = jsonEncode(json);
@@ -136,11 +154,15 @@ class ProfileSyncService implements ProfileStore {
         ? display['image'] as String
         : null;
 
-    // Only fetch the image if there is no local copy yet.
+    // Fetch the image if there is no local copy yet, the machine names a
+    // different file, or on a reload.
     var imagePath = existing?.imagePath;
     if (apiImage != null &&
-        (imagePath == null || !File(imagePath).existsSync())) {
-      imagePath = await _images.cache(apiImage);
+        (freshImage ||
+            imagePath == null ||
+            !File(imagePath).existsSync() ||
+            p.basename(imagePath) != p.basename(apiImage))) {
+      imagePath = await _images.cache(apiImage, fresh: freshImage) ?? imagePath;
     }
 
     final unchanged =

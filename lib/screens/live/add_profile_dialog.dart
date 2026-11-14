@@ -146,6 +146,29 @@ class _AddProfileDialogState extends State<AddProfileDialog> {
     }
   }
 
+  // Like "Reload from the Meticulous" in Pour Over: fetch the machine's
+  // profiles now, e.g. after a change made on the machine itself (user
+  // 2026-11-14). The row below follows the local copy on its own.
+  Future<void> _reload() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await widget.store.reload();
+    if (!mounted) return;
+    setState(() => _busy = false);
+    Navigator.of(context).pop();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Profiles reloaded'
+              : 'Could not reach the ${widget.machine.displayName}',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   Future<void> _openSite(String url) async {
     final ok = await _open(Uri.parse(url));
     if (!ok) {
@@ -157,6 +180,8 @@ class _AddProfileDialogState extends State<AddProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final connected =
+        widget.machine.connectionState == MachineConnectionState.connected;
     return Dialog(
       backgroundColor: context.colors.card,
       shape: RoundedRectangleBorder(
@@ -199,6 +224,16 @@ class _AddProfileDialogState extends State<AddProfileDialog> {
               busy: _busy,
               onTap: _uploadJson,
             ),
+            _Option(
+              key: const ValueKey('reload-profiles'),
+              icon: Icons.refresh,
+              title: 'Reload from the ${widget.machine.displayName}',
+              subtitle: connected
+                  ? 'After a change on the machine'
+                  : 'Not connected',
+              busy: _busy,
+              onTap: connected ? _reload : null,
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
               child: Text(
@@ -239,6 +274,7 @@ class _AddProfileDialogState extends State<AddProfileDialog> {
 // Without onTap it is dimmed (not built yet).
 class _Option extends StatelessWidget {
   const _Option({
+    super.key,
     required this.icon,
     required this.title,
     this.subtitle,

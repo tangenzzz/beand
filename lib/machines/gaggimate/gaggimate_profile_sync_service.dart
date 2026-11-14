@@ -32,7 +32,7 @@ class GaggiMateProfileSyncService implements ProfileStore {
   String get machineKey => 'gaggimate';
 
   bool _wasConnected = false;
-  Future<void>? _running;
+  Future<bool>? _running;
   bool _disposed = false;
 
   void start() {
@@ -53,27 +53,39 @@ class GaggiMateProfileSyncService implements ProfileStore {
   }
 
   @override
-  Future<void> sync() {
-    return _running ??= ConnectionLog.track('GaggiMate profile sync', () async {
-      try {
-        // The list already carries the full profiles — unlike the
-        // Meticulous, no second call per profile is needed.
-        final raw = await machine.fetchProfileList();
-        if (raw.isEmpty) return;
-        final known = await database.storedProfilesById(machine: machineKey);
-        for (var i = 0; i < raw.length; i++) {
-          if (_disposed) return;
-          await _store(raw[i], i, known);
-        }
-        debugPrint('GaggiMateProfileSync: ${raw.length} profiles');
-      } catch (e) {
-        // Unreachable: the local copy stays valid.
-        ConnectionLog.failure('GaggiMate profile sync', e);
-      } finally {
-        _running = null;
-      }
-    });
+  Future<void> sync() => _running ??= _syncAll();
+
+  // The GaggiMate has no profile images: a reload is the same sync, waited
+  // for and with an answer.
+  @override
+  Future<bool> reload() async {
+    final running = _running;
+    if (running != null) await running;
+    return _running ??= _syncAll();
   }
+
+  Future<bool> _syncAll() =>
+      ConnectionLog.track('GaggiMate profile sync', () async {
+        try {
+          // The list already carries the full profiles — unlike the
+          // Meticulous, no second call per profile is needed.
+          final raw = await machine.fetchProfileList();
+          if (raw.isEmpty) return false;
+          final known = await database.storedProfilesById(machine: machineKey);
+          for (var i = 0; i < raw.length; i++) {
+            if (_disposed) return false;
+            await _store(raw[i], i, known);
+          }
+          debugPrint('GaggiMateProfileSync: ${raw.length} profiles');
+          return true;
+        } catch (e) {
+          // Unreachable: the local copy stays valid.
+          ConnectionLog.failure('GaggiMate profile sync', e);
+          return false;
+        } finally {
+          _running = null;
+        }
+      });
 
   @override
   Future<bool> refresh(String id) async {

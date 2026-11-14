@@ -83,6 +83,8 @@ class _Store implements ProfileStore {
   @override
   Future<void> sync() async {}
   @override
+  Future<bool> reload() async => true;
+  @override
   Future<bool> refresh(String id) async => true;
   @override
   Future<void> forget(String id) async {}

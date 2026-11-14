@@ -214,6 +214,46 @@ void main() {
     await tester.runAsync(db.close);
   });
 
+  testWidgets('Dialog: reload from the machine, only when connected', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      wrap(
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showAddProfileDialog(context),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Reload from the Meticulous'), findsOneWidget);
+    expect(find.text('Not connected'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('reload-profiles')));
+    await tester.pump();
+    expect(find.text('Add profile'), findsOneWidget, reason: 'nothing ran');
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    socket.connectionState = MachineConnectionState.connected;
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('After a change on the machine'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('reload-profiles')));
+    for (var i = 0; i < 6; i++) {
+      await settle(tester);
+    }
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Add profile'), findsNothing, reason: 'dialog closed');
+    expect(find.text('Profiles reloaded'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(Duration.zero);
+    await tester.runAsync(db.close);
+  });
+
   testWidgets('Dialog: machine error is shown in plain text', (tester) async {
     socket.answer = (ok: false, error: 'HTTP 400: name missing');
     final file = File(

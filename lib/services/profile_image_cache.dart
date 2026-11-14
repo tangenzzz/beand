@@ -22,12 +22,16 @@ class ProfileImageCache {
 
   // Local path, or null without an image / on error (then the profile color
   // remains as fallback).
-  Future<String?> cache(String? apiPath) async {
+  // [fresh]: download again even if a copy exists (a reload on request —
+  // the machine may have a new picture under the same name).
+  Future<String?> cache(String? apiPath, {bool fresh = false}) async {
     final uri = profileImageUri(hostname(), apiPath);
     if (uri == null) return null;
     try {
       final file = File(p.join(imageDir.path, p.basename(apiPath!)));
-      if (file.existsSync() && file.lengthSync() > 0) return file.path;
+      if (!fresh && file.existsSync() && file.lengthSync() > 0) {
+        return file.path;
+      }
       final response = await client
           .send(imageRequest(uri))
           .timeout(const Duration(seconds: 10));
