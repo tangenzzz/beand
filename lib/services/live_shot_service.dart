@@ -471,6 +471,7 @@ class MeticulousLiveShotService extends LiveShotService {
 
   void _updateReadings(MachineStatus? status, String phase) {
     final running =
+        !isWaterPhase(phase) &&
         !_preRunPhases.contains(phase) &&
         !_postRunPhases.contains(phase) &&
         !_maintenancePhases.contains(phase);
@@ -564,7 +565,36 @@ class MeticulousLiveShotService extends LiveShotService {
       stage == ShotStage.awaitingPurge ||
       stage == ShotStage.purging;
 
+  // The water check before heating (meticulous-backend head stage "water
+  // detection"; without water it waits on "Pour water and click to
+  // continue"). It belongs to the preparation like heating: before this,
+  // it fell into the catch-all below and counted as a running brew — the
+  // carousel jumped to the live card and the next 'heating' reset the
+  // session (user 2026-11-14).
+  static bool isWaterPhase(String phase) {
+    final p = phase.toLowerCase();
+    return p == 'water detection' || p.startsWith('pour water');
+  }
+
+  // Names that may follow the start gate before the profile's own stages.
+  static const _leadInPhases = {
+    retractionStage,
+    'water filling',
+    'closing valve',
+  };
+
+  // Phase names already written to the diagnostics log, once each.
+  final _loggedUnknownPhases = <String>{};
+
   void _updateStage(String phase) {
+    if (isWaterPhase(phase)) {
+      // Keep a stage of the preparation (heating, or ready from an earlier
+      // tick); from idle or a finished cycle it starts the preparation.
+      applyStage(
+        stage == ShotStage.ready ? ShotStage.ready : ShotStage.heating,
+      );
+      return;
+    }
     final next = switch (phase) {
       'idle' => ShotStage.idle,
       'starting...' || 'heating' => ShotStage.heating,
@@ -581,7 +611,25 @@ class MeticulousLiveShotService extends LiveShotService {
       'boot' => stage,
       _ => ShotStage.running,
     };
+    _logIfUnknownPhase(phase, next);
     applyStage(next);
+  }
+
+  // A brew normally reaches the catch-all only after the start gate. If an
+  // unknown name starts a "brew" straight from idle or heating, it is
+  // probably a machine state the app does not know yet (like the water
+  // check was) — written to the diagnostics log so the next report shows
+  // it. Lead-in names are skipped: with the machine's auto start they come
+  // right after heating.
+  void _logIfUnknownPhase(String phase, ShotStage next) {
+    if (next != ShotStage.running) return;
+    if (stage != ShotStage.idle && stage != ShotStage.heating) return;
+    if (_leadInPhases.contains(phase.toLowerCase())) return;
+    if (!_loggedUnknownPhases.add(phase)) return;
+    ConnectionLog.write(
+      'phase',
+      'unknown "$phase" after ${stage.name}, taken as brewing',
+    );
   }
 
   // ---- Machine actions ----
