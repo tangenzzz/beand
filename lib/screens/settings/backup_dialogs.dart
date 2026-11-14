@@ -67,6 +67,7 @@ class _OptionsDialog extends StatefulWidget {
 class _OptionsDialogState extends State<_OptionsDialog> {
   final _first = TextEditingController();
   final _second = TextEditingController();
+  final _secondFocus = FocusNode();
   late bool _encrypt = widget.initialEncrypt;
   String? _error;
 
@@ -76,6 +77,7 @@ class _OptionsDialogState extends State<_OptionsDialog> {
   void dispose() {
     _first.dispose();
     _second.dispose();
+    _secondFocus.dispose();
     super.dispose();
   }
 
@@ -148,9 +150,28 @@ class _OptionsDialogState extends State<_OptionsDialog> {
             ),
             if (_needsPassword) ...[
               const SizedBox(height: 4),
-              backupPasswordField(_first, 'Password', colors),
+              // "Next" goes on to the second field with the keyboard
+              // open. With the default "done" it closed after the first
+              // password, the dialog slid down, and came up again on the
+              // tap into the second field — easy to mistype (user
+              // 2026-11-12).
+              backupPasswordField(
+                _first,
+                'Password',
+                colors,
+                key: const ValueKey('backup-password'),
+                action: TextInputAction.next,
+                onSubmitted: (_) => _secondFocus.requestFocus(),
+              ),
               const SizedBox(height: 8),
-              backupPasswordField(_second, 'Repeat password', colors),
+              backupPasswordField(
+                _second,
+                'Repeat password',
+                colors,
+                key: const ValueKey('backup-password-repeat'),
+                focusNode: _secondFocus,
+                onSubmitted: (_) => _submit(),
+              ),
             ],
             if (note != null) ...[
               const SizedBox(height: 10),
@@ -254,7 +275,12 @@ class _RestorePasswordDialogState extends State<_RestorePasswordDialog> {
             style: TextStyle(color: colors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 12),
-          backupPasswordField(_password, 'Password', colors),
+          backupPasswordField(
+            _password,
+            'Password',
+            colors,
+            onSubmitted: (v) => Navigator.of(context).pop(v),
+          ),
           if (widget.error != null) ...[
             const SizedBox(height: 8),
             Text(widget.error!, style: TextStyle(color: colors.danger)),
@@ -283,9 +309,17 @@ class _RestorePasswordDialogState extends State<_RestorePasswordDialog> {
 Widget backupPasswordField(
   TextEditingController controller,
   String hint,
-  AppColors colors,
-) => TextField(
+  AppColors colors, {
+  Key? key,
+  FocusNode? focusNode,
+  TextInputAction action = TextInputAction.done,
+  ValueChanged<String>? onSubmitted,
+}) => TextField(
+  key: key,
   controller: controller,
+  focusNode: focusNode,
+  textInputAction: action,
+  onSubmitted: onSubmitted,
   obscureText: true,
   autocorrect: false,
   enableSuggestions: false,
