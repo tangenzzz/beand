@@ -374,11 +374,11 @@ void main() {
   group('Settings', () {
     test('changed on A → taken over on B, app re-reads', () async {
       await a.sync(); // first capture: everything "never set"
-      a.prefs.values[AppSettings.themeModePrefKey] = 'light';
+      a.prefs.values[AppSettings.beanCurrencyPrefKey] = 'CHF';
       a.prefs.values[AppSettings.beanFormHiddenPrefKey] = ['cost', 'variety'];
       await a.sync();
       await b.sync();
-      expect(b.prefs.values[AppSettings.themeModePrefKey], 'light');
+      expect(b.prefs.values[AppSettings.beanCurrencyPrefKey], 'CHF');
       expect(b.prefs.values[AppSettings.beanFormHiddenPrefKey], [
         'cost',
         'variety',
@@ -390,10 +390,10 @@ void main() {
     });
 
     test('a set value beats a fresh device with default values', () async {
-      a.prefs.values[AppSettings.accentPrefKey] = 'amber';
+      a.prefs.values[AppSettings.historyAvatarPrefKey] = 'bean';
       await a.sync();
       await b.sync(); // B: nothing set, first capture
-      expect(b.prefs.values[AppSettings.accentPrefKey], 'amber');
+      expect(b.prefs.values[AppSettings.historyAvatarPrefKey], 'bean');
     });
 
     test('newer change wins; removal syncs too', () async {
@@ -410,10 +410,12 @@ void main() {
     });
 
     test(
-      'whitelist only: machine address and main switch stay local',
+      'whitelist only: machine address, main switch, appearance stay local',
       () async {
         a.prefs.values['meticulous_hostname'] = 'meticulous.local';
         a.prefs.values['ai_enabled'] = true;
+        a.prefs.values[AppSettings.themeModePrefKey] = 'light';
+        a.prefs.values[AppSettings.accentPrefKey] = 'amber';
         await a.sync();
         await b.sync();
         expect(b.prefs.values, isEmpty);

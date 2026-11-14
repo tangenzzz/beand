@@ -14,7 +14,8 @@ import '../../services/gear_store.dart';
 // selected view/bean/dose, AI keys and the AI main switch (without a key on
 // the other device, "on" there would just mean "No key"). The Custom AI
 // address stays too: taken over from another device, it would receive this
-// device's key.
+// device's key. Appearance (theme, accent) is per device as well (user
+// 2026-11-14).
 
 const settingType = 'setting';
 
@@ -33,8 +34,6 @@ List<String> syncedSettingKeys() => [
   AppSettings.beanFormHiddenPrefKey,
   AppSettings.historyAvatarPrefKey,
   AppSettings.beanCurrencyPrefKey,
-  AppSettings.themeModePrefKey,
-  AppSettings.accentPrefKey,
   // Settings → My Coffee Desk: all gear (grinders and waters included) and
   // the brew chains (JSON lists).
   GearStore.gearPrefKey,
