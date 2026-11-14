@@ -366,7 +366,7 @@ void main() {
     await fillFromLink(tester);
 
     expect(find.text('22'), findsNothing);
-    expect(find.textContaining('not in euro'), findsOneWidget);
+    expect(find.textContaining('in USD, not EUR'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 10));
   });

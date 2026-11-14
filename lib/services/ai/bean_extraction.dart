@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../models/currency.dart';
 import 'ai_prompt.dart';
 
 // Reading a bean from a package or a shop link. This is the domain side of
@@ -55,9 +56,10 @@ class BeanDraft {
   final double? weightGrams;
   final double? cost;
 
-  /// The currency of the price. If it is anything other than euro, the
-  /// price does NOT go into the form: that field is labeled "€", and a
-  /// number from another country would look like a fact there.
+  /// The currency of the price. If it is not the app's currency (Settings
+  /// → Beans), the price does NOT go into the form: that field carries the
+  /// app's unit, and a number in another currency would look like a fact
+  /// there.
   final String? currency;
 
   final List<String> taste;
@@ -79,15 +81,14 @@ class BeanDraft {
       cost == null &&
       taste.isEmpty;
 
-  /// The price, but only if it was given in euro.
-  double? get costInEuro {
+  /// The price, but only if it was given in [target] (or in no currency).
+  double? costIn(Currency target) {
     if (cost == null) return null;
-    final c = currency?.trim().toUpperCase();
-    if (c == null || c.isEmpty) return cost;
-    return (c == 'EUR' || c == '€') ? cost : null;
+    return currencyMatches(currency, target) ? cost : null;
   }
 
-  bool get hasForeignPrice => cost != null && costInEuro == null;
+  bool hasForeignPrice(Currency target) =>
+      cost != null && costIn(target) == null;
 
   factory BeanDraft.fromJson(Map<String, Object?> json) => BeanDraft(
     name: _text(json['name']),

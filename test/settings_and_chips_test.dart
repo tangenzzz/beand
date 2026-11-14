@@ -154,6 +154,38 @@ void main() {
     );
     await db.close();
   });
+
+  testWidgets('Settings > Beans: choose Currency', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase(NativeDatabase.memory());
+    final settings = AppSettings();
+    await tester.pumpWidget(
+      app(db, const SettingsScreen(), settings: settings),
+    );
+
+    await tester.tap(find.text('Beans'));
+    await tester.pumpAndSettle();
+    expect(find.text('Currency'), findsOneWidget);
+    expect(find.text('Euro (€)'), findsOneWidget);
+    expect(find.text('Swiss franc (CHF)'), findsNothing);
+
+    await tester.tap(find.text('Currency'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Swiss franc (CHF)'));
+    await tester.pumpAndSettle();
+    expect(settings.beanCurrency.code, 'CHF');
+    expect(find.text('Euro (€)'), findsNothing);
+    expect(
+      SharedPreferences.getInstance().then(
+        (p) => p.getString(AppSettings.beanCurrencyPrefKey),
+      ),
+      completion('CHF'),
+    );
+    await db.close();
+  });
 }
 
 void freshnessTests() {

@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database.dart';
 import '../../models/coffee.dart';
+import '../../models/currency.dart';
 import '../../models/machine_profile.dart' show profilePlaceholderColor;
 import '../../models/profile_draft.dart' show newUuid;
 import '../../services/ai/ai_prompt.dart';
@@ -1189,7 +1190,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       setText(
         BeanFormField.cost.name,
         bag.cost,
-        _formatNumber(draft.costInEuro),
+        _formatNumber(draft.costIn(_currencyNow)),
       );
     }
     setText(
@@ -1230,8 +1231,9 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       _aiNote = [
         '${filled.length} field${filled.length == 1 ? '' : 's'} read — '
             'check the highlighted ones.',
-        if (draft.hasForeignPrice)
-          'The price was not in euro, so it was left out.',
+        if (draft.hasForeignPrice(_currencyNow))
+          'The price was in ${draft.currency!.trim().toUpperCase()}, not '
+              '${_currencyNow.code}, so it was left out.',
       ].join(' ');
     });
   }
@@ -2012,6 +2014,12 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
     );
   }
 
+  // Unit of every price (Settings → Beans → Currency).
+  Currency get _currency => context.watch<AppSettings>().beanCurrency;
+
+  // The same outside build (AI fill).
+  Currency get _currencyNow => context.read<AppSettings>().beanCurrency;
+
   TextStyle get _bagValueStyle => TextStyle(
     color: context.colors.textPrimary,
     fontSize: 15,
@@ -2041,7 +2049,12 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       else
         null,
       if (_visible(BeanFormField.cost))
-        cell('Cost', bag.cost == null ? '—' : '${_formatNumber(bag.cost)} €')
+        cell(
+          'Cost',
+          bag.cost == null
+              ? '—'
+              : '${_formatNumber(bag.cost)} ${_currency.symbol}',
+        )
       else
         null,
     ]);
@@ -2138,7 +2151,7 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
       if (_visible(BeanFormField.cost))
         _bagCell(
           'Cost',
-          number(d.cost, '€', BeanFormField.cost.name),
+          number(d.cost, _currency.symbol, BeanFormField.cost.name),
           mark: BeanFormField.cost.name,
         )
       else

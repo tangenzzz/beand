@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/currency.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/value_select_row.dart';
 import '../beans/freshness.dart';
 import 'bag_level_settings_screen.dart';
 import 'beans_form_settings_screen.dart';
@@ -65,6 +67,7 @@ class BeansSettingsScreen extends StatelessWidget {
                   ),
                   // Like "AI analysis" in Settings → History: the same switch
                   // as in Settings → AI, grayed out and off without a key.
+                  const _CurrencyPicker(),
                   SettingsSwitchRow(
                     title: 'Fill bean form with AI',
                     info:
@@ -81,6 +84,32 @@ class BeansSettingsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// Currency: the unit of every bean price (form, bag, filter) — the app's
+// value row with its inline choice list; the search finds code or name.
+class _CurrencyPicker extends StatelessWidget {
+  const _CurrencyPicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<AppSettings>();
+    return ValueSelectRow<Currency>(
+      key: const ValueKey('currency-picker'),
+      label: 'Currency',
+      labelWidth: 96,
+      labelSize: settingsValueLabelSize,
+      labelColor: context.colors.textPrimary,
+      horizontalPadding: AppSpacing.dividerInset,
+      value: settings.beanCurrency,
+      valueText: settings.beanCurrency.label,
+      options: [
+        for (final c in currencies)
+          ValueOption(value: c, title: c.label, subtitle: c.code),
+      ],
+      onChanged: settings.setBeanCurrency,
     );
   }
 }

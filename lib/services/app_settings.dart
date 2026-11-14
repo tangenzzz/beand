@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/currency.dart';
 import '../theme/app_colors.dart';
 
 // The switchable home views (pills at the top left of the Home tab).
@@ -80,6 +81,7 @@ class AppSettings extends ChangeNotifier {
     bool showGrindFromZero = false,
     bool expandAiAnalysis = true,
     bool expandProfileCurve = true,
+    String beanCurrency = defaultCurrencyCode,
   }) {
     _showFreshnessRing = showFreshnessRing;
     _showBeanStock = showBeanStock;
@@ -99,6 +101,7 @@ class AppSettings extends ChangeNotifier {
     _beanStatus = beanStatus;
     _themeMode = themeMode;
     _accent = accent;
+    _beanCurrency = currencyFor(beanCurrency).code;
   }
 
   static const showFreshnessRingPrefKey = 'beans_show_freshness_ring';
@@ -117,6 +120,7 @@ class AppSettings extends ChangeNotifier {
   static const beanFormOrderPrefKey = 'beans_form_order_card';
   static const beanFormHiddenPrefKey = 'beans_form_hidden';
   static const historyAvatarPrefKey = 'history_avatar';
+  static const beanCurrencyPrefKey = 'beans_currency';
   // Per device, not synced: what this device looks at right now.
   static const beanStatusPrefKey = 'beans_status';
   static const themeModePrefKey = 'appearance_theme_mode';
@@ -174,6 +178,7 @@ class AppSettings extends ChangeNotifier {
       accent:
           AppAccent.values.asNameMap()[prefs.getString(accentPrefKey)] ??
           AppAccent.teal,
+      beanCurrency: prefs.getString(beanCurrencyPrefKey) ?? defaultCurrencyCode,
     );
   }
 
@@ -250,6 +255,7 @@ class AppSettings extends ChangeNotifier {
     _beanStatus = fresh._beanStatus;
     _themeMode = fresh._themeMode;
     _accent = fresh._accent;
+    _beanCurrency = fresh._beanCurrency;
     fresh.dispose();
     notifyListeners();
   }
@@ -272,6 +278,7 @@ class AppSettings extends ChangeNotifier {
   late BeanStatus _beanStatus;
   late AppThemeMode _themeMode;
   late AppAccent _accent;
+  late String _beanCurrency;
 
   // Freshness ring (days since roast) in the bean list and picker; off =
   // only the text "12 d".
@@ -501,6 +508,18 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(historyAvatarPrefKey, value.name);
+  }
+
+  // Currency of bean prices (Settings → Beans). Prices are bare numbers:
+  // switching it changes the unit shown, not the stored values.
+  Currency get beanCurrency => currencyFor(_beanCurrency);
+
+  Future<void> setBeanCurrency(Currency value) async {
+    if (value.code == _beanCurrency) return;
+    _beanCurrency = value.code;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(beanCurrencyPrefKey, value.code);
   }
 
   // The Beans tab stays on the view last chosen, also after a restart.

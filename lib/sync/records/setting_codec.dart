@@ -32,6 +32,7 @@ List<String> syncedSettingKeys() => [
   AppSettings.beanFormOrderPrefKey,
   AppSettings.beanFormHiddenPrefKey,
   AppSettings.historyAvatarPrefKey,
+  AppSettings.beanCurrencyPrefKey,
   AppSettings.themeModePrefKey,
   AppSettings.accentPrefKey,
   // Settings → My Coffee Desk: all gear (grinders and waters included) and

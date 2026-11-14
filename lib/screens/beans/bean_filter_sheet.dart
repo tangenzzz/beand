@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
+import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import 'bean_filter.dart';
 import 'bean_widgets.dart';
@@ -212,7 +214,7 @@ class _BeanFilterSheetState extends State<_BeanFilterSheet> {
               if (_options.costBounds != null)
                 _RangeSection(
                   title: 'Cost',
-                  unit: '€',
+                  unit: context.watch<AppSettings>().beanCurrency.symbol,
                   bounds: _options.costBounds!,
                   value: _cost,
                   onChanged: (v) => setState(() => _cost = v),

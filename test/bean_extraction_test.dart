@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:beand/models/currency.dart';
 import 'package:beand/services/ai/ai_key_store.dart';
 import 'package:beand/services/ai/ai_prompt.dart';
 import 'package:beand/services/ai/ai_provider.dart';
@@ -42,7 +43,7 @@ void main() {
       expect(draft.roastDate, DateTime(2026, 9, 28));
       expect(draft.isBlend, isFalse);
       expect(draft.weightGrams, 250);
-      expect(draft.costInEuro, 17.5);
+      expect(draft.costIn(currencyFor('EUR')), 17.5);
       expect(draft.taste, ['blackcurrant', 'grapefruit']);
       expect(draft.isEmpty, isFalse);
     });
@@ -105,14 +106,35 @@ void main() {
     test('price in a foreign currency does NOT go into the euro field', () {
       final draft = BeanDraft.fromJson({'cost': 22, 'currency': 'USD'});
       expect(draft.cost, 22);
-      expect(draft.costInEuro, isNull);
-      expect(draft.hasForeignPrice, isTrue);
+      expect(draft.costIn(currencyFor('EUR')), isNull);
+      expect(draft.hasForeignPrice(currencyFor('EUR')), isTrue);
     });
 
     test('without a currency the price counts as euros', () {
       final draft = BeanDraft.fromJson({'cost': 22});
-      expect(draft.costInEuro, 22);
-      expect(draft.hasForeignPrice, isFalse);
+      expect(draft.costIn(currencyFor('EUR')), 22);
+      expect(draft.hasForeignPrice(currencyFor('EUR')), isFalse);
+    });
+
+    test('price in the app currency goes in, by code or symbol', () {
+      final usd = currencyFor('USD');
+      expect(
+        BeanDraft.fromJson({'cost': 22, 'currency': 'usd'}).costIn(usd),
+        22,
+      );
+      expect(
+        BeanDraft.fromJson({'cost': 22, 'currency': r'$'}).costIn(usd),
+        22,
+      );
+      final eur = BeanDraft.fromJson({'cost': 22, 'currency': 'EUR'});
+      expect(eur.costIn(usd), isNull);
+      expect(eur.hasForeignPrice(usd), isTrue);
+    });
+
+    test('unknown currency code falls back to euro', () {
+      expect(currencyFor('XYZ').code, 'EUR');
+      expect(currencyFor(null).code, 'EUR');
+      expect(currencyFor(' chf ').symbol, 'CHF');
     });
 
     test('taste also as a comma-separated line', () {
