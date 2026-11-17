@@ -6,6 +6,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-17
+
 ### Changed
 - Introduction: every screen it opens has Continue at the bottom (also on
   the Meticulous, GaggiMate and Scales pages); the back arrow returns to the
@@ -22,6 +24,7 @@ uses [Semantic Versioning](https://semver.org/).
 ### Fixed
 - Pre Shot: a profile started on the machine now brings its bean, dose and
   grind even when the Pre Shot card was not in view.
+- iOS: bean photos no longer disappear after an app update.
 
 ## [0.9.2] - 2026-11-14
 
@@ -47,5 +50,6 @@ uses [Semantic Versioning](https://semver.org/).
 
 First public release (pre-release).
 
+[0.9.3]: https://github.com/tangenzzz/beand/releases/tag/v0.9.3
 [0.9.2]: https://github.com/tangenzzz/beand/releases/tag/v0.9.2
 [0.9.1]: https://github.com/tangenzzz/beand/releases/tag/v0.9.1

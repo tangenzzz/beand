@@ -3,7 +3,7 @@
 // Actions token can see them. Falls back to FALLBACK when GitHub can't be reached.
 import { REPO_URL } from './i18n/ui';
 
-const FALLBACK = '0.9.2';
+const FALLBACK = '0.9.3';
 const api = REPO_URL.replace('https://github.com/', 'https://api.github.com/repos/') + '/releases?per_page=10';
 
 async function latest(): Promise<{ version: string; url: string }> {
