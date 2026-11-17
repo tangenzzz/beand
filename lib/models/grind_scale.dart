@@ -117,6 +117,7 @@ class GrindScale {
     this.min = 0,
     this.max = 20,
     this.clicksPerRotation = 0,
+    this.clicksPerNumber = 0,
     this.markers = const [],
   });
 
@@ -178,11 +179,29 @@ class GrindScale {
   final double min;
   final double max;
 
-  /// Clicks only: above 0 the value reads as rotations and clicks ("2.14"),
-  /// 0 as plain clicks ("24 clicks").
+  /// Clicks only: above 0 the value reads as rotations and clicks ("2.05"),
+  /// 0 as plain clicks ("24 clicks", Comandante).
   final int clicksPerRotation;
 
+  /// With rotations: clicks between two numbers of the dial. Above 0 the
+  /// value reads rotation.number.click (1Zpresso K-Ultra: 100 per rotation,
+  /// 10 per number → "1.4.5"). Only if it divides [clicksPerRotation].
+  final int clicksPerNumber;
+
   bool get _asRotations => unit == GrindUnit.clicks && clicksPerRotation > 0;
+
+  bool get _withNumbers =>
+      _asRotations &&
+      clicksPerNumber > 0 &&
+      clicksPerNumber < clicksPerRotation &&
+      clicksPerRotation % clicksPerNumber == 0;
+
+  /// Whether the value reads as rotations ("2.05" or "1.4.5").
+  bool get readsAsRotations => _asRotations;
+
+  // Digits a part needs so "2.5" can't be mistaken for "2.50": the clicks
+  // of a rotation (or of a number) always get the same width.
+  static int _width(int count) => '${count - 1}'.length;
 
   /// After the value: the unit's, except clicks read as rotations ("2.14"
   /// stands alone).
@@ -201,11 +220,48 @@ class GrindScale {
       final clicks = value.round();
       final sign = clicks < 0 ? '-' : '';
       final abs = clicks.abs();
-      text = '$sign${abs ~/ clicksPerRotation}.${abs % clicksPerRotation}';
+      final rotation = abs ~/ clicksPerRotation;
+      final rest = abs % clicksPerRotation;
+      if (_withNumbers) {
+        final number = rest ~/ clicksPerNumber;
+        final click = rest % clicksPerNumber;
+        final numbers = clicksPerRotation ~/ clicksPerNumber;
+        text =
+            '$sign$rotation.'
+            '${'$number'.padLeft(_width(numbers), '0')}.'
+            '${'$click'.padLeft(_width(clicksPerNumber), '0')}';
+      } else {
+        text =
+            '$sign$rotation.'
+            '${'$rest'.padLeft(_width(clicksPerRotation), '0')}';
+      }
     } else {
       text = value.toStringAsFixed(digits);
     }
     return withUnit && suffix.isNotEmpty ? '$text $suffix' : text;
+  }
+
+  /// What is typed back into a value — the same notation as [format]: plain
+  /// clicks ("45"), or with rotations "2.05" / "1.4.5", where missing parts
+  /// count as 0 ("3" = three full rotations, "1.4" = rotation 1, number 4).
+  /// Null if it can't be read.
+  double? parse(String input) {
+    final text = input.trim().replaceAll(',', '.');
+    if (text.isEmpty) return null;
+    if (!_asRotations) return double.tryParse(text);
+    final negative = text.startsWith('-');
+    final parts = (negative ? text.substring(1) : text).split('.');
+    final sizes = _withNumbers
+        ? [clicksPerRotation, clicksPerNumber, 1]
+        : [clicksPerRotation, 1];
+    if (parts.length > sizes.length) return null;
+    var clicks = 0;
+    for (final (i, part) in parts.indexed) {
+      final n = int.tryParse(part.isEmpty && i > 0 ? '0' : part);
+      if (n == null || n < 0) return null;
+      clicks += n * sizes[i];
+    }
+    return (negative ? -clicks : clicks).toDouble();
   }
 
   double clamp(double value) => value.clamp(min, max).toDouble();
@@ -216,6 +272,7 @@ class GrindScale {
     'min': min,
     'max': max,
     if (_asRotations) 'perRotation': clicksPerRotation,
+    if (_withNumbers) 'perNumber': clicksPerNumber,
     if (markers.isNotEmpty) 'markers': [for (final m in markers) m.toJson()],
   };
 
@@ -232,7 +289,7 @@ class GrindScale {
       return null;
     }
     if (step <= 0 || max <= min) return null;
-    final per = json['perRotation'];
+    final per = json['perRotation'], perNumber = json['perNumber'];
     final markers = json['markers'];
     return GrindScale(
       unit: unit,
@@ -242,6 +299,9 @@ class GrindScale {
       clicksPerRotation: per is num && per > 0
           ? per.toInt()
           : (legacyRotations ? 30 : 0),
+      clicksPerNumber: perNumber is num && perNumber > 0
+          ? perNumber.toInt()
+          : 0,
       markers: markers is List
           ? [for (final m in markers) ?GrindMarker.fromJson(m)]
           : const [],
@@ -256,6 +316,7 @@ class GrindScale {
       other.min == min &&
       other.max == max &&
       other.clicksPerRotation == clicksPerRotation &&
+      other.clicksPerNumber == clicksPerNumber &&
       listEquals(other.markers, markers);
 
   @override
@@ -265,6 +326,7 @@ class GrindScale {
     min,
     max,
     clicksPerRotation,
+    clicksPerNumber,
     Object.hashAll(markers),
   );
 }

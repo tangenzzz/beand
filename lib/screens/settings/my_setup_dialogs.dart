@@ -97,21 +97,74 @@ class _GrinderDialogState extends State<_GrinderDialog> {
   late bool _hand = widget.grinder?.hand ?? false;
   late GrindUnit? _unit = widget.grinder?.scale?.unit;
   late double _step = widget.grinder?.scale?.step ?? 0.5;
-  late final _min = TextEditingController(
-    text: _num(widget.grinder?.scale?.min),
-  );
-  late final _max = TextEditingController(
-    text: _num(widget.grinder?.scale?.max),
-  );
+  // Clicks only: plain ("45", Comandante) or as rotations ("1.4.5", K-Ultra).
+  late bool _rotations = widget.grinder?.scale?.readsAsRotations ?? false;
   late final _perRotation = TextEditingController(
     text: switch (widget.grinder?.scale?.clicksPerRotation) {
       final int n when n > 0 => '$n',
       _ => '',
     },
   );
-  late final _zero = TextEditingController(
-    text: _num(widget.grinder?.zeroPoint?.value),
+  late final _perNumber = TextEditingController(
+    text: switch (widget.grinder?.scale?.clicksPerNumber) {
+      final int n when n > 0 => '$n',
+      _ => '',
+    },
   );
+  // Range and zero point are typed as read on the grinder ("3.0.0").
+  late final _min = TextEditingController(
+    text: _shown(widget.grinder?.scale?.min),
+  );
+  late final _max = TextEditingController(
+    text: _shown(widget.grinder?.scale?.max),
+  );
+  late final _zero = TextEditingController(
+    text: _shown(widget.grinder?.zeroPoint?.value),
+  );
+
+  String _shown(double? v) {
+    final scale = widget.grinder?.scale;
+    if (v == null || scale == null || !scale.readsAsRotations) return _num(v);
+    return scale.format(v, withUnit: false);
+  }
+
+  /// How a typed value is read: the notation of the scale being edited
+  /// (rotations with the clicks entered so far), else a plain number.
+  GrindScale get _notation => GrindScale(
+    unit: _unit ?? GrindUnit.dial,
+    step: 1,
+    max: 1,
+    clicksPerRotation: _unit == GrindUnit.clicks && _rotations
+        ? int.tryParse(_perRotation.text.trim()) ?? 0
+        : 0,
+    clicksPerNumber: _unit == GrindUnit.clicks && _rotations
+        ? int.tryParse(_perNumber.text.trim()) ?? 0
+        : 0,
+  );
+
+  double? _read(TextEditingController c) => _notation.parse(c.text);
+
+  // Switching between "45" and "1.4.5": the range and zero point already
+  // typed are rewritten in the new notation, so they keep their meaning.
+  void _setRotations(bool rotations) => setState(() {
+    final values = [
+      for (final c in [_min, _max, _zero]) _read(c),
+    ];
+    _rotations = rotations;
+    if (rotations && _perRotation.text.trim().isEmpty) {
+      // The usual 1Zpresso dial; easy to change.
+      _perRotation.text = '100';
+      if (_perNumber.text.trim().isEmpty) _perNumber.text = '10';
+    }
+    final notation = _notation;
+    for (final (i, c) in [_min, _max, _zero].indexed) {
+      final v = values[i];
+      if (v == null) continue;
+      c.text = notation.readsAsRotations
+          ? notation.format(v, withUnit: false)
+          : _num(v);
+    }
+  });
 
   // Index marks (optional): colour, name, offset from the first one.
   late final List<_MarkerDraft> _markers = [
@@ -161,16 +214,16 @@ class _GrinderDialogState extends State<_GrinderDialog> {
 
   GrindScale? get _scale {
     final unit = _unit;
-    final min = _parse(_min), max = _parse(_max);
+    final notation = _notation;
+    final min = _read(_min), max = _read(_max);
     if (unit == null || min == null || max == null || max <= min) return null;
     return GrindScale(
       unit: unit,
       step: unit.steps.contains(_step) ? _step : unit.steps.first,
       min: min,
       max: max,
-      clicksPerRotation: _unit == GrindUnit.clicks
-          ? int.tryParse(_perRotation.text.trim()) ?? 0
-          : 0,
+      clicksPerRotation: notation.clicksPerRotation,
+      clicksPerNumber: notation.clicksPerNumber,
       markers: [
         for (final (i, m) in _markers.indexed)
           if (m.name.text.trim().isNotEmpty)
@@ -189,6 +242,8 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     super.initState();
     _brand = TextEditingController(text: widget.grinder?.brand)
       ..addListener(_refresh);
+    _perRotation.addListener(_refresh);
+    _perNumber.addListener(_refresh);
     _name = TextEditingController(text: widget.grinder?.name)
       ..addListener(_refresh);
     for (final b in widget.grinder?.burrs ?? const <String>[]) {
@@ -199,7 +254,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
 
   @override
   void dispose() {
-    for (final c in [_min, _max, _perRotation, _zero]) {
+    for (final c in [_min, _max, _perRotation, _perNumber, _zero]) {
       c.dispose();
     }
     for (final m in _markers) {
@@ -230,7 +285,7 @@ class _GrinderDialogState extends State<_GrinderDialog> {
     // A zero point entered or changed: a new entry with today's date, for
     // the fitted burrs (or the grinder, while none are named).
     final store = context.read<GrinderStore>();
-    final zero = _parse(_zero);
+    final zero = _read(_zero);
     if (zero != null) store.setZero(id, zero);
     Navigator.of(context).pop(store.byId(id));
   }
@@ -287,6 +342,20 @@ class _GrinderDialogState extends State<_GrinderDialog> {
       ],
     ),
   );
+
+  String _rangeHint(GrindUnit unit) {
+    final notation = _notation;
+    if (!notation.readsAsRotations) {
+      return switch (unit) {
+        GrindUnit.clicks => 'Clicks from fully closed, e.g. 0 to 40',
+        GrindUnit.microns => 'In µm, e.g. 0 to 1500',
+        GrindUnit.dial => 'The numbers on the dial, e.g. 0 to 50',
+      };
+    }
+    String f(int clicks) => notation.format(clicks.toDouble(), withUnit: false);
+    final three = notation.clicksPerRotation * 3;
+    return 'As read on the grinder, e.g. ${f(0)} to ${f(three)}';
+  }
 
   // Shown next to the folded "Advanced": what is set in there.
   String? _advancedSummary() {
@@ -419,6 +488,40 @@ class _GrinderDialogState extends State<_GrinderDialog> {
           onChanged: _setUnit,
         ),
         if (_unit case final unit?) ...[
+          if (unit == GrindUnit.clicks) ...[
+            const SizedBox(height: 8),
+            UnderlineSelect<bool>(
+              key: const ValueKey('grinder-read-as'),
+              options: const [
+                UnderlineOption(false, 'Clicks · 45'),
+                UnderlineOption(true, 'Rotations · 1.4.5'),
+              ],
+              value: _rotations,
+              onChanged: (v) => _setRotations(v ?? false),
+            ),
+            if (_rotations)
+              Row(
+                children: [
+                  Expanded(
+                    child: SetupField(
+                      key: const ValueKey('grinder-per-rotation'),
+                      controller: _perRotation,
+                      label: 'Clicks / rotation',
+                      numeric: true,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: SetupField(
+                      key: const ValueKey('grinder-per-number'),
+                      controller: _perNumber,
+                      label: 'Clicks / number',
+                      numeric: true,
+                    ),
+                  ),
+                ],
+              ),
+          ],
           if (unit.steps.length > 1) ...[
             const SizedBox(height: 8),
             UnderlineSelect<double>(
@@ -454,14 +557,17 @@ class _GrinderDialogState extends State<_GrinderDialog> {
               ),
             ],
           ),
-          // Optional: with it the clicks read as rotations ("2.14", 1Zpresso).
-          if (unit == GrindUnit.clicks)
-            SetupField(
-              key: const ValueKey('grinder-per-rotation'),
-              controller: _perRotation,
-              label: 'Per rotation',
-              numeric: true,
+          // What From/To mean, in the notation chosen above.
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              _rangeHint(unit),
+              style: TextStyle(
+                color: context.colors.textTertiary,
+                fontSize: 12,
+              ),
             ),
+          ),
           _label(
             'Markers (optional)',
             info:

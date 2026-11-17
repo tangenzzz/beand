@@ -80,6 +80,56 @@ void main() {
       expect(GrindScale.fromJson(clicks.toJson())!.format(24), '24 clicks');
     });
 
+    test('rotations: clicks padded, so 2.05 never reads as 2.5', () {
+      const s = GrindScale(
+        unit: GrindUnit.clicks,
+        step: 1,
+        max: 120,
+        clicksPerRotation: 30,
+      );
+      expect(s.format(65), '2.05');
+      expect(s.format(74), '2.14');
+      expect(s.parse('2.05'), 65);
+      expect(s.parse('2.5'), 65, reason: 'typed short, still click 5');
+      expect(s.parse('3'), 90, reason: 'a bare number is whole rotations');
+      expect(s.parse('-0.03'), -3);
+      expect(s.parse('x'), isNull);
+      expect(s.parse('1.2.3'), isNull, reason: 'no numbers on this dial');
+    });
+
+    test('K-Ultra: rotation.number.click, both ways and through JSON', () {
+      const k = GrindScale(
+        unit: GrindUnit.clicks,
+        step: 1,
+        max: 300,
+        clicksPerRotation: 100,
+        clicksPerNumber: 10,
+      );
+      expect(k.format(145), '1.4.5');
+      expect(k.format(5), '0.0.5');
+      expect(k.format(200), '2.0.0');
+      expect(k.suffix, '');
+      expect(k.parse('1.4.5'), 145);
+      expect(k.parse('1.4'), 140);
+      expect(k.parse('3'), 300);
+      expect(k.parse('3.0.0'), 300);
+      expect(k.parse('1.4.5.1'), isNull);
+      expect(GrindScale.fromJson(k.toJson()), k);
+      // Plain clicks (Comandante) read and type as plain numbers.
+      const c = GrindScale(unit: GrindUnit.clicks, step: 1, max: 40);
+      expect(c.format(24), '24 clicks');
+      expect(c.parse('24'), 24);
+      // A number size that doesn't fit the rotation falls back to two parts.
+      const odd = GrindScale(
+        unit: GrindUnit.clicks,
+        step: 1,
+        max: 120,
+        clicksPerRotation: 30,
+        clicksPerNumber: 7,
+      );
+      expect(odd.format(65), '2.05');
+    });
+
     test('range may start below zero; JSON round trip; nonsense dropped', () {
       const s = GrindScale(step: 0.5, min: -5, max: 50);
       expect(s.clamp(-9), -5);
@@ -228,6 +278,80 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Microns · 0–1200 µm'), findsOneWidget);
     expect(find.textContaining('-30 ·'), findsOneWidget);
+  });
+
+  testWidgets('grinder dialog: K-Ultra read as 1.4.5, range typed the same', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(412, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final gear = GearStore.inMemory();
+    final grinders = GrinderStore(gear);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<GearStore>.value(value: gear),
+          ChangeNotifierProvider<GrinderStore>.value(value: grinders),
+          ChangeNotifierProvider<WaterStore>(create: (_) => WaterStore(gear)),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const MyCoffeeDeskScreen(),
+        ),
+      ),
+    );
+
+    await addGear(tester, 'Grinder');
+    await tester.enterText(
+      find.byKey(const ValueKey('grinder-name')),
+      'K-Ultra',
+    );
+    await openAdvanced(tester);
+    await tester.tap(find.text('Clicks'));
+    await tester.pump();
+    // Plain clicks first: the range is in clicks.
+    expect(find.text('Clicks from fully closed, e.g. 0 to 40'), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('grinder-max')), '300');
+    await tester.pump();
+    // Rotations: 1Zpresso's dial is filled in, the range is rewritten.
+    await tester.tap(find.text('Rotations · 1.4.5'));
+    await tester.pump();
+    expect(
+      find.text('As read on the grinder, e.g. 0.0.0 to 3.0.0'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(
+              of: find.byKey(const ValueKey('grinder-max')),
+              matching: find.byType(EditableText),
+            ),
+          )
+          .controller
+          .text,
+      '3.0.0',
+    );
+    await tester.enterText(find.byKey(const ValueKey('grinder-zero')), '0.0.5');
+    await tester.pump();
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final g = grinders.grinders.single;
+    expect(
+      g.scale,
+      const GrindScale(
+        unit: GrindUnit.clicks,
+        step: 1,
+        min: 0,
+        max: 300,
+        clicksPerRotation: 100,
+        clicksPerNumber: 10,
+      ),
+    );
+    expect(g.zeroPoint?.value, 5);
   });
 
   testWidgets('Pre Shot: grind in the unit of the chain grinder, from zero', (

@@ -13,8 +13,13 @@ uses [Semantic Versioning](https://semver.org/).
 - Value ruler: drag anywhere on the panel, including the big number; the
   keyboard icon still opens the input.
 - Beans: the currency moved to Settings → Beans → Form, under Cost.
+- Grinders: clicks read either as plain clicks (Comandante, "45") or as
+  rotations, now also rotation.number.click (1Zpresso K-Ultra, "1.4.5");
+  range and zero point are typed the same way, with a hint what they mean.
 
 ### Fixed
+- Grinders: rotations show their clicks with a leading zero ("2.05"), so they
+  can't be mistaken for "2.5".
 - Pre Shot: a profile started on the machine now brings its bean, dose and
   grind even when the Pre Shot card was not in view.
 
