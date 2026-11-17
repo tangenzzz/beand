@@ -3,7 +3,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../theme/app_theme.dart';
-import '../onboarding/onboarding_screen.dart';
 import 'connection_log_screen.dart';
 import 'settings_widgets.dart';
 
@@ -164,14 +163,6 @@ class AboutSettingsScreen extends StatelessWidget {
                     title: 'Open-source licenses',
                     onTap: () => _showLicenses(context),
                   ),
-                  // The first-start introduction once more (user
-                  // 2026-11-17); it changes nothing by itself, its Add
-                  // buttons open the usual screens.
-                  SettingsRow(
-                    icon: Icons.slideshow_outlined,
-                    title: 'Introduction',
-                    onTap: () => AboutSettingsScreen.showIntroduction(context),
-                  ),
                   SettingsRow(
                     icon: Icons.receipt_long_outlined,
                     title: 'Diagnostics log',
@@ -186,17 +177,6 @@ class AboutSettingsScreen extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  /// Full screen, above the tab bar; "Let's go" or back closes it.
-  static Future<void> showIntroduction(BuildContext context) {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    return navigator.push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => OnboardingScreen(onFinished: navigator.pop),
       ),
     );
   }
