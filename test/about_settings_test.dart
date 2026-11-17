@@ -31,6 +31,30 @@ void main() {
     expect(find.text('Open-source licenses'), findsOneWidget);
   });
 
+  testWidgets('Introduction opens the first-start pages and closes again', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpAbout(tester);
+    await tester.tap(find.text('Introduction'));
+    await tester.pumpAndSettle();
+    expect(find.text('Connect your machine'), findsOneWidget);
+    // The last page's art keeps moving: no pumpAndSettle from there on.
+    for (var i = 0; i < 4; i++) {
+      await tester.tap(find.text('Skip'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(find.text('Ready for brewing'), findsOneWidget);
+    await tester.tap(find.text("Let's go"));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Ready for brewing'), findsNothing);
+    expect(find.text('Introduction'), findsOneWidget);
+  });
+
   testWidgets('credits page lists every credit with its usage', (tester) async {
     await pumpAbout(tester);
     await tester.tap(find.text('Credits'));

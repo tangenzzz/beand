@@ -6,6 +6,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Settings → About → Introduction shows the first-start introduction again.
+
 ### Changed
 - Introduction: every screen it opens has Continue at the bottom (also on
   the Meticulous, GaggiMate and Scales pages); the back arrow returns to the
