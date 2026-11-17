@@ -14,8 +14,10 @@ uses [Semantic Versioning](https://semver.org/).
   keyboard icon still opens the input.
 - Beans: the currency moved to Settings → Beans → Form, under Cost.
 - Grinders: clicks read either as plain clicks (Comandante, "45") or as
-  rotations, now also rotation.number.click (1Zpresso K-Ultra, "1.4.5");
-  range and zero point are typed the same way, with a hint what they mean.
+  rotations, now also rotation.number.click (1Zpresso K-Ultra). With
+  rotations you pick how many the dial turns instead of From/To; with one
+  the reading leaves the rotation out ("4.6"), with more it leads ("1.4.6")
+  and Pre-Shot offers the rotations above the grind ruler.
 
 ### Fixed
 - Pre Shot: a profile started on the machine now brings its bean, dose and

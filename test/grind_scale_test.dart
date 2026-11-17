@@ -62,6 +62,7 @@ void main() {
         step: 1,
         max: 120,
         clicksPerRotation: 30,
+        rotations: 4,
       );
       expect(rotations.format(74), '2.14');
       expect(rotations.suffix, '');
@@ -86,6 +87,7 @@ void main() {
         step: 1,
         max: 120,
         clicksPerRotation: 30,
+        rotations: 4,
       );
       expect(s.format(65), '2.5');
       expect(s.format(74), '2.14');
@@ -104,6 +106,7 @@ void main() {
         max: 300,
         clicksPerRotation: 100,
         clicksPerNumber: 10,
+        rotations: 3,
       );
       expect(k.format(145), '1.4.5');
       expect(k.format(5), '0.0.5');
@@ -125,9 +128,50 @@ void main() {
         step: 1,
         max: 120,
         clicksPerRotation: 30,
+        rotations: 4,
         clicksPerNumber: 7,
       );
       expect(odd.format(65), '2.5');
+    });
+
+    test('one rotation (or none given): the rotation is left out', () {
+      for (final turns in [0, 1]) {
+        final k = GrindScale.rotary(
+          clicksPerRotation: 100,
+          clicksPerNumber: 10,
+          rotations: turns,
+        );
+        expect(k.hasRotations, isFalse);
+        expect(k.min, 0);
+        expect(k.max, 99);
+        expect(k.format(46), '4.6');
+        expect(k.format(67), '6.7');
+        expect(k.parse('4.6'), 46);
+        expect(k.parse('4'), 40);
+        expect(GrindScale.fromJson(k.toJson()), k);
+      }
+      // Several: the rotation leads, the range covers them all.
+      final three = GrindScale.rotary(
+        clicksPerRotation: 100,
+        clicksPerNumber: 10,
+        rotations: 3,
+      );
+      expect(three.hasRotations, isTrue);
+      expect(three.max, 299);
+      expect(three.format(146), '1.4.6');
+      expect(three.rotationOf(146), 1);
+      expect(three.parse('2.0.0'), 200);
+      // Stored before the count existed: as many as the range covers.
+      final old = GrindScale.fromJson({
+        'unit': 'clicks',
+        'step': 1,
+        'min': 0,
+        'max': 300,
+        'perRotation': 100,
+        'perNumber': 10,
+      })!;
+      expect(old.rotations, 3);
+      expect(old.format(145), '1.4.5');
     });
 
     test('range may start below zero; JSON round trip; nonsense dropped', () {
@@ -280,7 +324,7 @@ void main() {
     expect(find.textContaining('-30 ·'), findsOneWidget);
   });
 
-  testWidgets('grinder dialog: K-Ultra read as 1.4.5, range typed the same', (
+  testWidgets('grinder dialog: K-Ultra with rotations instead of From/To', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(412, 2200);
@@ -302,6 +346,16 @@ void main() {
       ),
     );
 
+    String text(String key) => tester
+        .widget<EditableText>(
+          find.descendant(
+            of: find.byKey(ValueKey(key)),
+            matching: find.byType(EditableText),
+          ),
+        )
+        .controller
+        .text;
+
     await addGear(tester, 'Grinder');
     await tester.enterText(
       find.byKey(const ValueKey('grinder-name')),
@@ -310,31 +364,34 @@ void main() {
     await openAdvanced(tester);
     await tester.tap(find.text('Clicks'));
     await tester.pump();
-    // Plain clicks first: the range is in clicks.
+    // Plain clicks: From/To in clicks.
     expect(find.text('Clicks from fully closed, e.g. 0 to 40'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('grinder-max')), '300');
     await tester.pump();
-    // Rotations: 1Zpresso's dial is filled in, the range is rewritten.
+    // Rotations: the 1Zpresso dial is filled in, three rotations follow
+    // from the range, From/To are gone.
     await tester.tap(find.text('Rotations · 1.4.5'));
     await tester.pump();
-    expect(
-      find.text('As read on the grinder, e.g. 0.0.0 to 3.0.0'),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<EditableText>(
-            find.descendant(
-              of: find.byKey(const ValueKey('grinder-max')),
-              matching: find.byType(EditableText),
-            ),
-          )
-          .controller
-          .text,
-      '3.0.0',
-    );
+    expect(find.byKey(const ValueKey('grinder-max')), findsNothing);
+    expect(text('grinder-per-rotation'), '100');
+    expect(text('grinder-per-number'), '10');
+    expect(find.text('Shown as 1.4.6'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('grinder-zero')), '0.0.5');
     await tester.pump();
+    // One rotation ("–"): no rotation in front, the zero point follows.
+    Finder turn(String label) => find.descendant(
+      of: find.byKey(const ValueKey('grinder-rotations')),
+      matching: find.text(label),
+    );
+    await tester.ensureVisible(turn('–'));
+    await tester.pumpAndSettle();
+    await tester.tap(turn('–'));
+    await tester.pump();
+    expect(find.text('Shown as 4.6'), findsOneWidget);
+    expect(text('grinder-zero'), '0.5');
+    await tester.tap(turn('3'));
+    await tester.pump();
+    expect(text('grinder-zero'), '0.0.5');
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -342,13 +399,10 @@ void main() {
     final g = grinders.grinders.single;
     expect(
       g.scale,
-      const GrindScale(
-        unit: GrindUnit.clicks,
-        step: 1,
-        min: 0,
-        max: 300,
+      GrindScale.rotary(
         clicksPerRotation: 100,
         clicksPerNumber: 10,
+        rotations: 3,
       ),
     );
     expect(g.zeroPoint?.value, 5);
@@ -444,6 +498,61 @@ void main() {
     await tester.pump();
     expect(last?.$2, 'Soup');
     expect(last!.$1, closeTo(1.2, 1e-9));
+  });
+
+  testWidgets('grind panel: rotations on top, a tap jumps to its start', (
+    tester,
+  ) async {
+    final scale = GrindScale.rotary(
+      clicksPerRotation: 100,
+      clicksPerNumber: 10,
+      rotations: 3,
+    );
+    var value = 146.0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => GrindPanel(
+              scale: scale,
+              value: value,
+              marker: null,
+              onChanged: (v, _) => setState(() => value = v),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('1.4.6'), findsOneWidget);
+    for (final r in [0, 1, 2]) {
+      expect(find.byKey(ValueKey('rotation-$r')), findsOneWidget);
+    }
+    expect(find.byKey(const ValueKey('rotation-3')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('rotation-2')));
+    await tester.pump();
+    expect(value, 200);
+    expect(find.text('2.0.0'), findsOneWidget);
+
+    // One rotation: no row, the reading without the rotation.
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: GrindPanel(
+            scale: GrindScale.rotary(
+              clicksPerRotation: 100,
+              clicksPerNumber: 10,
+            ),
+            value: 46,
+            marker: null,
+            onChanged: (_, _) {},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('4.6'), findsOneWidget);
+    expect(find.byKey(const ValueKey('rotation-0')), findsNothing);
   });
 
   testWidgets('grinder dialog: markers with colour, name and offset', (

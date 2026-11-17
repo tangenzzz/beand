@@ -8,7 +8,8 @@ import 'ruler_picker.dart';
 // grinder's scale. On a grinder with several index marks (Kafatek
 // Monolith: green, red, white) one ruler runs across all of them: sliding
 // past the end of a mark carries on at the next one, and the mark can be
-// picked on top — the value is then shown for that mark.
+// picked on top — the value is then shown for that mark. A grinder read in
+// several rotations gets the rotations on top the same way.
 class GrindPanel extends StatefulWidget {
   const GrindPanel({
     super.key,
@@ -28,7 +29,8 @@ class GrindPanel extends StatefulWidget {
   static const _markerRow = 30.0;
 
   static double heightFor(GrindScale scale) =>
-      RulerPicker.compactHeight + (scale.hasMarkers ? _markerRow : 0);
+      RulerPicker.compactHeight +
+      (scale.hasMarkers || scale.hasRotations ? _markerRow : 0);
 
   @override
   State<GrindPanel> createState() => _GrindPanelState();
@@ -57,6 +59,7 @@ class _GrindPanelState extends State<GrindPanel> {
   @override
   Widget build(BuildContext context) {
     final current = _current;
+    if (current == null && _scale.hasRotations) return _rotary();
     if (current == null) {
       return RulerPicker(
         value: _scale.clamp(widget.value),
@@ -110,6 +113,53 @@ class _GrindPanelState extends State<GrindPanel> {
             if (r.marker != _current) setState(() => _current = r.marker);
             widget.onChanged(r.value, r.marker.name);
           },
+        ),
+      ],
+    );
+  }
+}
+
+extension on _GrindPanelState {
+  // More than one rotation (K-Ultra "1.4.6"): the rotations on top like the
+  // marks, the ruler across all of them. Tapping a rotation jumps to its
+  // start (user 2026-11-17); sliding on moves the choice along.
+  Widget _rotary() {
+    final value = _scale.clamp(widget.value);
+    final current = _scale.rotationOf(value);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: GrindPanel._markerRow,
+          child: Center(
+            child: Wrap(
+              spacing: UnderlineSelect.spacing,
+              children: [
+                for (var r = 0; r < _scale.rotations; r++)
+                  UnderlineItem(
+                    key: ValueKey('rotation-$r'),
+                    label: '$r',
+                    fontSize: 10,
+                    underlineColor: Colors.transparent,
+                    selected: r == current,
+                    onTap: () => widget.onChanged(
+                      (r * _scale.clicksPerRotation).toDouble(),
+                      null,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        RulerPicker(
+          value: value,
+          min: _scale.min,
+          max: _scale.max,
+          step: _scale.step,
+          format: (v) => _scale.format(v, withUnit: false),
+          unit: _scale.suffix,
+          showLabels: false,
+          onChanged: (v) => widget.onChanged(v, null),
         ),
       ],
     );

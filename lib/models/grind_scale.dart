@@ -118,6 +118,7 @@ class GrindScale {
     this.max = 20,
     this.clicksPerRotation = 0,
     this.clicksPerNumber = 0,
+    this.rotations = 0,
     this.markers = const [],
   });
 
@@ -188,7 +189,38 @@ class GrindScale {
   /// 10 per number → "1.4.5"). Only if it divides [clicksPerRotation].
   final int clicksPerNumber;
 
+  /// With rotations: how many the dial turns (user 2026-11-17, instead of
+  /// From/To). 0 = not given, the same as 1: then the reading leaves the
+  /// rotation out ("4.6", not "0.4.6"). Above 1 the rotation leads
+  /// ("1.4.6", counted from 0) and Pre-Shot offers the rotations to pick.
+  final int rotations;
+
   bool get _asRotations => unit == GrindUnit.clicks && clicksPerRotation > 0;
+
+  /// More than one rotation: the reading starts with the rotation.
+  bool get hasRotations => _asRotations && rotations > 1;
+
+  /// The rotation (from 0) a value lies in.
+  int rotationOf(double value) =>
+      _asRotations ? (value.round() ~/ clicksPerRotation) : 0;
+
+  /// A scale read in rotations: range 0 up to the last click of the last
+  /// rotation, the rest follows from the dial.
+  factory GrindScale.rotary({
+    required int clicksPerRotation,
+    int clicksPerNumber = 0,
+    int rotations = 0,
+    List<GrindMarker> markers = const [],
+  }) => GrindScale(
+    unit: GrindUnit.clicks,
+    step: 1,
+    min: 0,
+    max: (rotations < 1 ? 1 : rotations) * clicksPerRotation - 1.0,
+    clicksPerRotation: clicksPerRotation,
+    clicksPerNumber: clicksPerNumber,
+    rotations: rotations,
+    markers: markers,
+  );
 
   bool get _withNumbers =>
       _asRotations &&
@@ -218,13 +250,15 @@ class GrindScale {
       final abs = clicks.abs();
       final rotation = abs ~/ clicksPerRotation;
       final rest = abs % clicksPerRotation;
+      // One rotation (or none given): no rotation in front ("4.6").
+      final lead = hasRotations ? '$rotation.' : '';
       if (_withNumbers) {
         final number = rest ~/ clicksPerNumber;
         final click = rest % clicksPerNumber;
-        text = '$sign$rotation.$number.$click';
+        text = '$sign$lead$number.$click';
       } else {
         // Unpadded on purpose (user 2026-11-17): click 5 reads "2.5".
-        text = '$sign$rotation.$rest';
+        text = hasRotations ? '$sign$lead$rest' : '$sign$abs';
       }
     } else {
       text = value.toStringAsFixed(digits);
@@ -233,8 +267,9 @@ class GrindScale {
   }
 
   /// What is typed back into a value — the same notation as [format]: plain
-  /// clicks ("45"), or with rotations "2.5" / "1.4.5", where missing parts
-  /// count as 0 ("3" = three full rotations, "1.4" = rotation 1, number 4).
+  /// clicks ("45"), or with rotations "2.5" / "1.4.5" — without the rotation
+  /// in front when there is only one ("4.6"). Missing parts at the end count
+  /// as 0 ("1.4" = rotation 1, number 4).
   /// Null if it can't be read.
   double? parse(String input) {
     final text = input.trim().replaceAll(',', '.');
@@ -242,9 +277,11 @@ class GrindScale {
     if (!_asRotations) return double.tryParse(text);
     final negative = text.startsWith('-');
     final parts = (negative ? text.substring(1) : text).split('.');
-    final sizes = _withNumbers
-        ? [clicksPerRotation, clicksPerNumber, 1]
-        : [clicksPerRotation, 1];
+    final sizes = [
+      if (hasRotations) clicksPerRotation,
+      if (_withNumbers) clicksPerNumber,
+      1,
+    ];
     if (parts.length > sizes.length) return null;
     var clicks = 0;
     for (final (i, part) in parts.indexed) {
@@ -264,6 +301,7 @@ class GrindScale {
     'max': max,
     if (_asRotations) 'perRotation': clicksPerRotation,
     if (_withNumbers) 'perNumber': clicksPerNumber,
+    if (_asRotations) 'rotations': rotations,
     if (markers.isNotEmpty) 'markers': [for (final m in markers) m.toJson()],
   };
 
@@ -281,6 +319,7 @@ class GrindScale {
     }
     if (step <= 0 || max <= min) return null;
     final per = json['perRotation'], perNumber = json['perNumber'];
+    final turns = json['rotations'];
     final markers = json['markers'];
     return GrindScale(
       unit: unit,
@@ -293,10 +332,21 @@ class GrindScale {
       clicksPerNumber: perNumber is num && perNumber > 0
           ? perNumber.toInt()
           : 0,
+      rotations: turns is num
+          ? turns.toInt()
+          : _rotationsCovering(max.toDouble(), per, legacyRotations),
       markers: markers is List
           ? [for (final m in markers) ?GrindMarker.fromJson(m)]
           : const [],
     );
+  }
+
+  // Stored before the rotations count existed: as many as the range covers
+  // (0–120 at 30 per rotation → 4), so the reading keeps its rotation.
+  static int _rotationsCovering(double max, Object? per, bool legacy) {
+    final p = per is num && per > 0 ? per.toInt() : (legacy ? 30 : 0);
+    if (p <= 0) return 0;
+    return (max / p).ceil();
   }
 
   @override
@@ -308,6 +358,7 @@ class GrindScale {
       other.max == max &&
       other.clicksPerRotation == clicksPerRotation &&
       other.clicksPerNumber == clicksPerNumber &&
+      other.rotations == rotations &&
       listEquals(other.markers, markers);
 
   @override
@@ -318,6 +369,7 @@ class GrindScale {
     max,
     clicksPerRotation,
     clicksPerNumber,
+    rotations,
     Object.hashAll(markers),
   );
 }
