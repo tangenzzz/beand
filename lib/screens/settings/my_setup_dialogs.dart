@@ -111,11 +111,11 @@ class _GrinderDialogState extends State<_GrinderDialog> {
       _ => '',
     },
   );
-  // With rotations: how many the dial turns; 0 = "–", the same as 1
+  // With rotations: how many the dial turns, 1 to 6, 1 by default
   // (user 2026-11-17: replaces From/To there).
   late int _turns = (widget.grinder?.scale?.readsAsRotations ?? false)
-      ? widget.grinder!.scale!.rotations
-      : 0;
+      ? widget.grinder!.scale!.rotations.clamp(1, 6)
+      : 1;
   // From/To in plain numbers (not shown with rotations); the zero point is
   // typed as read on the grinder ("0.0.5" or "0.5").
   late final _min = TextEditingController(
@@ -166,10 +166,9 @@ class _GrinderDialogState extends State<_GrinderDialog> {
   }
 
   // Switching between "45" and "1.4.5". To rotations: the dial is filled
-  // in if empty, the rotations follow from the range so far; back to clicks:
-  // the range is the rotations' clicks.
+  // in if empty, one rotation to start with; back to clicks: the range is
+  // the rotations' clicks.
   void _setRotations(bool rotations) => setState(() {
-    final max = _parse(_max);
     _keepZero(() {
       if (rotations && _perRotation.text.trim().isEmpty) {
         // The usual 1Zpresso dial; easy to change.
@@ -177,12 +176,11 @@ class _GrinderDialogState extends State<_GrinderDialog> {
         if (_perNumber.text.trim().isEmpty) _perNumber.text = '10';
       }
       final per = _perRotationValue;
-      if (rotations && max != null && per > 0) {
-        final turns = (max / per).ceil();
-        _turns = turns > 1 ? turns : 0;
-      } else if (!rotations && _rotary && per > 0) {
+      if (rotations) {
+        _turns = 1;
+      } else if (_rotary && per > 0) {
         _min.text = '0';
-        _max.text = '${(_turns < 1 ? 1 : _turns) * per}';
+        _max.text = '${_turns * per}';
       }
       _rotations = rotations;
     });
@@ -578,11 +576,10 @@ class _GrinderDialogState extends State<_GrinderDialog> {
               UnderlineSelect<int>(
                 key: const ValueKey('grinder-rotations'),
                 options: [
-                  const UnderlineOption(0, '–'),
-                  for (var i = 1; i <= 8; i++) UnderlineOption(i, '$i'),
+                  for (var i = 1; i <= 6; i++) UnderlineOption(i, '$i'),
                 ],
                 value: _turns,
-                onChanged: (v) => _setTurns(v ?? 0),
+                onChanged: (v) => _setTurns(v ?? 1),
               ),
               if (_rotaryHint() case final hint?) _hint(hint),
             ],

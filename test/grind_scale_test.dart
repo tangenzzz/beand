@@ -368,29 +368,30 @@ void main() {
     expect(find.text('Clicks from fully closed, e.g. 0 to 40'), findsOneWidget);
     await tester.enterText(find.byKey(const ValueKey('grinder-max')), '300');
     await tester.pump();
-    // Rotations: the 1Zpresso dial is filled in, three rotations follow
-    // from the range, From/To are gone.
+    // Rotations: the 1Zpresso dial is filled in, one rotation to start
+    // with (no rotation in front), From/To are gone.
     await tester.tap(find.text('Rotations · 1.4.5'));
     await tester.pump();
     expect(find.byKey(const ValueKey('grinder-max')), findsNothing);
     expect(text('grinder-per-rotation'), '100');
     expect(text('grinder-per-number'), '10');
-    expect(find.text('Shown as 1.4.6'), findsOneWidget);
-    await tester.enterText(find.byKey(const ValueKey('grinder-zero')), '0.0.5');
-    await tester.pump();
-    // One rotation ("–"): no rotation in front, the zero point follows.
+    expect(find.text('Shown as 4.6'), findsOneWidget);
     Finder turn(String label) => find.descendant(
       of: find.byKey(const ValueKey('grinder-rotations')),
       matching: find.text(label),
     );
-    await tester.ensureVisible(turn('–'));
-    await tester.pumpAndSettle();
-    await tester.tap(turn('–'));
+    // Only 1 to 6.
+    expect(turn('–'), findsNothing);
+    expect(turn('6'), findsOneWidget);
+    expect(turn('7'), findsNothing);
+    await tester.enterText(find.byKey(const ValueKey('grinder-zero')), '0.5');
     await tester.pump();
-    expect(find.text('Shown as 4.6'), findsOneWidget);
-    expect(text('grinder-zero'), '0.5');
+    // Three: the rotation leads, the zero point follows.
+    await tester.ensureVisible(turn('3'));
+    await tester.pumpAndSettle();
     await tester.tap(turn('3'));
     await tester.pump();
+    expect(find.text('Shown as 1.4.6'), findsOneWidget);
     expect(text('grinder-zero'), '0.0.5');
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
