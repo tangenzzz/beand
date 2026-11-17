@@ -5,10 +5,12 @@ import '../beans/bean_form_screen.dart';
 import '../settings/connections_screen.dart';
 import '../settings/my_coffee_desk_screen.dart';
 import 'onboarding_art.dart';
+import 'onboarding_step.dart';
 
 // The introduction on the very first start: full-screen pages with a
 // picture, a heading, one sentence, "Add …" and "Skip". Each "Add" opens the
-// real screen; coming back from it with something saved moves on.
+// real screen with "Continue" at the bottom (onboarding_step.dart):
+// Continue moves on, the back arrow returns to the same page.
 
 /// What the "Add" buttons open. true = go to the next page afterwards.
 class OnboardingActions {
@@ -24,38 +26,47 @@ class OnboardingActions {
   final Future<bool> Function(BuildContext) addGear;
   final Future<bool> Function(BuildContext) addChain;
 
-  static Future<bool> _openConnections(BuildContext context) async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const ConnectionsScreen()));
-    return true;
-  }
+  static Future<bool> _openConnections(BuildContext context) =>
+      openOnboardingStep(context, (_) => const ConnectionsScreen());
 
-  static Future<bool> _openBeanForm(BuildContext context) async {
-    final saved = await Navigator.of(
-      context,
-    ).push<Object?>(MaterialPageRoute(builder: (_) => const BeanFormScreen()));
-    return saved != null;
-  }
-
-  static Future<bool> _desk(
-    BuildContext context, {
-    required bool chains,
-  }) async {
-    final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) =>
-            MyCoffeeDeskScreen(startOnChains: chains, closeAfterAdding: true),
-      ),
-    );
-    return added ?? false;
-  }
+  static Future<bool> _openBeanForm(BuildContext context) =>
+      openOnboardingStep(context, (_) => const BeanFormScreen());
 
   static Future<bool> _openDesk(BuildContext context) =>
-      _desk(context, chains: false);
+      openOnboardingStep(context, (_) => const MyCoffeeDeskScreen());
 
-  static Future<bool> _openChains(BuildContext context) =>
-      _desk(context, chains: true);
+  static Future<bool> _openChains(BuildContext context) => openOnboardingStep(
+    context,
+    (_) => const MyCoffeeDeskScreen(startOnChains: true),
+  );
+}
+
+/// Opens [builder] as a step of the introduction: "Continue" at the bottom
+/// (on the screen and on every page opened from it) closes all of them and
+/// returns true; the back arrow returns false and the introduction stays on
+/// its page. A screen that closes itself with a result (the bean form after
+/// "Save & continue") counts as continue too.
+Future<bool> openOnboardingStep(
+  BuildContext context,
+  WidgetBuilder builder,
+) async {
+  final navigator = Navigator.of(context);
+  final here = ModalRoute.of(context);
+  var moveOn = false;
+  void onContinue() {
+    moveOn = true;
+    navigator.popUntil((route) => route == here);
+  }
+
+  final result = await navigator.push<Object?>(
+    MaterialPageRoute(
+      builder: (_) => OnboardingStep(
+        onContinue: onContinue,
+        child: Builder(builder: builder),
+      ),
+    ),
+  );
+  return moveOn || result != null;
 }
 
 class OnboardingScreen extends StatefulWidget {

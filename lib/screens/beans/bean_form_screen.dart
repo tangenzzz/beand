@@ -27,6 +27,7 @@ import 'bean_suggestions.dart';
 import 'bean_widgets.dart';
 import 'freshness.dart';
 import '../../widgets/underline_select.dart';
+import '../onboarding/onboarding_step.dart';
 import '../../widgets/app_button.dart';
 
 // The card of a coffee: one tile with its photo and details, below it a
@@ -1311,6 +1312,15 @@ class _BeanFormScreenState extends State<BeanFormScreen> {
             const SizedBox(width: 8),
           ],
         ),
+        // In the introduction: save, and the introduction moves on.
+        bottomNavigationBar: _editing
+            ? onboardingContinueBar(
+                context,
+                label: 'Save & continue',
+                onPressed: _save,
+                enabled: _name.text.trim().isNotEmpty,
+              )
+            : null,
         body: ListView(
           controller: _scroll,
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,

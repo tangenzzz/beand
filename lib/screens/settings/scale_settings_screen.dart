@@ -11,6 +11,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/meticulous_mark.dart';
 import '../../widgets/underline_select.dart';
+import '../onboarding/onboarding_step.dart';
 import 'settings_widgets.dart';
 
 // Connection page of the Bluetooth scales (Settings → Connections), built
@@ -27,6 +28,7 @@ class ScaleSettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Scales')),
+      bottomNavigationBar: onboardingContinueBar(context),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: const [ScaleConnectionCard()],

@@ -1,7 +1,9 @@
 import 'package:beand/models/gear.dart';
 import 'package:beand/screens/onboarding/onboarding_art.dart';
 import 'package:beand/screens/onboarding/onboarding_screen.dart';
+import 'package:beand/screens/onboarding/onboarding_step.dart';
 import 'package:beand/screens/settings/my_coffee_desk_screen.dart';
+import 'package:beand/screens/settings/settings_widgets.dart';
 import 'package:beand/services/first_run.dart';
 import 'package:beand/services/gear_store.dart';
 import 'package:beand/services/grinder_store.dart';
@@ -146,11 +148,11 @@ void main() {
     }
   });
 
-  group('desk opened from the introduction', () {
+  group('a step opened from the introduction', () {
     late GearStore gear;
     bool? result;
 
-    Future<void> openDesk(WidgetTester tester) async {
+    Future<void> open(WidgetTester tester, WidgetBuilder builder) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -170,12 +172,7 @@ void main() {
             home: Builder(
               builder: (context) => TextButton(
                 onPressed: () async {
-                  result = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const MyCoffeeDeskScreen(closeAfterAdding: true),
-                    ),
-                  );
+                  result = await openOnboardingStep(context, builder);
                 },
                 child: const Text('open'),
               ),
@@ -185,30 +182,75 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Add to desk'));
-      await tester.pumpAndSettle();
     }
 
-    void closeSheet(WidgetTester tester) =>
-        tester.state<NavigatorState>(find.byType(Navigator).first).pop();
-
-    testWidgets('after saving something, back to the introduction', (
+    testWidgets('saving gear keeps the desk open, Continue moves on', (
       tester,
     ) async {
-      await openDesk(tester);
+      await open(tester, (_) => const MyCoffeeDeskScreen());
       gear.save(const Gear(id: 'b1', type: GearType.brewer, model: 'V60'));
-      closeSheet(tester);
+      await tester.pumpAndSettle();
+      expect(find.byType(MyCoffeeDeskScreen), findsOneWidget);
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(result, isTrue);
       expect(find.byType(MyCoffeeDeskScreen), findsNothing);
     });
 
-    testWidgets('nothing saved: the desk stays open', (tester) async {
-      await openDesk(tester);
-      closeSheet(tester);
+    testWidgets('the back arrow returns without moving on', (tester) async {
+      await open(tester, (_) => const MyCoffeeDeskScreen());
+      await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(result, isNull);
-      expect(find.byType(MyCoffeeDeskScreen), findsOneWidget);
+      expect(result, isFalse);
+      expect(find.byType(MyCoffeeDeskScreen), findsNothing);
+    });
+
+    testWidgets('a sub page keeps Continue and closes everything', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        (_) => Scaffold(
+          bottomNavigationBar: Builder(
+            builder: (context) => onboardingContinueBar(context)!,
+          ),
+          body: SettingsList(
+            entries: [
+              SettingsEntry(
+                title: 'Sub',
+                builder: (context) => Scaffold(
+                  body: const Text('sub page'),
+                  bottomNavigationBar: onboardingContinueBar(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.tap(find.text('Sub'));
+      await tester.pumpAndSettle();
+      expect(find.text('sub page'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+      expect(result, isTrue);
+      expect(find.text('sub page'), findsNothing);
+      expect(find.text('Sub'), findsNothing);
+    });
+
+    testWidgets('outside the introduction there is no Continue', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider<GearStore>.value(
+          value: GearStore.inMemory(),
+          child: MaterialApp(
+            theme: buildAppTheme(),
+            home: const MyCoffeeDeskScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Continue'), findsNothing);
     });
   });
 

@@ -6,6 +6,18 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- Introduction: every screen it opens has Continue at the bottom (also on
+  the Meticulous, GaggiMate and Scales pages); the back arrow returns to the
+  same introduction page.
+- Value ruler: drag anywhere on the panel, including the big number; the
+  keyboard icon still opens the input.
+- Beans: the currency moved to Settings → Beans → Form, under Cost.
+
+### Fixed
+- Pre Shot: a profile started on the machine now brings its bean, dose and
+  grind even when the Pre Shot card was not in view.
+
 ## [0.9.2] - 2026-11-14
 
 ### Added

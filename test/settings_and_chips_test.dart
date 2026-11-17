@@ -155,7 +155,9 @@ void main() {
     await db.close();
   });
 
-  testWidgets('Settings > Beans: choose Currency', (tester) async {
+  testWidgets('Settings > Beans > Form: choose Currency under Cost', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(800, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -168,7 +170,14 @@ void main() {
 
     await tester.tap(find.text('Beans'));
     await tester.pumpAndSettle();
+    expect(find.text('Currency'), findsNothing);
+    await tester.tap(find.text('Form'));
+    await tester.pumpAndSettle();
     expect(find.text('Currency'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Currency')).dy,
+      greaterThan(tester.getTopLeft(find.text('Cost')).dy),
+    );
     expect(find.text('Euro (€)'), findsOneWidget);
     expect(find.text('Swiss franc (CHF)'), findsNothing);
 

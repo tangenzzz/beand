@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/currency.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/value_select_row.dart';
 import 'settings_widgets.dart';
 
 // Settings → Beans → Form: show/hide fields of the bean form and reorder
@@ -147,8 +149,38 @@ class _FieldRow extends StatelessWidget {
               ],
             ),
           ),
+          // The price's unit sits with the price (user 2026-11-17), and
+          // moves with it when the field is dragged.
+          if (field == BeanFormField.cost) const _CurrencyPicker(),
         ],
       ),
+    );
+  }
+}
+
+// Currency: the unit of every bean price (form, bag, filter) — the app's
+// value row with its inline choice list; the search finds code or name.
+// Settings → Beans → Form, right under Cost.
+class _CurrencyPicker extends StatelessWidget {
+  const _CurrencyPicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watch<AppSettings>();
+    return ValueSelectRow<Currency>(
+      key: const ValueKey('currency-picker'),
+      label: 'Currency',
+      labelWidth: 96,
+      labelSize: settingsValueLabelSize,
+      labelColor: context.colors.textPrimary,
+      horizontalPadding: AppSpacing.dividerInset,
+      value: settings.beanCurrency,
+      valueText: settings.beanCurrency.label,
+      options: [
+        for (final c in currencies)
+          ValueOption(value: c, title: c.label, subtitle: c.code),
+      ],
+      onChanged: settings.setBeanCurrency,
     );
   }
 }

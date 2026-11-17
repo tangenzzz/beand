@@ -17,6 +17,7 @@ import '../live/tile_title.dart';
 import 'coffee_desk_data.dart';
 import 'desk_filter.dart';
 import 'gear_dialogs.dart';
+import '../onboarding/onboarding_step.dart';
 import 'gear_photo_preview.dart';
 import 'my_setup_dialogs.dart';
 import 'settings_widgets.dart';
@@ -33,18 +34,10 @@ import 'settings_widgets.dart';
 // everything else the generic gear form (gear_dialogs.dart).
 
 class MyCoffeeDeskScreen extends StatefulWidget {
-  const MyCoffeeDeskScreen({
-    super.key,
-    this.startOnChains = false,
-    this.closeAfterAdding = false,
-  });
+  const MyCoffeeDeskScreen({super.key, this.startOnChains = false});
 
   /// Opens on the "Brew chains" tab.
   final bool startOnChains;
-
-  /// Goes back with true once something was added (the introduction moves
-  /// on after the first save).
-  final bool closeAfterAdding;
 
   @override
   State<MyCoffeeDeskScreen> createState() => _MyCoffeeDeskScreenState();
@@ -111,21 +104,12 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
     }
   }
 
-  int get _storedCount {
-    final store = context.read<GearStore>();
-    return store.gear.length + store.chains.length;
-  }
-
   Future<void> _add() async {
-    final before = _storedCount;
     await showAddToDeskSheet(
       context,
       chain: _tab == _DeskTab.chains,
       onPhoto: _photoFor,
     );
-    if (mounted && widget.closeAfterAdding && _storedCount > before) {
-      Navigator.of(context).pop(true);
-    }
   }
 
   // The photo choice from a dialog's head; a new piece is already saved
@@ -371,6 +355,7 @@ class _MyCoffeeDeskScreenState extends State<MyCoffeeDeskScreen> {
 
     return Scaffold(
       appBar: _appBar(),
+      bottomNavigationBar: onboardingContinueBar(context),
       body: StreamBuilder<Map<String, int>>(
         stream: _shotCounts,
         builder: (context, counts) => ListView(

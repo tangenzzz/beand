@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
+import '../onboarding/onboarding_step.dart';
 
 class SettingsEntry {
   const SettingsEntry({
@@ -515,9 +516,12 @@ class SettingsList extends StatelessWidget {
                 iconWidget: entry.iconWidget,
                 title: entry.title,
                 titleWidget: entry.titleWidget,
-                onTap: () =>
-                    Navigator.of(context)
-                        .push(MaterialPageRoute(builder: entry.builder)),
+                // Inside the introduction the next page keeps "Continue".
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: OnboardingStep.carry(context, entry.builder),
+                  ),
+                ),
               ),
           ],
         ),

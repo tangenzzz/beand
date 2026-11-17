@@ -57,7 +57,15 @@ enum _OpenList { bean, profile, dose, grind, chain }
 const _doseMin = 5.0;
 const _doseMax = 30.0;
 
-class _PreShotCardState extends State<PreShotCard> {
+class _PreShotCardState extends State<PreShotCard>
+    with AutomaticKeepAliveClientMixin {
+  // Stays alive in the carousel while LIVE or POST is showing: a profile
+  // started on the machine is only taken over (with its bean, dose and
+  // grind) by this card, and the machine is often started while the card
+  // is not in view — it then kept the old bean.
+  @override
+  bool get wantKeepAlive => true;
+
   // Profile only as ID + name: that way it can be restored from ShotSetup at
   // app start without waiting for the machine's profile list.
   String? _selectedProfileId;
@@ -237,6 +245,7 @@ class _PreShotCardState extends State<PreShotCard> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     // The remaining-amount switch changes which beans are available.
     final showStock = context.select<AppSettings, bool>((s) => s.showBeanStock);
     // The grind ruler follows the scale of the chain's grinder.

@@ -96,7 +96,9 @@ class _ShotCardsCarouselState extends State<ShotCardsCarousel> {
           height:
               ShotCardsCarousel.cardHeight +
               widget.extraCardHeight +
-              _extraHeight,
+              // Only PRE grows (an open list); it stays alive on the other
+              // pages, so its height must not follow them there.
+              (_page == 0 ? _extraHeight : 0),
           child: PageView(
             controller: _controller,
             onPageChanged: (i) => setState(() => _page = i),

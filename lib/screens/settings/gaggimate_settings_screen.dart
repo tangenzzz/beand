@@ -9,6 +9,7 @@ import '../../services/machine_address_store.dart';
 import '../../services/machine_discovery.dart';
 import '../../theme/app_theme.dart';
 import '../history/history_logic.dart';
+import '../onboarding/onboarding_step.dart';
 import 'machine_connection_card.dart';
 
 const gaggimateHostPrefKey = 'gaggimate_host';
@@ -106,6 +107,7 @@ class _GaggiMateSettingsScreenState extends State<GaggiMateSettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('GaggiMate')),
+      bottomNavigationBar: onboardingContinueBar(context),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [

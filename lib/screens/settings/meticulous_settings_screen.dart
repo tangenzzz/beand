@@ -9,6 +9,7 @@ import '../../services/machine_discovery.dart';
 import '../../services/meticulous_socket_service.dart';
 import '../../theme/app_theme.dart';
 import '../history/history_logic.dart';
+import '../onboarding/onboarding_step.dart';
 import 'machine_connection_card.dart';
 
 const hostnamePrefKey = 'machine_hostname';
@@ -100,6 +101,7 @@ class _MeticulousSettingsScreenState extends State<MeticulousSettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Meticulous')),
+      bottomNavigationBar: onboardingContinueBar(context),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
         children: [

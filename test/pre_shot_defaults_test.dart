@@ -518,6 +518,87 @@ void main() {
     },
   );
 
+  testWidgets('a profile started on the machine also brings its bean when the '
+      'carousel moves on to another card right away', (tester) async {
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    final db = AppDatabase(NativeDatabase.memory());
+    late int kiambuId;
+    await tester.runAsync(() async {
+      final kiambu = await db.insertBean(BeansCompanion.insert(name: 'Kiambu'));
+      kiambuId = kiambu.id;
+      await insertShot(
+        db,
+        at: DateTime(2026, 10, 7),
+        profile: 'Classic',
+        beanId: kiambu.id,
+        dose: 20,
+        grind: '5.5',
+      );
+    });
+    final setup = ShotSetup.inMemory(profileId: 'p1', profileName: 'Soup');
+    final service = FakeService()
+      ..setPhase('idle', profileId: 'p1', profileName: 'Soup');
+    final live = MeticulousLiveShotService(service)..start();
+    final pages = PageController();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(value: AppSettings()),
+          ChangeNotifierProvider<ShotSetup>.value(value: setup),
+          ChangeNotifierProvider<MeticulousSocketService>.value(value: service),
+          ChangeNotifierProvider<EspressoMachine>.value(value: service),
+          ChangeNotifierProvider<GaggiMateService>.value(
+            value: offlineGaggiMate(),
+          ),
+          ChangeNotifierProvider<LiveShotService>.value(value: live),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: Scaffold(
+            body: PageView(
+              controller: pages,
+              children: const [
+                SingleChildScrollView(child: PreShotCard()),
+                Text('live'),
+                Text('post'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    // Wait for the bean list to arrive.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pump();
+
+    // Started on the machine; the carousel jumps away at once.
+    service.setPhase('heating', profileId: 'p2', profileName: 'Classic');
+    pages.jumpToPage(2);
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+
+    expect(setup.profileName, 'Classic');
+    expect(setup.beanId, kiambuId);
+    expect(setup.doseGrams, 20);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(Duration.zero);
+    live.dispose();
+    pages.dispose();
+    await db.close();
+  });
+
   testWidgets('Pre Shot: a profile change brings back its last coffee with '
       'that combination\'s dose/grind; an empty bag still gives its values', (
     tester,

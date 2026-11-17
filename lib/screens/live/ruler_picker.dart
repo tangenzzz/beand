@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -109,6 +110,7 @@ class _RulerPickerState extends State<RulerPicker> {
 
   @override
   void dispose() {
+    _drag?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -127,6 +129,15 @@ class _RulerPickerState extends State<RulerPicker> {
       widget.onChanged(_valueOf(tenths));
     }
     return false;
+  }
+
+  // A drag outside the ruler hands over to the ruler's own scrolling, so
+  // it flings and snaps to a tick exactly like a swipe on the ruler.
+  Drag? _drag;
+
+  void _dragStart(DragStartDetails details) {
+    if (!_controller.hasClients) return;
+    _drag = _controller.position.drag(details, () => _drag = null);
   }
 
   void _setTyped(double value) {
@@ -183,33 +194,45 @@ class _RulerPickerState extends State<RulerPicker> {
                       ),
                     ],
                   )
-                : Column(
-                    children: [
-                      SizedBox(
-                        height: RulerPicker._valueAreaHeight,
-                        child: Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Same width as the icon, so the number stays
-                              // centered over the ruler's mark.
-                              const SizedBox(width: 48),
-                              _bigValue(),
-                              IconButton(
-                                tooltip: 'Type value',
-                                icon: Icon(
-                                  Icons.keyboard_outlined,
-                                  color: context.colors.textSecondary,
+                // The whole panel slides the ruler, not only the ruler
+                // itself (user 2026-11-17): a drag on the big value moves
+                // it the same way. A tap on the keyboard icon still opens
+                // the input — a tap never becomes a drag.
+                : GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragStart: _dragStart,
+                    onHorizontalDragUpdate: (d) => _drag?.update(d),
+                    onHorizontalDragEnd: (d) => _drag?.end(d),
+                    onHorizontalDragCancel: () => _drag?.cancel(),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: RulerPicker._valueAreaHeight,
+                          child: Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Same width as the icon, so the number stays
+                                // centered over the ruler's mark.
+                                const SizedBox(width: 48),
+                                _bigValue(),
+                                IconButton(
+                                  tooltip: 'Type value',
+                                  icon: Icon(
+                                    Icons.keyboard_outlined,
+                                    color: context.colors.textSecondary,
+                                  ),
+                                  onPressed: () =>
+                                      setState(() => _typing = true),
                                 ),
-                                onPressed: () => setState(() => _typing = true),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      SizedBox(height: widget._rulerH, child: _ruler()),
-                      const SizedBox(height: RulerPicker._gapBelow),
-                    ],
+                        SizedBox(height: widget._rulerH, child: _ruler()),
+                        const SizedBox(height: RulerPicker._gapBelow),
+                      ],
+                    ),
                   ),
           ),
         ),
