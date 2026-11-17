@@ -6,7 +6,7 @@ import ShotHistory from './ShotHistory.astro';
 import CoffeeDesk from './CoffeeDesk.astro';
 import Points from './Points.astro';
 import { home as c } from '../i18n/home';
-import { release } from '../release';
+import { release, TESTFLIGHT_URL } from '../release';
 ---
 <Base lang="en" route="home">
   <section class="hero wrap">
@@ -14,7 +14,10 @@ import { release } from '../release';
     <p class="lead">{c.hero.lead}</p>
     <p class="note">{c.hero.note}</p>
     <div class="download">
-      <a href={release.url} rel="noopener">Download on GitHub <span aria-hidden="true">›</span></a>
+      <div class="actions">
+        <a class="btn" href={TESTFLIGHT_URL} rel="noopener">Join the iOS beta on TestFlight</a>
+        <a class="btn" href={release.url} rel="noopener">Android APK on GitHub</a>
+      </div>
       <p>Google Play and App Store coming soon. Latest release {release.version}</p>
     </div>
   </section>
@@ -56,7 +59,7 @@ import { release } from '../release';
 </Base>
 
 <style>
-  /* Hero: big headline, lead, download as a text link */
+  /* Hero: big headline, lead, TestFlight + GitHub as outlined pill buttons */
   .hero { padding: 6rem 0 2rem; }
   .hero h1 { font-size: clamp(3.4rem, 10vw, 8.5rem); max-width: 10ch; }
   .lead { margin: 1.75rem 0 0.8rem; }
@@ -64,6 +67,9 @@ import { release } from '../release';
   .download { margin-top: 2rem; }
   .download a { color: var(--accent); font-size: 1.3rem; font-weight: 500; letter-spacing: -0.015em; text-decoration: none; }
   .download a:hover { text-decoration: underline; }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1rem; }
+  .download a.btn { display: inline-block; padding: 0.65rem 1.35rem; border: 1.5px solid var(--accent); border-radius: 999px; color: var(--accent); font-size: 1.1rem; font-weight: 500; box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 35%, transparent); transition: box-shadow 0.2s, background 0.2s; }
+  .download a.btn:hover { text-decoration: none; background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 55%, transparent); }
   .download p { margin: 0.5rem 0 0; color: var(--text-muted); font-size: 0.95rem; }
   @media (max-width: 900px) { .hero { padding-top: 3.5rem; } }
 

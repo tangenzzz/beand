@@ -24,3 +24,6 @@ async function latest(): Promise<{ version: string; url: string }> {
 }
 
 export const release = await latest();
+
+// Public TestFlight beta for iPhone and iPad.
+export const TESTFLIGHT_URL = 'https://testflight.apple.com/join/4u4C1wfx';
