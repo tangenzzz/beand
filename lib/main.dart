@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'database/database.dart';
+import 'database/path_repair.dart';
 import 'machines/gaggimate/gaggimate_live_shot_service.dart';
 import 'machines/gaggimate/gaggimate_service.dart';
 import 'machines/gaggimate/gaggimate_profile_sync_service.dart';
@@ -99,6 +100,15 @@ Future<void> main() async {
     database.deviceId = await SecureSyncKeyStore().deviceId();
   } catch (e) {
     debugPrint('Sync device id unavailable: $e');
+  }
+  // iOS gives the app a new folder on updates; stored photo paths follow it.
+  try {
+    await repairFilePaths(
+      database,
+      (await getApplicationDocumentsDirectory()).path,
+    );
+  } catch (e) {
+    debugPrint('Could not repair file paths: $e');
   }
   // One discovery for both machines (each queries its own service type).
   final discovery = BonsoirMachineDiscovery();

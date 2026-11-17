@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database.dart';
+import '../database/path_repair.dart';
 import '../sync/crypto/backup_cipher.dart';
 import 'ai/ai_settings.dart';
 import 'restore_swap.dart';
@@ -76,15 +77,6 @@ class BackupSyncInfo {
 }
 
 const _filesPrefix = 'files/';
-
-/// Columns that hold absolute file paths. When restoring onto another device
-/// (or after a reinstall with a different app folder) they must be rewritten
-/// to the new folder, otherwise bean and profile images point nowhere.
-const _pathColumns = <String, List<String>>{
-  'beans': ['photo_path'],
-  'shots': ['shot_photo_path', 'profile_image_path'],
-  'stored_profiles': ['image_path', 'custom_image_path'],
-};
 
 /// What a backup contains — for display before restoring.
 class BackupManifest {
@@ -456,7 +448,7 @@ class BackupService {
         throw const BackupException('This backup is damaged.');
       }
       if (oldDocsPath.isNotEmpty && oldDocsPath != docsDir.path) {
-        for (final table in _pathColumns.entries) {
+        for (final table in filePathColumns.entries) {
           for (final column in table.value) {
             await restored.customStatement(
               'UPDATE ${table.key} SET $column = '
