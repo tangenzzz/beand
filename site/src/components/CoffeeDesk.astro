@@ -27,7 +27,6 @@ const shelf = desk.shelf as Record<string, number[]>;
 <section id="desk" class="wrap desk">
   <div class="text">
     <p class="eyebrow">My Coffee Desk</p>
-    <h2>Proud of your coffee gear?</h2>
     <p class="body">Put it on your shelf, with each piece cut out from a photo like a sticker. Then build brew chains, so every brew knows exactly which gear made it.</p>
     <Points items={[
       { t: 'All your gear', d: 'Machines, brewers, grinders, baskets, filters, water, scales, tampers and kettles' },
@@ -52,7 +51,6 @@ const shelf = desk.shelf as Record<string, number[]>;
 
 <style>
   .desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; padding-top: 8rem; }
-  .desk h2 { max-width: 14ch; }
 
   /* Shelf behind, chains in front over the lower right corner */
   .stack { position: relative; margin: 0; justify-self: start; width: min(340px, 72%); }

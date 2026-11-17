@@ -3,7 +3,7 @@ name: Website deploy
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/site-deploy.yml']
+    paths: ['site/**', 'CHANGELOG.md', '.github/workflows/site-deploy.yml']   # CHANGELOG feeds /updates/
   release:
     types: [published]   # rebuild so the site shows the new version
   workflow_dispatch:

@@ -7,6 +7,7 @@ export const CONTACT_EMAIL = 'beandapp@pm.me';
 export const routes = {
   // de: null = English only for now (German drafts in site/drafts/de)
   home: { en: '/', de: null },
+  updates: { en: '/updates/', de: null },
   imprint: { en: '/imprint/', de: '/de/impressum/' },
   privacy: { en: '/privacy/', de: '/de/datenschutz/' },
   deleteData: { en: '/delete-data/', de: '/de/daten-loeschen/' },
@@ -18,6 +19,7 @@ export const ui = {
     'meta.description': "Track your beans and every espresso and pour-over. Live data from Meticulous and GaggiMate, rate and analyse every cup, link it to the gear you brewed with. Free and open source.",
     'nav.features': 'Features',
     'nav.machines': 'Equipment',
+    'nav.updates': 'Updates',
     'footer.tagline': 'From bag to cup.',
     'footer.notrack': 'No cookies. No tracking.',
     'footer.legal': 'Legal',
@@ -31,6 +33,7 @@ export const ui = {
     'meta.description': "Behalte deine Bohnen und jeden Espresso und Pour-over im Blick. Live-Daten von Meticulous und GaggiMate, jede Tasse bewerten und analysieren, verknüpft mit der Ausrüstung, mit der du sie gemacht hast. Kostenlos und Open Source.",
     'nav.features': 'Funktionen',
     'nav.machines': 'Maschinen',
+    'nav.updates': 'Updates',
     'footer.tagline': 'Von der Packung bis in die Tasse.',
     'footer.notrack': 'Keine Cookies. Kein Tracking.',
     'footer.legal': 'Rechtliches',
