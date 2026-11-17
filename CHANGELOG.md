@@ -18,8 +18,6 @@ uses [Semantic Versioning](https://semver.org/).
   range and zero point are typed the same way, with a hint what they mean.
 
 ### Fixed
-- Grinders: rotations show their clicks with a leading zero ("2.05"), so they
-  can't be mistaken for "2.5".
 - Pre Shot: a profile started on the machine now brings its bean, dose and
   grind even when the Pre Shot card was not in view.
 

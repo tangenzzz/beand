@@ -179,7 +179,7 @@ class GrindScale {
   final double min;
   final double max;
 
-  /// Clicks only: above 0 the value reads as rotations and clicks ("2.05"),
+  /// Clicks only: above 0 the value reads as rotations and clicks ("2.14"),
   /// 0 as plain clicks ("24 clicks", Comandante).
   final int clicksPerRotation;
 
@@ -196,12 +196,8 @@ class GrindScale {
       clicksPerNumber < clicksPerRotation &&
       clicksPerRotation % clicksPerNumber == 0;
 
-  /// Whether the value reads as rotations ("2.05" or "1.4.5").
+  /// Whether the value reads as rotations ("2.14" or "1.4.5").
   bool get readsAsRotations => _asRotations;
-
-  // Digits a part needs so "2.5" can't be mistaken for "2.50": the clicks
-  // of a rotation (or of a number) always get the same width.
-  static int _width(int count) => '${count - 1}'.length;
 
   /// After the value: the unit's, except clicks read as rotations ("2.14"
   /// stands alone).
@@ -225,15 +221,10 @@ class GrindScale {
       if (_withNumbers) {
         final number = rest ~/ clicksPerNumber;
         final click = rest % clicksPerNumber;
-        final numbers = clicksPerRotation ~/ clicksPerNumber;
-        text =
-            '$sign$rotation.'
-            '${'$number'.padLeft(_width(numbers), '0')}.'
-            '${'$click'.padLeft(_width(clicksPerNumber), '0')}';
+        text = '$sign$rotation.$number.$click';
       } else {
-        text =
-            '$sign$rotation.'
-            '${'$rest'.padLeft(_width(clicksPerRotation), '0')}';
+        // Unpadded on purpose (user 2026-11-17): click 5 reads "2.5".
+        text = '$sign$rotation.$rest';
       }
     } else {
       text = value.toStringAsFixed(digits);
@@ -242,7 +233,7 @@ class GrindScale {
   }
 
   /// What is typed back into a value — the same notation as [format]: plain
-  /// clicks ("45"), or with rotations "2.05" / "1.4.5", where missing parts
+  /// clicks ("45"), or with rotations "2.5" / "1.4.5", where missing parts
   /// count as 0 ("3" = three full rotations, "1.4" = rotation 1, number 4).
   /// Null if it can't be read.
   double? parse(String input) {

@@ -80,17 +80,17 @@ void main() {
       expect(GrindScale.fromJson(clicks.toJson())!.format(24), '24 clicks');
     });
 
-    test('rotations: clicks padded, so 2.05 never reads as 2.5', () {
+    test('rotations: clicks unpadded (2.5), typed back the same', () {
       const s = GrindScale(
         unit: GrindUnit.clicks,
         step: 1,
         max: 120,
         clicksPerRotation: 30,
       );
-      expect(s.format(65), '2.05');
+      expect(s.format(65), '2.5');
       expect(s.format(74), '2.14');
+      expect(s.parse('2.5'), 65);
       expect(s.parse('2.05'), 65);
-      expect(s.parse('2.5'), 65, reason: 'typed short, still click 5');
       expect(s.parse('3'), 90, reason: 'a bare number is whole rotations');
       expect(s.parse('-0.03'), -3);
       expect(s.parse('x'), isNull);
@@ -127,7 +127,7 @@ void main() {
         clicksPerRotation: 30,
         clicksPerNumber: 7,
       );
-      expect(odd.format(65), '2.05');
+      expect(odd.format(65), '2.5');
     });
 
     test('range may start below zero; JSON round trip; nonsense dropped', () {
