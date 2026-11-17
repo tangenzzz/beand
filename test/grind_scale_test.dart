@@ -385,7 +385,12 @@ void main() {
     await tester.pump();
     // Rotations: the 1Zpresso dial is filled in, one rotation to start
     // with (no rotation in front), From/To are gone.
-    await tester.tap(find.text('Rotations · 1.4.5'));
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('grinder-read-as')),
+        matching: find.text('Rotations'),
+      ),
+    );
     await tester.pump();
     expect(find.byKey(const ValueKey('grinder-max')), findsNothing);
     expect(text('grinder-per-rotation'), '100');
@@ -402,7 +407,14 @@ void main() {
                 'Zero point',
               ]
             : <String>[]) {
-      final p = tester.renderObject<RenderParagraph>(find.text(label));
+      // "Rotations" is also the read-as option: the dropdown row's one.
+      final text = label == 'Rotations'
+          ? find.descendant(
+              of: find.byKey(const ValueKey('grinder-rotations')),
+              matching: find.text(label),
+            )
+          : find.text(label);
+      final p = tester.renderObject<RenderParagraph>(text);
       expect(p.didExceedMaxLines, isFalse, reason: label);
     }
     // Rotations: a dropdown in its own row, 1 to 6.

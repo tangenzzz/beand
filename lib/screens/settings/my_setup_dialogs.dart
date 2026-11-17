@@ -541,8 +541,8 @@ class _GrinderDialogState extends State<_GrinderDialog> {
             UnderlineSelect<bool>(
               key: const ValueKey('grinder-read-as'),
               options: const [
-                UnderlineOption(false, 'Clicks · 45'),
-                UnderlineOption(true, 'Rotations · 1.4.5'),
+                UnderlineOption(false, 'Clicks'),
+                UnderlineOption(true, 'Rotations'),
               ],
               value: _rotations,
               onChanged: (v) => _setRotations(v ?? false),
@@ -720,19 +720,13 @@ class _GrinderDialogState extends State<_GrinderDialog> {
         SetupField(
           key: const ValueKey('grinder-zero'),
           controller: _zero,
-          // The burrs go below, so the word itself stays readable.
           label: 'Zero point',
           numeric: true,
           signed: true,
           suffix: _scale?.suffix ?? _unit?.suffix,
         ),
-        if ([
-              if (_entered.isNotEmpty)
-                'For ${widget.grinder?.activeBurrs ?? _entered.first}',
-              if (widget.grinder?.zeroPoint case final z?) 'set ${_date(z.at)}',
-            ]
-            case final parts when parts.isNotEmpty)
-          _hint(parts.join(' · ')),
+        if (widget.grinder?.zeroPoint case final z?)
+          _hint('Set ${_date(z.at)}'),
       ],
     );
   }
