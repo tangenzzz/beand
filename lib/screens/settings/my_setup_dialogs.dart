@@ -12,6 +12,7 @@ import '../../services/water_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/underline_select.dart';
+import '../../widgets/value_select_row.dart';
 import '../live/tile_title.dart';
 import 'my_coffee_desk_screen.dart' show GearIcon;
 import 'settings_widgets.dart';
@@ -129,6 +130,9 @@ class _GrinderDialogState extends State<_GrinderDialog> {
   );
 
   bool get _rotary => _unit == GrindUnit.clicks && _rotations;
+
+  // Wide enough for "Clicks / rotation" in full.
+  static const _rotaryLabelWidth = 136.0;
 
   String _shown(double? v) {
     final scale = widget.grinder?.scale;
@@ -543,43 +547,43 @@ class _GrinderDialogState extends State<_GrinderDialog> {
               value: _rotations,
               onChanged: (v) => _setRotations(v ?? false),
             ),
-            if (_rotations)
-              Row(
-                children: [
-                  Expanded(
-                    child: SetupField(
-                      key: const ValueKey('grinder-per-rotation'),
-                      controller: _perRotation,
-                      label: 'Clicks / rotation',
-                      numeric: true,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SetupField(
-                      key: const ValueKey('grinder-per-number'),
-                      controller: _perNumber,
-                      label: 'Clicks / number',
-                      numeric: true,
-                    ),
-                  ),
-                ],
-              ),
+            // Rotations on top, then one row per field so the labels are
+            // readable (user 2026-11-17).
             if (_rotations) ...[
-              _label(
-                'Rotations',
-                info:
-                    'How many times the dial turns. With more than one, '
-                    'the setting starts with the rotation and Pre-Shot lets '
-                    'you pick it.',
-              ),
-              UnderlineSelect<int>(
+              const SizedBox(height: 4),
+              ValueSelectRow<int>(
                 key: const ValueKey('grinder-rotations'),
-                options: [
-                  for (var i = 1; i <= 6; i++) UnderlineOption(i, '$i'),
-                ],
+                label: 'Rotations',
+                // Its label column lines up with the fields below (+ gap).
+                labelWidth: _rotaryLabelWidth + 8,
+                labelSize: 14,
+                labelColor: context.colors.textSecondary,
+                labelSuffix: const SettingsInfo(
+                  'How many times the dial turns. With more than one, the '
+                  'setting starts with the rotation and Pre-Shot lets you '
+                  'pick it.',
+                ),
                 value: _turns,
-                onChanged: (v) => _setTurns(v ?? 1),
+                valueText: '$_turns',
+                options: [
+                  for (var i = 1; i <= 6; i++)
+                    ValueOption(value: i, title: '$i'),
+                ],
+                onChanged: _setTurns,
+              ),
+              SetupField(
+                key: const ValueKey('grinder-per-rotation'),
+                controller: _perRotation,
+                label: 'Clicks / rotation',
+                labelWidth: _rotaryLabelWidth,
+                numeric: true,
+              ),
+              SetupField(
+                key: const ValueKey('grinder-per-number'),
+                controller: _perNumber,
+                label: 'Clicks / number',
+                labelWidth: _rotaryLabelWidth,
+                numeric: true,
               ),
               if (_rotaryHint() case final hint?) _hint(hint),
             ],
@@ -716,24 +720,19 @@ class _GrinderDialogState extends State<_GrinderDialog> {
         SetupField(
           key: const ValueKey('grinder-zero'),
           controller: _zero,
-          label: _entered.isEmpty
-              ? 'Zero point'
-              : 'Zero point · ${widget.grinder?.activeBurrs ?? _entered.first}',
+          // The burrs go below, so the word itself stays readable.
+          label: 'Zero point',
           numeric: true,
           signed: true,
           suffix: _scale?.suffix ?? _unit?.suffix,
         ),
-        if (widget.grinder?.zeroPoint case final z?)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              'Set ${_date(z.at)}',
-              style: TextStyle(
-                color: context.colors.textTertiary,
-                fontSize: 12,
-              ),
-            ),
-          ),
+        if ([
+              if (_entered.isNotEmpty)
+                'For ${widget.grinder?.activeBurrs ?? _entered.first}',
+              if (widget.grinder?.zeroPoint case final z?) 'set ${_date(z.at)}',
+            ]
+            case final parts when parts.isNotEmpty)
+          _hint(parts.join(' · ')),
       ],
     );
   }
@@ -1407,10 +1406,15 @@ class SetupField extends StatefulWidget {
     this.signed = false,
     this.suffix,
     this.suggestions = const [],
+    this.labelWidth,
   });
 
   final TextEditingController controller;
   final String label;
+
+  /// A wider label column for longer labels ("Clicks / rotation"); the
+  /// usual one otherwise.
+  final double? labelWidth;
   final bool autofocus;
   final bool numeric;
 
@@ -1562,8 +1566,12 @@ class _SetupFieldState extends State<SetupField> {
                       children: [
                         ConstrainedBox(
                           constraints: BoxConstraints(
-                            maxWidth: width >= 260 ? _labelWidth : width * 0.45,
-                            minWidth: width >= 260 ? _labelWidth : 0,
+                            maxWidth: width >= 260
+                                ? (widget.labelWidth ?? _labelWidth)
+                                : width * 0.45,
+                            minWidth: width >= 260
+                                ? (widget.labelWidth ?? _labelWidth)
+                                : 0,
                           ),
                           child: GestureDetector(
                             onTap: _focus.requestFocus,

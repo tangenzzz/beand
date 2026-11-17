@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:beand/database/database.dart';
 import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
@@ -17,6 +19,8 @@ import 'package:beand/services/water_store.dart';
 import 'package:beand/models/gear.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -327,6 +331,17 @@ void main() {
   testWidgets('grinder dialog: K-Ultra with rotations instead of From/To', (
     tester,
   ) async {
+    // The test font is wider than the phone's: the labels are measured with
+    // the real one (Roboto, as on Android).
+    final font = File(
+      '${Platform.environment['FLUTTER_ROOT']}/bin/cache/artifacts/'
+      'material_fonts/Roboto-Regular.ttf',
+    );
+    if (font.existsSync()) {
+      final loader = FontLoader('Roboto')
+        ..addFont(Future.value(ByteData.sublistView(font.readAsBytesSync())));
+      await tester.runAsync(loader.load);
+    }
     tester.view.physicalSize = const Size(412, 2200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -376,12 +391,27 @@ void main() {
     expect(text('grinder-per-rotation'), '100');
     expect(text('grinder-per-number'), '10');
     expect(find.text('Shown as 4.6'), findsOneWidget);
+    // The labels are readable in full, nothing cut off (only measurable
+    // with the real font).
+    for (final label
+        in font.existsSync()
+            ? [
+                'Rotations',
+                'Clicks / rotation',
+                'Clicks / number',
+                'Zero point',
+              ]
+            : <String>[]) {
+      final p = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(p.didExceedMaxLines, isFalse, reason: label);
+    }
+    // Rotations: a dropdown in its own row, 1 to 6.
+    await tester.tap(find.byKey(const ValueKey('grinder-rotations')));
+    await tester.pumpAndSettle();
     Finder turn(String label) => find.descendant(
       of: find.byKey(const ValueKey('grinder-rotations')),
       matching: find.text(label),
     );
-    // Only 1 to 6.
-    expect(turn('–'), findsNothing);
     expect(turn('6'), findsOneWidget);
     expect(turn('7'), findsNothing);
     await tester.enterText(find.byKey(const ValueKey('grinder-zero')), '0.5');
@@ -390,7 +420,7 @@ void main() {
     await tester.ensureVisible(turn('3'));
     await tester.pumpAndSettle();
     await tester.tap(turn('3'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('Shown as 1.4.6'), findsOneWidget);
     expect(text('grinder-zero'), '0.0.5');
     await tester.ensureVisible(find.text('Save'));
