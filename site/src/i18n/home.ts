@@ -5,7 +5,7 @@ import type { Point } from '../components/Points.astro';
 export const home = {
   hero: {
     title: 'From bag to cup.',
-    lead: 'Track your beans and every brew. Rate it, analyse it, and link it to the brew chain you made it with.',
+    lead: 'Track your coffee beans and every brew. Rate it, analyse it, and link it to the brew chain you made it with.',
     note: 'Free and open source.',
   },
   machine: {
