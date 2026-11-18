@@ -24,7 +24,13 @@ enum ShotMachine {
     MachineGlyph.gaggiMate,
   ),
   // Any espresso machine the app does not talk to (Home → Espresso).
-  espresso('espresso', 'Espresso', Color(0xFFE6A472), MachineGlyph.cup);
+  espresso(
+    'espresso',
+    'Espresso',
+    // Cream from the user's draft (2026-11-07).
+    Color(0xFFF6DFB8),
+    MachineGlyph.portafilter,
+  );
 
   const ShotMachine(this.key, this.label, this.color, this.glyph);
   final String key;

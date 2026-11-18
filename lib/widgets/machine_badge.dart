@@ -11,9 +11,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 // works: Meticulous therefore gets its initial, GaggiMate "GM" cut from its
 // wordmark (bold G of GAGGI, thin M of MATE, as in the Home pill; used with
 // permission), Pour Over a filled V60 dripper with rim and foot, Espresso
-// (a machine the app does not talk to) a filled cup with handle and saucer.
-// Thin lines disappear at 17 px.
-enum MachineGlyph { letterM, gaggiMate, v60, cup }
+// (a machine the app does not talk to) a filled portafilter. Thin lines
+// disappear at 17 px.
+enum MachineGlyph { letterM, gaggiMate, v60, portafilter }
 
 class MachineBadge extends StatelessWidget {
   const MachineBadge({
@@ -51,9 +51,9 @@ class MachineBadge extends StatelessWidget {
           size: Size.square(size),
           painter: const _V60Painter(_glyphColor),
         ),
-        MachineGlyph.cup => CustomPaint(
+        MachineGlyph.portafilter => CustomPaint(
           size: Size.square(size),
-          painter: const _CupPainter(_glyphColor),
+          painter: const _PortafilterPainter(_glyphColor),
         ),
         // Two letters side by side: as wide as the inner area allows.
         MachineGlyph.gaggiMate => SvgPicture.asset(
@@ -114,9 +114,11 @@ class _V60Painter extends CustomPainter {
   bool shouldRepaint(covariant _V60Painter old) => old.color != color;
 }
 
-// Espresso cup with handle on a saucer, on the same 100 grid as the V60.
-class _CupPainter extends CustomPainter {
-  const _CupPainter(this.color);
+// Portafilter seen from the side (user's draft 2026-11-07, cream on the
+// left): basket with its two ears, short neck and a handle that widens to a
+// round end. Filled throughout, on the same 100 grid as the V60.
+class _PortafilterPainter extends CustomPainter {
+  const _PortafilterPainter(this.color);
 
   final Color color;
 
@@ -124,35 +126,51 @@ class _CupPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     canvas.save();
     canvas.scale(size.width / 100);
+    // Wider than tall: a little smaller so it keeps off the badge's edges.
+    canvas.translate(4, 4);
+    canvas.scale(0.92);
     final paint = Paint()..color = color;
-    // Cup: flat rim, rounded bottom.
+    // Basket: flat top, rounded bottom.
     canvas.drawPath(
       Path()
-        ..moveTo(22, 30)
-        ..lineTo(68, 30)
-        ..lineTo(66, 52)
-        ..quadraticBezierTo(63, 66, 45, 66)
-        ..quadraticBezierTo(27, 66, 24, 52)
+        ..moveTo(11, 38)
+        ..lineTo(51, 38)
+        ..lineTo(50, 57)
+        ..quadraticBezierTo(49, 67, 40, 67)
+        ..lineTo(22, 67)
+        ..quadraticBezierTo(13, 67, 12, 57)
         ..close(),
       paint,
     );
-    // Handle: a thick ring on the right.
-    canvas.drawCircle(
-      const Offset(70, 42),
-      8,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 6,
-    );
-    // Saucer.
+    // Rim, a little wider than the basket.
     canvas.drawRRect(
-      RRect.fromLTRBR(16, 70, 80, 77, const Radius.circular(3.5)),
+      RRect.fromLTRBR(8, 33, 54, 41, const Radius.circular(4)),
+      paint,
+    );
+    // Ears on both sides of the rim.
+    canvas.drawRRect(
+      RRect.fromLTRBR(4, 34, 10, 45, const Radius.circular(2.5)),
+      paint,
+    );
+    canvas.drawRRect(
+      RRect.fromLTRBR(52, 34, 58, 45, const Radius.circular(2.5)),
+      paint,
+    );
+    // Neck between basket and handle.
+    canvas.drawRect(const Rect.fromLTRB(56, 43, 64, 55), paint);
+    // Handle: narrow at the neck, wide and round at the end.
+    canvas.drawPath(
+      Path()
+        ..moveTo(62, 42)
+        ..lineTo(84, 36)
+        ..arcToPoint(const Offset(84, 62), radius: const Radius.circular(13))
+        ..lineTo(62, 56)
+        ..close(),
       paint,
     );
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _CupPainter old) => old.color != color;
+  bool shouldRepaint(covariant _PortafilterPainter old) => old.color != color;
 }
