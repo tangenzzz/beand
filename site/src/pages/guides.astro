@@ -1,0 +1,88 @@
+---
+import Base from '../layouts/Base.astro';
+
+// Short screen recordings, self-hosted (no YouTube: no cookies, no third parties).
+// Videos are 1080x1920 with captions burned in; they play muted in a loop while in view.
+const guides = [
+  {
+    slug: 'connect-machine',
+    title: 'Connect your machine',
+    text: 'Pick Meticulous or GaggiMate, bean’d finds it on your Wi-Fi. Done in seconds.',
+  },
+  {
+    slug: 'tile-workflow',
+    title: 'Pre, Live, Post',
+    text: 'Set up the shot while the machine heats, follow it live, then taste and rate.',
+  },
+];
+---
+<Base lang="en" route="guides" title="Guides" description="Short videos that show how bean'd works.">
+  <section class="wrap guides">
+    <p class="eyebrow">Guides</p>
+    <h1>See how it works</h1>
+    <div class="grid">
+      {guides.map((g) => (
+        <figure class="guide">
+          <video
+            src={`/videos/${g.slug}.mp4`}
+            poster={`/videos/${g.slug}.webp`}
+            muted
+            loop
+            playsinline
+            preload="none"
+            aria-label={g.title}
+          ></video>
+          <figcaption>
+            <h2>{g.title}</h2>
+            <p>{g.text}</p>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  </section>
+</Base>
+
+<script>
+  // Play while in view, pause when scrolled away. Tap shows the controls.
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const videos = document.querySelectorAll<HTMLVideoElement>('.guide video');
+  const io = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        const v = e.target as HTMLVideoElement;
+        if (e.isIntersecting && !still && !v.controls) v.play().catch(() => {});
+        else if (!e.isIntersecting) v.pause();
+      }
+    },
+    { threshold: 0.5 },
+  );
+  videos.forEach((v) => {
+    io.observe(v);
+    v.addEventListener('click', () => {
+      if (v.controls) return;
+      v.controls = true;
+      if (v.paused) v.play().catch(() => {});
+    });
+    if (still) v.controls = true;
+  });
+</script>
+
+<style>
+  .guides { padding: 4rem 0 0; }
+  .guides h1 { font-size: clamp(2.6rem, 6vw, 4.5rem); margin-bottom: 3rem; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 340px)); gap: 3rem; }
+  .guide { margin: 0; }
+  .guide video {
+    display: block; width: 100%; aspect-ratio: 9 / 16; border-radius: 1.5rem;
+    background: var(--surface); border: 1px solid var(--line); cursor: pointer;
+  }
+  .guide figcaption { padding: 1.1rem 0.25rem 0; }
+  .guide h2 { font-size: 1.3rem; font-weight: 700; letter-spacing: -0.015em; margin: 0 0 0.35rem; }
+  .guide p { margin: 0; color: var(--text-muted); line-height: 1.45; }
+
+  @media (max-width: 700px) {
+    .grid { grid-template-columns: 1fr; justify-items: center; }
+    .guide { width: min(100%, 360px); }
+  }
+</style>

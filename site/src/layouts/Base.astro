@@ -48,6 +48,7 @@ const home = path(lang, 'home');
         <nav aria-label="Main">
           <a href={`${home}#tour`}>{t('nav.features')}</a>
           <a href={`${home}#equipment`}>{t('nav.machines')}</a>
+          <a href={path(lang, 'guides')}>{t('nav.guides')}</a>
           <a href={path(lang, 'updates')}>{t('nav.updates')}</a>
         </nav>
       </div>
@@ -81,12 +82,13 @@ const home = path(lang, 'home');
 <style>
   .site-header { position: sticky; top: 0; z-index: 10; background: rgb(22 22 23 / 0.8); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid var(--line); }
   .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 3.25rem; }
-  .home { text-decoration: none; }
+  .home { text-decoration: none; flex-shrink: 0; }
   nav { display: flex; gap: 2rem; align-items: center; font-size: 0.8rem; letter-spacing: -0.01em; }
   nav a { color: var(--text-soft); text-decoration: none; }
   nav a:hover { color: var(--text); }
   nav .lang { color: var(--text); }
   @media (max-width: 720px) { .hide-sm { display: none; } }
+  @media (max-width: 480px) { nav { gap: 0.8rem; font-size: 0.75rem; } }
 
   .site-footer { border-top: 1px solid var(--line); margin-top: 6rem; padding: 3rem 0 2rem; font-size: 0.8rem; color: var(--text-faint); }
   .cols { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 2rem; }
