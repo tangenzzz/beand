@@ -12,7 +12,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 // wordmark (bold G of GAGGI, thin M of MATE, as in the Home pill; used with
 // permission), Pour Over a filled V60 dripper with rim and foot, Espresso
 // (a machine the app does not talk to) the portafilter from the user's
-// draft, traced as it is (outlined basket, filled handle).
+// draft, traced and filled; the rim's lower line stays open as a light
+// gap, like under the V60's rim.
 enum MachineGlyph { letterM, gaggiMate, v60, portafilter }
 
 class MachineBadge extends StatelessWidget {
