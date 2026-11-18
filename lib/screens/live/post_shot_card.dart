@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
@@ -173,7 +177,9 @@ class _Body extends StatelessWidget {
     final profile = (shot.profileName ?? '').trim();
     final title = bean?.name ?? (profile.isEmpty ? 'Shot' : profile);
     final details = [
-      if (bean != null && profile.isNotEmpty) profile,
+      // Espresso (no machine) has only the one stand-in profile name.
+      if (bean != null && profile.isNotEmpty && shot.machine != 'espresso')
+        profile,
       // Pour over: water poured and the yield (the coffee in the server,
       // "—" where nothing was weighed).
       if (shot.machine == 'pourover') ...[
@@ -242,6 +248,12 @@ class _Body extends StatelessWidget {
             ],
           ),
         ),
+        // A machine the app does not talk to: yield and time by hand
+        // (prefilled with what the scale and the app's clock measured).
+        if (shot.machine == 'espresso') ...[
+          const SizedBox(height: 8),
+          _ManualFacts(shot: shot),
+        ],
         // Stars, divider and chips need spacing, otherwise they stick
         // together.
         const SizedBox(height: 10),
@@ -287,6 +299,132 @@ class _TasteBlock extends StatelessWidget {
       values: shot.tasteValues,
       shortLabels: true,
       onAxisChanged: (axis, value) => db.setShotTaste(shot.id, axis, value),
+    );
+  }
+}
+
+// Yield and time of an Espresso shot (Home → Espresso), editable in place:
+// without a scale the yield is only known from the user. Writes after a
+// short pause in typing.
+class _ManualFacts extends StatefulWidget {
+  const _ManualFacts({required this.shot});
+
+  final Shot shot;
+
+  @override
+  State<_ManualFacts> createState() => _ManualFactsState();
+}
+
+class _ManualFactsState extends State<_ManualFacts> {
+  late final _yield = TextEditingController(
+    text: _num(widget.shot.finalWeight),
+  );
+  late final _time = TextEditingController(
+    text: _num(
+      widget.shot.durationMs == null ? null : widget.shot.durationMs! / 1000,
+    ),
+  );
+  Timer? _debounce;
+
+  static String _num(double? v) =>
+      v == null ? '' : v.toStringAsFixed(v.truncateToDouble() == v ? 0 : 1);
+
+  static double? _parse(String t) =>
+      double.tryParse(t.trim().replaceAll(',', '.'));
+
+  void _changed() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 600), _write);
+  }
+
+  void _write() {
+    _debounce?.cancel();
+    final grams = _parse(_yield.text);
+    final seconds = _parse(_time.text);
+    unawaited(
+      context.read<AppDatabase>().updateShotFields(
+        widget.shot.id,
+        ShotsCompanion(
+          finalWeight: Value(grams),
+          durationMs: Value(seconds == null ? null : (seconds * 1000).round()),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    if (_debounce?.isActive ?? false) _write();
+    _yield.dispose();
+    _time.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _Field(
+            label: 'Yield',
+            unit: 'g',
+            controller: _yield,
+            onChanged: (_) => _changed(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _Field(
+            label: 'Time',
+            unit: 's',
+            controller: _time,
+            onChanged: (_) => _changed(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.label,
+    required this.unit,
+    required this.controller,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String unit;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+      textAlign: TextAlign.end,
+      style: TextStyle(color: colors.textPrimary, fontSize: 14),
+      decoration: InputDecoration(
+        isDense: true,
+        prefixText: '$label  ',
+        prefixStyle: TextStyle(color: colors.textSecondary, fontSize: 12),
+        suffixText: ' $unit',
+        suffixStyle: TextStyle(color: colors.textSecondary, fontSize: 12),
+        hintText: '—',
+        hintStyle: TextStyle(color: colors.textTertiary),
+        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        enabledBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: colors.divider),
+        ),
+        focusedBorder: UnderlineInputBorder(
+          borderSide: BorderSide(color: colors.accent),
+        ),
+      ),
     );
   }
 }

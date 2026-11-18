@@ -11,6 +11,7 @@ import '../../models/grinder.dart';
 import '../../machines/espresso_machine.dart';
 import '../../models/machine_profile.dart';
 import '../../services/app_settings.dart';
+import '../../services/espresso_shot_service.dart';
 import '../../services/live_shot_service.dart';
 import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
@@ -275,6 +276,9 @@ class _PreShotCardState extends State<PreShotCard>
     final profileLocked = context.select<LiveShotService, bool>(
       (s) => s.profileLocked,
     );
+    final showProfiles = context.select<EspressoMachine, bool>(
+      (m) => m.machineKey != EspressoShotService.key,
+    );
     _adoptMachineProfileIfStarted(
       activeProfile.id,
       activeProfile.loadedName,
@@ -310,35 +314,38 @@ class _PreShotCardState extends State<PreShotCard>
                   children: [
                     TileTitle(short: 'PRE', active: isActiveCard),
                     const SizedBox(height: 6),
-                    ValueSelectRow<String>(
-                      // Nearly the full card width, like Compare.
-                      listIndent: 0,
-                      icon: Icons.tune,
-                      label: 'Profile',
-                      valueText: _profileLabel(activeProfile.loadedName),
-                      placeholder: 'Select profile',
-                      dimValue: profileLocked,
-                      enabled: !profileLocked,
-                      open: _open == _OpenList.profile && !profileLocked,
-                      onToggle: () => _toggle(_OpenList.profile),
-                      onClose: _close,
-                      value: _selectedProfileId ?? activeProfile.id,
-                      listPlaceholder: _profiles == null
-                          ? (_profilesError ?? 'Loading…')
-                          : null,
-                      action: ValueSelectAction(
-                        'Add profile',
-                        () => showAddProfileDialog(context),
+                    // Machines without profiles (Home → Espresso) skip the
+                    // row.
+                    if (showProfiles)
+                      ValueSelectRow<String>(
+                        // Nearly the full card width, like Compare.
+                        listIndent: 0,
+                        icon: Icons.tune,
+                        label: 'Profile',
+                        valueText: _profileLabel(activeProfile.loadedName),
+                        placeholder: 'Select profile',
+                        dimValue: profileLocked,
+                        enabled: !profileLocked,
+                        open: _open == _OpenList.profile && !profileLocked,
+                        onToggle: () => _toggle(_OpenList.profile),
+                        onClose: _close,
+                        value: _selectedProfileId ?? activeProfile.id,
+                        listPlaceholder: _profiles == null
+                            ? (_profilesError ?? 'Loading…')
+                            : null,
+                        action: ValueSelectAction(
+                          'Add profile',
+                          () => showAddProfileDialog(context),
+                        ),
+                        emptyText: 'No profiles on the machine.',
+                        options: _profileOptions(),
+                        onChanged: (id) {
+                          final picked = _profiles
+                              ?.where((p) => p.id == id)
+                              .firstOrNull;
+                          if (picked != null) _selectProfile(picked);
+                        },
                       ),
-                      emptyText: 'No profiles on the machine.',
-                      options: _profileOptions(),
-                      onChanged: (id) {
-                        final picked = _profiles
-                            ?.where((p) => p.id == id)
-                            .firstOrNull;
-                        if (picked != null) _selectProfile(picked);
-                      },
-                    ),
                     // Bean looked up by ID from the list so edits/deletes
                     // in the Beans tab show up here immediately.
                     ValueSelectRow<int>(
@@ -686,6 +693,13 @@ class _PreShotCardState extends State<PreShotCard>
     ShotStage stage,
     bool stabilized,
   ) {
+    if (stage == ShotStage.idle &&
+        context.read<LiveShotService>().startsByHand) {
+      return AppButton(
+        label: 'Start Shot',
+        onPressed: () => _startShot(context),
+      );
+    }
     if (stage == ShotStage.idle) {
       return AppButton(
         label: 'Start Profile',

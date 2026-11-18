@@ -60,7 +60,7 @@ class PourOverCommandRow extends StatelessWidget {
           };
 
     final dial = machine && brew.dialLeads;
-    final scaleButton = _CommandButton(
+    final scaleButton = CommandRowButton(
       icon: scaleIcon,
       // The Meticulous: an "M" for both of its modes (the label says
       // which), until its logo may be used.
@@ -87,18 +87,18 @@ class PourOverCommandRow extends StatelessWidget {
     // confuse its steps), Auto's place is Last brew (user 2026-11-04).
     final List<Widget> buttons = dial
         ? [
-            const _CommandButton(
+            const CommandRowButton(
               icon: Icons.back_hand_outlined,
               label: 'Free Pour',
               onTap: null,
             ),
-            const _CommandButton(
+            const CommandRowButton(
               icon: Icons.balance,
               label: 'Tare',
               onTap: null,
             ),
             scaleButton,
-            _CommandButton(
+            CommandRowButton(
               icon: Icons.download_outlined,
               label: 'Last brew',
               onTap: connected && !brew.profileLocked
@@ -109,14 +109,14 @@ class PourOverCommandRow extends StatelessWidget {
         : [
             // One button that toggles: icon and label show the current
             // mode. Disabled during the brew.
-            _CommandButton(
+            CommandRowButton(
               icon: brew.manual ? Icons.back_hand_outlined : Icons.tune,
               label: brew.manual ? 'Free Pour' : 'Profile',
               onTap: brew.profileLocked
                   ? null
                   : () => brew.setManual(!brew.manual),
             ),
-            _CommandButton(
+            CommandRowButton(
               // Same icon as Tare on the Meticulous, but with "Tare"
               // instead of the weight below — that is in the hero. During
               // the setup steps it records the current step.
@@ -128,7 +128,7 @@ class PourOverCommandRow extends StatelessWidget {
             // Auto: weigh server, brewer and coffee by themselves, start
             // with the water, end when the brewer comes off. Tap switches,
             // long press starts the steps again. Any scale.
-            _CommandButton(
+            CommandRowButton(
               icon: Icons.auto_mode,
               iconColor: brew.auto ? context.colors.accent : null,
               label: brew.auto ? 'Auto on' : 'Auto off',
@@ -302,8 +302,9 @@ class PourOverCommandRow extends StatelessWidget {
   }
 }
 
-class _CommandButton extends StatelessWidget {
-  const _CommandButton({
+class CommandRowButton extends StatelessWidget {
+  const CommandRowButton({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,

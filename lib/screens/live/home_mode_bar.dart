@@ -7,6 +7,7 @@ import '../../machines/gaggimate/gaggimate_service.dart';
 import '../../scale/bluetooth_prompt.dart';
 import '../../scale/brew_scale.dart';
 import '../../services/app_settings.dart';
+import '../../services/espresso_shot_service.dart';
 import '../../services/meticulous_socket_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/gaggimate_icons.dart';
@@ -66,8 +67,11 @@ class HomeModeBar extends StatelessWidget {
     BuildContext context,
     HomeMode mode,
   ) async {
-    if (mode != HomeMode.pourOver) return;
-    final scale = context.read<BrewScale>();
+    if (mode != HomeMode.pourOver && mode != HomeMode.espresso) return;
+    // Espresso: always the Bluetooth scale, never the Meticulous' one.
+    final scale = mode == HomeMode.espresso
+        ? context.read<EspressoShotService>().scale
+        : context.read<BrewScale>();
     if (scale.isMachineScale ||
         scale.connection != ScaleConnection.disconnected) {
       return;
@@ -157,8 +161,9 @@ class _StatusIndicator extends StatelessWidget {
     final color = _statusColor(context, _stateFor(context, mode));
     // Pour Over with a Bluetooth scale: the Bluetooth sign; with the
     // Meticulous' built-in scale a dot like the machines.
-    if (mode == HomeMode.pourOver &&
-        !context.select<BrewScale, bool>((s) => s.isMachineScale)) {
+    if (mode == HomeMode.espresso ||
+        mode == HomeMode.pourOver &&
+            !context.select<BrewScale, bool>((s) => s.isMachineScale)) {
       return Icon(Icons.bluetooth, size: 13, color: color);
     }
     return Container(
@@ -184,18 +189,26 @@ MachineConnectionState _stateFor(BuildContext context, HomeMode mode) {
     // The scale: searching/connecting counts like connecting a machine.
     case HomeMode.pourOver:
       return context.select<BrewScale, MachineConnectionState>(
-        (s) => switch (s.connection) {
-          ScaleConnection.connected => MachineConnectionState.connected,
-          ScaleConnection.scanning ||
-          ScaleConnection.connecting => MachineConnectionState.connecting,
-          ScaleConnection.disconnected =>
-            s.error != null
-                ? MachineConnectionState.error
-                : MachineConnectionState.disconnected,
-        },
+        (s) => _scaleState(s.connection, s.error),
+      );
+    // No machine to reach: the Bluetooth scale stands in, as for Pour Over.
+    case HomeMode.espresso:
+      return context.select<EspressoShotService, MachineConnectionState>(
+        (s) => _scaleState(s.scale.connection, s.scale.error),
       );
   }
 }
+
+MachineConnectionState _scaleState(ScaleConnection c, String? error) =>
+    switch (c) {
+      ScaleConnection.connected => MachineConnectionState.connected,
+      ScaleConnection.scanning ||
+      ScaleConnection.connecting => MachineConnectionState.connecting,
+      ScaleConnection.disconnected =>
+        error != null
+            ? MachineConnectionState.error
+            : MachineConnectionState.disconnected,
+    };
 
 Color _statusColor(BuildContext context, MachineConnectionState state) {
   switch (state) {

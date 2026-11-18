@@ -10,9 +10,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 // It is shown at 17 px, the glyph inside about 11 px. At that size little
 // works: Meticulous therefore gets its initial, GaggiMate "GM" cut from its
 // wordmark (bold G of GAGGI, thin M of MATE, as in the Home pill; used with
-// permission), Pour Over a filled V60 dripper with rim and foot. Thin lines
-// disappear at 17 px.
-enum MachineGlyph { letterM, gaggiMate, v60 }
+// permission), Pour Over a filled V60 dripper with rim and foot, Espresso
+// (a machine the app does not talk to) a filled cup with handle and saucer.
+// Thin lines disappear at 17 px.
+enum MachineGlyph { letterM, gaggiMate, v60, cup }
 
 class MachineBadge extends StatelessWidget {
   const MachineBadge({
@@ -49,6 +50,10 @@ class MachineBadge extends StatelessWidget {
         MachineGlyph.v60 => CustomPaint(
           size: Size.square(size),
           painter: const _V60Painter(_glyphColor),
+        ),
+        MachineGlyph.cup => CustomPaint(
+          size: Size.square(size),
+          painter: const _CupPainter(_glyphColor),
         ),
         // Two letters side by side: as wide as the inner area allows.
         MachineGlyph.gaggiMate => SvgPicture.asset(
@@ -107,4 +112,47 @@ class _V60Painter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _V60Painter old) => old.color != color;
+}
+
+// Espresso cup with handle on a saucer, on the same 100 grid as the V60.
+class _CupPainter extends CustomPainter {
+  const _CupPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 100);
+    final paint = Paint()..color = color;
+    // Cup: flat rim, rounded bottom.
+    canvas.drawPath(
+      Path()
+        ..moveTo(22, 30)
+        ..lineTo(68, 30)
+        ..lineTo(66, 52)
+        ..quadraticBezierTo(63, 66, 45, 66)
+        ..quadraticBezierTo(27, 66, 24, 52)
+        ..close(),
+      paint,
+    );
+    // Handle: a thick ring on the right.
+    canvas.drawCircle(
+      const Offset(70, 42),
+      8,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6,
+    );
+    // Saucer.
+    canvas.drawRRect(
+      RRect.fromLTRBR(16, 70, 80, 77, const Radius.circular(3.5)),
+      paint,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _CupPainter old) => old.color != color;
 }

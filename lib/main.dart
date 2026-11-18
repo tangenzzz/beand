@@ -39,6 +39,8 @@ import 'services/brew_recipe_store.dart';
 import 'services/meticulous_dial_brews.dart';
 import 'services/meticulous_pourover_profiles.dart';
 import 'services/heating_estimator.dart';
+import 'sensors/pressure_sensor.dart';
+import 'services/espresso_shot_service.dart';
 import 'services/live_shot_service.dart';
 import 'services/machine_notifications.dart';
 import 'services/notification_settings.dart';
@@ -309,6 +311,23 @@ Future<void> main() async {
     bluetoothScale.mayAutoSwitch = () => pourOver.stage == ShotStage.idle;
   }
 
+  // Home → Espresso: a machine the app does not talk to. Shares the
+  // Bluetooth scale with Pour Over (never the Meticulous' built-in one) and
+  // adds an optional pressure sensor.
+  final espressoSetup = await ShotSetup.load(
+    machineKey: EspressoShotService.key,
+  );
+  espressoSetup.gear = gear;
+  await espressoSetup.restoreFromLastShot(database);
+  shotSetups.espresso = espressoSetup;
+  final pressureSensor = Pressensor();
+  final espresso = EspressoShotService(
+    scale: scale.bluetooth,
+    sensor: pressureSensor,
+    setup: espressoSetup,
+    database: database,
+  )..start();
+
   final profileImages = ProfileImages(database.watchStoredProfiles());
 
   // Sync between your own devices (Settings → Sync). If enabled, it syncs
@@ -390,6 +409,8 @@ Future<void> main() async {
         ChangeNotifierProvider<BrewScale>.value(value: scale),
         ChangeNotifierProvider<BrewRecipeStore>.value(value: recipeStore),
         ChangeNotifierProvider<PourOverBrewService>.value(value: pourOver),
+        ChangeNotifierProvider<EspressoShotService>.value(value: espresso),
+        ChangeNotifierProvider<PressureSensor>.value(value: pressureSensor),
         ChangeNotifierProvider<SyncService>.value(value: deviceSync),
       ],
       child: BeandApp(

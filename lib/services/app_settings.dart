@@ -8,7 +8,10 @@ import '../theme/app_colors.dart';
 enum HomeMode {
   meticulous('Meticulous'),
   pourOver('Pour Over'),
-  gaggimate('GaggiMate');
+  gaggimate('GaggiMate'),
+  // An espresso machine without an app connection: shots are logged by
+  // hand, optionally with a Bluetooth scale and/or a pressure sensor.
+  espresso('Espresso');
 
   const HomeMode(this.label);
 

@@ -71,7 +71,11 @@ void main() {
     await settings.setHomeMode(HomeMode.gaggimate);
 
     final reloaded = await AppSettings.load();
-    expect(reloaded.enabledHomeModes, HomeMode.values);
+    expect(reloaded.enabledHomeModes, [
+      HomeMode.meticulous,
+      HomeMode.pourOver,
+      HomeMode.gaggimate,
+    ]);
     expect(reloaded.activeHomeMode, HomeMode.gaggimate);
   });
 
@@ -88,7 +92,8 @@ void main() {
     await tester.pumpWidget(wrap(settings, const HomeSettingsScreen()));
     // Pour Over has its own page instead of a switch.
     final switches = find.byType(Switch);
-    expect(switches, findsNWidgets(2));
+    // Meticulous, GaggiMate, Espresso.
+    expect(switches, findsNWidgets(3));
     await tester.tap(switches.at(1)); // GaggiMate an
     await tester.tap(find.text('Pour Over'));
     await tester.pumpAndSettle();

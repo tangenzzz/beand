@@ -42,6 +42,7 @@ class HomeSettingsScreen extends StatelessWidget {
                     HomeMode.meticulous,
                     HomeMode.gaggimate,
                     HomeMode.pourOver,
+                    HomeMode.espresso,
                   ])
                     // Pour Over has its own page (switch + profiles) — here
                     // only the way there.

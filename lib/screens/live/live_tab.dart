@@ -17,6 +17,7 @@ import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/header_icon_button.dart';
 import 'command_buttons_row.dart';
+import 'espresso/espresso_home.dart';
 import 'gaggimate/gaggimate_home.dart';
 import 'home_mode_bar.dart';
 import 'pourover/pourover_home.dart';
@@ -75,6 +76,7 @@ class LiveTab extends StatelessWidget {
             ),
             if (activeMode == HomeMode.pourOver) const PourOverHome(),
             if (activeMode == HomeMode.gaggimate) const _GaggiMateHomeScope(),
+            if (activeMode == HomeMode.espresso) const EspressoHome(),
           ],
         ),
       ),

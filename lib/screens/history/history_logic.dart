@@ -22,7 +22,9 @@ enum ShotMachine {
     'GaggiMate',
     Color(0xFFA78DE0),
     MachineGlyph.gaggiMate,
-  );
+  ),
+  // Any espresso machine the app does not talk to (Home → Espresso).
+  espresso('espresso', 'Espresso', Color(0xFFE6A472), MachineGlyph.cup);
 
   const ShotMachine(this.key, this.label, this.color, this.glyph);
   final String key;
@@ -42,6 +44,7 @@ ShotMachine shotMachineForHomeMode(HomeMode mode) => switch (mode) {
   HomeMode.meticulous => ShotMachine.meticulous,
   HomeMode.pourOver => ShotMachine.pourOver,
   HomeMode.gaggimate => ShotMachine.gaggiMate,
+  HomeMode.espresso => ShotMachine.espresso,
 };
 
 // ---- Formatting ----

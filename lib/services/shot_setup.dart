@@ -350,9 +350,13 @@ class ShotSetups {
   /// Pour over's setup, created later in main() (it needs the recipes).
   ShotSetup? pourOver;
 
+  /// Home → Espresso (a machine the app does not talk to), set in main().
+  ShotSetup? espresso;
+
   ShotSetup forMachine(String machineKey) => switch (machineKey) {
     'gaggimate' => gaggimate,
     'pourover' => pourOver ?? meticulous,
+    'espresso' => espresso ?? meticulous,
     _ => meticulous,
   };
 

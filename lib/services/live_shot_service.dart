@@ -89,6 +89,11 @@ abstract class LiveShotService extends ChangeNotifier {
   // trigger a brew (see GaggiMateLiveShotService).
   bool get supportsAutoStart => true;
 
+  // Is the shot started in the app with nothing to heat or load first (an
+  // espresso machine the app does not talk to)? Then the Pre card offers
+  // "Start Shot" right away instead of "Start Profile".
+  bool get startsByHand => false;
+
   // Starts listening to the machine state.
   void start();
 
@@ -129,9 +134,11 @@ abstract class LiveShotService extends ChangeNotifier {
   @protected
   void addReading({
     required int timeMs,
-    required double pressure,
-    required double flow,
-    required double weight,
+    // Null where nothing measures it (Espresso without scale or sensor):
+    // the chart then leaves that curve out instead of drawing a zero line.
+    required double? pressure,
+    required double? flow,
+    required double? weight,
     required String stage,
     double? temperature,
   }) {
