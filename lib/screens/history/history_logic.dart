@@ -28,7 +28,7 @@ enum ShotMachine {
     'espresso',
     'Espresso',
     // Cream from the user's draft (2026-11-07).
-    Color(0xFFF6DFB8),
+    Color(0xFFF9E1BB),
     MachineGlyph.portafilter,
   );
 

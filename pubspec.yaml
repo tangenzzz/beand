@@ -125,6 +125,8 @@ flutter:
     - assets/gaggimate/water.svg
     # Line icons of the gear types (My Coffee Desk), currentColor strokes
     - assets/icons/gear/
+    # History badge glyphs
+    - assets/badges/portafilter.svg
     # U²-Net (small) for cutting gear photos out on Android, Apache-2.0
     # (see assets/models/README.md)
     - assets/models/u2netp_fp16.tflite
