@@ -16,7 +16,7 @@ export type RouteKey = keyof typeof routes;
 
 export const ui = {
   en: {
-    'meta.description': "Track your beans and every espresso and pour-over. Live data from Meticulous and GaggiMate, rate and analyse every cup, link it to the gear you brewed with. Free and open source.",
+    'meta.description': "Track your coffee beans and every espresso and pour-over. Live data from Meticulous and GaggiMate, rate and analyse every cup, link it to the gear you brewed with. Free and open source.",
     'nav.features': 'Features',
     'nav.machines': 'Equipment',
     'nav.updates': 'Updates',
