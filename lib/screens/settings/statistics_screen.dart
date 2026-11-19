@@ -152,10 +152,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         trailing: s.period.description,
         child: Column(
           children: [
+            // Grouped by theme, one row each: what you made · coffee and
+            // water · the bags · the money.
             _NumberRow([
               _Num('Shots', '${s.shotCount}'),
               _Num('Brews', '${s.brewCount}'),
-              _Num('Empty bags', '${s.emptyBags}'),
+              _duration('Under pressure', s.underPressureMs),
             ]),
             const SizedBox(height: 18),
             _NumberRow([
@@ -165,7 +167,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ]),
             const SizedBox(height: 18),
             _NumberRow([
-              _duration('Under pressure', s.underPressureMs),
+              _Num('Empty bags', '${s.emptyBags}'),
+              s.bagDaysAvg == null
+                  ? const _Num('Bag lasts', '–')
+                  : _Num('Bag lasts', '${s.bagDaysAvg!.round()}', 'days'),
+              s.gramsPerDay == null
+                  ? const _Num('Per day', '–')
+                  : _Num('Per day', '${s.gramsPerDay!.round()}', 'g'),
+            ]),
+            const SizedBox(height: 18),
+            _NumberRow([
               _Num(
                 'Value brewed',
                 s.valueBrewed == null
@@ -332,30 +343,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         _Block(label: 'Country', child: _StackedBar(parts(s.countries))),
       if (s.processing.isNotEmpty)
         _Block(label: 'Processing', child: _StackedBar(parts(s.processing))),
-      if (s.bagDaysAvg != null || s.gramsPerDay != null)
+      // The bag numbers moved to the Activity overview; the quickest bag
+      // stays here, it names a bean.
+      if (s.fastestBag case final name?)
         _Block(
           label: 'Bags',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  if (s.bagDaysAvg case final d?)
-                    _Mini('${d.round()} days', 'a bag lasts'),
-                  if (s.gramsPerDay case final g?)
-                    _Mini('${g.round()} g', 'per day'),
-                ],
-              ),
-              if (s.fastestBag case final name?) ...[
-                const SizedBox(height: 12),
-                _Hint([
-                  const TextSpan(text: 'Fastest gone: '),
-                  _bold(name),
-                  TextSpan(text: ' in ${s.fastestBagDays} days'),
-                ]),
-              ],
-            ],
-          ),
+          child: _Hint([
+            const TextSpan(text: 'Fastest gone: '),
+            _bold(name),
+            TextSpan(text: ' in ${s.fastestBagDays} days'),
+          ]),
         ),
     ];
     return blocks.isEmpty
