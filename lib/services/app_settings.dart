@@ -85,6 +85,7 @@ class AppSettings extends ChangeNotifier {
     bool expandAiAnalysis = true,
     bool expandProfileCurve = true,
     String beanCurrency = defaultCurrencyCode,
+    String statisticsPeriod = 'month',
   }) {
     _showFreshnessRing = showFreshnessRing;
     _showBeanStock = showBeanStock;
@@ -105,6 +106,7 @@ class AppSettings extends ChangeNotifier {
     _themeMode = themeMode;
     _accent = accent;
     _beanCurrency = currencyFor(beanCurrency).code;
+    _statisticsPeriod = statisticsPeriod;
   }
 
   static const showFreshnessRingPrefKey = 'beans_show_freshness_ring';
@@ -116,6 +118,7 @@ class AppSettings extends ChangeNotifier {
   static const showGrindFromZeroPrefKey = 'history_show_grind_from_zero';
   static const expandAiAnalysisPrefKey = 'history_expand_ai_analysis';
   static const expandProfileCurvePrefKey = 'profile_expand_curve';
+  static const statisticsPeriodPrefKey = 'statistics_period';
   static const homeModePrefKey = 'home_mode_selected';
   static const homeModeOrderPrefKey = 'home_mode_order';
   // New key with the bean card (2026-11-06): its first row is Processing and
@@ -151,6 +154,7 @@ class AppSettings extends ChangeNotifier {
       showGrindFromZero: prefs.getBool(showGrindFromZeroPrefKey) ?? false,
       expandAiAnalysis: prefs.getBool(expandAiAnalysisPrefKey) ?? true,
       expandProfileCurve: prefs.getBool(expandProfileCurvePrefKey) ?? true,
+      statisticsPeriod: prefs.getString(statisticsPeriodPrefKey) ?? 'month',
       enabledHomeModes: {
         for (final mode in HomeMode.values)
           if (prefs.getBool(homeModeEnabledPrefKey(mode)) ??
@@ -259,11 +263,13 @@ class AppSettings extends ChangeNotifier {
     _themeMode = fresh._themeMode;
     _accent = fresh._accent;
     _beanCurrency = fresh._beanCurrency;
+    _statisticsPeriod = fresh._statisticsPeriod;
     fresh.dispose();
     notifyListeners();
   }
 
   late bool _showFreshnessRing;
+  late String _statisticsPeriod;
   late bool _showBeanStock;
   late double _emptyBelowGrams;
   late bool _showStageDetails;
@@ -342,6 +348,18 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(showShotFactsPrefKey, value);
+  }
+
+  // The period last chosen in Settings → Statistics, as a StatsPeriod
+  // name ("month", "year", …); kept across app starts.
+  String get statisticsPeriod => _statisticsPeriod;
+
+  Future<void> setStatisticsPeriod(String name) async {
+    if (name == _statisticsPeriod) return;
+    _statisticsPeriod = name;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(statisticsPeriodPrefKey, name);
   }
 
   // Beside the bean name in the shot detail header: how long after roasting

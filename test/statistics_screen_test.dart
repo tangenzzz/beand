@@ -7,6 +7,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('shows the three tabs with real numbers', (tester) async {
@@ -82,5 +83,37 @@ void main() {
     await tester.pump();
     expect(find.text('Classic'), findsOneWidget);
     expect(find.text('Turbo'), findsOneWidget);
+  });
+
+  testWidgets('the chosen period survives an app restart', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final settings = AppSettings();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(value: settings),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const StatisticsScreen(),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Year'));
+    await tester.pump();
+    expect(settings.statisticsPeriod, 'year');
+    expect(find.text('last 12 months'), findsOneWidget);
+
+    // A fresh start reads it back.
+    final reloaded = await tester.runAsync(AppSettings.load);
+    expect(reloaded!.statisticsPeriod, 'year');
   });
 }

@@ -64,7 +64,6 @@ class StatisticsScreen extends StatefulWidget {
 class _StatisticsScreenState extends State<StatisticsScreen> {
   late final Future<StatisticsData> _data;
   var _section = _Section.activity;
-  var _period = StatsPeriod.month;
   HomeMode? _profileMode;
 
   @override
@@ -72,6 +71,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     super.initState();
     _data = StatisticsData.load(context.read<AppDatabase>());
   }
+
+  // Remembered in AppSettings, so the page opens on the last period even
+  // after the app was closed.
+  StatsPeriod get _period =>
+      StatsPeriod.values.asNameMap()[context
+          .watch<AppSettings>()
+          .statisticsPeriod] ??
+      StatsPeriod.month;
 
   @override
   Widget build(BuildContext context) {
@@ -103,7 +110,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       UnderlineOption(p, p.label),
                   ],
                   value: _period,
-                  onChanged: (p) => setState(() => _period = p ?? _period),
+                  onChanged: (p) {
+                    if (p != null) {
+                      context.read<AppSettings>().setStatisticsPeriod(p.name);
+                    }
+                  },
                 ),
               ),
               if (snapshot.hasError)
