@@ -479,10 +479,18 @@ class Statistics {
         if (b.openedAt != null)
           (b, b.emptiedAt!.difference(b.openedAt!).inDays.clamp(1, 9999)),
     ];
-    final firstShot = shots.isEmpty ? null : shots.first.time;
-    final spanDays = from != null
-        ? period.days!
-        : (firstShot == null ? 0 : today.difference(firstShot).inDays + 1);
+    // Days the period really covers: it can't start before the very first
+    // shot, or a year with two months of data would be divided by 365.
+    DateTime? firstEver;
+    for (final s in data.shots) {
+      if (firstEver == null || s.time.isBefore(firstEver)) firstEver = s.time;
+    }
+    final spanStart = firstEver == null
+        ? null
+        : (from != null && from.isAfter(firstEver) ? from : firstEver);
+    final spanDays = spanStart == null
+        ? 0
+        : today.difference(spanStart).inDays + 1;
     (StatBean, int)? quickest;
     for (final e in bagDays) {
       if (quickest == null || e.$2 < quickest.$2) quickest = e;

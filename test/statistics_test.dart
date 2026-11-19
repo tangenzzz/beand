@@ -228,6 +228,17 @@ void main() {
       expect(s.fastestBagDays, 4);
     });
 
+    test('grams per day only count the days since the first shot', () {
+      // 10 days of data, 18 g each: a year must not divide by 365.
+      final data = StatisticsData([
+        for (var d = 0; d < 10; d++) shot(d),
+      ], beans);
+      final year = Statistics.compute(data, StatsPeriod.year, now: now);
+      final all = Statistics.compute(data, StatsPeriod.all, now: now);
+      expect(year.gramsPerDay, closeTo(180 / 10, 0.01));
+      expect(all.gramsPerDay, year.gramsPerDay);
+    });
+
     test('top profiles per machine', () {
       final data = StatisticsData([
         shot(1, profile: 'A'),
