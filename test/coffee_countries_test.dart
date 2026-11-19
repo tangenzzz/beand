@@ -65,13 +65,5 @@ void main() {
       ]);
       expect(CoffeeCountries.matchAll(''), isEmpty);
     });
-
-    test('a bean falls back to its region', () {
-      expect(CoffeeCountries.forBean(null, 'Huila').map((c) => c.code), ['CO']);
-      expect(CoffeeCountries.forBean('Kenya', 'Huila').map((c) => c.code), [
-        'KE',
-      ]);
-      expect(CoffeeCountries.forBean('', 'Somewhere'), isEmpty);
-    });
   });
 }

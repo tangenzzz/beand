@@ -400,11 +400,4 @@ class CoffeeCountries {
     }
     return found;
   }
-
-  /// The countries of a bean: from its country field, or — when that is
-  /// empty or unknown — from its region field ("Huila" → Colombia).
-  static List<CoffeeCountry> forBean(String? country, String? region) {
-    final fromCountry = matchAll(country);
-    return fromCountry.isNotEmpty ? fromCountry : matchAll(region);
-  }
 }
