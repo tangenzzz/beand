@@ -8,18 +8,25 @@
 import '../database/database.dart';
 
 enum StatsPeriod {
-  week('Week', 7, 'last 7 days'),
-  month('Month', 30, 'last 30 days'),
+  // Longest first, as shown in the selector.
+  all('All', null, 'all time'),
   year('Year', 365, 'last 12 months'),
-  all('All', null, 'all time');
+  month('Month', 30, 'last 30 days'),
+  week('Week', 7, 'last 7 days'),
+  day('Day', 1, 'today');
 
   const StatsPeriod(this.label, this.days, this.description);
   final String label;
   final int? days;
   final String description;
 
-  DateTime? start(DateTime now) =>
-      days == null ? null : now.subtract(Duration(days: days!));
+  /// "Day" is the calendar day (since midnight), the others count back
+  /// from now.
+  DateTime? start(DateTime now) => switch (this) {
+    all => null,
+    day => DateTime(now.year, now.month, now.day),
+    _ => now.subtract(Duration(days: days!)),
+  };
 }
 
 /// One shot or brew, reduced to what the statistics use.

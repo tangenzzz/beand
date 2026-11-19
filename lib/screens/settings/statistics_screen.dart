@@ -630,6 +630,10 @@ class _NumberRow extends StatelessWidget {
               ],
             ),
           ),
+        // Always three columns: a shorter row lines up under the ones
+        // above instead of spreading out.
+        for (var i = items.length; i < 3; i++)
+          const Expanded(child: SizedBox.shrink()),
       ],
     );
   }

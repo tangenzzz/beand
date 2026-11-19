@@ -144,6 +144,16 @@ void main() {
     });
   });
 
+  test('day = since midnight, periods listed longest first', () {
+    final data = StatisticsData([
+      shot(0, hour: 7),
+      shot(1, hour: 20), // yesterday evening, within 24 h but not today
+    ], beans);
+    expect(Statistics.compute(data, StatsPeriod.day, now: now).shotCount, 1);
+    expect(StatsPeriod.values.first, StatsPeriod.all);
+    expect(StatsPeriod.values.last, StatsPeriod.day);
+  });
+
   group('records', () {
     test('espresso only, short test shots ignored', () {
       final data = StatisticsData([
