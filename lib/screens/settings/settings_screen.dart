@@ -16,6 +16,7 @@ import 'home_settings_screen.dart';
 import 'my_coffee_desk_screen.dart';
 import 'notification_settings_screen.dart';
 import 'settings_widgets.dart';
+import 'statistics_screen.dart';
 import 'sync_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -65,6 +66,11 @@ class SettingsScreen extends StatelessWidget {
                 iconWidget: const BeanIcon(size: 20),
                 title: 'Beans',
                 builder: (_) => const BeansSettingsScreen(),
+              ),
+              SettingsEntry(
+                icon: Icons.insights,
+                title: 'Statistics',
+                builder: (_) => const StatisticsScreen(),
               ),
               SettingsEntry(
                 icon: Icons.cable,
