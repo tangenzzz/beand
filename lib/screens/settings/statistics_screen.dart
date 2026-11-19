@@ -8,6 +8,7 @@ import '../../services/app_settings.dart';
 import '../../services/statistics.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
+import '../history/history_logic.dart';
 import 'settings_widgets.dart';
 
 enum _Section { activity, beans, profiles }
@@ -144,7 +145,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   // --- Activity -----------------------------------------------------------
 
   List<Widget> _activity(BuildContext context, Statistics s) {
-    final colors = context.colors;
     final currency = context.read<AppSettings>().beanCurrency.symbol;
     return [
       _Block(
@@ -155,7 +155,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             _NumberRow([
               _Num('Shots', '${s.shotCount}'),
               _Num('Brews', '${s.brewCount}'),
-              _Num('Bags', '${s.emptyBags}'),
+              _Num('Empty bags', '${s.emptyBags}'),
             ]),
             const SizedBox(height: 18),
             _NumberRow([
@@ -167,8 +167,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             _NumberRow([
               _duration('Under pressure', s.underPressureMs),
               _Num(
-                'Cost total',
-                s.costTotal == null ? '–' : '$currency ${s.costTotal!.round()}',
+                'Value brewed',
+                s.valueBrewed == null
+                    ? '–'
+                    : '$currency ${s.valueBrewed!.round()}',
+              ),
+              _Num(
+                'Bags bought',
+                s.bagsBought == null
+                    ? '–'
+                    : '$currency ${s.bagsBought!.round()}',
               ),
             ]),
             if (s.dosedShots > 0) ...[
@@ -184,9 +192,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           child: _StackedBar([
             for (final m in s.byMachine)
               _Part(
-                '${statisticsMachineLabels[m.label] ?? m.label} ${m.count}',
+                '${ShotMachine.fromKey(m.label).label} ${m.count}',
                 m.count,
-                _machineColor(colors, m.label),
+                // The same colors as the History badges.
+                ShotMachine.fromKey(m.label).color,
               ),
           ]),
         ),
@@ -434,13 +443,6 @@ String _changes(int n, String what) =>
 
 String _date(DateTime d) => '${d.day} ${_months[d.month - 1]}';
 
-Color _machineColor(AppColors c, String machine) => switch (machine) {
-  'meticulous' => c.sensorDown,
-  'gaggimate' => c.sensorGroup,
-  'pourover' => c.sensorUp,
-  _ => c.sensorMid,
-};
-
 List<Color> _palette(AppColors c) => [
   c.accent,
   c.sensorMid,
@@ -506,8 +508,8 @@ class _CostCoverage extends StatelessWidget {
   Widget build(BuildContext context) {
     final missing = s.unpricedBeans;
     final info = StringBuffer(
-      'Cost total = dose of each shot × bag price ÷ bag weight, '
-      'for the shots of this period. ',
+      'Value brewed = dose of each shot × bag price ÷ bag weight, for the '
+      'shots of this period. ',
     );
     if (missing.isEmpty) {
       info.write('Shots without a bean are not counted.');
@@ -517,12 +519,21 @@ class _CostCoverage extends StatelessWidget {
         '${missing.take(6).join(', ')}${missing.length > 6 ? ' and ${missing.length - 6} more' : ''}.',
       );
     }
+    info.write(
+      '\n\nBags bought = the prices of all bags added to the app in this '
+      'period, opened or not.',
+    );
+    if (s.bagsWithoutPrice > 0) {
+      info.write(
+        ' ${s.bagsWithoutPrice} of ${s.bagsBoughtCount} have no price and are missing.',
+      );
+    }
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Flexible(
           child: Text(
-            'Cost from ${s.pricedShots} of ${s.dosedShots} shots',
+            'Value from ${s.pricedShots} of ${s.dosedShots} shots',
             style: TextStyle(
               fontSize: 12.5,
               color: context.colors.textTertiary,

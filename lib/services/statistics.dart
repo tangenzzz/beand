@@ -7,14 +7,6 @@
 
 import '../database/database.dart';
 
-/// Machine keys as stored in Shots.machine, with their display names.
-const statisticsMachineLabels = {
-  'meticulous': 'Meticulous',
-  'gaggimate': 'GaggiMate',
-  'espresso': 'Espresso',
-  'pourover': 'Pour Over',
-};
-
 enum StatsPeriod {
   week('Week', 7, 'last 7 days'),
   month('Month', 30, 'last 30 days'),
@@ -80,6 +72,7 @@ class StatBean {
     this.weightGrams,
     this.openedAt,
     this.emptiedAt,
+    this.createdAt,
   });
 
   final int id;
@@ -91,6 +84,10 @@ class StatBean {
   final double? weightGrams;
   final DateTime? openedAt;
   final DateTime? emptiedAt;
+
+  /// When the bag was added to the app — the closest thing to a purchase
+  /// date the app has.
+  final DateTime? createdAt;
 
   /// Price per gram, when both price and bag weight are known.
   double? get costPerGram =>
@@ -173,6 +170,7 @@ class StatisticsData {
             weightGrams: b.weightGrams,
             openedAt: b.openedAt,
             emptiedAt: b.emptiedAt,
+            createdAt: b.createdAt,
           ),
       },
     );
@@ -201,7 +199,10 @@ class Statistics {
     required this.inCupGrams,
     required this.throughMl,
     required this.underPressureMs,
-    required this.costTotal,
+    required this.valueBrewed,
+    required this.bagsBought,
+    required this.bagsBoughtCount,
+    required this.bagsWithoutPrice,
     required this.pricedShots,
     required this.dosedShots,
     required this.unpricedBeans,
@@ -241,9 +242,19 @@ class Statistics {
   final int underPressureMs;
 
   /// Null when no shot of the period has a bean with price and weight.
-  final double? costTotal;
+  final double? valueBrewed;
 
-  /// Shots and brews of the period that went into [costTotal]: with a dose
+  /// Sum of the prices of the bags added in the period; null when none of
+  /// them has a price.
+  final double? bagsBought;
+
+  /// Bags added in the period, with or without a price.
+  final int bagsBoughtCount;
+
+  /// Of those, how many have no price and are missing from [bagsBought].
+  final int bagsWithoutPrice;
+
+  /// Shots and brews of the period that went into [valueBrewed]: with a dose
   /// and a bean that has price and bag weight.
   final int pricedShots;
 
@@ -251,7 +262,7 @@ class Statistics {
   final int dosedShots;
 
   /// Beans used in the period that lack price or bag weight, most used
-  /// first — why [costTotal] may be lower than expected.
+  /// first — why [valueBrewed] may be lower than expected.
   final List<String> unpricedBeans;
   final List<StatCount> byMachine;
 
@@ -364,6 +375,17 @@ class Statistics {
         priced++;
       } else if (bean != null) {
         unpriced[bean.name] = (unpriced[bean.name] ?? 0) + 1;
+      }
+    }
+    double? bought;
+    var boughtCount = 0, boughtNoPrice = 0;
+    for (final b in data.beans.values) {
+      if (b.createdAt == null || !inPeriod(b.createdAt!)) continue;
+      boughtCount++;
+      if (b.cost == null) {
+        boughtNoPrice++;
+      } else {
+        bought = (bought ?? 0) + b.cost!;
       }
     }
     final emptied = [
@@ -495,7 +517,10 @@ class Statistics {
       inCupGrams: cup,
       throughMl: through,
       underPressureMs: pressureMs,
-      costTotal: cost,
+      valueBrewed: cost,
+      bagsBought: bought,
+      bagsBoughtCount: boughtCount,
+      bagsWithoutPrice: boughtNoPrice,
       pricedShots: priced,
       dosedShots: dosed,
       unpricedBeans:

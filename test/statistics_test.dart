@@ -47,6 +47,7 @@ void main() {
       weightGrams: 250,
       openedAt: DateTime(2026, 11, 1),
       emptiedAt: DateTime(2026, 11, 12),
+      createdAt: DateTime(2026, 10, 30),
     ),
     2: StatBean(
       id: 2,
@@ -56,6 +57,7 @@ void main() {
       processing: 'Natural',
       openedAt: DateTime(2026, 10, 1),
       emptiedAt: DateTime(2026, 10, 5),
+      createdAt: DateTime(2026, 9, 28),
     ),
   };
 
@@ -88,7 +90,7 @@ void main() {
       expect(s.underPressureMs, 60000);
       // Only bean 1 has price and weight (espresso 18 g + pour over 15 g)
       // × 20 € / 250 g.
-      expect(s.costTotal, closeTo(2.64, 1e-9));
+      expect(s.valueBrewed, closeTo(2.64, 1e-9));
       // Bean 1 emptied 7 days ago; bean 2 long before the month.
       expect(s.emptyBags, 1);
     });
@@ -107,10 +109,23 @@ void main() {
       expect(s.unpricedBeans, ['Guji']);
     });
 
+    test('bags bought: prices of the bags added in the period', () {
+      final data = StatisticsData([shot(1)], beans);
+      final month = Statistics.compute(data, StatsPeriod.month, now: now);
+      // Only bean 1 was added within 30 days; it costs 20.
+      expect(month.bagsBought, 20);
+      expect(month.bagsBoughtCount, 1);
+      final all = Statistics.compute(data, StatsPeriod.all, now: now);
+      // Bean 2 has no price: counted, but missing from the sum.
+      expect(all.bagsBought, 20);
+      expect(all.bagsBoughtCount, 2);
+      expect(all.bagsWithoutPrice, 1);
+    });
+
     test('no bean prices → no cost instead of 0', () {
       final data = StatisticsData([shot(1, beanId: 2)], beans);
       expect(
-        Statistics.compute(data, StatsPeriod.all, now: now).costTotal,
+        Statistics.compute(data, StatsPeriod.all, now: now).valueBrewed,
         isNull,
       );
     });
