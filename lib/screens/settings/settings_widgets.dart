@@ -582,9 +582,22 @@ class SettingsPlaceholderScreen extends StatelessWidget {
 // again, as does tapping elsewhere. The Tooltip closed on tapping the ⓘ and
 // immediately reopened. Applies to all ⓘ in the app.
 class SettingsInfo extends StatefulWidget {
-  const SettingsInfo(this.text, {super.key, this.extra, this.heading});
+  const SettingsInfo(
+    this.text, {
+    super.key,
+    this.extra,
+    this.heading,
+    this.label,
+    this.iconSize = 16,
+  });
 
   final String text;
+
+  /// Shown before the ⓘ and tappable with it — a whole word as the target,
+  /// so the ⓘ itself can be small (Settings → Statistics).
+  final Widget? label;
+
+  final double iconSize;
 
   /// Bold first line above the text (e.g. Nostr ⓘ in Settings → Sync).
   final String? heading;
@@ -686,10 +699,19 @@ class _SettingsInfoState extends State<SettingsInfo> {
           // Kept flat so the ⓘ does not make the row taller.
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            child: Icon(
-              Icons.info_outline,
-              size: 16,
-              color: colors.textTertiary,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.label case final label?) ...[
+                  Flexible(child: label),
+                  const SizedBox(width: 3),
+                ],
+                Icon(
+                  Icons.info_outline,
+                  size: widget.iconSize,
+                  color: colors.textTertiary,
+                ),
+              ],
             ),
           ),
         ),

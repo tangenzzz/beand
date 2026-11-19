@@ -603,9 +603,9 @@ class _NumberRow extends StatelessWidget {
       children: [
         for (final n in items)
           Expanded(
-            child: Column(
-              children: [
-                Text(
+            child: Builder(
+              builder: (context) {
+                final labelText = Text(
                   n.label.toUpperCase(),
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -614,40 +614,55 @@ class _NumberRow extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     color: colors.textTertiary,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                );
+                return Column(
                   children: [
-                    Flexible(
-                      child: Text.rich(
-                        TextSpan(
-                          text: n.value,
-                          children: [
-                            if (n.unit != null)
-                              TextSpan(
-                                text: ' ${n.unit}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  color: colors.textSecondary,
-                                ),
-                              ),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w500,
-                          color: colors.textPrimary,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
+                    // With an ⓘ the whole label is the tap target, so the ⓘ
+                    // can stay small.
+                    if (n.info case final info?)
+                      SettingsInfo(info, iconSize: 12, label: labelText)
+                    else
+                      // Same height as a label with ⓘ, so numbers line up.
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: labelText,
                       ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text.rich(
+                            TextSpan(
+                              text: n.value,
+                              children: [
+                                if (n.unit != null)
+                                  TextSpan(
+                                    text: ' ${n.unit}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      color: colors.textSecondary,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                              color: colors.textPrimary,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    if (n.info case final info?) SettingsInfo(info),
                   ],
-                ),
-              ],
+                );
+              },
             ),
           ),
         // Always three columns: a shorter row lines up under the ones
