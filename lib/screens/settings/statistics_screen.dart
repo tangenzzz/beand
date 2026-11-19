@@ -168,23 +168,42 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             _NumberRow([
               _Num('Shots', '${s.shotCount}'),
               _Num('Brews', '${s.brewCount}'),
-              _duration('Under pressure', s.underPressureMs),
+              _duration(
+                'Under pressure',
+                s.underPressureMs,
+              ).withInfo('Extraction time of all espresso shots.'),
             ]),
             const SizedBox(height: 18),
             _NumberRow([
               _weight('Ground', s.groundGrams),
-              _volume('Through', s.throughMl),
-              _volume('In cup', s.inCupGrams),
+              _volume('Through', s.throughMl).withInfo(
+                'Water through the coffee: measured flow for espresso, '
+                'water poured for pour over.',
+              ),
+              _volume(
+                'In cup',
+                s.inCupGrams,
+              ).withInfo('Espresso yield plus pour-over beverage.'),
             ]),
             const SizedBox(height: 18),
             _NumberRow([
               _Num('Empty bags', '${s.emptyBags}'),
               s.bagDaysAvg == null
                   ? const _Num('Bag lasts', '–')
-                  : _Num('Bag lasts', '${s.bagDaysAvg!.round()}', 'days'),
+                  : _Num(
+                      'Bag lasts',
+                      '${s.bagDaysAvg!.round()}',
+                      'days',
+                      'Average days from opening a bag to empty.',
+                    ),
               s.gramsPerDay == null
                   ? const _Num('Per day', '–')
-                  : _Num('Per day', '${s.gramsPerDay!.round()}', 'g'),
+                  : _Num(
+                      'Per day',
+                      '${s.gramsPerDay!.round()}',
+                      'g',
+                      'Coffee ground per day, counted from your first shot.',
+                    ),
             ]),
             const SizedBox(height: 18),
             _NumberRow([
@@ -193,18 +212,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 s.valueBrewed == null
                     ? '–'
                     : '$currency ${s.valueBrewed!.round()}',
+                null,
+                _valueInfo(s),
               ),
               _Num(
                 'Bags bought',
                 s.bagsBought == null
                     ? '–'
                     : '$currency ${s.bagsBought!.round()}',
+                null,
+                _boughtInfo(s),
               ),
             ]),
-            if (s.dosedShots > 0) ...[
-              const SizedBox(height: 14),
-              _CostCoverage(s),
-            ],
           ],
         ),
       ),
@@ -463,6 +482,32 @@ TextSpan _bold(String text) => TextSpan(
   style: const TextStyle(fontWeight: FontWeight.w500),
 );
 
+String _valueInfo(Statistics s) {
+  final text = StringBuffer('Dose × bag price ÷ bag weight.');
+  if (s.pricedShots < s.dosedShots) {
+    text.write(
+      ' From ${s.pricedShots} of ${s.dosedShots} shots – the others lack '
+      'a bean, its price or bag weight',
+    );
+    final missing = s.unpricedBeans;
+    if (missing.isNotEmpty) {
+      text.write(
+        ': ${missing.take(5).join(', ')}${missing.length > 5 ? ' …' : ''}',
+      );
+    }
+    text.write('.');
+  }
+  return text.toString();
+}
+
+String _boughtInfo(Statistics s) {
+  final text = StringBuffer('Prices of the bags added in this period.');
+  if (s.bagsWithoutPrice > 0) {
+    text.write(' ${s.bagsWithoutPrice} without a price are missing.');
+  }
+  return text.toString();
+}
+
 // --- Building blocks --------------------------------------------------------
 
 // One block of the card: uppercase label (with an optional grey note on the
@@ -506,55 +551,6 @@ class _Block extends StatelessWidget {
   );
 }
 
-// Below the overview: how many shots the cost total covers, the why
-// behind the ⓘ.
-class _CostCoverage extends StatelessWidget {
-  const _CostCoverage(this.s);
-  final Statistics s;
-
-  @override
-  Widget build(BuildContext context) {
-    final missing = s.unpricedBeans;
-    final info = StringBuffer(
-      'Value brewed = dose of each shot × bag price ÷ bag weight, for the '
-      'shots of this period. ',
-    );
-    if (missing.isEmpty) {
-      info.write('Shots without a bean are not counted.');
-    } else {
-      info.write(
-        'Beans without price or bag weight count as 0: '
-        '${missing.take(6).join(', ')}${missing.length > 6 ? ' and ${missing.length - 6} more' : ''}.',
-      );
-    }
-    info.write(
-      '\n\nBags bought = the prices of all bags added to the app in this '
-      'period, opened or not.',
-    );
-    if (s.bagsWithoutPrice > 0) {
-      info.write(
-        ' ${s.bagsWithoutPrice} of ${s.bagsBoughtCount} have no price and are missing.',
-      );
-    }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(
-          child: Text(
-            'Value from ${s.pricedShots} of ${s.dosedShots} shots',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: context.colors.textTertiary,
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        SettingsInfo(info.toString()),
-      ],
-    );
-  }
-}
-
 class _Empty extends StatelessWidget {
   const _Empty(this.text);
   final String text;
@@ -584,10 +580,15 @@ class _Hint extends StatelessWidget {
 }
 
 class _Num {
-  const _Num(this.label, this.value, [this.unit]);
+  const _Num(this.label, this.value, [this.unit, this.info]);
   final String label;
   final String value;
   final String? unit;
+
+  /// Short explanation behind an ⓘ next to the number.
+  final String? info;
+
+  _Num withInfo(String text) => _Num(label, value, unit, text);
 }
 
 // The overview: small uppercase label above the number, both centered.
@@ -615,28 +616,36 @@ class _NumberRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text.rich(
-                  TextSpan(
-                    text: n.value,
-                    children: [
-                      if (n.unit != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text.rich(
                         TextSpan(
-                          text: ' ${n.unit}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: colors.textSecondary,
-                          ),
+                          text: n.value,
+                          children: [
+                            if (n.unit != null)
+                              TextSpan(
+                                text: ' ${n.unit}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: colors.textSecondary,
+                                ),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    color: colors.textPrimary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w500,
+                          color: colors.textPrimary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    if (n.info case final info?) SettingsInfo(info),
+                  ],
                 ),
               ],
             ),

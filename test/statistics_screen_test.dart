@@ -72,7 +72,7 @@ void main() {
       matching: find.byType(ColoredBox),
     );
     expect(tester.getSize(bar.first).height, 10);
-    expect(find.text('Value from 0 of 3 shots'), findsOneWidget);
+    expect(find.byIcon(Icons.info_outline), findsWidgets);
 
     await tester.tap(find.text('Beans').first);
     await tester.pump();
