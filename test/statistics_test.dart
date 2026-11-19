@@ -93,6 +93,20 @@ void main() {
       expect(s.emptyBags, 1);
     });
 
+    test('cost coverage names the beans without a price', () {
+      final data = StatisticsData([
+        shot(1),
+        shot(2, beanId: 2),
+        shot(3, beanId: 2),
+        shot(4, beanId: null),
+        shot(5, dose: null),
+      ], beans);
+      final s = Statistics.compute(data, StatsPeriod.week, now: now);
+      expect(s.dosedShots, 4);
+      expect(s.pricedShots, 1);
+      expect(s.unpricedBeans, ['Guji']);
+    });
+
     test('no bean prices → no cost instead of 0', () {
       final data = StatisticsData([shot(1, beanId: 2)], beans);
       expect(

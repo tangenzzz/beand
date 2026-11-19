@@ -65,6 +65,14 @@ void main() {
     expect(find.text('25.0 s'), findsOneWidget);
     expect(find.text('HABITS'), findsOneWidget);
 
+    // The stacked bar really has height (it once rendered only the legend).
+    final bar = find.descendant(
+      of: find.byType(ClipRRect),
+      matching: find.byType(ColoredBox),
+    );
+    expect(tester.getSize(bar.first).height, 10);
+    expect(find.text('Cost from 0 of 3 shots'), findsOneWidget);
+
     await tester.tap(find.text('Beans').first);
     await tester.pump();
     expect(find.text('Square Mile'), findsOneWidget);

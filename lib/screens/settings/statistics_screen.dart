@@ -171,6 +171,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 s.costTotal == null ? '–' : '$currency ${s.costTotal!.round()}',
               ),
             ]),
+            if (s.dosedShots > 0) ...[
+              const SizedBox(height: 14),
+              _CostCoverage(s),
+            ],
           ],
         ),
       ),
@@ -492,6 +496,46 @@ class _Block extends StatelessWidget {
   );
 }
 
+// Below the overview: how many shots the cost total covers, the why
+// behind the ⓘ.
+class _CostCoverage extends StatelessWidget {
+  const _CostCoverage(this.s);
+  final Statistics s;
+
+  @override
+  Widget build(BuildContext context) {
+    final missing = s.unpricedBeans;
+    final info = StringBuffer(
+      'Cost total = dose of each shot × bag price ÷ bag weight, '
+      'for the shots of this period. ',
+    );
+    if (missing.isEmpty) {
+      info.write('Shots without a bean are not counted.');
+    } else {
+      info.write(
+        'Beans without price or bag weight count as 0: '
+        '${missing.take(6).join(', ')}${missing.length > 6 ? ' and ${missing.length - 6} more' : ''}.',
+      );
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Flexible(
+          child: Text(
+            'Cost from ${s.pricedShots} of ${s.dosedShots} shots',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: context.colors.textTertiary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        SettingsInfo(info.toString()),
+      ],
+    );
+  }
+}
+
 class _Empty extends StatelessWidget {
   const _Empty(this.text);
   final String text;
@@ -675,7 +719,10 @@ class _StackedBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(5),
         child: SizedBox(
           height: 10,
+          // stretch: without it the parts get no height and only the
+          // legend shows.
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (var i = 0; i < parts.length; i++) ...[
                 if (i > 0) const SizedBox(width: 2),

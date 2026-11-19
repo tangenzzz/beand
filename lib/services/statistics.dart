@@ -202,6 +202,9 @@ class Statistics {
     required this.throughMl,
     required this.underPressureMs,
     required this.costTotal,
+    required this.pricedShots,
+    required this.dosedShots,
+    required this.unpricedBeans,
     required this.byMachine,
     required this.fastest,
     required this.slowest,
@@ -239,6 +242,17 @@ class Statistics {
 
   /// Null when no shot of the period has a bean with price and weight.
   final double? costTotal;
+
+  /// Shots and brews of the period that went into [costTotal]: with a dose
+  /// and a bean that has price and bag weight.
+  final int pricedShots;
+
+  /// Shots and brews of the period with a dose at all.
+  final int dosedShots;
+
+  /// Beans used in the period that lack price or bag weight, most used
+  /// first — why [costTotal] may be lower than expected.
+  final List<String> unpricedBeans;
   final List<StatCount> byMachine;
 
   // Records (espresso only)
@@ -329,6 +343,8 @@ class Statistics {
     // --- Overview ---------------------------------------------------------
     var ground = 0.0, cup = 0.0, through = 0.0, pressureMs = 0;
     double? cost;
+    var priced = 0, dosed = 0;
+    final unpriced = <String, int>{};
     for (final s in shots) {
       ground += s.dose ?? 0;
       if (s.isPourOver) {
@@ -339,9 +355,15 @@ class Statistics {
         through += s.flowVolumeMl ?? 0;
         pressureMs += s.durationMs ?? 0;
       }
-      final perGram = data.beans[s.beanId]?.costPerGram;
-      if (perGram != null && s.dose != null) {
+      if (s.dose == null) continue;
+      dosed++;
+      final bean = data.beans[s.beanId];
+      final perGram = bean?.costPerGram;
+      if (perGram != null) {
         cost = (cost ?? 0) + perGram * s.dose!;
+        priced++;
+      } else if (bean != null) {
+        unpriced[bean.name] = (unpriced[bean.name] ?? 0) + 1;
       }
     }
     final emptied = [
@@ -474,6 +496,13 @@ class Statistics {
       throughMl: through,
       underPressureMs: pressureMs,
       costTotal: cost,
+      pricedShots: priced,
+      dosedShots: dosed,
+      unpricedBeans:
+          (unpriced.entries.toList()
+                ..sort((a, b) => b.value.compareTo(a.value)))
+              .map((e) => e.key)
+              .toList(),
       byMachine: [
         for (final e in machineCounts.entries) StatCount(e.key, e.value),
       ]..sort((a, b) => b.count.compareTo(a.count)),
