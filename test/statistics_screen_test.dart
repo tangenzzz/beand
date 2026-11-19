@@ -72,13 +72,11 @@ void main() {
       matching: find.byType(ColoredBox),
     );
     expect(tester.getSize(bar.first).height, 10);
-    expect(find.byIcon(Icons.info_outline), findsWidgets);
-    // The whole label opens the explanation, not only the small ⓘ.
-    await tester.tap(find.text('UNDER PRESSURE'));
-    await tester.pump();
-    expect(find.text('Extraction time of all espresso shots.'), findsOneWidget);
-    await tester.tap(find.text('UNDER PRESSURE'));
-    await tester.pump();
+    expect(find.byIcon(Icons.info_outline), findsNothing);
+    // Averages carry a ⌀; the bag numbers live in the overview.
+    expect(find.text('BAG LASTS'), findsOneWidget);
+    expect(find.text('PER DAY'), findsOneWidget);
+    expect(find.textContaining('⌀', findRichText: true), findsOneWidget);
 
     await tester.tap(find.text('Beans').first);
     await tester.pump();

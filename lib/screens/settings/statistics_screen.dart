@@ -168,42 +168,23 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             _NumberRow([
               _Num('Shots', '${s.shotCount}'),
               _Num('Brews', '${s.brewCount}'),
-              _duration(
-                'Under pressure',
-                s.underPressureMs,
-              ).withInfo('Extraction time of all espresso shots.'),
+              _duration('Under pressure', s.underPressureMs),
             ]),
             const SizedBox(height: 18),
             _NumberRow([
               _weight('Ground', s.groundGrams),
-              _volume('Through', s.throughMl).withInfo(
-                'Water through the coffee: measured flow for espresso, '
-                'water poured for pour over.',
-              ),
-              _volume(
-                'In cup',
-                s.inCupGrams,
-              ).withInfo('Espresso yield plus pour-over beverage.'),
+              _volume('Through', s.throughMl),
+              _volume('In cup', s.inCupGrams),
             ]),
             const SizedBox(height: 18),
             _NumberRow([
               _Num('Empty bags', '${s.emptyBags}'),
               s.bagDaysAvg == null
                   ? const _Num('Bag lasts', '–')
-                  : _Num(
-                      'Bag lasts',
-                      '${s.bagDaysAvg!.round()}',
-                      'days',
-                      'Average days from opening a bag to empty.',
-                    ),
+                  : _Num('Bag lasts', '${s.bagDaysAvg!.round()}', 'days', true),
               s.gramsPerDay == null
                   ? const _Num('Per day', '–')
-                  : _Num(
-                      'Per day',
-                      '${s.gramsPerDay!.round()}',
-                      'g',
-                      'Coffee ground per day, counted from your first shot.',
-                    ),
+                  : _Num('Per day', '${s.gramsPerDay!.round()}', 'g', true),
             ]),
             const SizedBox(height: 18),
             _NumberRow([
@@ -212,16 +193,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 s.valueBrewed == null
                     ? '–'
                     : '$currency ${s.valueBrewed!.round()}',
-                null,
-                _valueInfo(s),
               ),
               _Num(
                 'Bags bought',
                 s.bagsBought == null
                     ? '–'
                     : '$currency ${s.bagsBought!.round()}',
-                null,
-                _boughtInfo(s),
               ),
             ]),
           ],
@@ -482,32 +459,6 @@ TextSpan _bold(String text) => TextSpan(
   style: const TextStyle(fontWeight: FontWeight.w500),
 );
 
-String _valueInfo(Statistics s) {
-  final text = StringBuffer('Dose × bag price ÷ bag weight.');
-  if (s.pricedShots < s.dosedShots) {
-    text.write(
-      ' From ${s.pricedShots} of ${s.dosedShots} shots – the others lack '
-      'a bean, its price or bag weight',
-    );
-    final missing = s.unpricedBeans;
-    if (missing.isNotEmpty) {
-      text.write(
-        ': ${missing.take(5).join(', ')}${missing.length > 5 ? ' …' : ''}',
-      );
-    }
-    text.write('.');
-  }
-  return text.toString();
-}
-
-String _boughtInfo(Statistics s) {
-  final text = StringBuffer('Prices of the bags added in this period.');
-  if (s.bagsWithoutPrice > 0) {
-    text.write(' ${s.bagsWithoutPrice} without a price are missing.');
-  }
-  return text.toString();
-}
-
 // --- Building blocks --------------------------------------------------------
 
 // One block of the card: uppercase label (with an optional grey note on the
@@ -580,15 +531,13 @@ class _Hint extends StatelessWidget {
 }
 
 class _Num {
-  const _Num(this.label, this.value, [this.unit, this.info]);
+  const _Num(this.label, this.value, [this.unit, this.average = false]);
   final String label;
   final String value;
   final String? unit;
 
-  /// Short explanation behind an ⓘ next to the number.
-  final String? info;
-
-  _Num withInfo(String text) => _Num(label, value, unit, text);
+  /// An average, marked with ⌀ in front of the number.
+  final bool average;
 }
 
 // The overview: small uppercase label above the number, both centered.
@@ -617,16 +566,7 @@ class _NumberRow extends StatelessWidget {
                 );
                 return Column(
                   children: [
-                    // With an ⓘ the whole label is the tap target, so the ⓘ
-                    // can stay small.
-                    if (n.info case final info?)
-                      SettingsInfo(info, iconSize: 12, label: labelText)
-                    else
-                      // Same height as a label with ⓘ, so numbers line up.
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: labelText,
-                      ),
+                    labelText,
                     const SizedBox(height: 4),
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -634,8 +574,16 @@ class _NumberRow extends StatelessWidget {
                         Flexible(
                           child: Text.rich(
                             TextSpan(
-                              text: n.value,
                               children: [
+                                if (n.average)
+                                  TextSpan(
+                                    text: '⌀ ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w400,
+                                      color: colors.textSecondary,
+                                    ),
+                                  ),
+                                TextSpan(text: n.value),
                                 if (n.unit != null)
                                   TextSpan(
                                     text: ' ${n.unit}',
