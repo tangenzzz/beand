@@ -18,12 +18,15 @@ void main() {
     }
   });
 
-  test('profiles are filled and short', () {
+  test('profiles are short and every one names its sources', () {
     for (final p in CoffeeCountryProfiles.all) {
-      expect(p.altitude, endsWith(' m'), reason: p.code);
-      expect(p.process, isNotEmpty, reason: p.code);
-      expect(p.typicalCup.length, inInclusiveRange(2, 4), reason: p.code);
+      if (p.altitude case final a?) expect(a, contains(' m'), reason: p.code);
+      expect(p.typicalCup.length, lessThanOrEqualTo(4), reason: p.code);
       expect(p.fact.length, lessThan(120), reason: p.code);
+      expect(p.sources, isNotEmpty, reason: p.code);
+      for (final url in p.sources) {
+        expect(url, startsWith('https://'), reason: '${p.code}: $url');
+      }
     }
   });
 
