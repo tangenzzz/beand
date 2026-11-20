@@ -1,15 +1,25 @@
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
+import '../../models/coffee_countries.dart';
+import '../../models/coffee_country_profiles.dart';
+import '../../models/coffee_regions.dart';
+import '../../models/coffee_varieties.dart';
 import '../../services/app_settings.dart';
+import '../../services/origin_stats.dart';
 import '../../services/statistics.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
+import '../../widgets/world_geo.dart';
 import '../history/history_logic.dart';
 import 'settings_widgets.dart';
+
+part 'statistics_origins.dart';
 
 enum _Section { activity, beans, profiles }
 
@@ -134,7 +144,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               else
-                _card(context, Statistics.compute(data, _period)),
+                _card(context, data, Statistics.compute(data, _period)),
             ],
           );
         },
@@ -142,12 +152,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  Widget _card(BuildContext context, Statistics s) {
+  Widget _card(BuildContext context, StatisticsData data, Statistics s) {
     final settings = context.watch<AppSettings>();
     return SettingsCard(
       children: switch (_section) {
         _Section.activity => _activity(context, s),
-        _Section.beans => _beans(context, s, settings),
+        _Section.beans => _beans(
+          context,
+          s,
+          OriginStats.compute(data, periodStart: _period.start(DateTime.now())),
+        ),
         _Section.profiles => _profiles(context, s, settings),
       },
     );
@@ -317,11 +331,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   // --- Beans --------------------------------------------------------------
 
-  List<Widget> _beans(
-    BuildContext context,
-    Statistics s,
-    AppSettings settings,
-  ) {
+  List<Widget> _beans(BuildContext context, Statistics s, OriginStats origins) {
     final palette = _palette(context.colors);
     List<_Part> parts(List<StatCount> list) {
       final total = list.fold<int>(0, (t, c) => t + c.count);
@@ -343,13 +353,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ];
     }
 
+    // Where the coffee comes from first (countries, then varieties), then
+    // how it was processed and who roasted it.
     final blocks = <Widget>[
-      if (s.topRoasters.isNotEmpty)
-        _Block(label: 'Top roasters', child: _BarList(s.topRoasters)),
-      if (s.countries.isNotEmpty)
-        _Block(label: 'Country', child: _StackedBar(parts(s.countries))),
+      _CountriesBlock(origins),
+      _VarietiesBlock(origins),
       if (s.processing.isNotEmpty)
         _Block(label: 'Processing', child: _StackedBar(parts(s.processing))),
+      if (s.topRoasters.isNotEmpty)
+        _Block(label: 'Top roasters', child: _BarList(s.topRoasters)),
       // The bag numbers moved to the Activity overview; the quickest bag
       // stays here, it names a bean.
       if (s.fastestBag case final name?)

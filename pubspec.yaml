@@ -127,6 +127,10 @@ flutter:
     - assets/icons/gear/
     # History badge glyphs
     - assets/badges/portafilter.svg
+    # Coastlines and country outlines for the coffee map, Natural Earth
+    # (public domain, see assets/geo/README.md)
+    - assets/geo/land.json
+    - assets/geo/borders.json
     # U²-Net (small) for cutting gear photos out on Android, Apache-2.0
     # (see assets/models/README.md)
     - assets/models/u2netp_fp16.tflite

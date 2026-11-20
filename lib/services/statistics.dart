@@ -43,6 +43,7 @@ class StatShot {
     this.maxPressure,
     this.flowVolumeMl,
     this.pistonTravelMm,
+    this.rating,
   });
 
   final DateTime time;
@@ -65,6 +66,9 @@ class StatShot {
   /// Total way the Meticulous piston moved, forth and back.
   final double? pistonTravelMm;
 
+  /// Stars 1–5; null or 0 = not rated.
+  final int? rating;
+
   bool get isPourOver => machine == 'pourover';
 }
 
@@ -74,6 +78,8 @@ class StatBean {
     required this.name,
     this.roaster,
     this.country,
+    this.region,
+    this.variety,
     this.processing,
     this.cost,
     this.weightGrams,
@@ -86,6 +92,8 @@ class StatBean {
   final String name;
   final String? roaster;
   final String? country;
+  final String? region;
+  final String? variety;
   final String? processing;
   final double? cost;
   final double? weightGrams;
@@ -160,6 +168,7 @@ class StatisticsData {
             durationMs: s.durationMs,
             maxPressure: agg[s.id]?.maxP,
             flowVolumeMl: s.machine == 'pourover' ? null : agg[s.id]?.volume,
+            rating: s.rating,
             pistonTravelMm: s.machine == 'meticulous'
                 ? agg[s.id]?.travel
                 : null,
@@ -172,6 +181,8 @@ class StatisticsData {
             name: b.name,
             roaster: b.roaster,
             country: b.country,
+            region: b.region,
+            variety: b.variety,
             processing: b.processing,
             cost: b.cost,
             weightGrams: b.weightGrams,

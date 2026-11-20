@@ -16,6 +16,12 @@ void registerBundledLicenses() {
       'IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND. ONNX '
       'export from rembg (MIT), https://github.com/danielgatis/rembg',
     );
+    // Coastlines and borders of the coffee map in Statistics.
+    yield const LicenseEntryWithLineBreaks(
+      ['Natural Earth'],
+      'Made with Natural Earth. Free vector and raster map data @ '
+      'naturalearthdata.com. The data is in the public domain.',
+    );
     yield const LicenseEntryWithLineBreaks(
       ['LiteRT (TensorFlow Lite)'],
       'Copyright Google LLC. https://github.com/google-ai-edge/LiteRT\n\n'

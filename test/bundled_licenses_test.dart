@@ -15,6 +15,7 @@ void main() {
         'LiteRT (TensorFlow Lite)',
         'zxing-cpp',
         'libzint',
+        'Natural Earth',
       ]),
     );
   });
