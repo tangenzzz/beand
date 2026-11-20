@@ -33,7 +33,6 @@ class _CountriesBlockState extends State<_CountriesBlock> {
     final colors = context.colors;
     final tried = o.countries.values.toList()
       ..sort((a, b) => b.beans.length.compareTo(a.beans.length));
-    final next = o.nextToTry();
     return _Block(
       label: 'Coffee countries',
       trailing: 'all time',
@@ -60,20 +59,8 @@ class _CountriesBlockState extends State<_CountriesBlock> {
               color: colors.textPrimary,
             ),
           ),
-          Text(
-            '${o.countries.length} country profiles unlocked',
-            style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
-          ),
           const SizedBox(height: 10),
           _CoffeeBelt(key: _belt, origins: o, onTap: _open),
-          if (next != null) ...[
-            const SizedBox(height: 6),
-            _Hint([
-              const TextSpan(text: 'Next to try: '),
-              _bold(next.next.name),
-              TextSpan(text: ' – close to ${next.near.name}'),
-            ]),
-          ],
           const SizedBox(height: 12),
           UnderlineSelect<bool>(
             options: const [
@@ -388,6 +375,14 @@ class _BeltPainter extends CustomPainter {
         canvas.drawLine(Offset(x, y), Offset(x + 2, y), dash);
       }
     }
+    // The equator: solid, but barely there.
+    canvas.drawLine(
+      Offset(0, lat * scale),
+      Offset(size.width, lat * scale),
+      Paint()
+        ..color = colors.divider.withValues(alpha: 0.6)
+        ..strokeWidth = 0.8,
+    );
     _build();
     final landPaint = Paint()
       ..color = colors.textPrimary.withValues(alpha: 0.05);
@@ -462,19 +457,6 @@ class _BeltPainter extends CustomPainter {
       ).createShader(Offset.zero & size);
     canvas.drawRect(Offset.zero & Size(size.width, h), fade);
     canvas.restore();
-    final small = TextStyle(fontSize: 9, color: colors.textTertiary);
-    _text(
-      canvas,
-      'Tropic of Cancer',
-      Offset(2, (lat - 23.44) * scale - 13),
-      small,
-    );
-    _text(
-      canvas,
-      'Tropic of Capricorn',
-      Offset(2, (lat + 23.44) * scale + 2),
-      small,
-    );
     // Continent names below the strip, moving with it.
     final names = TextStyle(
       fontSize: 10,
@@ -566,23 +548,9 @@ class _CountrySheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        Text(
-          country.name,
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w500,
-            color: colors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          [country.region.label, ?country.area].join(' · ').toUpperCase(),
-          style: TextStyle(
-            fontSize: 11.5,
-            letterSpacing: 1,
-            fontWeight: FontWeight.w600,
-            color: colors.accent,
-          ),
+        _SheetTitle(
+          overline: [country.region.label, ?country.area].join(' · '),
+          title: country.name,
         ),
         const SizedBox(height: 16),
         if (s != null)
@@ -644,12 +612,77 @@ class _CountrySheet extends StatelessWidget {
         ],
         if (s != null) ...[
           const _SubHead('Beans'),
-          for (final b in s.beans)
-            _lineRow(context, b.name, _stars(b.bestRating), star: true),
+          ..._beanList(context, s.beans),
         ],
       ],
     );
   }
+}
+
+// Small line in the accent above the sheet's title – as the roaster above
+// the beans in the bean list.
+class _SheetTitle extends StatelessWidget {
+  const _SheetTitle({required this.overline, required this.title});
+  final String overline;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        overline.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11.5,
+          letterSpacing: 1,
+          fontWeight: FontWeight.w600,
+          color: context.colors.accent,
+        ),
+      ),
+      const SizedBox(height: 2),
+      Text(
+        title,
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w500,
+          color: context.colors.textPrimary,
+        ),
+      ),
+    ],
+  );
+}
+
+// Beans as in the Beans tab: the roaster in the accent, its beans below in
+// white with their best rating.
+List<Widget> _beanList(BuildContext context, List<OriginBean> beans) {
+  final byRoaster = <String, List<OriginBean>>{};
+  for (final b in beans) {
+    final r = b.roaster?.trim();
+    (byRoaster[(r == null || r.isEmpty) ? '' : r] ??= []).add(b);
+  }
+  final roasters = byRoaster.keys.toList()
+    ..sort((a, b) {
+      if (a.isEmpty != b.isEmpty) return a.isEmpty ? 1 : -1;
+      return a.toLowerCase().compareTo(b.toLowerCase());
+    });
+  return [
+    for (final r in roasters) ...[
+      Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 2),
+        child: Text(
+          (r.isEmpty ? 'No roastery' : r).toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            letterSpacing: 1,
+            fontWeight: FontWeight.w600,
+            color: context.colors.accent,
+          ),
+        ),
+      ),
+      for (final b in byRoaster[r]!)
+        _lineRow(context, b.name, _stars(b.bestRating), star: true),
+    ],
+  ];
 }
 
 Widget _lineRow(
@@ -1071,13 +1104,9 @@ Future<void> _showUnknownSheet(BuildContext context, List<String> beans) =>
         shrinkWrap: true,
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
         children: [
-          Text(
-            'Unknown origin',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-              color: context.colors.textPrimary,
-            ),
+          const _SheetTitle(
+            overline: 'Coffee countries',
+            title: 'Unknown origin',
           ),
           const SizedBox(height: 6),
           const SettingsText(
@@ -1337,23 +1366,7 @@ Future<void> _showVarietySheet(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            v.name,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w500,
-              color: colors.textPrimary,
-            ),
-          ),
-          Text(
-            v.line.label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11.5,
-              letterSpacing: 1,
-              fontWeight: FontWeight.w600,
-              color: colors.accent,
-            ),
-          ),
+          _SheetTitle(overline: v.line.label, title: v.name),
           const SizedBox(height: 14),
           if (stat != null)
             _NumberRow4([
@@ -1380,8 +1393,7 @@ Future<void> _showVarietySheet(
           ],
           if (stat != null) ...[
             const _SubHead('Beans'),
-            for (final b in stat.beans)
-              _lineRow(context, b.name, _stars(b.bestRating), star: true),
+            ..._beanList(context, stat.beans),
           ],
           if (v.wcr != null) ...[
             const SizedBox(height: 12),

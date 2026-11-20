@@ -83,13 +83,18 @@ void main() {
     expect(find.text('Square Mile'), findsOneWidget);
     // Countries and varieties lead the Beans tab.
     expect(find.text('COFFEE COUNTRIES'), findsOneWidget);
-    expect(find.text('1 country profiles unlocked'), findsOneWidget);
+    expect(find.textContaining('profiles unlocked'), findsNothing);
+    expect(find.textContaining('Next to try'), findsNothing);
+    expect(find.text('BAGS'), findsNothing);
     expect(find.text('VARIETIES'), findsOneWidget);
 
     // A country opens its sheet with the unlocked profile.
     await tester.tap(find.text('Kenya').first);
     await tester.pumpAndSettle();
     expect(find.text('PROFILE'), findsOneWidget);
+    // Overline in the accent above the title, roaster above the bean.
+    expect(find.text('AFRICA'), findsOneWidget);
+    expect(find.text('SQUARE MILE'), findsOneWidget);
     expect(find.textContaining('UNLOCKED'), findsOneWidget);
     expect(find.textContaining('blackcurrant'), findsOneWidget);
     await tester.tapAt(const Offset(10, 10));

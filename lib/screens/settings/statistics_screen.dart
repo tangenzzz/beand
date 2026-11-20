@@ -362,17 +362,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         _Block(label: 'Processing', child: _StackedBar(parts(s.processing))),
       if (s.topRoasters.isNotEmpty)
         _Block(label: 'Top roasters', child: _BarList(s.topRoasters)),
-      // The bag numbers moved to the Activity overview; the quickest bag
-      // stays here, it names a bean.
-      if (s.fastestBag case final name?)
-        _Block(
-          label: 'Bags',
-          child: _Hint([
-            const TextSpan(text: 'Fastest gone: '),
-            _bold(name),
-            TextSpan(text: ' in ${s.fastestBagDays} days'),
-          ]),
-        ),
     ];
     return blocks.isEmpty
         ? [const _Empty('No beans with shots in this period.')]

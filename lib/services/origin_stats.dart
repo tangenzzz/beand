@@ -14,8 +14,9 @@ import 'statistics.dart';
 
 /// A bean as it appears in a country or variety sheet.
 class OriginBean {
-  const OriginBean(this.name, this.bestRating);
+  const OriginBean(this.name, this.bestRating, {this.roaster});
   final String name;
+  final String? roaster;
 
   /// Best star rating of its shots, null without a rated shot.
   final int? bestRating;
@@ -86,7 +87,7 @@ class OriginStats {
       }
       final origin = CoffeeRegions.forBean(bean.country, bean.region);
       final kinds = CoffeeVarieties.matchAll(bean.variety);
-      final entry = OriginBean(bean.name, best);
+      final entry = OriginBean(bean.name, best, roaster: bean.roaster);
 
       if (origin.countries.isEmpty) {
         unknown.add(bean.name);
@@ -122,30 +123,6 @@ class OriginStats {
     }
     unknown.sort();
     return OriginStats._(countries, varieties, unknown);
-  }
-
-  /// A not-yet-tried country close to your best-rated one (same
-  /// continent), e.g. Burundi next to Rwanda. Null when there is none.
-  ({CoffeeCountry next, CoffeeCountry near})? nextToTry() {
-    final tried = countries.values.toList()
-      ..sort((a, b) => (b.bestRating ?? 0).compareTo(a.bestRating ?? 0));
-    for (final t in tried) {
-      final here = t.country;
-      CoffeeCountry? best;
-      double? bestDist;
-      for (final c in CoffeeCountries.all) {
-        if (countries.containsKey(c.code) || c.region != here.region) continue;
-        final d = math.sqrt(
-          math.pow(c.lon - here.lon, 2) + math.pow(c.lat - here.lat, 2),
-        );
-        if (bestDist == null || d < bestDist) {
-          best = c;
-          bestDist = d;
-        }
-      }
-      if (best != null) return (next: best, near: here);
-    }
-    return null;
   }
 
   static int? _max(int? a, int? b) =>

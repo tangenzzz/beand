@@ -72,11 +72,4 @@ void main() {
     expect(o.varieties['sl28']!.bestRating, 4);
     expect(o.countries['KE']!.varieties.map((v) => v.id), ['sl28', 'sl34']);
   });
-
-  test('next to try is an untried neighbour of the best country', () {
-    final n = OriginStats.compute(data).nextToTry()!;
-    expect(n.near.code, 'ET');
-    expect(n.next.region, n.near.region);
-    expect(['ET', 'KE', 'BR'], isNot(contains(n.next.code)));
-  });
 }
