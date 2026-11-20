@@ -668,7 +668,7 @@ List<Widget> _beanList(BuildContext context, List<OriginBean> beans) {
   return [
     for (final r in roasters) ...[
       Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 2),
+        padding: const EdgeInsets.only(top: 12),
         child: Text(
           (r.isEmpty ? 'No roastery' : r).toUpperCase(),
           style: TextStyle(
@@ -680,7 +680,14 @@ List<Widget> _beanList(BuildContext context, List<OriginBean> beans) {
         ),
       ),
       for (final b in byRoaster[r]!)
-        _lineRow(context, b.name, _stars(b.bestRating), star: true),
+        _lineRow(
+          context,
+          b.name,
+          _stars(b.bestRating),
+          star: true,
+          // Tight under its roaster, so the two read as one entry.
+          vertical: 2,
+        ),
     ],
   ];
 }
@@ -690,10 +697,11 @@ Widget _lineRow(
   String left,
   String right, {
   bool star = false,
+  double vertical = 6,
 }) {
   final colors = context.colors;
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
+    padding: EdgeInsets.symmetric(vertical: vertical),
     child: Row(
       children: [
         Expanded(
