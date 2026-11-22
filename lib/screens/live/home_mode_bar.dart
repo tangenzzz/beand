@@ -134,7 +134,11 @@ class _ModePill extends StatelessWidget {
                 GaggiMateWordmark(height: 8.5, color: textColor)
               else
                 Text(
-                  mode.label,
+                  context.select<AppSettings, String>(
+                    (s) => s.homeModeName(mode),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: textColor,
                     fontSize: 12,

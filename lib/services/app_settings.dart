@@ -86,6 +86,7 @@ class AppSettings extends ChangeNotifier {
     bool expandProfileCurve = true,
     String beanCurrency = defaultCurrencyCode,
     String statisticsPeriod = 'month',
+    Map<HomeMode, String> homeModeNames = const {},
   }) {
     _showFreshnessRing = showFreshnessRing;
     _showBeanStock = showBeanStock;
@@ -107,6 +108,7 @@ class AppSettings extends ChangeNotifier {
     _accent = accent;
     _beanCurrency = currencyFor(beanCurrency).code;
     _statisticsPeriod = statisticsPeriod;
+    _homeModeNames = {...homeModeNames};
   }
 
   static const showFreshnessRingPrefKey = 'beans_show_freshness_ring';
@@ -131,6 +133,8 @@ class AppSettings extends ChangeNotifier {
   static const beanStatusPrefKey = 'beans_status';
   static const themeModePrefKey = 'appearance_theme_mode';
   static const accentPrefKey = 'appearance_accent';
+  static String homeModeNamePrefKey(HomeMode mode) =>
+      'home_mode_name_${mode.name}';
   static String homeModeEnabledPrefKey(HomeMode mode) =>
       'home_mode_enabled_${mode.name}';
 
@@ -155,6 +159,12 @@ class AppSettings extends ChangeNotifier {
       expandAiAnalysis: prefs.getBool(expandAiAnalysisPrefKey) ?? true,
       expandProfileCurve: prefs.getBool(expandProfileCurvePrefKey) ?? true,
       statisticsPeriod: prefs.getString(statisticsPeriodPrefKey) ?? 'month',
+      homeModeNames: {
+        for (final mode in HomeMode.values)
+          if (prefs.getString(homeModeNamePrefKey(mode)) case final n?
+              when n.trim().isNotEmpty)
+            mode: n.trim(),
+      },
       enabledHomeModes: {
         for (final mode in HomeMode.values)
           if (prefs.getBool(homeModeEnabledPrefKey(mode)) ??
@@ -264,12 +274,39 @@ class AppSettings extends ChangeNotifier {
     _accent = fresh._accent;
     _beanCurrency = fresh._beanCurrency;
     _statisticsPeriod = fresh._statisticsPeriod;
+    _homeModeNames = fresh._homeModeNames;
     fresh.dispose();
     notifyListeners();
   }
 
   late bool _showFreshnessRing;
   late String _statisticsPeriod;
+  late Map<HomeMode, String> _homeModeNames;
+
+  /// The name of a Home view as shown on its pill — set by the user
+  /// (Settings → Home → Espresso → Display name: "Lelit Bianca"), else
+  /// the view's own.
+  String homeModeName(HomeMode mode) => _homeModeNames[mode] ?? mode.label;
+
+  /// Empty goes back to the view's own name.
+  Future<void> setHomeModeName(HomeMode mode, String name) async {
+    final trimmed = name.trim();
+    final next = trimmed.isEmpty || trimmed == mode.label ? null : trimmed;
+    if (next == _homeModeNames[mode]) return;
+    if (next == null) {
+      _homeModeNames.remove(mode);
+    } else {
+      _homeModeNames[mode] = next;
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    if (next == null) {
+      await prefs.remove(homeModeNamePrefKey(mode));
+    } else {
+      await prefs.setString(homeModeNamePrefKey(mode), next);
+    }
+  }
+
   late bool _showBeanStock;
   late double _emptyBelowGrams;
   late bool _showStageDetails;

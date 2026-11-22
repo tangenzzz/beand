@@ -92,8 +92,8 @@ void main() {
     await tester.pumpWidget(wrap(settings, const HomeSettingsScreen()));
     // Pour Over has its own page instead of a switch.
     final switches = find.byType(Switch);
-    // Meticulous, GaggiMate, Espresso.
-    expect(switches, findsNWidgets(3));
+    // Meticulous, GaggiMate (Espresso has its own page too).
+    expect(switches, findsNWidgets(2));
     await tester.tap(switches.at(1)); // GaggiMate an
     await tester.tap(find.text('Pour Over'));
     await tester.pumpAndSettle();
@@ -110,6 +110,37 @@ void main() {
     // GaggiMate shows its wordmark instead of the text.
     expect(find.byType(GaggiMateWordmark), findsOneWidget);
     expect(find.text('Pour Over'), findsNothing);
+  });
+
+  testWidgets('Espresso: display name, empty resets', (tester) async {
+    final settings = AppSettings();
+    await tester.pumpWidget(wrap(settings, const HomeSettingsScreen()));
+    await tester.tap(find.text('Espresso'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('espresso-display-name')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('espresso-name-field')),
+      '  Lelit Bianca ',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(settings.homeModeName(HomeMode.espresso), 'Lelit Bianca');
+    // Page title and the row's subtitle follow.
+    expect(find.text('Lelit Bianca'), findsNWidgets(2));
+
+    // Survives a restart.
+    final loaded = await AppSettings.load();
+    expect(loaded.homeModeName(HomeMode.espresso), 'Lelit Bianca');
+    loaded.dispose();
+
+    // Empty goes back to the view's own name.
+    await settings.setHomeModeName(HomeMode.espresso, '');
+    await tester.pump();
+    expect(find.text('Espresso'), findsNWidgets(2));
+    final reset = await AppSettings.load();
+    expect(reset.homeModeName(HomeMode.espresso), 'Espresso');
+    reset.dispose();
   });
 
   testWidgets('all pills have the same height, also with the wordmark', (

@@ -30,6 +30,8 @@ List<String> syncedSettingKeys() => [
   AppSettings.expandProfileCurvePrefKey,
   AppSettings.homeModeOrderPrefKey,
   for (final mode in HomeMode.values) AppSettings.homeModeEnabledPrefKey(mode),
+  // The name on a view's pill (your espresso machine's), same on every device.
+  for (final mode in HomeMode.values) AppSettings.homeModeNamePrefKey(mode),
   AppSettings.beanFormOrderPrefKey,
   AppSettings.beanFormHiddenPrefKey,
   AppSettings.historyAvatarPrefKey,

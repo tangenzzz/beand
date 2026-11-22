@@ -5,12 +5,13 @@ import '../../machines/gaggimate/gaggimate_service.dart';
 import '../../services/app_settings.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/gaggimate_icons.dart';
+import 'espresso_settings_screen.dart';
 import 'pourover_settings_screen.dart';
 import 'settings_widgets.dart';
 
 // Settings → Home: one switch per view that shows or hides the matching
-// pill at the top left of the Home tab. Pour Over instead leads to its own
-// page with a switch and profiles.
+// pill at the top left of the Home tab. Pour Over and Espresso instead lead
+// to their own pages (switch + profiles / display name).
 class HomeSettingsScreen extends StatelessWidget {
   const HomeSettingsScreen({super.key});
 
@@ -52,6 +53,16 @@ class HomeSettingsScreen extends StatelessWidget {
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
                             builder: (_) => const PourOverSettingsScreen(),
+                          ),
+                        ),
+                      )
+                    // Espresso too: switch and the name on its pill.
+                    else if (mode == HomeMode.espresso)
+                      SettingsRow(
+                        title: settings.homeModeName(mode),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const EspressoSettingsScreen(),
                           ),
                         ),
                       )
