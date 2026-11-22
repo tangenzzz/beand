@@ -132,6 +132,7 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
       widget.entries,
       query: widget.query,
       filter: filter,
+      espressoName: espressoNameOf(context),
     ).length;
     return Column(
       children: [
@@ -164,7 +165,7 @@ class _HistoryFilterSheetState extends State<_HistoryFilterSheet> {
                 _Section('Machine', [
                   for (final m in _options.machines)
                     UnderlineItem(
-                      label: m.label,
+                      label: shotMachineName(context, m),
                       selected: _machines.contains(m.key),
                       onTap: () => setState(() {
                         if (!_machines.remove(m.key)) _machines.add(m.key);

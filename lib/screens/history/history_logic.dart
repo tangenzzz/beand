@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../widgets/machine_badge.dart';
 
@@ -218,11 +219,13 @@ bool _inDateRange(HistoryFilter f, DateTime t, DateTime now) {
 }
 
 // Text searched by the free-text search (lowercase).
-String shotSearchText(ShotEntry e) => [
+// [espressoName]: the own name of Home → Espresso — found by it as well.
+String shotSearchText(ShotEntry e, {String? espressoName}) => [
   e.bean == null ? null : beanSearchText(e.bean!),
   e.shot.profileName,
   e.shot.notes,
   ShotMachine.fromKey(e.shot.machine).label,
+  if (e.shot.machine == ShotMachine.espresso.key) espressoName,
 ].whereType<String>().join(' ').toLowerCase();
 
 // Within a field OR, between fields AND.
@@ -231,12 +234,14 @@ List<ShotEntry> filterShots(
   required String query,
   required HistoryFilter filter,
   DateTime? now,
+  String? espressoName,
 }) {
   final q = query.trim().toLowerCase();
   final at = now ?? DateTime.now();
   return [
     for (final e in entries)
-      if ((q.isEmpty || shotSearchText(e).contains(q)) &&
+      if ((q.isEmpty ||
+              shotSearchText(e, espressoName: espressoName).contains(q)) &&
           (filter.machines.isEmpty ||
               filter.machines.contains(e.shot.machine)) &&
           (filter.beanIds.isEmpty ||
@@ -300,5 +305,29 @@ class HistoryFilterOptions {
     }
     return byKey.values.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+}
+
+/// The name a brew method is shown with: Espresso by the name given in
+/// Settings → Home → Espresso ("Lelit Bianca"), the others by their own.
+String shotMachineName(BuildContext context, ShotMachine m) {
+  if (m != ShotMachine.espresso) return m.label;
+  try {
+    return context.select<AppSettings, String>(
+      (s) => s.homeModeName(HomeMode.espresso),
+    );
+  } on ProviderNotFoundException {
+    return m.label;
+  }
+}
+
+/// [shotMachineName] for the free-text search; null without settings.
+String? espressoNameOf(BuildContext context) {
+  try {
+    return context.select<AppSettings, String>(
+      (s) => s.homeModeName(HomeMode.espresso),
+    );
+  } on ProviderNotFoundException {
+    return null;
   }
 }

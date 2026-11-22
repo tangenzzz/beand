@@ -299,7 +299,7 @@ class _NewShotHeaderState extends State<NewShotHeader> {
           onClose: widget.onClose,
           options: [
             for (final m in ShotMachine.values)
-              ValueOption(value: m, title: m.label),
+              ValueOption(value: m, title: shotMachineName(context, m)),
           ],
           onChanged: _setMachine,
         ),
@@ -348,7 +348,7 @@ class _NewShotHeaderState extends State<NewShotHeader> {
             onToggle: () => widget.onToggle('profile'),
             onClose: widget.onClose,
             emptyText:
-                'No ${machine.label} profiles stored yet — they come with '
+                'No ${shotMachineName(context, machine)} profiles stored yet — they come with '
                 'the machine.',
             options: [
               for (final p in _profiles)

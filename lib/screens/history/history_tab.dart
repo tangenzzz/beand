@@ -272,7 +272,12 @@ class _HistoryTabState extends State<HistoryTab> {
         ),
       ];
     }
-    final visible = filterShots(entries, query: _search.text, filter: _filter);
+    final visible = filterShots(
+      entries,
+      query: _search.text,
+      filter: _filter,
+      espressoName: espressoNameOf(context),
+    );
     if (visible.isEmpty) {
       return [
         _message(

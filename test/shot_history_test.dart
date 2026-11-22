@@ -476,6 +476,23 @@ void main() {
       () => expect(ids('', HistoryFilter.empty), [1, 2, 3, 4]),
     );
 
+    test('Espresso shots are found by their own name too', () {
+      final shots = [
+        _entry(1, DateTime(2026, 9, 1), machine: 'espresso'),
+        _entry(2, DateTime(2026, 9, 2)),
+      ];
+      List<int> found(String q, {String? name}) => filterShots(
+        shots,
+        query: q,
+        filter: HistoryFilter.empty,
+        now: now,
+        espressoName: name,
+      ).map((e) => e.shot.id).toList();
+      expect(found('bianca', name: 'Lelit Bianca'), [1]);
+      expect(found('espresso', name: 'Lelit Bianca'), [1]);
+      expect(found('bianca'), isEmpty);
+    });
+
     test('free text searches bean, roaster, profile, note and machine', () {
       expect(ids('cabra', HistoryFilter.empty), [1, 3]);
       expect(ids('soup', HistoryFilter.empty), [3, 4]);

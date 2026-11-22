@@ -268,7 +268,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           child: _StackedBar([
             for (final m in s.byMachine)
               _Part(
-                '${ShotMachine.fromKey(m.label).label} ${m.count}',
+                '${shotMachineName(context, ShotMachine.fromKey(m.label))} ${m.count}',
                 m.count,
                 // The same colors as the History badges.
                 ShotMachine.fromKey(m.label).color,
@@ -429,7 +429,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           4,
         ),
         child: UnderlineSelect<HomeMode>(
-          options: [for (final m in modes) UnderlineOption(m, m.label)],
+          options: [
+            for (final m in modes)
+              UnderlineOption(
+                m,
+                context.select<AppSettings, String>((s) => s.homeModeName(m)),
+              ),
+          ],
           value: mode,
           onChanged: (m) => setState(() => _profileMode = m ?? mode),
         ),
