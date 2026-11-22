@@ -64,7 +64,9 @@ void main() {
     expect(find.text('3'), findsWidgets); // shots
     expect(find.text('RECORDS'), findsOneWidget);
     expect(find.text('25.0 s'), findsOneWidget);
-    expect(find.text('HABITS'), findsOneWidget);
+    // Earliest and latest coffee are records now.
+    expect(find.text('Earliest coffee'), findsOneWidget);
+    expect(find.text('Latest coffee'), findsOneWidget);
 
     // The stacked bar really has height (it once rendered only the legend).
     final bar = find.descendant(

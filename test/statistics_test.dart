@@ -198,8 +198,9 @@ void main() {
         shot(3, hour: 23, minute: 8),
       ], beans);
       final s = Statistics.compute(data, StatsPeriod.week, now: now);
-      expect(s.earliestMinute, 5 * 60 + 42);
-      expect(s.latestMinute, 23 * 60 + 8);
+      expect(s.earliestCoffee!.value, 5 * 60 + 42);
+      expect(s.latestCoffee!.value, 23 * 60 + 8);
+      expect(s.latestCoffee!.shot.time.day, now.day - 3);
       expect(s.perHour[7], 1);
       expect(s.busiestHour, 7);
     });

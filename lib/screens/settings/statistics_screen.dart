@@ -277,10 +277,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
       if (s.fastest != null ||
           s.highestPressure != null ||
-          s.biggestYield != null)
+          s.biggestYield != null ||
+          s.earliestCoffee != null)
         _Block(
           label: 'Records',
-          trailing: 'espresso',
           child: Column(
             children: [
               if (s.fastest case final r?)
@@ -307,6 +307,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   '${r.value.toStringAsFixed(1)} g',
                   r.shot,
                 ),
+              // Times of day count every shot and brew, not only espresso.
+              if (s.earliestCoffee case final r?)
+                _RecordRow('Earliest coffee', _clock(r.value.round()), r.shot),
+              if (s.latestCoffee case final r?)
+                _RecordRow('Latest coffee', _clock(r.value.round()), r.shot),
             ],
           ),
         ),
@@ -341,19 +346,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ],
           ),
         ),
-        _Block(
-          label: 'Habits',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _Mini(_clock(s.earliestMinute!), 'earliest coffee'),
-                  _Mini(_clock(s.latestMinute!), 'latest coffee'),
-                ],
-              ),
-              if (s.labDay case final d?) ...[
-                const SizedBox(height: 14),
+        if (s.labDay case final d?)
+          _Block(
+            label: 'Habits',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 _Hint([
                   _bold(_weekdays[d]),
                   TextSpan(
@@ -366,9 +364,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 const SizedBox(height: 8),
                 _WeekdayBars(s.changesPerWeekday, highlight: d),
               ],
-            ],
+            ),
           ),
-        ),
       ],
     ];
   }

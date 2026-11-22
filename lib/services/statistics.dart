@@ -233,8 +233,8 @@ class Statistics {
     required this.perDay,
     required this.heatmapStart,
     required this.perHour,
-    required this.earliestMinute,
-    required this.latestMinute,
+    required this.earliestCoffee,
+    required this.latestCoffee,
     required this.changesPerWeekday,
     required this.profileChangesOnLabDay,
     required this.beanChangesOnLabDay,
@@ -301,8 +301,11 @@ class Statistics {
 
   /// Shots per hour of the day, index 0–23.
   final List<int> perHour;
-  final int? earliestMinute;
-  final int? latestMinute;
+
+  /// Shots and brews with the earliest and latest time of day; the value
+  /// is minutes since midnight.
+  final StatRecord? earliestCoffee;
+  final StatRecord? latestCoffee;
 
   /// Profile or bean changes between two consecutive shots, per weekday
   /// (index 0 = Monday).
@@ -454,12 +457,12 @@ class Statistics {
       perDay[d] = (perDay[d] ?? 0) + 1;
     }
     final perHour = List.filled(24, 0);
-    int? earliest, latest;
+    StatRecord? earliest, latest;
     for (final s in shots) {
       perHour[s.time.hour]++;
-      final m = s.time.hour * 60 + s.time.minute;
-      if (earliest == null || m < earliest) earliest = m;
-      if (latest == null || m > latest) latest = m;
+      final m = (s.time.hour * 60 + s.time.minute).toDouble();
+      if (earliest == null || m < earliest.value) earliest = StatRecord(m, s);
+      if (latest == null || m > latest.value) latest = StatRecord(m, s);
     }
     final changes = List.filled(7, 0);
     final profileChanges = List.filled(7, 0);
@@ -565,8 +568,8 @@ class Statistics {
       perDay: perDay,
       heatmapStart: heatStart,
       perHour: perHour,
-      earliestMinute: earliest,
-      latestMinute: latest,
+      earliestCoffee: earliest,
+      latestCoffee: latest,
       changesPerWeekday: changes,
       profileChangesOnLabDay: labDay < 0 ? 0 : profileChanges[labDay],
       beanChangesOnLabDay: labDay < 0 ? 0 : beanChanges[labDay],
