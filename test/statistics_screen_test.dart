@@ -331,8 +331,8 @@ void main() {
     expect(find.textContaining('same profile'), findsOneWidget);
     await tester.tap(find.text('GRINDER VS. GRINDER'));
     await tester.pump();
-    expect(find.text('⌀ 28 s'), findsOneWidget);
-    expect(find.text('⌀ 32 s'), findsOneWidget);
+    expect(find.text('28 s'), findsOneWidget);
+    expect(find.text('32 s'), findsOneWidget);
 
     await tester.tap(find.text('Z1').first);
     await tester.pumpAndSettle();

@@ -372,12 +372,12 @@ class _PairTable extends StatelessWidget {
     // Pour-over times in minutes, shots in seconds.
     String secs(double? v) {
       if (v == null) return '–';
-      if (v < 90) return '⌀ ${v.round()} s';
+      if (v < 90) return '${v.round()} s';
       final t = v.round();
-      return '⌀ ${t ~/ 60}:${(t % 60).toString().padLeft(2, '0')}';
+      return '${t ~/ 60}:${(t % 60).toString().padLeft(2, '0')}';
     }
 
-    String ratio(double? v) => v == null ? '–' : '⌀ 1:${v.toStringAsFixed(1)}';
+    String ratio(double? v) => v == null ? '–' : '1:${v.toStringAsFixed(1)}';
     // A run row: the bean, under it the profile it was brewed with.
     Widget runRow(RunKey k, double? a, double? b) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
