@@ -48,7 +48,6 @@ extension on _StatisticsScreenState {
       if (grinders.isNotEmpty)
         _Block(
           label: 'Grinders',
-          trailing: 'coffee through',
           child: Column(
             children: [
               for (final g in grinders)
@@ -66,6 +65,19 @@ extension on _StatisticsScreenState {
                           if (g.uses > 0) _usesText(g),
                         ].join(' · '),
                 ),
+            ],
+          ),
+        ),
+      if (stats.grinderPairs case final pairs when pairs.isNotEmpty)
+        _Block(
+          label: 'Grinder vs. grinder',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final (i, pair) in pairs.indexed) ...[
+                if (i > 0) const SizedBox(height: 18),
+                _PairTable(pair, data.beans),
+              ],
             ],
           ),
         ),
@@ -267,6 +279,131 @@ class _GearRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Two grinders on the beans both have ground: the setting per bean – a
+// translation when switching – then shot time and ratio over those beans.
+class _PairTable extends StatelessWidget {
+  const _PairTable(this.pair, this.beans);
+  final GrinderPair pair;
+  final Map<int, StatBean> beans;
+
+  static String _grind(double? v) => v == null
+      ? '–'
+      : (v == v.roundToDouble()
+            ? v.toStringAsFixed(0)
+            : '${(v * 100).round() / 100}');
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    Widget cell(
+      String text, {
+      Color? color,
+      double size = 13.5,
+      FontWeight? weight,
+    }) => SizedBox(
+      width: 78,
+      child: Text(
+        text,
+        textAlign: TextAlign.right,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: size,
+          fontWeight: weight,
+          color: color ?? colors.textPrimary,
+        ),
+      ),
+    );
+    Widget head(GearUse g) => SizedBox(
+      width: 78,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (g.brand != null && g.brand!.isNotEmpty)
+            Text(
+              g.brand!.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                letterSpacing: 0.8,
+                fontWeight: FontWeight.w600,
+                color: colors.accent,
+              ),
+            ),
+          Text(
+            g.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 13.5, color: colors.textPrimary),
+          ),
+        ],
+      ),
+    );
+    Widget row(String label, String a, String b, {bool dimLabel = false}) =>
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: dimLabel ? 12.5 : 14,
+                    color: dimLabel ? colors.textSecondary : colors.textPrimary,
+                  ),
+                ),
+              ),
+              cell(a),
+              cell(b),
+            ],
+          ),
+        );
+    String secs(double? v) => v == null ? '–' : '⌀ ${v.round()} s';
+    String ratio(double? v) => v == null ? '–' : '⌀ 1:${v.toStringAsFixed(1)}';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Text(
+                '${_count(pair.beans.length, 'bean')} on both',
+                style: TextStyle(fontSize: 12, color: colors.textTertiary),
+              ),
+            ),
+            head(pair.a),
+            head(pair.b),
+          ],
+        ),
+        const SizedBox(height: 6),
+        for (final (id, a, b) in pair.beans.take(6))
+          row(beans[id]?.name ?? '–', _grind(a), _grind(b)),
+        if (pair.beans.length > 6)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              '+${pair.beans.length - 6} more',
+              style: TextStyle(fontSize: 12, color: colors.textTertiary),
+            ),
+          ),
+        if (pair.secondsA != null || pair.secondsB != null)
+          row(
+            'Shot time',
+            secs(pair.secondsA),
+            secs(pair.secondsB),
+            dimLabel: true,
+          ),
+        if (pair.ratioA != null || pair.ratioB != null)
+          row('Ratio', ratio(pair.ratioA), ratio(pair.ratioB), dimLabel: true),
+      ],
     );
   }
 }
@@ -532,7 +669,9 @@ class _FoldHead extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
+  // No ripple: the whole row would flash light for a moment.
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
     onTap: onTap,
     child: Row(
       children: [

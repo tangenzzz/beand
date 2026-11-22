@@ -156,4 +156,24 @@ void main() {
     expect(g.shots, 1);
     expect(g.firstUse, now.subtract(const Duration(days: 60)));
   });
+
+  test('grinder vs. grinder on the beans both have ground', () {
+    final s = compute([
+      // Bean 1 on both, bean 2 only on the Niche.
+      shot(1, gearIds: 'g-niche', beanId: 1, grind: '14', dose: 18),
+      shot(2, gearIds: 'g-niche', beanId: 1, grind: '15', dose: 18),
+      shot(3, gearIds: 'g-zerno', beanId: 1, grind: '2.5', dose: 18),
+      shot(4, gearIds: 'g-niche', beanId: 2, grind: '20'),
+    ]);
+    final pair = s.grinderPairs.single;
+    final names = {pair.a.name, pair.b.name};
+    expect(names, {'Zero', 'Z1'});
+    expect(pair.beans, hasLength(1));
+    final (id, ga, gb) = pair.beans.single;
+    expect(id, 1);
+    final niche = pair.a.name == 'Zero' ? ga : gb;
+    final zerno = pair.a.name == 'Zero' ? gb : ga;
+    expect(niche, 14.5); // median of 14 and 15
+    expect(zerno, 2.5);
+  });
 }

@@ -222,7 +222,16 @@ void main() {
       stock: 77,
     );
     SharedPreferences.setMockInitialValues({
-      GearStore.gearPrefKey: jsonEncode([grinder.toJson(), filter.toJson()]),
+      GearStore.gearPrefKey: jsonEncode([
+        grinder.toJson(),
+        filter.toJson(),
+        const Gear(
+          id: 'g2',
+          type: GearType.grinder,
+          brand: 'Niche',
+          model: 'Zero',
+        ).toJson(),
+      ]),
       GearStore.chainsPrefKey: jsonEncode([
         const BrewChain(
           id: 'c1',
@@ -254,10 +263,25 @@ void main() {
             gearIds: const Value('g1,f1'),
             brewChainId: const Value('c1'),
             beanId: Value(bean.id),
+            grindSize: const Value('2.5'),
+            durationMs: const Value(28000),
           ),
           [],
         );
       }
+      // The same bean on the other grinder.
+      await db.insertShotWithReadings(
+        ShotsCompanion.insert(
+          timestamp: DateTime.now(),
+          machine: const Value('meticulous'),
+          doseGrams: const Value(18),
+          gearIds: const Value('g2'),
+          beanId: Value(bean.id),
+          grindSize: const Value('14'),
+          durationMs: const Value(32000),
+        ),
+        [],
+      );
     });
     await tester.pumpWidget(
       MultiProvider(
@@ -289,6 +313,11 @@ void main() {
     expect(find.textContaining('★'), findsNothing);
 
     expect(find.text('NEW'), findsNothing);
+    expect(find.text('coffee through'), findsNothing);
+    expect(find.text('GRINDER VS. GRINDER'), findsOneWidget);
+    expect(find.text('1 bean on both'), findsOneWidget);
+    expect(find.text('⌀ 28 s'), findsOneWidget);
+    expect(find.text('⌀ 32 s'), findsOneWidget);
 
     await tester.tap(find.text('Z1').first);
     await tester.pumpAndSettle();
@@ -296,10 +325,15 @@ void main() {
     expect(find.text('SSP HU'), findsOneWidget);
 
     // Beans ground folds, and stays folded for the next sheet.
-    expect(find.text('Guji Hambela'), findsOneWidget);
+    // (The bean also stands in the grinder comparison behind the sheet.)
+    Finder inSheet(String text) => find.descendant(
+      of: find.byType(DraggableScrollableSheet),
+      matching: find.text(text),
+    );
+    expect(inSheet('Guji Hambela'), findsOneWidget);
     await tester.tap(find.text('BEANS GROUND'));
     await tester.pumpAndSettle();
-    expect(find.text('Guji Hambela'), findsNothing);
+    expect(inSheet('Guji Hambela'), findsNothing);
     expect(settings.gearBeansOpen, isFalse);
   });
 }

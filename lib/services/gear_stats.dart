@@ -37,6 +37,10 @@ class GearUse {
   /// Coffee by bean (grams), for the grinder sheet.
   final beanGrams = <int, double>{};
 
+  /// Grinders: per bean, the settings, shot times and ratios used – the
+  /// ground for comparing two grinders on the same beans.
+  final beanRuns = <int, BeanRun>{};
+
   int get uses => shots + brews;
   bool get onDesk => gear != null;
 }
@@ -47,6 +51,42 @@ class BurrUse {
   int shots = 0;
   double grams = 0;
   DateTime? first, last;
+}
+
+class BeanRun {
+  final grinds = <double>[];
+
+  /// Espresso only: shot time in seconds and yield ÷ dose.
+  final seconds = <double>[];
+  final ratios = <double>[];
+}
+
+/// Two grinders on the beans both have ground.
+class GrinderPair {
+  GrinderPair(this.a, this.b, this.beans);
+  final GearUse a, b;
+
+  /// Bean id → median grind on a and on b (null without a setting).
+  final List<(int, double?, double?)> beans;
+
+  double? get secondsA => _meanOf(a, (r) => r.seconds);
+  double? get secondsB => _meanOf(b, (r) => r.seconds);
+  double? get ratioA => _meanOf(a, (r) => r.ratios);
+  double? get ratioB => _meanOf(b, (r) => r.ratios);
+
+  // Averaged over the shared beans only, so one grinder getting the easy
+  // beans does not tilt it.
+  double? _meanOf(GearUse g, List<double> Function(BeanRun) pick) {
+    final all = [for (final (id, _, _) in beans) ...pick(g.beanRuns[id]!)];
+    return all.isEmpty ? null : all.reduce((x, y) => x + y) / all.length;
+  }
+}
+
+double? _median(List<double> v) {
+  if (v.isEmpty) return null;
+  final s = [...v]..sort();
+  final m = s.length ~/ 2;
+  return s.length.isOdd ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
 class ChainUse {
@@ -62,6 +102,32 @@ class ChainUse {
 
 class GearStats {
   GearStats._(this.pieces, this.chains);
+
+  /// Grinder pairs that share beans in the period, most shared first (at
+  /// most three pairs).
+  List<GrinderPair> get grinderPairs {
+    final grinders = ofType(GearType.grinder)
+        .where((g) => g.beanRuns.isNotEmpty)
+        .toList();
+    final pairs = <GrinderPair>[];
+    for (var i = 0; i < grinders.length; i++) {
+      for (var j = i + 1; j < grinders.length; j++) {
+        final a = grinders[i], b = grinders[j];
+        final shared = [
+          for (final id in a.beanRuns.keys)
+            if (b.beanRuns.containsKey(id))
+              (
+                id,
+                _median(a.beanRuns[id]!.grinds),
+                _median(b.beanRuns[id]!.grinds),
+              ),
+        ];
+        if (shared.isNotEmpty) pairs.add(GrinderPair(a, b, shared));
+      }
+    }
+    pairs.sort((x, y) => y.beans.length.compareTo(x.beans.length));
+    return pairs.take(3).toList();
+  }
 
   /// Pieces used at least once (all time), most used in the period first.
   final List<GearUse> pieces;
@@ -163,6 +229,18 @@ class GearStats {
             if (b.last == null || s.time.isAfter(b.last!)) b.last = s.time;
           }
           final grind = double.tryParse(s.grind ?? '');
+          if (s.beanId != null) {
+            final run = p.beanRuns[s.beanId!] ??= BeanRun();
+            if (grind != null) run.grinds.add(grind);
+            if (!s.isPourOver) {
+              if ((s.durationMs ?? 0) >= 10000) {
+                run.seconds.add(s.durationMs! / 1000);
+              }
+              if ((s.dose ?? 0) > 0 && (s.finalWeight ?? 0) > 0) {
+                run.ratios.add(s.finalWeight! / s.dose!);
+              }
+            }
+          }
           if (grind != null) {
             p.grindMin = p.grindMin == null
                 ? grind
