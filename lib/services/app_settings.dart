@@ -86,6 +86,7 @@ class AppSettings extends ChangeNotifier {
     bool expandProfileCurve = true,
     String beanCurrency = defaultCurrencyCode,
     String statisticsPeriod = 'month',
+    bool gearBeansOpen = true,
     Map<HomeMode, String> homeModeNames = const {},
   }) {
     _showFreshnessRing = showFreshnessRing;
@@ -108,6 +109,7 @@ class AppSettings extends ChangeNotifier {
     _accent = accent;
     _beanCurrency = currencyFor(beanCurrency).code;
     _statisticsPeriod = statisticsPeriod;
+    _gearBeansOpen = gearBeansOpen;
     _homeModeNames = {...homeModeNames};
   }
 
@@ -121,6 +123,7 @@ class AppSettings extends ChangeNotifier {
   static const expandAiAnalysisPrefKey = 'history_expand_ai_analysis';
   static const expandProfileCurvePrefKey = 'profile_expand_curve';
   static const statisticsPeriodPrefKey = 'statistics_period';
+  static const gearBeansOpenPrefKey = 'statistics_gear_beans_open';
   static const homeModePrefKey = 'home_mode_selected';
   static const homeModeOrderPrefKey = 'home_mode_order';
   // New key with the bean card (2026-11-06): its first row is Processing and
@@ -159,6 +162,7 @@ class AppSettings extends ChangeNotifier {
       expandAiAnalysis: prefs.getBool(expandAiAnalysisPrefKey) ?? true,
       expandProfileCurve: prefs.getBool(expandProfileCurvePrefKey) ?? true,
       statisticsPeriod: prefs.getString(statisticsPeriodPrefKey) ?? 'month',
+      gearBeansOpen: prefs.getBool(gearBeansOpenPrefKey) ?? true,
       homeModeNames: {
         for (final mode in HomeMode.values)
           if (prefs.getString(homeModeNamePrefKey(mode)) case final n?
@@ -274,6 +278,7 @@ class AppSettings extends ChangeNotifier {
     _accent = fresh._accent;
     _beanCurrency = fresh._beanCurrency;
     _statisticsPeriod = fresh._statisticsPeriod;
+    _gearBeansOpen = fresh._gearBeansOpen;
     _homeModeNames = fresh._homeModeNames;
     fresh.dispose();
     notifyListeners();
@@ -281,6 +286,7 @@ class AppSettings extends ChangeNotifier {
 
   late bool _showFreshnessRing;
   late String _statisticsPeriod;
+  late bool _gearBeansOpen;
   late Map<HomeMode, String> _homeModeNames;
 
   /// The name of a Home view as shown on its pill — set by the user
@@ -385,6 +391,18 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(showShotFactsPrefKey, value);
+  }
+
+  // Gear sheet in Statistics: "Beans ground" unfolded or not, kept across
+  // app starts.
+  bool get gearBeansOpen => _gearBeansOpen;
+
+  Future<void> setGearBeansOpen(bool open) async {
+    if (open == _gearBeansOpen) return;
+    _gearBeansOpen = open;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(gearBeansOpenPrefKey, open);
   }
 
   // The period last chosen in Settings → Statistics, as a StatsPeriod

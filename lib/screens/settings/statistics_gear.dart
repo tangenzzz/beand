@@ -27,10 +27,6 @@ String _ago(DateTime t) {
   return _date(t);
 }
 
-/// New on the desk: first used in the last 30 days.
-bool _isNew(GearUse u) =>
-    u.firstUse != null && DateTime.now().difference(u.firstUse!).inDays < 30;
-
 extension on _StatisticsScreenState {
   List<Widget> _gear(BuildContext context, StatisticsData data) {
     final store = context.watch<GearStore>();
@@ -130,6 +126,9 @@ extension on _StatisticsScreenState {
         _Block(
           label: 'Brew chains',
           child: Column(
+            // Stretch: a short row would otherwise sit centred, looking
+            // indented.
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [for (final c in stats.chains) _ChainRow(c, store)],
           ),
         ),
@@ -241,28 +240,6 @@ class _GearRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (!dim && _isNew(use)) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.accent,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'NEW',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              letterSpacing: 0.8,
-                              fontWeight: FontWeight.w700,
-                              color: colors.bg,
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                   if (detail.isNotEmpty)
@@ -527,15 +504,50 @@ class _GearSheet extends StatelessWidget {
           ),
         ],
         if (topBeans.isNotEmpty) ...[
-          const _SubHead('Beans ground'),
-          ..._groupedBeans(context, [
-            for (final e in topBeans.take(8))
-              if (beans[e.key] case final b?) (b, e.value),
-          ]),
+          _FoldHead(
+            'Beans ground',
+            open: context.watch<AppSettings>().gearBeansOpen,
+            onTap: () {
+              final s = context.read<AppSettings>();
+              s.setGearBeansOpen(!s.gearBeansOpen);
+            },
+          ),
+          // Folded or not is remembered, also after the app was closed.
+          if (context.watch<AppSettings>().gearBeansOpen)
+            ..._groupedBeans(context, [
+              for (final e in topBeans.take(8))
+                if (beans[e.key] case final b?) (b, e.value),
+            ]),
         ],
       ],
     );
   }
+}
+
+// A sub-heading that folds what is below it, with a chevron at the right.
+class _FoldHead extends StatelessWidget {
+  const _FoldHead(this.text, {required this.open, required this.onTap});
+  final String text;
+  final bool open;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: Row(
+      children: [
+        Expanded(child: _SubHead(text)),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Icon(
+            open ? Icons.expand_less : Icons.expand_more,
+            size: 20,
+            color: context.colors.textTertiary,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 // Beans by roaster (accent) with the coffee ground for each (white).

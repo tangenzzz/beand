@@ -234,8 +234,15 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     addTearDown(db.close);
     late GearStore store;
+    final settings = AppSettings(statisticsPeriod: 'all');
     await tester.runAsync(() async {
       store = await GearStore.load();
+      final bean = await db.insertBean(
+        BeansCompanion.insert(
+          name: 'Guji Hambela',
+          roaster: const Value('April'),
+        ),
+      );
       for (var i = 0; i < 2; i++) {
         await db.insertShotWithReadings(
           ShotsCompanion.insert(
@@ -246,6 +253,7 @@ void main() {
             burrs: const Value('SSP HU'),
             gearIds: const Value('g1,f1'),
             brewChainId: const Value('c1'),
+            beanId: Value(bean.id),
           ),
           [],
         );
@@ -255,9 +263,7 @@ void main() {
       MultiProvider(
         providers: [
           Provider<AppDatabase>.value(value: db),
-          ChangeNotifierProvider<AppSettings>.value(
-            value: AppSettings(statisticsPeriod: 'all'),
-          ),
+          ChangeNotifierProvider<AppSettings>.value(value: settings),
           ChangeNotifierProvider<GearStore>.value(value: store),
         ],
         child: MaterialApp(
@@ -282,9 +288,18 @@ void main() {
     // No ratings on gear.
     expect(find.textContaining('★'), findsNothing);
 
+    expect(find.text('NEW'), findsNothing);
+
     await tester.tap(find.text('Z1').first);
     await tester.pumpAndSettle();
     expect(find.text('BURRS'), findsOneWidget);
     expect(find.text('SSP HU'), findsOneWidget);
+
+    // Beans ground folds, and stays folded for the next sheet.
+    expect(find.text('Guji Hambela'), findsOneWidget);
+    await tester.tap(find.text('BEANS GROUND'));
+    await tester.pumpAndSettle();
+    expect(find.text('Guji Hambela'), findsNothing);
+    expect(settings.gearBeansOpen, isFalse);
   });
 }
