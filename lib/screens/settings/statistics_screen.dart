@@ -519,10 +519,18 @@ TextSpan _bold(String text) => TextSpan(
 // One block of the card: uppercase label (with an optional grey note on the
 // right), then the content.
 class _Block extends StatelessWidget {
-  const _Block({required this.label, required this.child, this.trailing});
+  const _Block({
+    required this.label,
+    required this.child,
+    this.trailing,
+    this.info,
+  });
 
   final String label;
   final String? trailing;
+
+  /// Explanation behind an ⓘ next to the label.
+  final String? info;
   final Widget child;
 
   @override
@@ -531,6 +539,7 @@ class _Block extends StatelessWidget {
     children: [
       SettingsGroupLabel(
         label,
+        info: info,
         trailing: trailing == null
             ? null
             : Padding(

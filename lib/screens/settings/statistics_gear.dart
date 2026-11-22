@@ -71,6 +71,10 @@ extension on _StatisticsScreenState {
       if (stats.grinderPairs case final pairs when pairs.isNotEmpty)
         _Block(
           label: 'Grinder vs. grinder',
+          info:
+              'Only shots with the same bean, the same profile and the same '
+              'brew method are compared. Grind is the typical setting per '
+              'bean; time and ratio are averaged over those shots only.',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -365,44 +369,88 @@ class _PairTable extends StatelessWidget {
             ],
           ),
         );
-    String secs(double? v) => v == null ? '–' : '⌀ ${v.round()} s';
+    // Pour-over times in minutes, shots in seconds.
+    String secs(double? v) {
+      if (v == null) return '–';
+      if (v < 90) return '⌀ ${v.round()} s';
+      final t = v.round();
+      return '⌀ ${t ~/ 60}:${(t % 60).toString().padLeft(2, '0')}';
+    }
+
     String ratio(double? v) => v == null ? '–' : '⌀ 1:${v.toStringAsFixed(1)}';
+    // A run row: the bean, under it the profile it was brewed with.
+    Widget runRow(RunKey k, double? a, double? b) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  beans[k.bean]?.name ?? '–',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, color: colors.textPrimary),
+                ),
+                if (k.profile.isNotEmpty)
+                  Text(
+                    k.profile,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: colors.textTertiary),
+                  ),
+              ],
+            ),
+          ),
+          cell(_grind(a)),
+          cell(_grind(b)),
+        ],
+      ),
+    );
+    final methods = pair.methods;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
+          children: [const Spacer(), head(pair.a), head(pair.b)],
+        ),
+        for (final pourOver in methods) ...[
+          // Espresso and pour over never mix: each has its own rows and
+          // its own averages.
+          if (methods.length > 1)
+            _SubHead(pourOver ? 'Pour over' : 'Espresso')
+          else
+            const SizedBox(height: 6),
+          for (final (k, a, b)
+              in pair.runs.where((r) => r.$1.pourOver == pourOver).take(6))
+            runRow(k, a, b),
+          if (pair.runs.where((r) => r.$1.pourOver == pourOver).length > 6)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
               child: Text(
-                '${_count(pair.beans.length, 'bean')} on both',
+                '+${pair.runs.where((r) => r.$1.pourOver == pourOver).length - 6} more',
                 style: TextStyle(fontSize: 12, color: colors.textTertiary),
               ),
             ),
-            head(pair.a),
-            head(pair.b),
-          ],
-        ),
-        const SizedBox(height: 6),
-        for (final (id, a, b) in pair.beans.take(6))
-          row(beans[id]?.name ?? '–', _grind(a), _grind(b)),
-        if (pair.beans.length > 6)
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              '+${pair.beans.length - 6} more',
-              style: TextStyle(fontSize: 12, color: colors.textTertiary),
+          if (pair.seconds(pair.a, pourOver: pourOver) != null ||
+              pair.seconds(pair.b, pourOver: pourOver) != null)
+            row(
+              pourOver ? 'Brew time' : 'Shot time',
+              secs(pair.seconds(pair.a, pourOver: pourOver)),
+              secs(pair.seconds(pair.b, pourOver: pourOver)),
+              dimLabel: true,
             ),
-          ),
-        if (pair.secondsA != null || pair.secondsB != null)
-          row(
-            'Shot time',
-            secs(pair.secondsA),
-            secs(pair.secondsB),
-            dimLabel: true,
-          ),
-        if (pair.ratioA != null || pair.ratioB != null)
-          row('Ratio', ratio(pair.ratioA), ratio(pair.ratioB), dimLabel: true),
+          if (pair.ratio(pair.a, pourOver: pourOver) != null ||
+              pair.ratio(pair.b, pourOver: pourOver) != null)
+            row(
+              'Ratio',
+              ratio(pair.ratio(pair.a, pourOver: pourOver)),
+              ratio(pair.ratio(pair.b, pourOver: pourOver)),
+              dimLabel: true,
+            ),
+        ],
       ],
     );
   }

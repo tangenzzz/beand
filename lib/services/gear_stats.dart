@@ -37,9 +37,9 @@ class GearUse {
   /// Coffee by bean (grams), for the grinder sheet.
   final beanGrams = <int, double>{};
 
-  /// Grinders: per bean, the settings, shot times and ratios used – the
-  /// ground for comparing two grinders on the same beans.
-  final beanRuns = <int, BeanRun>{};
+  /// Grinders: per bean, profile and brew method, the settings, times and
+  /// ratios used – the ground for comparing two grinders like for like.
+  final beanRuns = <RunKey, BeanRun>{};
 
   int get uses => shots + brews;
   bool get onDesk => gear != null;
@@ -53,31 +53,50 @@ class BurrUse {
   DateTime? first, last;
 }
 
+/// What two grinders must share to be compared: the same bean, the same
+/// profile (or recipe) and the same brew method. Anything else compares
+/// unlike with unlike.
+typedef RunKey = ({int bean, String profile, bool pourOver});
+
 class BeanRun {
   final grinds = <double>[];
 
-  /// Espresso only: shot time in seconds and yield ÷ dose.
+  /// Shot or brew time in seconds and the ratio: yield ÷ dose for
+  /// espresso, water ÷ dose for pour over.
   final seconds = <double>[];
   final ratios = <double>[];
 }
 
-/// Two grinders on the beans both have ground.
+/// Two grinders on what both have brewed alike.
 class GrinderPair {
-  GrinderPair(this.a, this.b, this.beans);
+  GrinderPair(this.a, this.b, this.runs);
   final GearUse a, b;
 
-  /// Bean id → median grind on a and on b (null without a setting).
-  final List<(int, double?, double?)> beans;
+  /// Shared bean + profile + method → median grind on a and on b (null
+  /// without a setting).
+  final List<(RunKey, double?, double?)> runs;
 
-  double? get secondsA => _meanOf(a, (r) => r.seconds);
-  double? get secondsB => _meanOf(b, (r) => r.seconds);
-  double? get ratioA => _meanOf(a, (r) => r.ratios);
-  double? get ratioB => _meanOf(b, (r) => r.ratios);
+  /// Which methods occur: espresso (false) and/or pour over (true).
+  List<bool> get methods =>
+      {for (final (k, _, _) in runs) k.pourOver}.toList()
+        ..sort((x, y) => x == y ? 0 : (x ? 1 : -1));
 
-  // Averaged over the shared beans only, so one grinder getting the easy
-  // beans does not tilt it.
-  double? _meanOf(GearUse g, List<double> Function(BeanRun) pick) {
-    final all = [for (final (id, _, _) in beans) ...pick(g.beanRuns[id]!)];
+  double? seconds(GearUse g, {required bool pourOver}) =>
+      _meanOf(g, pourOver, (r) => r.seconds);
+  double? ratio(GearUse g, {required bool pourOver}) =>
+      _meanOf(g, pourOver, (r) => r.ratios);
+
+  // Averaged over the shared runs of one method only, so one grinder
+  // getting the easy beans does not tilt it.
+  double? _meanOf(
+    GearUse g,
+    bool pourOver,
+    List<double> Function(BeanRun) pick,
+  ) {
+    final all = [
+      for (final (k, _, _) in runs)
+        if (k.pourOver == pourOver) ...pick(g.beanRuns[k]!),
+    ];
     return all.isEmpty ? null : all.reduce((x, y) => x + y) / all.length;
   }
 }
@@ -114,18 +133,18 @@ class GearStats {
       for (var j = i + 1; j < grinders.length; j++) {
         final a = grinders[i], b = grinders[j];
         final shared = [
-          for (final id in a.beanRuns.keys)
-            if (b.beanRuns.containsKey(id))
+          for (final k in a.beanRuns.keys)
+            if (b.beanRuns.containsKey(k))
               (
-                id,
-                _median(a.beanRuns[id]!.grinds),
-                _median(b.beanRuns[id]!.grinds),
+                k,
+                _median(a.beanRuns[k]!.grinds),
+                _median(b.beanRuns[k]!.grinds),
               ),
         ];
         if (shared.isNotEmpty) pairs.add(GrinderPair(a, b, shared));
       }
     }
-    pairs.sort((x, y) => y.beans.length.compareTo(x.beans.length));
+    pairs.sort((x, y) => y.runs.length.compareTo(x.runs.length));
     return pairs.take(3).toList();
   }
 
@@ -230,15 +249,18 @@ class GearStats {
           }
           final grind = double.tryParse(s.grind ?? '');
           if (s.beanId != null) {
-            final run = p.beanRuns[s.beanId!] ??= BeanRun();
+            final key = (
+              bean: s.beanId!,
+              profile: s.profile?.trim() ?? '',
+              pourOver: s.isPourOver,
+            );
+            final run = p.beanRuns[key] ??= BeanRun();
             if (grind != null) run.grinds.add(grind);
-            if (!s.isPourOver) {
-              if ((s.durationMs ?? 0) >= 10000) {
-                run.seconds.add(s.durationMs! / 1000);
-              }
-              if ((s.dose ?? 0) > 0 && (s.finalWeight ?? 0) > 0) {
-                run.ratios.add(s.finalWeight! / s.dose!);
-              }
+            if ((s.durationMs ?? 0) >= 10000) {
+              run.seconds.add(s.durationMs! / 1000);
+            }
+            if ((s.dose ?? 0) > 0 && (s.finalWeight ?? 0) > 0) {
+              run.ratios.add(s.finalWeight! / s.dose!);
             }
           }
           if (grind != null) {

@@ -51,6 +51,7 @@ void main() {
     double dose = 18,
     double? water,
     int? beanId,
+    String? profile,
   }) => StatShot(
     time: now.subtract(Duration(days: daysAgo)),
     machine: machine,
@@ -63,6 +64,7 @@ void main() {
     dose: dose,
     finalWeight: water,
     beanId: beanId,
+    profile: profile,
   );
 
   GearStats compute(List<StatShot> shots, {DateTime? from}) =>
@@ -168,12 +170,38 @@ void main() {
     final pair = s.grinderPairs.single;
     final names = {pair.a.name, pair.b.name};
     expect(names, {'Zero', 'Z1'});
-    expect(pair.beans, hasLength(1));
-    final (id, ga, gb) = pair.beans.single;
-    expect(id, 1);
+    expect(pair.runs, hasLength(1));
+    final (key, ga, gb) = pair.runs.single;
+    expect(key.bean, 1);
     final niche = pair.a.name == 'Zero' ? ga : gb;
     final zerno = pair.a.name == 'Zero' ? gb : ga;
     expect(niche, 14.5); // median of 14 and 15
     expect(zerno, 2.5);
+  });
+
+  test('only the same profile and brew method are compared', () {
+    final s = compute([
+      shot(1, gearIds: 'g-niche', beanId: 1, grind: '14', profile: 'Classic'),
+      // Same bean, other profile: not comparable.
+      shot(2, gearIds: 'g-zerno', beanId: 1, grind: '2.5', profile: 'Turbo'),
+      // Same bean and "profile" name, but pour over: not comparable.
+      shot(
+        3,
+        machine: 'pourover',
+        gearIds: 'g-zerno',
+        beanId: 1,
+        grind: '6',
+        profile: 'Classic',
+      ),
+    ]);
+    expect(s.grinderPairs, isEmpty);
+
+    final like = compute([
+      shot(1, gearIds: 'g-niche', beanId: 1, grind: '14', profile: 'Classic'),
+      shot(2, gearIds: 'g-zerno', beanId: 1, grind: '2.5', profile: 'Classic'),
+    ]);
+    final run = like.grinderPairs.single.runs.single.$1;
+    expect(run.profile, 'Classic');
+    expect(run.pourOver, isFalse);
   });
 }

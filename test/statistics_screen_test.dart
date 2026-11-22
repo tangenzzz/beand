@@ -315,7 +315,22 @@ void main() {
     expect(find.text('NEW'), findsNothing);
     expect(find.text('coffee through'), findsNothing);
     expect(find.text('GRINDER VS. GRINDER'), findsOneWidget);
-    expect(find.text('1 bean on both'), findsOneWidget);
+    // The rules sit behind the ⓘ at the heading.
+    await tester.tap(
+      find.descendant(
+        of: find
+            .ancestor(
+              of: find.text('GRINDER VS. GRINDER'),
+              matching: find.byType(Row),
+            )
+            .first,
+        matching: find.byIcon(Icons.info_outline),
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining('same profile'), findsOneWidget);
+    await tester.tap(find.text('GRINDER VS. GRINDER'));
+    await tester.pump();
     expect(find.text('⌀ 28 s'), findsOneWidget);
     expect(find.text('⌀ 32 s'), findsOneWidget);
 
