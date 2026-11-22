@@ -301,6 +301,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
       brewedWith: pieces.isEmpty
           ? null
           : [for (final g in pieces) g.label].join('\n'),
+      gearIds: pieces.isEmpty ? null : [for (final g in pieces) g.id].join(','),
       grindZero: grinder?.zeroPoint?.value,
     );
     final newest = await _db.lastShot(machine: shot.machine);

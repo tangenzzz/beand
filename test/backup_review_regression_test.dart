@@ -183,7 +183,9 @@ void main() {
 
     test('a database newer than the manifest claims', () async {
       final source = await service('source');
-      await source.db.customStatement('PRAGMA user_version=29');
+      await source.db.customStatement(
+        'PRAGMA user_version=${source.db.schemaVersion + 1}',
+      );
       await expectRejected(await service('target'), await backupOf(source));
     });
   });

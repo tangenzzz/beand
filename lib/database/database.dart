@@ -116,6 +116,11 @@ class Shots extends Table with SyncColumns {
   // Which brew chain it was (its ID on My Coffee Desk) — so the next brew on
   // this machine starts with it, and the shot detail can change it.
   TextColumn get brewChainId => text().nullable()();
+  // The IDs of those pieces on My Coffee Desk, comma-separated in desk
+  // order. brewedWith keeps the names as they were; the IDs keep a piece
+  // findable after it is renamed (Statistics → Gear). Null on shots from
+  // before schema 29 – those are matched by name.
+  TextColumn get gearIds => text().nullable()();
   // The grinder's zero point that day (dial reading at burr touch) — so a
   // shot stays comparable after re-zeroing: effective = grind − zero.
   RealColumn get grindZero => real().nullable()();
@@ -302,7 +307,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 28;
+  int get schemaVersion => 29;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -476,6 +481,17 @@ class AppDatabase extends _$AppDatabase {
     if (from < 24) {
       // Index mark per shot — before the rebuild of schema 15 as well.
       await m.addColumn(shots, shots.grindMarker);
+    }
+    if (from < 29) {
+      // Desk gear IDs per shot — before the rebuild of schema 15 as well.
+      // Only where missing (tests create current tables).
+      final existing = {
+        for (final row in await customSelect('PRAGMA table_info(shots)').get())
+          row.read<String>('name'),
+      };
+      if (!existing.contains(shots.gearIds.name)) {
+        await m.addColumn(shots, shots.gearIds);
+      }
     }
     if (from < 27) {
       // Freezing pauses the ring instead of restarting it. Only where
@@ -1222,10 +1238,12 @@ class AppDatabase extends _$AppDatabase {
     required String? grinder,
     required String? burrs,
     required String? brewedWith,
+    String? gearIds,
     double? grindZero,
   }) => _writeShot(
     id,
     ShotsCompanion(
+      gearIds: Value(gearIds),
       brewChainId: Value(chainId),
       grindZero: Value(grindZero),
       grinder: Value(grinder),

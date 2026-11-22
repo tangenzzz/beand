@@ -12,22 +12,28 @@ import '../../models/coffee_countries.dart';
 import '../../models/coffee_country_profiles.dart';
 import '../../models/coffee_regions.dart';
 import '../../models/coffee_varieties.dart';
+import '../../models/gear.dart';
 import '../../services/app_settings.dart';
+import '../../services/gear_stats.dart';
+import '../../services/gear_store.dart';
 import '../../services/origin_stats.dart';
 import '../../services/statistics.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/underline_select.dart';
 import '../../widgets/world_geo.dart';
 import '../history/history_logic.dart';
+import 'my_coffee_desk_screen.dart' show GearIcon;
 import 'settings_widgets.dart';
 
+part 'statistics_gear.dart';
 part 'statistics_origins.dart';
 
-enum _Section { activity, beans, profiles }
+enum _Section { activity, beans, gear, profiles }
 
 const _sectionLabels = {
   _Section.activity: 'Activity',
   _Section.beans: 'Beans',
+  _Section.gear: 'Gear',
   _Section.profiles: 'Profiles',
 };
 
@@ -206,6 +212,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           s,
           OriginStats.compute(data, periodStart: _period.start(DateTime.now())),
         ),
+        _Section.gear => _gear(context, data),
         _Section.profiles => _profiles(context, s, settings),
       },
     );

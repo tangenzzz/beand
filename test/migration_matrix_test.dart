@@ -264,7 +264,7 @@ void main() {
           raw.close();
         });
         await db.customSelect('SELECT 1').get();
-        expect(raw.select('PRAGMA user_version').first.values.single, 28);
+        expect(raw.select('PRAGMA user_version').first.values.single, 29);
         expect(schemaShape(raw, freshSql.keys.toList()), expectedSchema);
         expect(raw.select('PRAGMA integrity_check').first.values.single, 'ok');
         expect(raw.select('PRAGMA foreign_key_check'), isEmpty);
@@ -324,8 +324,8 @@ void main() {
     'a database from a newer version is refused and left as it is',
     () async {
       final raw = oldDatabase(28, freshSql);
-      raw.execute('ALTER TABLE beans ADD COLUMN future_v29 TEXT');
-      raw.execute('PRAGMA user_version=29');
+      raw.execute('ALTER TABLE beans ADD COLUMN future_v30 TEXT');
+      raw.execute('PRAGMA user_version=30');
       final db = AppDatabase(
         NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
       );
@@ -339,7 +339,7 @@ void main() {
       final after = raw.select('PRAGMA user_version').first.values.single;
       await db.close();
       raw.close();
-      expect(after, 29);
+      expect(after, 30);
     },
   );
 }

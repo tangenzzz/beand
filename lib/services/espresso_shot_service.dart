@@ -235,6 +235,7 @@ class EspressoShotService extends LiveShotService {
         grinder: Value(snap.grinder),
         burrs: Value(snap.burrs),
         brewedWith: Value(snap.brewedWith),
+        gearIds: Value(snap.gearIds),
         brewChainId: Value(snap.brewChainId),
         finalWeight: Value(weights.isEmpty ? null : weights.last),
         durationMs: Value(durationMs),

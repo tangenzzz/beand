@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:beand/database/database.dart';
 import 'package:beand/screens/settings/statistics_screen.dart';
+import 'package:beand/models/gear.dart';
 import 'package:beand/services/app_settings.dart';
+import 'package:beand/services/gear_store.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -195,5 +199,92 @@ void main() {
     await tester.pump();
     expect(find.textContaining('4'), findsWidgets);
     expect(find.text('€ 4'), findsOneWidget);
+  });
+
+  testWidgets('Gear: grinders by coffee ground, filters with stock', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const grinder = Gear(
+      id: 'g1',
+      type: GearType.grinder,
+      brand: 'Zerno',
+      model: 'Z1',
+      specs: {'activeBurr': 'SSP HU'},
+    );
+    const filter = Gear(
+      id: 'f1',
+      type: GearType.filter,
+      brand: 'Sibarist',
+      model: 'Fast',
+      stock: 77,
+    );
+    SharedPreferences.setMockInitialValues({
+      GearStore.gearPrefKey: jsonEncode([grinder.toJson(), filter.toJson()]),
+      GearStore.chainsPrefKey: jsonEncode([
+        const BrewChain(
+          id: 'c1',
+          name: 'Light roast',
+          gearIds: ['g1', 'f1'],
+        ).toJson(),
+      ]),
+    });
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    late GearStore store;
+    await tester.runAsync(() async {
+      store = await GearStore.load();
+      for (var i = 0; i < 2; i++) {
+        await db.insertShotWithReadings(
+          ShotsCompanion.insert(
+            timestamp: DateTime.now().subtract(Duration(days: i)),
+            machine: const Value('meticulous'),
+            doseGrams: const Value(18),
+            grinder: const Value('Z1'),
+            burrs: const Value('SSP HU'),
+            gearIds: const Value('g1,f1'),
+            brewChainId: const Value('c1'),
+          ),
+          [],
+        );
+      }
+    });
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(
+            value: AppSettings(statisticsPeriod: 'all'),
+          ),
+          ChangeNotifierProvider<GearStore>.value(value: store),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const StatisticsScreen(),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Gear'));
+    await tester.pump();
+
+    expect(find.text('GRINDERS'), findsOneWidget);
+    expect(find.text('36 g'), findsOneWidget);
+    expect(find.text('FILTERS'), findsOneWidget);
+    expect(find.text('used 2 · 77 left in stock'), findsOneWidget);
+    expect(find.text('LIGHT ROAST'), findsNothing);
+    expect(find.text('Light roast'), findsOneWidget);
+    // No ratings on gear.
+    expect(find.textContaining('★'), findsNothing);
+
+    await tester.tap(find.text('Z1').first);
+    await tester.pumpAndSettle();
+    expect(find.text('BURRS'), findsOneWidget);
+    expect(find.text('SSP HU'), findsOneWidget);
   });
 }

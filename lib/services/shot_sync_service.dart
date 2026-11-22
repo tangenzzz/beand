@@ -233,6 +233,7 @@ class ShotSyncService {
         grinder: Value(attachSetup?.grinder),
         burrs: Value(attachSetup?.burrs),
         brewedWith: Value(attachSetup?.brewedWith),
+        gearIds: Value(attachSetup?.gearIds),
         brewChainId: Value(attachSetup?.brewChainId),
         finalWeight: Value(parsed.finalWeight),
         durationMs: Value(parsed.durationMs),

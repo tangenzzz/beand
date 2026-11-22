@@ -44,6 +44,12 @@ class StatShot {
     this.flowVolumeMl,
     this.pistonTravelMm,
     this.rating,
+    this.grinder,
+    this.burrs,
+    this.grind,
+    this.brewedWith,
+    this.gearIds,
+    this.chainId,
   });
 
   final DateTime time;
@@ -68,6 +74,20 @@ class StatShot {
 
   /// Stars 1–5; null or 0 = not rated.
   final int? rating;
+
+  /// Grinder name and fitted burrs at brew time (text, as on the shot).
+  final String? grinder;
+  final String? burrs;
+
+  /// Grind setting as stored ("3.25").
+  final String? grind;
+
+  /// The chain's gear labels at brew time, one per line.
+  final String? brewedWith;
+
+  /// Desk gear IDs, comma-separated; null on shots before schema 29.
+  final String? gearIds;
+  final String? chainId;
 
   bool get isPourOver => machine == 'pourover';
 }
@@ -169,6 +189,12 @@ class StatisticsData {
             maxPressure: agg[s.id]?.maxP,
             flowVolumeMl: s.machine == 'pourover' ? null : agg[s.id]?.volume,
             rating: s.rating,
+            grinder: s.grinder,
+            burrs: s.burrs,
+            grind: s.grindSize,
+            brewedWith: s.brewedWith,
+            gearIds: s.gearIds,
+            chainId: s.brewChainId,
             pistonTravelMm: s.machine == 'meticulous'
                 ? agg[s.id]?.travel
                 : null,

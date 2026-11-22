@@ -1815,6 +1815,17 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _gearIdsMeta = const VerificationMeta(
+    'gearIds',
+  );
+  @override
+  late final GeneratedColumn<String> gearIds = GeneratedColumn<String>(
+    'gear_ids',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _grindZeroMeta = const VerificationMeta(
     'grindZero',
   );
@@ -2150,6 +2161,7 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
     burrs,
     brewedWith,
     brewChainId,
+    gearIds,
     grindZero,
     grindMarker,
     beverageGrams,
@@ -2294,6 +2306,12 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
           data['brew_chain_id']!,
           _brewChainIdMeta,
         ),
+      );
+    }
+    if (data.containsKey('gear_ids')) {
+      context.handle(
+        _gearIdsMeta,
+        gearIds.isAcceptableOrUnknown(data['gear_ids']!, _gearIdsMeta),
       );
     }
     if (data.containsKey('grind_zero')) {
@@ -2594,6 +2612,10 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
         DriftSqlType.string,
         data['${effectivePrefix}brew_chain_id'],
       ),
+      gearIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}gear_ids'],
+      ),
       grindZero: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}grind_zero'],
@@ -2736,6 +2758,7 @@ class Shot extends DataClass implements Insertable<Shot> {
   final String? burrs;
   final String? brewedWith;
   final String? brewChainId;
+  final String? gearIds;
   final double? grindZero;
   final String? grindMarker;
   final double? beverageGrams;
@@ -2782,6 +2805,7 @@ class Shot extends DataClass implements Insertable<Shot> {
     this.burrs,
     this.brewedWith,
     this.brewChainId,
+    this.gearIds,
     this.grindZero,
     this.grindMarker,
     this.beverageGrams,
@@ -2852,6 +2876,9 @@ class Shot extends DataClass implements Insertable<Shot> {
     }
     if (!nullToAbsent || brewChainId != null) {
       map['brew_chain_id'] = Variable<String>(brewChainId);
+    }
+    if (!nullToAbsent || gearIds != null) {
+      map['gear_ids'] = Variable<String>(gearIds);
     }
     if (!nullToAbsent || grindZero != null) {
       map['grind_zero'] = Variable<double>(grindZero);
@@ -2979,6 +3006,9 @@ class Shot extends DataClass implements Insertable<Shot> {
       brewChainId: brewChainId == null && nullToAbsent
           ? const Value.absent()
           : Value(brewChainId),
+      gearIds: gearIds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(gearIds),
       grindZero: grindZero == null && nullToAbsent
           ? const Value.absent()
           : Value(grindZero),
@@ -3087,6 +3117,7 @@ class Shot extends DataClass implements Insertable<Shot> {
       burrs: serializer.fromJson<String?>(json['burrs']),
       brewedWith: serializer.fromJson<String?>(json['brewedWith']),
       brewChainId: serializer.fromJson<String?>(json['brewChainId']),
+      gearIds: serializer.fromJson<String?>(json['gearIds']),
       grindZero: serializer.fromJson<double?>(json['grindZero']),
       grindMarker: serializer.fromJson<String?>(json['grindMarker']),
       beverageGrams: serializer.fromJson<double?>(json['beverageGrams']),
@@ -3138,6 +3169,7 @@ class Shot extends DataClass implements Insertable<Shot> {
       'burrs': serializer.toJson<String?>(burrs),
       'brewedWith': serializer.toJson<String?>(brewedWith),
       'brewChainId': serializer.toJson<String?>(brewChainId),
+      'gearIds': serializer.toJson<String?>(gearIds),
       'grindZero': serializer.toJson<double?>(grindZero),
       'grindMarker': serializer.toJson<String?>(grindMarker),
       'beverageGrams': serializer.toJson<double?>(beverageGrams),
@@ -3187,6 +3219,7 @@ class Shot extends DataClass implements Insertable<Shot> {
     Value<String?> burrs = const Value.absent(),
     Value<String?> brewedWith = const Value.absent(),
     Value<String?> brewChainId = const Value.absent(),
+    Value<String?> gearIds = const Value.absent(),
     Value<double?> grindZero = const Value.absent(),
     Value<String?> grindMarker = const Value.absent(),
     Value<double?> beverageGrams = const Value.absent(),
@@ -3233,6 +3266,7 @@ class Shot extends DataClass implements Insertable<Shot> {
     burrs: burrs.present ? burrs.value : this.burrs,
     brewedWith: brewedWith.present ? brewedWith.value : this.brewedWith,
     brewChainId: brewChainId.present ? brewChainId.value : this.brewChainId,
+    gearIds: gearIds.present ? gearIds.value : this.gearIds,
     grindZero: grindZero.present ? grindZero.value : this.grindZero,
     grindMarker: grindMarker.present ? grindMarker.value : this.grindMarker,
     beverageGrams: beverageGrams.present
@@ -3303,6 +3337,7 @@ class Shot extends DataClass implements Insertable<Shot> {
       brewChainId: data.brewChainId.present
           ? data.brewChainId.value
           : this.brewChainId,
+      gearIds: data.gearIds.present ? data.gearIds.value : this.gearIds,
       grindZero: data.grindZero.present ? data.grindZero.value : this.grindZero,
       grindMarker: data.grindMarker.present
           ? data.grindMarker.value
@@ -3396,6 +3431,7 @@ class Shot extends DataClass implements Insertable<Shot> {
           ..write('burrs: $burrs, ')
           ..write('brewedWith: $brewedWith, ')
           ..write('brewChainId: $brewChainId, ')
+          ..write('gearIds: $gearIds, ')
           ..write('grindZero: $grindZero, ')
           ..write('grindMarker: $grindMarker, ')
           ..write('beverageGrams: $beverageGrams, ')
@@ -3447,6 +3483,7 @@ class Shot extends DataClass implements Insertable<Shot> {
     burrs,
     brewedWith,
     brewChainId,
+    gearIds,
     grindZero,
     grindMarker,
     beverageGrams,
@@ -3497,6 +3534,7 @@ class Shot extends DataClass implements Insertable<Shot> {
           other.burrs == this.burrs &&
           other.brewedWith == this.brewedWith &&
           other.brewChainId == this.brewChainId &&
+          other.gearIds == this.gearIds &&
           other.grindZero == this.grindZero &&
           other.grindMarker == this.grindMarker &&
           other.beverageGrams == this.beverageGrams &&
@@ -3545,6 +3583,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
   final Value<String?> burrs;
   final Value<String?> brewedWith;
   final Value<String?> brewChainId;
+  final Value<String?> gearIds;
   final Value<double?> grindZero;
   final Value<String?> grindMarker;
   final Value<double?> beverageGrams;
@@ -3591,6 +3630,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     this.burrs = const Value.absent(),
     this.brewedWith = const Value.absent(),
     this.brewChainId = const Value.absent(),
+    this.gearIds = const Value.absent(),
     this.grindZero = const Value.absent(),
     this.grindMarker = const Value.absent(),
     this.beverageGrams = const Value.absent(),
@@ -3638,6 +3678,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     this.burrs = const Value.absent(),
     this.brewedWith = const Value.absent(),
     this.brewChainId = const Value.absent(),
+    this.gearIds = const Value.absent(),
     this.grindZero = const Value.absent(),
     this.grindMarker = const Value.absent(),
     this.beverageGrams = const Value.absent(),
@@ -3685,6 +3726,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     Expression<String>? burrs,
     Expression<String>? brewedWith,
     Expression<String>? brewChainId,
+    Expression<String>? gearIds,
     Expression<double>? grindZero,
     Expression<String>? grindMarker,
     Expression<double>? beverageGrams,
@@ -3732,6 +3774,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
       if (burrs != null) 'burrs': burrs,
       if (brewedWith != null) 'brewed_with': brewedWith,
       if (brewChainId != null) 'brew_chain_id': brewChainId,
+      if (gearIds != null) 'gear_ids': gearIds,
       if (grindZero != null) 'grind_zero': grindZero,
       if (grindMarker != null) 'grind_marker': grindMarker,
       if (beverageGrams != null) 'beverage_grams': beverageGrams,
@@ -3781,6 +3824,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     Value<String?>? burrs,
     Value<String?>? brewedWith,
     Value<String?>? brewChainId,
+    Value<String?>? gearIds,
     Value<double?>? grindZero,
     Value<String?>? grindMarker,
     Value<double?>? beverageGrams,
@@ -3828,6 +3872,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
       burrs: burrs ?? this.burrs,
       brewedWith: brewedWith ?? this.brewedWith,
       brewChainId: brewChainId ?? this.brewChainId,
+      gearIds: gearIds ?? this.gearIds,
       grindZero: grindZero ?? this.grindZero,
       grindMarker: grindMarker ?? this.grindMarker,
       beverageGrams: beverageGrams ?? this.beverageGrams,
@@ -3910,6 +3955,9 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     }
     if (brewChainId.present) {
       map['brew_chain_id'] = Variable<String>(brewChainId.value);
+    }
+    if (gearIds.present) {
+      map['gear_ids'] = Variable<String>(gearIds.value);
     }
     if (grindZero.present) {
       map['grind_zero'] = Variable<double>(grindZero.value);
@@ -4020,6 +4068,7 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
           ..write('burrs: $burrs, ')
           ..write('brewedWith: $brewedWith, ')
           ..write('brewChainId: $brewChainId, ')
+          ..write('gearIds: $gearIds, ')
           ..write('grindZero: $grindZero, ')
           ..write('grindMarker: $grindMarker, ')
           ..write('beverageGrams: $beverageGrams, ')
@@ -7775,6 +7824,7 @@ typedef $$ShotsTableCreateCompanionBuilder = ShotsCompanion Function({
   Value<String?> burrs,
   Value<String?> brewedWith,
   Value<String?> brewChainId,
+  Value<String?> gearIds,
   Value<double?> grindZero,
   Value<String?> grindMarker,
   Value<double?> beverageGrams,
@@ -7822,6 +7872,7 @@ typedef $$ShotsTableUpdateCompanionBuilder = ShotsCompanion Function({
   Value<String?> burrs,
   Value<String?> brewedWith,
   Value<String?> brewChainId,
+  Value<String?> gearIds,
   Value<double?> grindZero,
   Value<String?> grindMarker,
   Value<double?> beverageGrams,
@@ -7973,6 +8024,11 @@ class $$ShotsTableFilterComposer extends Composer<_$AppDatabase, $ShotsTable> {
 
   ColumnFilters<String> get brewChainId => $composableBuilder(
     column: $table.brewChainId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get gearIds => $composableBuilder(
+    column: $table.gearIds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8254,6 +8310,11 @@ class $$ShotsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get gearIds => $composableBuilder(
+    column: $table.gearIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get grindZero => $composableBuilder(
     column: $table.grindZero,
     builder: (column) => ColumnOrderings(column),
@@ -8487,6 +8548,9 @@ class $$ShotsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get gearIds =>
+      $composableBuilder(column: $table.gearIds, builder: (column) => column);
+
   GeneratedColumn<double> get grindZero =>
       $composableBuilder(column: $table.grindZero, builder: (column) => column);
 
@@ -8709,6 +8773,7 @@ class $$ShotsTableTableManager
                 Value<String?> burrs = const Value.absent(),
                 Value<String?> brewedWith = const Value.absent(),
                 Value<String?> brewChainId = const Value.absent(),
+                Value<String?> gearIds = const Value.absent(),
                 Value<double?> grindZero = const Value.absent(),
                 Value<String?> grindMarker = const Value.absent(),
                 Value<double?> beverageGrams = const Value.absent(),
@@ -8755,6 +8820,7 @@ class $$ShotsTableTableManager
                 burrs: burrs,
                 brewedWith: brewedWith,
                 brewChainId: brewChainId,
+                gearIds: gearIds,
                 grindZero: grindZero,
                 grindMarker: grindMarker,
                 beverageGrams: beverageGrams,
@@ -8803,6 +8869,7 @@ class $$ShotsTableTableManager
                 Value<String?> burrs = const Value.absent(),
                 Value<String?> brewedWith = const Value.absent(),
                 Value<String?> brewChainId = const Value.absent(),
+                Value<String?> gearIds = const Value.absent(),
                 Value<double?> grindZero = const Value.absent(),
                 Value<String?> grindMarker = const Value.absent(),
                 Value<double?> beverageGrams = const Value.absent(),
@@ -8849,6 +8916,7 @@ class $$ShotsTableTableManager
                 burrs: burrs,
                 brewedWith: brewedWith,
                 brewChainId: brewChainId,
+                gearIds: gearIds,
                 grindZero: grindZero,
                 grindMarker: grindMarker,
                 beverageGrams: beverageGrams,

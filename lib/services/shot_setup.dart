@@ -26,6 +26,7 @@ class ShotSetupSnapshot {
     this.grinder,
     this.burrs,
     this.brewedWith,
+    this.gearIds,
     this.brewChainId,
     this.grindZero,
     this.grindMarker,
@@ -42,6 +43,9 @@ class ShotSetupSnapshot {
   final String? burrs;
   // The chain's gear, one piece per line in desk order (Shots.brewedWith).
   final String? brewedWith;
+
+  /// Desk IDs of the chain's gear, comma-separated (Shots.gearIds).
+  final String? gearIds;
   final String? brewChainId;
 
   /// The zero point of the chain's grinder that day (null = none set).
@@ -281,10 +285,19 @@ class ShotSetup extends ChangeNotifier {
     grinder: grinder?.name,
     burrs: grinder?.activeBurrs,
     brewedWith: _brewedWith(),
+    gearIds: _gearIds(),
     brewChainId: chain?.id,
     grindZero: grinder?.zeroPoint?.value,
     grindMarker: grindMarker,
   );
+
+  String? _gearIds() {
+    final chain = this.chain;
+    final store = gear;
+    if (chain == null || store == null) return null;
+    final ids = [for (final g in store.gearOf(chain)) g.id];
+    return ids.isEmpty ? null : ids.join(',');
+  }
 
   String? _brewedWith() {
     final chain = this.chain;
