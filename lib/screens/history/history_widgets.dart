@@ -299,44 +299,9 @@ class ShotRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      // Bean and roaster split the row in half
-                      // (previously 1:3 — only 8-9 characters of the bean
-                      // name were left).
-                      Flexible(
-                        flex: 1,
-                        child: Text(
-                          first,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: context.colors.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      if (bean != null &&
-                          roaster != null &&
-                          roaster.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Flexible(
-                          flex: 1,
-                          child: Text(
-                            roaster,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: context.colors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  _BeanRoasterLine(
+                    bean: first,
+                    roaster: bean != null && roaster != null ? roaster : null,
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -693,5 +658,81 @@ GearStore? _gearStore(BuildContext context) {
     return context.watch<GearStore>();
   } on ProviderNotFoundException {
     return null;
+  }
+}
+
+// First line of a history row: the bean takes what it needs, the roaster
+// the rest — but keeps at least 30 % when it is that long (user
+// 2026-11-22: a fixed half cut long bean names even beside a short
+// roaster). Both fit: both in full.
+class _BeanRoasterLine extends StatelessWidget {
+  const _BeanRoasterLine({required this.bean, this.roaster});
+
+  final String bean;
+  final String? roaster;
+
+  static const _gap = 6.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final beanStyle = TextStyle(
+      color: context.colors.textPrimary,
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+    );
+    final roasterStyle = TextStyle(
+      color: context.colors.textSecondary,
+      fontSize: 12,
+    );
+    final beanText = Text(
+      bean,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: beanStyle,
+    );
+    final roaster = this.roaster?.trim();
+    if (roaster == null || roaster.isEmpty) return beanText;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scaler = MediaQuery.textScalerOf(context);
+        final base = DefaultTextStyle.of(context).style;
+        double widthOf(String text, TextStyle style) {
+          final painter = TextPainter(
+            // As the Text widget draws it: on top of the theme's style.
+            text: TextSpan(text: text, style: base.merge(style)),
+            maxLines: 1,
+            textDirection: Directionality.of(context),
+            textScaler: scaler,
+          )..layout();
+          final w = painter.width;
+          painter.dispose();
+          return w;
+        }
+
+        final max = constraints.maxWidth - _gap;
+        final beanW = widthOf(bean, beanStyle);
+        final roasterW = widthOf(roaster, roasterStyle);
+        final room = (max - beanW).clamp(max * 0.3, max).toDouble();
+        final roasterWidth = roasterW < room ? roasterW : room;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Flexible(child: beanText),
+            const SizedBox(width: _gap),
+            SizedBox(
+              // +1: rounding must not cut a roaster that fits.
+              width: (roasterWidth + 1).clamp(0, max).toDouble(),
+              child: Text(
+                roaster,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: roasterStyle,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

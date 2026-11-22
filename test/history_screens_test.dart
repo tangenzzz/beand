@@ -24,6 +24,7 @@ import 'package:beand/theme/app_theme.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -137,6 +138,58 @@ void main() {
     await tester.pumpWidget(_app(db, const Scaffold(body: HistoryTab())));
     await settle(tester);
     expect(find.textContaining('No shots recorded yet'), findsOneWidget);
+    await teardownApp(tester);
+  });
+
+  testWidgets('History row: a long bean name uses the room a short roaster '
+      'leaves', (tester) async {
+    // User 2026-11-22: bean and roaster had half the line each, so long
+    // bean names were cut even next to a short roaster.
+    tester.view.physicalSize = const Size(600, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.runAsync(() async {
+      final short = await db.insertBean(
+        BeansCompanion.insert(
+          name: 'Hambela Natural Lot 7',
+          roaster: const Value('Coffea'),
+        ),
+      );
+      final long = await db.insertBean(
+        BeansCompanion.insert(
+          name: 'Ethiopia Guji Hambela Natural Anaerobic Lot 7',
+          roaster: const Value('Very Long Roastery Name Coffee Co'),
+        ),
+      );
+      final now = DateTime.now();
+      await _insertShot(db, at: now, beanId: short.id, externalId: 'a');
+      await _insertShot(
+        db,
+        at: now.subtract(const Duration(minutes: 5)),
+        beanId: long.id,
+        externalId: 'b',
+      );
+    });
+    await tester.pumpWidget(_app(db, const Scaffold(body: HistoryTab())));
+    await settle(tester);
+
+    RenderParagraph para(String text) =>
+        tester.renderObject<RenderParagraph>(find.text(text));
+    expect(para('Hambela Natural Lot 7').didExceedMaxLines, isFalse);
+    expect(para('Coffea').didExceedMaxLines, isFalse);
+    // Both long: both cut, the roaster keeps about a third of the line.
+    expect(
+      para('Ethiopia Guji Hambela Natural Anaerobic Lot 7').didExceedMaxLines,
+      isTrue,
+    );
+    final roaster = tester.getSize(
+      find.text('Very Long Roastery Name Coffee Co'),
+    );
+    final bean = tester.getSize(
+      find.text('Ethiopia Guji Hambela Natural Anaerobic Lot 7'),
+    );
+    expect(roaster.width, greaterThan(50));
+    expect(bean.width, greaterThan(roaster.width));
     await teardownApp(tester);
   });
 
