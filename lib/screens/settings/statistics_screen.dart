@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
+import 'package:drift/drift.dart' show TableUpdateQuery;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:provider/provider.dart';
@@ -72,14 +74,57 @@ class StatisticsScreen extends StatefulWidget {
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
-  late final Future<StatisticsData> _data;
+  StatisticsData? _data;
+  Object? _error;
+  StreamSubscription<Object?>? _dbChanges;
+  Timer? _debounce;
+  var _loads = 0;
   var _section = _Section.activity;
   HomeMode? _profileMode;
 
   @override
   void initState() {
     super.initState();
-    _data = StatisticsData.load(context.read<AppDatabase>());
+    final db = context.read<AppDatabase>();
+    _reload(db);
+    // The settings tab keeps this page alive while you brew on Home, so
+    // reload whenever shots or beans change – a new shot, a rating, a bean
+    // price – instead of showing the numbers from when the page opened.
+    _dbChanges = db
+        .tableUpdates(
+          TableUpdateQuery.onAllTables([db.shots, db.beans, db.shotReadings]),
+        )
+        .listen((_) {
+          _debounce?.cancel();
+          _debounce = Timer(
+            const Duration(milliseconds: 400),
+            () => _reload(db),
+          );
+        });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _dbChanges?.cancel();
+    super.dispose();
+  }
+
+  // The old numbers stay on screen until the new ones are there; only the
+  // latest load counts if several overlap.
+  Future<void> _reload(AppDatabase db) async {
+    final load = ++_loads;
+    try {
+      final data = await StatisticsData.load(db);
+      if (mounted && load == _loads) {
+        setState(() {
+          _data = data;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted && load == _loads) setState(() => _error = e);
+    }
   }
 
   // Remembered in AppSettings, so the page opens on the last period even
@@ -94,10 +139,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Statistics')),
-      body: FutureBuilder<StatisticsData>(
-        future: _data,
-        builder: (context, snapshot) {
-          final data = snapshot.data;
+      body: Builder(
+        builder: (context) {
+          final data = _data;
           return ListView(
             padding: const EdgeInsets.all(AppSpacing.tileOuterMargin),
             children: [
@@ -127,13 +171,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   },
                 ),
               ),
-              if (snapshot.hasError)
+              if (_error != null && data == null)
                 SettingsCard(
                   children: [
                     Padding(
                       padding: const EdgeInsets.all(AppSpacing.dividerInset),
                       child: SettingsText(
-                        'Could not read the statistics: ${snapshot.error}',
+                        'Could not read the statistics: $_error',
                       ),
                     ),
                   ],

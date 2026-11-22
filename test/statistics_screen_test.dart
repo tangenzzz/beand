@@ -137,4 +137,61 @@ void main() {
     final reloaded = await tester.runAsync(AppSettings.load);
     expect(reloaded!.statisticsPeriod, 'year');
   });
+
+  testWidgets('a new shot shows up while the page stays open', (tester) async {
+    tester.view.physicalSize = const Size(420, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    late Bean bean;
+    await tester.runAsync(() async {
+      bean = await db.insertBean(
+        BeansCompanion.insert(
+          name: 'Priced',
+          cost: const Value(20),
+          weightGrams: const Value(250),
+        ),
+      );
+    });
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(
+            value: AppSettings(statisticsPeriod: 'all'),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const StatisticsScreen(),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    expect(find.text('–'), findsWidgets); // no value brewed yet
+
+    // 50 g × 20 € / 250 g = 4 €.
+    await tester.runAsync(
+      () => db.insertShotWithReadings(
+        ShotsCompanion.insert(
+          timestamp: DateTime.now(),
+          machine: const Value('meticulous'),
+          beanId: Value(bean.id),
+          doseGrams: const Value(50),
+        ),
+        [],
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    expect(find.textContaining('4'), findsWidgets);
+    expect(find.text('€ 4'), findsOneWidget);
+  });
 }
