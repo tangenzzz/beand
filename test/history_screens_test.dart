@@ -427,6 +427,76 @@ void main() {
     await teardownApp(tester);
   });
 
+  testWidgets('shot detail: grind marks without a grinder on the shot', (
+    tester,
+  ) async {
+    // User 2026-11-22: grind added afterwards (no chain on the shot) had no
+    // marks to pick — now the current chain's grinder gives them, and the
+    // shot takes that chain with the grind.
+    bigScreen(tester);
+    final id = await inDb(
+      tester,
+      () => _insertShot(db, at: DateTime(2026, 10, 19), externalId: 'a'),
+    );
+    final gear = GearStore.inMemory(
+      gear: const [
+        Gear(
+          id: 'm',
+          type: GearType.grinder,
+          brand: 'Kafatek',
+          model: 'Monolith',
+          specs: {
+            'scale': {
+              'unit': 'dial',
+              'step': 0.1,
+              'min': 0,
+              'max': 9,
+              'markers': [
+                {'name': 'Green', 'color': 0xFF5F8A62, 'offset': 0},
+                {'name': 'Red', 'color': 0xFFA85A55, 'offset': 6.8},
+              ],
+            },
+          },
+        ),
+      ],
+      chains: const [
+        BrewChain(id: 'bar', name: 'Espresso bar', gearIds: ['m']),
+      ],
+    );
+    final setups = ShotSetups(
+      meticulous: ShotSetup.inMemory()..gear = gear,
+      gaggimate: ShotSetup.inMemory(machineKey: 'gaggimate')..gear = gear,
+    );
+    setups.meticulous.setChain('bar');
+    await tester.pumpWidget(
+      _app(
+        db,
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<GearStore>.value(value: gear),
+            Provider<ShotSetups>.value(value: setups),
+          ],
+          child: ShotDetailScreen(shotId: id),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    await tester.tap(find.text('GRIND'));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('marker-Red')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('marker-Red')));
+    await tester.pump(const Duration(milliseconds: 500));
+    await settle(tester);
+
+    final shot = (await inDb(tester, () => db.watchShotEntry(id).first))!.shot;
+    expect(shot.grindMarker, 'Red');
+    expect(shot.grinder, 'Monolith');
+    expect(shot.brewChainId, 'bar');
+
+    await teardownApp(tester);
+  });
+
   testWidgets('note is still saved when leaving the screen', (tester) async {
     bigScreen(tester);
     final id = await inDb(

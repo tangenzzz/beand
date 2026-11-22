@@ -279,8 +279,12 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
   // Brew chain chosen afterwards: the shot takes what the chain holds now
   // (grinder, burrs, pieces). On the newest shot of its machine the
   // pre-shot card follows, so the next brew starts with it too.
-  Future<void> _selectChain(Shot shot, String chainId) async {
-    _close();
+  Future<void> _selectChain(
+    Shot shot,
+    String chainId, {
+    bool close = true,
+  }) async {
+    if (close) _close();
     final store = _gear;
     final chain = store?.chains.where((c) => c.id == chainId).firstOrNull;
     if (store == null || chain == null) return;
@@ -323,7 +327,16 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
     });
   }
 
-  void _setGrind(double v, String? marker) {
+  void _setGrind(double v, String? marker, Shot shot) {
+    // Grind set on a shot without a grinder (added by hand, or brewed
+    // without a chain): the ruler used the current chain's grinder, so the
+    // shot takes that chain — the number and its mark mean something only
+    // on that grinder, and the list reads it the same way afterwards.
+    final fallback = shot.grinder == null ? _setupOf(shot)?.chain : null;
+    if (fallback != null && !_chainTaken) {
+      _chainTaken = true;
+      unawaited(_selectChain(shot, fallback.id, close: false));
+    }
     setState(() {
       _grindDraft = v;
       _markerDraft = marker;
@@ -337,6 +350,24 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
   // The shot's grinder, found by the name it was brewed with — its scale
   // shapes the grind ruler; without one the ruler is as before.
   Grinder? _grinderOf(Shot shot) => shotGrinder(shot, _gear);
+
+  bool _chainTaken = false;
+
+  ShotSetup? _setupOf(Shot shot) {
+    try {
+      return context.read<ShotSetups>().forMachine(shot.machine);
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  // The scale of the grind ruler: the shot's grinder, else (no grinder on
+  // the shot yet) that of the machine's current chain — with its marks.
+  GrindScale _grindScaleOf(Shot shot, {required bool pourOver}) =>
+      (_grinderOf(shot) ??
+              (shot.grinder == null ? _setupOf(shot)?.grinder : null))
+          ?.scale ??
+      (pourOver ? const GrindScale(max: 60) : GrindScale.standard);
 
   @override
   Widget build(BuildContext context) {
@@ -604,7 +635,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
       (s) => s.showStageDetails,
     );
     final dose = _doseDraft ?? shot.doseGrams ?? ShotSetup.defaultDose;
-    final grindScale = _grinderOf(shot)?.scaleOrStandard ?? GrindScale.standard;
+    final grindScale = _grindScaleOf(shot, pourOver: isPourOver);
     final grind =
         _grindDraft ??
         double.tryParse(shot.grindSize ?? '') ??
@@ -989,7 +1020,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               scale: grindScale,
               value: grindScale.clamp(grind),
               marker: _markerDraft ?? shot.grindMarker,
-              onChanged: _setGrind,
+              onChanged: (v, marker) => _setGrind(v, marker, shot),
             ),
           ),
 
