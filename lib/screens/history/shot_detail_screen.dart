@@ -336,16 +336,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
 
   // The shot's grinder, found by the name it was brewed with — its scale
   // shapes the grind ruler; without one the ruler is as before.
-  Grinder? _grinderOf(Shot shot) {
-    final name = shot.grinder;
-    final store = _gear;
-    if (name == null || store == null) return null;
-    final g = store
-        .ofType(GearType.grinder)
-        .where((g) => g.model == name)
-        .firstOrNull;
-    return g == null ? null : grinderFromGear(g);
-  }
+  Grinder? _grinderOf(Shot shot) => shotGrinder(shot, _gear);
 
   @override
   Widget build(BuildContext context) {
@@ -576,10 +567,10 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
     // ones (otherwise dose/ratio/grind disappeared as soon as they matched);
     // if the other shot lacks it, a dash is shown.
     String? otherOf(String? theirs) => compare ? (theirs ?? '–') : null;
-    String? grindOf(String? raw) {
-      final v = double.tryParse(raw ?? '');
-      return v?.toStringAsFixed(1) ?? raw;
-    }
+    String? grindOf(Shot? s) => s == null
+        ? null
+        : grindDisplayText(s.grindSize, _grinderOf(s)) ??
+              (double.tryParse(s.grindSize ?? '')?.toStringAsFixed(1));
 
     // Pour over in minutes (m:ss), espresso in seconds.
     String? t(int? ms) =>
@@ -921,7 +912,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               marker: grindScale.hasMarkers
                   ? grindScale.markerNamed(_markerDraft ?? shot.grindMarker)
                   : null,
-              otherOf(grindOf(other?.grindSize)),
+              otherOf(grindOf(other)),
               note: grindNote,
               onTap: () => _toggle(_Open.grind),
               active: _open == _Open.grind,

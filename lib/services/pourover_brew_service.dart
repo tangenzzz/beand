@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database.dart';
 import '../models/brew_plan.dart';
 import '../models/brew_recipe.dart';
+import '../models/coffee.dart';
+import '../models/grind_scale.dart';
 import '../models/gear.dart';
 import '../scale/brew_scale.dart';
 import 'brew_recipe_store.dart';
@@ -450,6 +452,45 @@ class PourOverBrewService extends LiveShotService {
     setup.setDose(r.doseG);
     _temperature = null;
     notifyListeners();
+    unawaited(applyLastGrind());
+  }
+
+  /// The grind (with its mark) of the last pour over with this recipe —
+  /// with the selected coffee if there is one, else with any; only from
+  /// the current grinder. Called on a recipe or bean change and at start
+  /// (a grind corrected in the shot detail comes back). Without a match
+  /// the current grind stays. The dose stays the recipe's.
+  Future<void> applyLastGrind() async {
+    final name = setup.profileName;
+    if (name == null || name.isEmpty || profileLocked) return;
+    final beanId = setup.beanId;
+    final grinder = setup.grinder?.name;
+    List<int>? bagIds;
+    if (beanId != null) {
+      final beans = await database.allBeans();
+      final bag = beans.where((b) => b.id == beanId).firstOrNull;
+      bagIds = bag == null ? [beanId] : coffeeBagIds(beans, bag);
+    }
+    Future<Shot?> find(List<int>? ids) => database.lastShotWithGrind(
+      profileName: name,
+      machine: 'pourover',
+      beanIds: ids,
+      grinder: grinder,
+    );
+    final shot =
+        (bagIds == null ? null : await find(bagIds)) ?? await find(null);
+    // Changed in the meantime (tapped quickly) or brew started: discard.
+    if (shot == null ||
+        profileLocked ||
+        setup.profileName != name ||
+        setup.beanId != beanId) {
+      return;
+    }
+    final grind = double.tryParse(shot.grindSize ?? '');
+    if (grind == null) return;
+    final scale = setup.grinder?.scale ?? const GrindScale(max: 60);
+    setup.setGrind(scale.clamp(grind));
+    setup.setGrindMarker(shot.grindMarker);
   }
 
   // ---- Running brew ----
@@ -533,6 +574,7 @@ class PourOverBrewService extends LiveShotService {
     final dose = setup.doseGrams;
     if (dose != null && dose < 1) setup.setDose(recipe?.doseG);
     unawaited(_loadManual());
+    unawaited(applyLastGrind());
     scale.addListener(_onScale);
     setup.addListener(_onScale);
     recipes.addListener(_onScale);

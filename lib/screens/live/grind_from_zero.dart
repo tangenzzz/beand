@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../models/grind_scale.dart';
+import '../../models/gear.dart';
 import '../../models/grinder.dart';
+import '../../services/gear_store.dart';
 import '../../theme/app_theme.dart';
 import 'grind_panel.dart';
 
@@ -97,4 +99,26 @@ String fromZeroText(double value, [GrindScale? scale]) {
       scale?.format(value, withUnit: false) ??
       (value % 1 == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1));
   return value >= 0 ? '+$text' : text;
+}
+
+/// The grinder a shot was brewed with, found in [store] by its name.
+Grinder? shotGrinder(Shot shot, GearStore? store) {
+  final name = shot.grinder;
+  if (name == null || store == null) return null;
+  final g = store
+      .ofType(GearType.grinder)
+      .where((g) => g.model == name)
+      .firstOrNull;
+  return g == null ? null : grinderFromGear(g);
+}
+
+/// A stored grind as read on [grinder]: clicks counted with rotations are
+/// stored as plain clicks (77) but read "7.7". Without a grinder or a
+/// scale the stored text as it is.
+String? grindDisplayText(String? raw, Grinder? grinder) {
+  if (raw == null || raw.isEmpty) return raw;
+  final scale = grinder?.scale;
+  final v = double.tryParse(raw);
+  if (scale == null || v == null) return raw;
+  return scale.format(v, withUnit: false);
 }

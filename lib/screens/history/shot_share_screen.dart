@@ -13,6 +13,8 @@ import '../../database/database.dart';
 import '../../models/shot_phases.dart';
 import '../../models/taste_profile.dart';
 import '../../services/brew_recipe_store.dart';
+import '../../services/gear_store.dart';
+import '../live/grind_from_zero.dart';
 import '../../services/profile_images.dart';
 import '../../theme/app_theme.dart';
 import 'shot_detail_screen.dart' show BrewedWith;
@@ -477,7 +479,16 @@ class _Numbers extends StatelessWidget {
       [
         ('Dose', s.doseGrams == null ? null : grams(s.doseGrams!), 'g'),
         ('Ratio', ratioLabel(s)?.replaceAll(' ', ''), ''),
-        ('Grind', (s.grindSize ?? '').isEmpty ? null : s.grindSize, ''),
+        (
+          'Grind',
+          (s.grindSize ?? '').isEmpty
+              ? null
+              : grindDisplayText(
+                  s.grindSize,
+                  shotGrinder(s, _gearStore(context)),
+                ),
+          '',
+        ),
       ],
     ];
     return Column(
@@ -774,5 +785,13 @@ class _ProfileDot extends StatelessWidget {
               ),
       ),
     );
+  }
+}
+
+GearStore? _gearStore(BuildContext context) {
+  try {
+    return context.read<GearStore>();
+  } on ProviderNotFoundException {
+    return null;
   }
 }

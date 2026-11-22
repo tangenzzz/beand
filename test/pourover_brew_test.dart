@@ -312,6 +312,9 @@ void main() {
         database: db,
       )..start();
       service.selectRecipe(_recipe);
+      // Let the grind lookup of the last brew finish outside fakeAsync —
+      // a query left pending would block the tests' own ones.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
     });
 
     tearDown(() => db.close());

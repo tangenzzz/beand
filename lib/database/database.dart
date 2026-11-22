@@ -1095,6 +1095,34 @@ class AppDatabase extends _$AppDatabase {
     return query.getSingleOrNull();
   }
 
+  // Most recent shot with this profile that has a grind size — pour over
+  // always has a dose, so lastShotWithSetup would also find shots without
+  // one. [grinder]: only shots from that grinder (or naming none), since
+  // the number means nothing on another one.
+  Future<Shot?> lastShotWithGrind({
+    required String profileName,
+    required String machine,
+    Iterable<int>? beanIds,
+    String? grinder,
+  }) {
+    final query = select(shots)
+      ..where(
+        (s) =>
+            s.deletedAt.isNull() &
+            s.machine.equals(machine) &
+            s.profileName.equals(profileName) &
+            s.grindSize.isNotNull() &
+            s.grindSize.equals('').not(),
+      )
+      ..orderBy([(s) => OrderingTerm.desc(s.timestamp)])
+      ..limit(1);
+    if (beanIds != null) query.where((s) => s.beanId.isIn(beanIds.toList()));
+    if (grinder != null) {
+      query.where((s) => s.grinder.isNull() | s.grinder.equals(grinder));
+    }
+    return query.getSingleOrNull();
+  }
+
   Future<Set<String>> knownExternalIds() async {
     final rows =
         await (selectOnly(shots)

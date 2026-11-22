@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
 import '../../services/app_settings.dart';
+import '../../services/gear_store.dart';
 import '../../services/profile_images.dart';
 import '../../theme/app_theme.dart';
 import '../live/grind_from_zero.dart';
@@ -224,13 +225,15 @@ List<InlineSpan> _metricSpans(
     yield TextSpan(text: ' $value', style: valueStyle);
   }
 
+  final grinder = shotGrinder(shot, _gearStore(context));
+  final grind = grindDisplayText(shot.grindSize, grinder);
   return [
-    if (shot.grindSize != null)
+    if (grind != null)
       ...item(Icons.blur_on, switch (fromZero
-          ? shotGrindFromZero(shot)
+          ? shotGrindFromZero(shot, grinder?.scale)
           : null) {
-        final v? => '${shot.grindSize!} (${fromZeroText(v)})',
-        null => shot.grindSize!,
+        final v? => '$grind (${fromZeroText(v, grinder?.scale)})',
+        null => grind,
       }),
     if (shot.doseGrams != null)
       ...item(Icons.balance, '${grams(shot.doseGrams!)} g'),
@@ -682,5 +685,13 @@ bool _showGrindFromZero(BuildContext context) {
     return context.select<AppSettings, bool>((s) => s.showGrindFromZero);
   } on ProviderNotFoundException {
     return false;
+  }
+}
+
+GearStore? _gearStore(BuildContext context) {
+  try {
+    return context.watch<GearStore>();
+  } on ProviderNotFoundException {
+    return null;
   }
 }

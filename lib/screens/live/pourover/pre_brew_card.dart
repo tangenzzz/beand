@@ -160,6 +160,7 @@ class _PreBrewCardState extends State<PreBrewCard> {
         .push<Bean>(MaterialPageRoute(builder: (_) => const BeanFormScreen()));
     if (created == null || !mounted) return;
     context.read<ShotSetup>().setBean(created.id);
+    unawaited(context.read<PourOverBrewService>().applyLastGrind());
     _close();
   }
 
@@ -272,7 +273,10 @@ class _PreBrewCardState extends State<PreBrewCard> {
                       onClose: _close,
                       value: setup.beanId,
                       options: _beanOptions(showStock),
-                      onChanged: setup.setBean,
+                      onChanged: (id) {
+                        setup.setBean(id);
+                        unawaited(brew.applyLastGrind());
+                      },
                       action: ValueSelectAction('New bean', _addBean),
                       emptyText: 'No beans yet.',
                     ),
