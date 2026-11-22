@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:beand/database/database.dart';
 import 'package:beand/models/shot_file_import.dart';
+import 'package:beand/screens/live/pourover/pourover_profile_row.dart';
+import 'package:beand/services/brew_recipe_store.dart';
 import 'package:beand/screens/history/shot_detail_screen.dart';
 import 'package:beand/services/ai/ai_key_store.dart';
 import 'package:beand/services/ai/ai_settings.dart';
@@ -14,6 +16,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Uint8List text(String s) => Uint8List.fromList(utf8.encode(s));
 
@@ -319,5 +322,66 @@ settings {
     final shot = (await tester.runAsync(() => db.select(db.shots).get()))!
         .single;
     expect(shot.deletedAt, isNotNull);
+  });
+  testWidgets('New shot, pour over: recipes show their image', (tester) async {
+    // User 2026-11-22: the recipe list had no profile images.
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(() => tester.runAsync(db.close));
+    final id = (await tester.runAsync(() => db.insertManualShot('pourover')))!;
+    final store =
+        BrewRecipeStore(
+          cacheFile: File('${Directory.systemTemp.path}/no-such-cache.json'),
+        )..importProfile({
+          'version': 1,
+          'brew_type': 'pour_over',
+          'id': '9b2f9d4e-1111-4222-8333-944455556666',
+          'name': 'Community Cone',
+          'recipe': {
+            'coffee_dose_g': 16,
+            'total_water_g': 256,
+            'water_temperature_c': 94,
+            'target_total_time_s': 180,
+          },
+          'stages': [
+            {
+              'key': 'p1',
+              'name': 'Bloom',
+              'starts_at_s': 0,
+              'pour': {
+                'water_g': 50,
+                'duration_s': 8,
+                'target_cumulative_water_g': 50,
+                'flow_rate_g_s': 6,
+              },
+            },
+          ],
+        });
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(value: AppSettings()),
+          ChangeNotifierProvider<AiSettings>.value(
+            value: AiSettings(keyStore: InMemoryAiKeyStore()),
+          ),
+          ChangeNotifierProvider<BrewRecipeStore>.value(value: store),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: ShotDetailScreen(shotId: id, isNew: true),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 200)),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Recipe'));
+    await tester.pump();
+    expect(find.text('Community Cone'), findsOneWidget);
+    expect(find.byType(PourOverProfileAvatar), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 }

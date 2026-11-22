@@ -16,6 +16,7 @@ import '../../models/shot_file_import.dart';
 import '../../services/brew_recipe_store.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/value_select_row.dart';
+import '../live/pourover/pourover_profile_row.dart' show PourOverProfileAvatar;
 import '../beans/bean_widgets.dart';
 import 'history_logic.dart';
 
@@ -326,7 +327,13 @@ class _NewShotHeaderState extends State<NewShotHeader> {
             emptyText: 'No recipes yet.',
             options: [
               for (final r in recipes)
-                ValueOption(value: r.id, title: r.name, subtitle: r.brewer),
+                ValueOption(
+                  value: r.id,
+                  title: r.name,
+                  subtitle: r.brewer,
+                  // As in the Pre-Brew pick list: photo or placeholder color.
+                  leading: PourOverProfileAvatar(recipe: r),
+                ),
             ],
             onChanged: (id) {
               final r = recipes.where((r) => r.id == id).firstOrNull;
