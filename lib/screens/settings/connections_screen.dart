@@ -6,6 +6,7 @@ import '../onboarding/onboarding_step.dart';
 import 'gaggimate_settings_screen.dart';
 import 'meticulous_settings_screen.dart';
 import 'scale_settings_screen.dart';
+import 'sensor_settings_screen.dart';
 import 'settings_widgets.dart';
 
 class ConnectionsScreen extends StatelessWidget {
@@ -36,6 +37,11 @@ class ConnectionsScreen extends StatelessWidget {
               SettingsEntry(
                 title: 'Scales',
                 builder: (_) => const ScaleSettingsScreen(),
+              ),
+              // Pressure (later also flow) sensors for Home → Espresso.
+              SettingsEntry(
+                title: 'Sensors',
+                builder: (_) => const SensorSettingsScreen(),
               ),
             ],
           ),

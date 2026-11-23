@@ -4,7 +4,9 @@ import 'package:beand/machines/espresso_machine.dart';
 import 'package:beand/machines/gaggimate/gaggimate_service.dart';
 import 'package:beand/scale/brew_scale.dart';
 import 'package:beand/scale/simulated_scale.dart';
+import 'package:beand/sensors/pressure_sensor.dart';
 import 'package:beand/screens/live/home_mode_bar.dart';
+import 'package:beand/screens/settings/connections_screen.dart';
 import 'package:beand/screens/settings/home_settings_screen.dart';
 import 'package:beand/services/app_settings.dart';
 import 'package:beand/services/brew_recipe_store.dart';
@@ -19,12 +21,47 @@ import 'support/offline_gaggimate.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Known sensors without Bluetooth: [select] only remembers the choice.
+class FakeSensor extends PressureSensor {
+  FakeSensor({this.known = const [], this.selected});
+
+  final List<KnownScale> known;
+  String? selected;
+
+  @override
+  List<KnownScale> get knownSensors => known;
+  @override
+  String? get rememberedId => selected;
+  @override
+  ScaleConnection get connection => ScaleConnection.disconnected;
+  @override
+  String? get deviceName =>
+      known.where((k) => k.id == selected).firstOrNull?.name;
+  @override
+  double? get bar => null;
+  @override
+  Stream<PressureReading> get readings => const Stream.empty();
+  @override
+  String? get error => null;
+  @override
+  Future<void> connect() async {}
+  @override
+  Future<void> disconnect() async {}
+  @override
+  Future<void> select(String? id) async {
+    selected = id;
+    notifyListeners();
+  }
+}
+
 Widget wrap(
   AppSettings settings,
   Widget child, {
   BrewScale? scale,
+  PressureSensor? sensor,
 }) => MultiProvider(
   providers: [
+    ChangeNotifierProvider<PressureSensor>.value(value: sensor ?? FakeSensor()),
     ChangeNotifierProvider<AppSettings>.value(value: settings),
     ChangeNotifierProvider<MeticulousSocketService>.value(
       value: MeticulousSocketService(hostname: 'unreachable.local'),
@@ -141,6 +178,59 @@ void main() {
     final reset = await AppSettings.load();
     expect(reset.homeModeName(HomeMode.espresso), 'Espresso');
     reset.dispose();
+  });
+
+  testWidgets('Espresso: the sensor in use is picked from the known ones', (
+    tester,
+  ) async {
+    final settings = AppSettings();
+    final sensor = FakeSensor(
+      known: const [
+        KnownScale(id: 'a', name: 'PRS-0001'),
+        KnownScale(id: 'b', name: 'PRS-0002', customName: 'Group head'),
+      ],
+      selected: 'a',
+    );
+    await tester.pumpWidget(
+      wrap(settings, const HomeSettingsScreen(), sensor: sensor),
+    );
+    await tester.tap(find.text('Espresso'));
+    await tester.pumpAndSettle();
+    expect(find.text('PRS-0001'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('espresso-sensor')));
+    await tester.pumpAndSettle();
+    // None plus every known sensor, the renamed one by its own name.
+    expect(find.text('None'), findsOneWidget);
+    expect(find.text('Group head'), findsOneWidget);
+    await tester.tap(find.text('Group head'));
+    await tester.pumpAndSettle();
+    expect(sensor.selected, 'b');
+
+    await tester.tap(find.byKey(const ValueKey('espresso-sensor')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('None').last);
+    await tester.pumpAndSettle();
+    expect(sensor.selected, isNull);
+  });
+
+  testWidgets('Connections → Sensors lists the known sensors', (tester) async {
+    final sensor = FakeSensor(
+      known: const [
+        KnownScale(id: 'a', name: 'PRS-0001'),
+        KnownScale(id: 'b', name: 'PRS-0002', customName: 'Group head'),
+      ],
+      selected: 'a',
+    );
+    await tester.pumpWidget(
+      wrap(AppSettings(), const ConnectionsScreen(), sensor: sensor),
+    );
+    await tester.tap(find.text('Sensors'));
+    await tester.pumpAndSettle();
+    expect(find.text('MY SENSORS'), findsOneWidget);
+    expect(find.byKey(const ValueKey('known-sensor-a')), findsOneWidget);
+    expect(find.text('Group head'), findsOneWidget);
+    expect(find.textContaining('In use'), findsOneWidget);
   });
 
   testWidgets('all pills have the same height, also with the wordmark', (

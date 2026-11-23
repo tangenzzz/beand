@@ -8,6 +8,7 @@ import 'package:flutter_reactive_ble/flutter_reactive_ble.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../ble/radio_scan.dart';
 import '../services/connection_log.dart';
 import 'acaia_driver.dart';
 import 'acaia_protocol.dart' show hexPacket;
@@ -226,19 +227,9 @@ class BleScale extends BrewScale {
 
   // ---- Scan -----------------------------------------------------------
 
-  // There is one radio scan: everyone asking for a scan (the settings page,
-  // finding a scale, a reconnect) shares it. On Android a second scan silently
-  // ends the first, and a scan ending stops it for everyone.
-  StreamSubscription<DiscoveredDevice>? _radioScan;
-  final _scanListeners = <StreamController<DiscoveredDevice>>{};
-  final _seenInScan = <String, DiscoveredDevice>{};
-  Timer? _scanStartTimer;
-
-  // Android answers more than 5 scan starts in 30 s with an empty scan and no
-  // error. Stay below that: the next start waits instead.
-  final _scanStarts = <DateTime>[];
-  static const _maxScanStarts = 4;
-  static const _scanStartWindow = Duration(seconds: 30);
+  // The app's one radio scan, shared with the pressure sensor (see
+  // BleRadioScan): a second scan would silently end the first.
+  late final BleRadioScan _radio = BleRadioScan.of(_ble);
 
   @override
   Stream<ScaleCandidate> scan({
@@ -246,108 +237,11 @@ class BleScale extends BrewScale {
   }) async* {
     await _ensurePermissions();
     await _waitForBluetooth();
-    final out = StreamController<DiscoveredDevice>();
-    _scanListeners.add(out);
-    final wait = _startRadioScan();
-    // Long enough to really search when the start has to wait.
-    final end = Timer(timeout + wait, out.close);
     final seen = <String>{};
-    for (final d in _seenInScan.values) {
-      out.add(d);
-    }
-    try {
-      yield* out.stream
-          .where((d) => _driverFor(d.name) != null && seen.add(d.id))
-          .map((d) => ScaleCandidate(id: d.id, name: d.name, rssi: d.rssi));
-    } finally {
-      end.cancel();
-      _scanListeners.remove(out);
-      if (_scanListeners.isEmpty) _stopRadioScan();
-    }
-  }
-
-  // Returns how long until the scan really runs.
-  Duration _startRadioScan() {
-    if (_radioScan != null) return Duration.zero;
-    if (_scanStartTimer case final t? when t.isActive) {
-      return _nextScanStart();
-    }
-    final wait = _nextScanStart();
-    if (wait > Duration.zero) {
-      _log('scan waits ${wait.inSeconds}s (too many scans)');
-      _scanStartTimer = Timer(wait, () {
-        if (_scanListeners.isNotEmpty) _startRadioScan();
-      });
-      return wait;
-    }
-    _scanStarts.add(DateTime.now());
-    _seenInScan.clear();
-    _log('scan started');
-    _radioScan = _scanStream().listen(
-      (d) {
-        _seenInScan[d.id] = d;
-        for (final l in _scanListeners.toList()) {
-          if (!l.isClosed) l.add(d);
-        }
-      },
-      onError: (Object e) {
-        _log('scan failed: $e');
-        _radioScan = null;
-        for (final l in _scanListeners.toList()) {
-          if (!l.isClosed) {
-            l.addError(e);
-            l.close();
-          }
-        }
-      },
-      onDone: () {
-        _radioScan = null;
-      },
-    );
-    return Duration.zero;
-  }
-
-  Duration _nextScanStart() {
-    final now = DateTime.now();
-    _scanStarts.removeWhere((t) => now.difference(t) >= _scanStartWindow);
-    if (_scanStarts.length < _maxScanStarts) return Duration.zero;
-    return _scanStartWindow - now.difference(_scanStarts.first);
-  }
-
-  void _stopRadioScan() {
-    _scanStartTimer?.cancel();
-    _scanStartTimer = null;
-    final running = _radioScan;
-    _radioScan = null;
-    _seenInScan.clear();
-    if (running != null) {
-      _log('scan stopped');
-      unawaited(running.cancel());
-    }
-  }
-
-  Stream<DiscoveredDevice> _scanStream({bool askedForLocation = false}) async* {
-    try {
-      yield* _ble.scanForDevices(
-        withServices: const [],
-        scanMode: ScanMode.lowLatency,
-        requireLocationServicesEnabled: false,
-      );
-    } catch (e) {
-      // Android ≤ 11: scanning without location permission fails.
-      if (!askedForLocation &&
-          Platform.isAndroid &&
-          e.toString().toLowerCase().contains('location')) {
-        if (await Permission.locationWhenInUse.request().isGranted) {
-          yield* _scanStream(askedForLocation: true);
-          return;
-        }
-        throw const _ScaleException(
-          'Location permission is needed to find the scale.',
-        );
-      }
-      rethrow;
-    }
+    yield* _radio
+        .devices(timeout: timeout)
+        .where((d) => _driverFor(d.name) != null && seen.add(d.id))
+        .map((d) => ScaleCandidate(id: d.id, name: d.name, rssi: d.rssi));
   }
 
   // ---- Connect --------------------------------------------------------
@@ -1095,6 +989,7 @@ class BleScale extends BrewScale {
 
   static String _describe(Object e) {
     if (e is _ScaleException) return e.message;
+    if (e is BleScanException) return e.message;
     if (e is TimeoutException) return _noAnswer;
     return 'Scale error: $e';
   }
@@ -1102,7 +997,6 @@ class BleScale extends BrewScale {
   @override
   void dispose() {
     _wantConnected = false;
-    _stopRadioScan();
     _teardown();
     _readings.close();
     super.dispose();

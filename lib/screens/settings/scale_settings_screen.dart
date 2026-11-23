@@ -446,7 +446,7 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
             ),
             const SizedBox(height: 8),
             for (final k in known)
-              _KnownScaleRow(
+              KnownDeviceRow(
                 known: k,
                 status: _knownStatus(context, scale, k),
                 connected: k.id == scale.rememberedId && scale.isConnected,
@@ -465,7 +465,7 @@ class _ScaleConnectionCardState extends State<ScaleConnectionCard> {
               const SizedBox(height: 8),
             ],
             for (final c in others)
-              _ScaleRow(
+              FoundDeviceRow(
                 candidate: c,
                 inUse: c.id == scale.rememberedId,
                 connected: c.id == scale.rememberedId && scale.isConnected,
@@ -610,18 +610,24 @@ class _RenameScaleDialogState extends State<_RenameScaleDialog> {
   }
 }
 
-// A scale the app knows: there also while it's off, with its state instead of
-// the signal. Tapping connects, like in the phone's Bluetooth settings.
-class _KnownScaleRow extends StatelessWidget {
-  const _KnownScaleRow({
+// A device the app knows (scale or sensor): there also while it's off, with
+// its state instead of the signal. Tapping connects, like in the phone's
+// Bluetooth settings.
+class KnownDeviceRow extends StatelessWidget {
+  const KnownDeviceRow({
+    super.key,
     required this.known,
     required this.status,
     required this.connected,
     required this.onTap,
     required this.onMore,
+    this.keyPrefix = 'known-scale',
   });
 
   final KnownScale known;
+
+  /// Key of the row in tests: `prefix-id`.
+  final String keyPrefix;
   final (Color, String) status;
   final bool connected;
   final VoidCallback onTap;
@@ -632,7 +638,7 @@ class _KnownScaleRow extends StatelessWidget {
     final colors = context.colors;
     final (dot, label) = status;
     return InkWell(
-      key: ValueKey('known-scale-${known.id}'),
+      key: ValueKey('$keyPrefix-${known.id}'),
       onTap: connected ? null : onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
@@ -684,8 +690,9 @@ class _KnownScaleRow extends StatelessWidget {
   }
 }
 
-class _ScaleRow extends StatelessWidget {
-  const _ScaleRow({
+class FoundDeviceRow extends StatelessWidget {
+  const FoundDeviceRow({
+    super.key,
     required this.candidate,
     required this.inUse,
     required this.connected,
