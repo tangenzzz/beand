@@ -12,7 +12,11 @@ import '../../services/app_settings.dart';
 import '../../services/gear_store.dart';
 import '../../services/profile_images.dart';
 import '../../theme/app_theme.dart';
+import '../../services/setup_suggestion.dart';
+import '../../services/shot_setup.dart';
+import '../../widgets/app_button.dart';
 import '../live/grind_from_zero.dart';
+import 'setup_suggestion_widgets.dart';
 import 'history_logic.dart';
 
 // [fallback] applies when the machine does not provide a profile color —
@@ -254,6 +258,7 @@ class ShotRow extends StatelessWidget {
     this.selected = false,
     this.showCheckColumn = false,
     this.selectionMode = false,
+    this.markNeedsDetails = false,
   });
 
   final ShotEntry entry;
@@ -265,6 +270,10 @@ class ShotRow extends StatelessWidget {
   final bool showCheckColumn;
   // Multi-select (delete): every row shows a selection circle.
   final bool selectionMode;
+
+  /// "● Needs details" before the second line: the shot came in without
+  /// its setup (see shotNeedsDetails).
+  final bool markNeedsDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -306,6 +315,7 @@ class ShotRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
+                      if (markNeedsDetails) const _NeedsDetailsMark(),
                       if (bean != null && profile.isNotEmpty)
                         Flexible(
                           child: Text(
@@ -414,7 +424,13 @@ class ShotListSliver extends StatelessWidget {
     this.showCheckColumn = false,
     this.tileColor,
     this.rounded = true,
+    this.needsDetailsSince,
   });
+
+  /// History: shots without their setup say so, with "Same as last" below
+  /// (user 2026-11-23) — those after their machine's first shot with a bean
+  /// (see setupSince). Null in the pickers.
+  final Map<String, DateTime>? needsDetailsSince;
 
   final List<ShotDayGroup> groups;
   final ValueChanged<ShotEntry> onTap;
@@ -466,7 +482,10 @@ class ShotListSliver extends StatelessWidget {
           );
         } else {
           final entry = item as ShotEntry;
-          child = ShotRow(
+          final since = needsDetailsSince;
+          final hint =
+              since != null && shotNeedsDetailsSince(entry.shot, since);
+          final row = ShotRow(
             entry: entry,
             onTap: () => onTap(entry),
             onLongPress: onLongPress == null ? null : () => onLongPress!(entry),
@@ -475,7 +494,21 @@ class ShotListSliver extends StatelessWidget {
                 selectedIds.contains(entry.shot.id),
             selectionMode: selectionMode,
             showCheckColumn: showCheckColumn,
+            markNeedsDetails: hint,
           );
+          child = hint && !selectionMode
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    row,
+                    SameAsLastRow(
+                      key: ValueKey('same-as-last-${entry.shot.id}'),
+                      shot: entry.shot,
+                    ),
+                  ],
+                )
+              : row;
         }
         return DecoratedBox(
           decoration: BoxDecoration(
@@ -733,6 +766,109 @@ class _BeanRoasterLine extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// Yellow dot + "Needs details" at the start of a history row's second line.
+class _NeedsDetailsMark extends StatelessWidget {
+  const _NeedsDetailsMark();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.colors.sensorMid;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.circle, size: 6, color: color),
+          const SizedBox(width: 4),
+          Text('Needs details', style: TextStyle(color: color, fontSize: 11.5)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Below a history row without its setup: "Same as last" and what it would
+/// write — the same suggestion as the Post card (Pre-Shot for the newest
+/// shot, else the last shot with this profile). Nothing when there is none.
+class SameAsLastRow extends StatefulWidget {
+  const SameAsLastRow({super.key, required this.shot});
+
+  final Shot shot;
+
+  @override
+  State<SameAsLastRow> createState() => _SameAsLastRowState();
+}
+
+class _SameAsLastRowState extends State<SameAsLastRow> {
+  SetupSuggestion? _suggestion;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    ShotSetups? setups;
+    try {
+      setups = context.read<ShotSetups>();
+    } on ProviderNotFoundException {
+      setups = null;
+    }
+    final options = await suggestSetups(
+      context.read<AppDatabase>(),
+      widget.shot,
+      setups: setups,
+    );
+    if (mounted) setState(() => _suggestion = options.firstOrNull);
+  }
+
+  Future<void> _apply() async {
+    final s = _suggestion;
+    if (s == null || _busy) return;
+    setState(() => _busy = true);
+    await s.applyTo(context.read<AppDatabase>(), widget.shot.id);
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = _suggestion;
+    if (s == null) return const SizedBox.shrink();
+    final colors = context.colors;
+    // Lined up under the text, right of the avatar (dividerInset + 44 + 12).
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.dividerInset + 56,
+        0,
+        AppSpacing.dividerInset,
+        8,
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            height: 30,
+            child: AppButton(
+              label: 'Same as last',
+              expand: false,
+              height: 30,
+              onPressed: _busy ? null : _apply,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SetupSummary(
+              suggestion: s,
+              style: TextStyle(color: colors.textTertiary, fontSize: 11),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

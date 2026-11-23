@@ -550,6 +550,138 @@ void main() {
     await teardownApp(tester);
   });
 
+  // User 2026-11-23: a shot brewed while the app was closed comes in
+  // without its setup. Post card suggests it (Save takes it), the history
+  // marks it with "Same as last", the shot detail copies from another shot.
+  Future<(int, int)> earlierAndBare(WidgetTester tester) async {
+    late int earlier, bare;
+    await tester.runAsync(() async {
+      final b = await db.insertBean(
+        BeansCompanion.insert(name: 'Fazenda Matão'),
+      );
+      earlier = await db
+          .into(db.shots)
+          .insert(
+            ShotsCompanion.insert(
+              timestamp: DateTime(2026, 11, 22, 12),
+              machine: const Value('meticulous'),
+              profileName: const Value('LRv2'),
+              beanId: Value(b.id),
+              doseGrams: const Value(14),
+              grindSize: const Value('3.8'),
+            ),
+          );
+      bare = await db
+          .into(db.shots)
+          .insert(
+            ShotsCompanion.insert(
+              timestamp: DateTime(2026, 11, 23, 22),
+              machine: const Value('meticulous'),
+              profileName: const Value('LRv2'),
+            ),
+          );
+    });
+    return (earlier, bare);
+  }
+
+  testWidgets('Post Shot: a shot without its setup gets a suggestion, '
+      'Save takes it', (tester) async {
+    bigScreen(tester);
+    final (_, bare) = await earlierAndBare(tester);
+    await tester.pumpWidget(
+      _app(
+        db,
+        const Scaffold(
+          body: SizedBox(
+            height: ShotCardsCarousel.cardHeight,
+            child: PostShotCard(),
+          ),
+        ),
+      ),
+    );
+    // Suggestion, then the bean's name: one real-time round each.
+    for (var i = 0; i < 3; i++) {
+      await settle(tester);
+    }
+    expect(find.byKey(const ValueKey('post-suggestion')), findsOneWidget);
+    expect(find.text('Last shot'), findsOneWidget);
+    expect(find.text('Fazenda Matão · 14 g · 3.8'), findsOneWidget);
+    // Only a suggestion until Save.
+    expect(
+      (await inDb(tester, () => db.watchShotEntry(bare).first))!.shot.beanId,
+      isNull,
+    );
+
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    final shot = (await inDb(
+      tester,
+      () => db.watchShotEntry(bare).first,
+    ))!.shot;
+    expect(shot.beanId, isNotNull);
+    expect(shot.doseGrams, 14);
+    expect(shot.grindSize, '3.8');
+    await tester.pump(const Duration(seconds: 2));
+    await teardownApp(tester);
+  });
+
+  testWidgets('History: "Needs details" filter and "Same as last"', (
+    tester,
+  ) async {
+    bigScreen(tester);
+    final (earlier, bare) = await earlierAndBare(tester);
+    await tester.pumpWidget(_app(db, const Scaffold(body: HistoryTab())));
+    await settle(tester);
+    await settle(tester);
+    expect(find.text('Needs details · 1'), findsOneWidget);
+    expect(find.text('Needs details'), findsOneWidget);
+
+    // The filter shows only the shot without its setup.
+    await tester.tap(find.byKey(const ValueKey('needs-details-filter')));
+    await tester.pump();
+    expect(find.text('Fazenda Matão'), findsNothing);
+
+    await tester.tap(find.text('Same as last'));
+    await settle(tester);
+    await settle(tester);
+    final shot = (await inDb(
+      tester,
+      () => db.watchShotEntry(bare).first,
+    ))!.shot;
+    expect(shot.doseGrams, 14);
+    expect(shot.grindSize, '3.8');
+    expect(find.text('Needs details'), findsNothing);
+    expect(earlier, isNot(bare));
+    await teardownApp(tester);
+  });
+
+  testWidgets('Shot detail: Copy from… takes bean, dose and grind', (
+    tester,
+  ) async {
+    bigScreen(tester);
+    final (_, bare) = await earlierAndBare(tester);
+    await tester.pumpWidget(_app(db, ShotDetailScreen(shotId: bare)));
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('copy-from')));
+    for (var i = 0; i < 3; i++) {
+      await settle(tester);
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('COPY FROM · LRV2'), findsOneWidget);
+    await tester.tap(find.text('Fazenda Matão · 14 g · 3.8'));
+    await settle(tester);
+    await settle(tester);
+    final shot = (await inDb(
+      tester,
+      () => db.watchShotEntry(bare).first,
+    ))!.shot;
+    expect(shot.beanId, isNotNull);
+    expect(shot.doseGrams, 14);
+    expect(shot.grindSize, '3.8');
+    await tester.pump(const Duration(seconds: 2));
+    await teardownApp(tester);
+  });
+
   testWidgets('note is still saved when leaving the screen', (tester) async {
     bigScreen(tester);
     final id = await inDb(

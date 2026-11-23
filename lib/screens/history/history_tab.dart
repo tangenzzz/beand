@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../database/database.dart';
 import '../../services/app_settings.dart';
+import '../../services/setup_suggestion.dart';
 import '../../services/shot_sync_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/header_icon_button.dart';
@@ -34,6 +35,23 @@ class _HistoryTabState extends State<HistoryTab> {
   late final StreamSubscription<List<ShotEntry>> _sub;
   List<ShotEntry>? _entries;
   HistoryFilter _filter = HistoryFilter.empty;
+
+  // "Needs details": only shots that came in without their setup.
+  bool _onlyNeedsDetails = false;
+
+  // See setupSince; worked out once per list of entries.
+  List<ShotEntry>? _sinceFor;
+  Map<String, DateTime> _sinceCache = const {};
+  Map<String, DateTime> get _setupSince {
+    final entries = _entries;
+    if (entries == null) return const {};
+    if (!identical(entries, _sinceFor)) {
+      _sinceFor = entries;
+      _sinceCache = setupSince(entries.map((e) => e.shot));
+    }
+    return _sinceCache;
+  }
+
   // Free-text search over bean, roastery, profile, notes and machine (same
   // pattern as the bean list: magnifier opens a text field in the header).
   final _search = TextEditingController();
@@ -154,6 +172,44 @@ class _HistoryTabState extends State<HistoryTab> {
     );
   }
 
+  // Shown while there are shots without their setup; tapping shows only
+  // those (and again all).
+  Widget _needsDetailsChip() {
+    final since = _setupSince;
+    final count =
+        _entries?.where((e) => shotNeedsDetailsSince(e.shot, since)).length ??
+        0;
+    if (count == 0 && !_onlyNeedsDetails) return const SizedBox.shrink();
+    final color = context.colors.sensorMid;
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: InkWell(
+        key: const ValueKey('needs-details-filter'),
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => setState(() => _onlyNeedsDetails = !_onlyNeedsDetails),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: _onlyNeedsDetails ? color.withValues(alpha: 0.16) : null,
+            border: Border.all(color: color.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.circle, size: 6, color: color),
+              const SizedBox(width: 5),
+              Text(
+                'Needs details · $count',
+                style: TextStyle(color: color, fontSize: 11.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _header() {
     if (_selecting) {
       return Row(
@@ -225,6 +281,7 @@ class _HistoryTabState extends State<HistoryTab> {
           onPressed: () => setState(() => _searching = true),
         ),
         _filterButton(),
+        _needsDetailsChip(),
         const Spacer(),
         // A shot by hand, with or without a shot file.
         HeaderIconButton(
@@ -272,20 +329,25 @@ class _HistoryTabState extends State<HistoryTab> {
         ),
       ];
     }
-    final visible = filterShots(
-      entries,
-      query: _search.text,
-      filter: _filter,
-      espressoName: espressoNameOf(context),
-    );
+    final visible = [
+      for (final e in filterShots(
+        entries,
+        query: _search.text,
+        filter: _filter,
+        espressoName: espressoNameOf(context),
+      ))
+        if (!_onlyNeedsDetails || shotNeedsDetailsSince(e.shot, _setupSince)) e,
+    ];
     if (visible.isEmpty) {
       return [
         _message(
           'No matching shots.',
-          action: _filter.isActive
+          action: _filter.isActive || _onlyNeedsDetails
               ? TextButton(
-                  onPressed: () =>
-                      setState(() => _filter = HistoryFilter.empty),
+                  onPressed: () => setState(() {
+                    _filter = HistoryFilter.empty;
+                    _onlyNeedsDetails = false;
+                  }),
                   child: const Text('Clear filters'),
                 )
               : null,
@@ -299,6 +361,7 @@ class _HistoryTabState extends State<HistoryTab> {
         onLongPress: _toggleSelected,
         selectedIds: _selected,
         selectionMode: _selecting,
+        needsDetailsSince: _setupSince,
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 12)),
     ];

@@ -14,6 +14,7 @@ import '../../models/grind_scale.dart';
 import '../../models/grinder.dart';
 import '../../services/app_settings.dart';
 import '../../services/gear_store.dart';
+import '../../services/setup_suggestion.dart';
 import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
@@ -28,6 +29,7 @@ import '../settings/gear_dialogs.dart';
 import 'history_logic.dart';
 import 'history_widgets.dart';
 import 'new_shot_header.dart';
+import 'setup_suggestion_widgets.dart';
 import 'temperature_chart.dart';
 import 'shot_analysis_section.dart';
 import 'shot_facts_section.dart';
@@ -350,6 +352,44 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
 
   // The shot's grinder, found by the name it was brewed with — its scale
   // shapes the grind ruler; without one the ruler is as before.
+  // "Copy from…" (user 2026-11-23): bean, dose, grind and chain of another
+  // shot in one tap — the last ones with this profile first, any other
+  // profile one tap further. Rating, notes and the curve stay.
+  Widget _copyFromButton(Shot shot) => TextButton.icon(
+    key: const ValueKey('copy-from'),
+    onPressed: () => _copyFrom(shot),
+    style: TextButton.styleFrom(foregroundColor: context.colors.textSecondary),
+    icon: const Icon(Icons.content_copy_outlined, size: 18),
+    label: const Text('Copy from…'),
+  );
+
+  Future<void> _copyFrom(Shot shot) async {
+    final picked = await showModalBottomSheet<Shot>(
+      context: context,
+      backgroundColor: context.colors.card,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.tile),
+        ),
+      ),
+      builder: (_) => CopyFromSheet(shot: shot),
+    );
+    if (picked == null || !mounted) return;
+    _writeDebounce?.cancel();
+    setState(() {
+      _doseDraft = null;
+      _grindDraft = null;
+      _markerDraft = null;
+    });
+    await SetupSuggestion.fromShot(picked)
+        .applyTo(_db, shot.id, onlyEmpty: false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
+    );
+  }
+
   Grinder? _grinderOf(Shot shot) => shotGrinder(shot, _gear);
 
   bool _chainTaken = false;
@@ -387,6 +427,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                     : 'New shot',
               ),
               actions: [
+                if (entry != null) _copyFromButton(entry.shot),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
@@ -407,6 +448,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                 ),
               ),
               actions: [
+                if (entry != null) _copyFromButton(entry.shot),
                 IconButton(
                   tooltip: 'Share',
                   icon: Icon(
@@ -1583,6 +1625,162 @@ class BrewedWith extends StatelessWidget {
         color: color ?? colors.textSecondary,
         fontSize: 11.5 * scale,
         height: 1.35,
+      ),
+    );
+  }
+}
+
+/// The shots "Copy from…" offers: the last ones with the same profile on
+/// the same brew method, and behind "Other profile…" the latest of any
+/// profile. Pops with the shot picked.
+class CopyFromSheet extends StatefulWidget {
+  const CopyFromSheet({super.key, required this.shot});
+
+  final Shot shot;
+
+  @override
+  State<CopyFromSheet> createState() => _CopyFromSheetState();
+}
+
+class _CopyFromSheetState extends State<CopyFromSheet> {
+  List<Shot>? _same;
+  List<Shot>? _any;
+  bool _showAny = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final db = context.read<AppDatabase>();
+    final shot = widget.shot;
+    final profile = (shot.profileName ?? '').trim();
+    final same = profile.isEmpty
+        ? const <Shot>[]
+        : await db.shotsWithSetup(
+            machine: shot.machine,
+            profileName: shot.profileName,
+            exceptId: shot.id,
+            limit: 5,
+          );
+    final any = await db.shotsWithSetup(
+      machine: shot.machine,
+      exceptId: shot.id,
+      limit: 12,
+    );
+    if (!mounted) return;
+    setState(() {
+      _same = same;
+      _any = [
+        for (final s in any)
+          if (!same.any((o) => o.id == s.id)) s,
+      ];
+      // Nothing with this profile: straight to the others.
+      _showAny = same.isEmpty;
+    });
+  }
+
+  Widget _row(Shot s) {
+    final colors = context.colors;
+    return InkWell(
+      key: ValueKey('copy-from-${s.id}'),
+      onTap: () => Navigator.of(context).pop(s),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SetupSummary(
+                    suggestion: SetupSuggestion.fromShot(s),
+                    style: TextStyle(color: colors.textPrimary, fontSize: 13),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    (s.profileName ?? '').trim().isEmpty
+                        ? 'No profile'
+                        : s.profileName!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: colors.textSecondary, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              dateTimeLabel(s.timestamp),
+              style: TextStyle(color: colors.textTertiary, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final same = _same;
+    final any = _any;
+    final profile = (widget.shot.profileName ?? '').trim();
+    final label = TextStyle(
+      color: colors.textSecondary,
+      fontSize: 12,
+      letterSpacing: 0.6,
+    );
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          children: [
+            if (same == null || any == null)
+              const SizedBox(height: 40)
+            else if (same.isEmpty && any.isEmpty)
+              Text(
+                'No other shot with bean or grind to copy from.',
+                style: TextStyle(color: colors.textSecondary, fontSize: 13),
+              )
+            else ...[
+              if (same.isNotEmpty) ...[
+                Text(
+                  'COPY FROM · ${profile.toUpperCase()}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: label,
+                ),
+                const SizedBox(height: 4),
+                for (final s in same) _row(s),
+              ],
+              if (any.isNotEmpty && !_showAny)
+                InkWell(
+                  key: const ValueKey('copy-from-other'),
+                  onTap: () => setState(() => _showAny = true),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      'Other profile…',
+                      style: TextStyle(color: colors.accent, fontSize: 13),
+                    ),
+                  ),
+                ),
+              if (any.isNotEmpty && _showAny) ...[
+                if (same.isNotEmpty) const SizedBox(height: 12),
+                Text('RECENT SHOTS', style: label),
+                const SizedBox(height: 4),
+                for (final s in any) _row(s),
+              ],
+            ],
+          ],
+        ),
       ),
     );
   }

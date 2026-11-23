@@ -734,6 +734,9 @@ class AppDatabase extends _$AppDatabase {
   Future<bool> hasAnyShot() async =>
       (await (select(shots)..limit(1)).get()).isNotEmpty;
 
+  Future<Bean?> beanById(int id) =>
+      (select(beans)..where((b) => b.id.equals(id))).getSingleOrNull();
+
   Future<List<Bean>> allBeans() =>
       (select(beans)..where((b) => b.deleted.equals(false))).get();
 
@@ -1115,6 +1118,91 @@ class AppDatabase extends _$AppDatabase {
   // always has a dose, so lastShotWithSetup would also find shots without
   // one. [grinder]: only shots from that grinder (or naming none), since
   // the number means nothing on another one.
+  // Earlier shots of [machine] that carry a setup (a bean or a grind; pour
+  // over always has a dose, so a dose alone doesn't count), newest first —
+  // what a shot without one can take its values from (Post card, History
+  // "Same as last", shot detail "Copy from…"). [profileName] null = any
+  // profile; [before] / [exceptId]: the shot that asks.
+  Future<List<Shot>> shotsWithSetup({
+    required String machine,
+    String? profileName,
+    DateTime? before,
+    int? exceptId,
+    int limit = 1,
+  }) {
+    final query = select(shots)
+      ..where(
+        (s) =>
+            s.deletedAt.isNull() &
+            s.machine.equals(machine) &
+            (s.beanId.isNotNull() |
+                (s.grindSize.isNotNull() & s.grindSize.equals('').not())),
+      )
+      ..orderBy([(s) => OrderingTerm.desc(s.timestamp)])
+      ..limit(limit);
+    if (profileName != null) {
+      query.where((s) => s.profileName.equals(profileName));
+    }
+    if (before != null) {
+      query.where((s) => s.timestamp.isSmallerThanValue(before));
+    }
+    if (exceptId != null) query.where((s) => s.id.equals(exceptId).not());
+    return query.get();
+  }
+
+  /// Writes a setup onto a shot — bean, dose, grind (with mark, grinder,
+  /// burrs, zero point) and the brew chain with its gear. With [onlyEmpty]
+  /// a field the shot already has stays (the Post card's suggestion never
+  /// overwrites what was entered meanwhile); otherwise everything is taken
+  /// ("Copy from…"). Rating, notes and the curve are never touched.
+  Future<void> applyShotSetup(
+    int id, {
+    int? beanId,
+    double? doseGrams,
+    String? grindSize,
+    String? grindMarker,
+    double? grindZero,
+    String? grinder,
+    String? burrs,
+    String? brewedWith,
+    String? gearIds,
+    String? brewChainId,
+    bool onlyEmpty = false,
+  }) async {
+    final shot = await (select(
+      shots,
+    )..where((s) => s.id.equals(id))).getSingleOrNull();
+    if (shot == null || shot.deletedAt != null) return;
+    bool take(Object? current) =>
+        !onlyEmpty || current == null || (current is String && current.isEmpty);
+    final grindTaken = take(shot.grindSize) && grindSize != null;
+    // A source without a chain leaves the shot's own one alone.
+    final chainTaken =
+        (brewChainId != null || grinder != null) &&
+        take(shot.brewChainId) &&
+        take(shot.grinder);
+    await _writeShot(
+      id,
+      ShotsCompanion(
+        beanId: take(shot.beanId) && beanId != null
+            ? Value(beanId)
+            : const Value.absent(),
+        doseGrams: take(shot.doseGrams) && doseGrams != null
+            ? Value(doseGrams)
+            : const Value.absent(),
+        grindSize: grindTaken ? Value(grindSize) : const Value.absent(),
+        grindMarker: grindTaken ? Value(grindMarker) : const Value.absent(),
+        grindZero: grindTaken ? Value(grindZero) : const Value.absent(),
+        grinder: chainTaken ? Value(grinder) : const Value.absent(),
+        burrs: chainTaken ? Value(burrs) : const Value.absent(),
+        brewedWith: chainTaken ? Value(brewedWith) : const Value.absent(),
+        gearIds: chainTaken ? Value(gearIds) : const Value.absent(),
+        brewChainId: chainTaken ? Value(brewChainId) : const Value.absent(),
+      ),
+    );
+    if (beanId != null && take(shot.beanId)) await _openBagIfSealed(beanId);
+  }
+
   Future<Shot?> lastShotWithGrind({
     required String profileName,
     required String machine,

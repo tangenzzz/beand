@@ -8,6 +8,9 @@ import 'package:provider/provider.dart';
 import '../../database/database.dart';
 import '../../services/ai/ai_settings.dart';
 import '../../services/live_shot_service.dart';
+import '../../services/setup_suggestion.dart';
+import '../../services/shot_setup.dart';
+import '../history/setup_suggestion_widgets.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/taste_chips.dart';
 import '../history/history_logic.dart';
@@ -40,6 +43,24 @@ class _PostShotCardState extends State<PostShotCard> {
       .watchLatestShotEntry(
         machine: context.read<LiveShotService>().machineKey,
       );
+
+  // The setup a shot without one would get on Save (see _SuggestionBox).
+  final _chosen = ValueNotifier<SetupSuggestion?>(null);
+
+  @override
+  void dispose() {
+    _chosen.dispose();
+    super.dispose();
+  }
+
+  // Save on a shot without its setup takes the suggestion shown — only into
+  // fields still empty, so what was entered in the shot detail meanwhile
+  // stays.
+  Future<void> _applySuggestion(Shot shot) async {
+    final s = _chosen.value;
+    if (s == null || !shotNeedsDetails(shot)) return;
+    await s.applyTo(context.read<AppDatabase>(), shot.id);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,14 +95,23 @@ class _PostShotCardState extends State<PostShotCard> {
                         ),
                       )
                     // Key per shot: for a new shot the note starts empty.
-                    : _Body(key: ValueKey(entry.shot.id), entry: entry),
+                    : _Body(
+                        key: ValueKey(entry.shot.id),
+                        entry: entry,
+                        chosen: _chosen,
+                      ),
               ),
               // The AI analysis is tailored to espresso — there is none for
               // pour over.
               if (entry != null && entry.shot.machine != 'pourover')
                 _AnalyseRow(shot: entry.shot),
               const SizedBox(height: 10),
-              _SaveButton(enabled: entry != null),
+              _SaveButton(
+                enabled: entry != null,
+                beforeSave: entry == null
+                    ? null
+                    : () => _applySuggestion(entry.shot),
+              ),
               const SizedBox(height: AppSpacing.tileActionBottom),
             ],
           );
@@ -141,18 +171,24 @@ class _AnalyseRow extends StatelessWidget {
 // then releases the pre-shot card again. Same style and same bottom spacing
 // as the buttons of the other two cards.
 class _SaveButton extends StatelessWidget {
-  const _SaveButton({required this.enabled});
+  const _SaveButton({required this.enabled, this.beforeSave});
 
   final bool enabled;
+
+  /// Runs first (takes the suggested setup into a shot without one).
+  final Future<void> Function()? beforeSave;
 
   @override
   Widget build(BuildContext context) {
     return AppButton(
       label: 'Save',
       onPressed: enabled
-          ? () {
+          ? () async {
               FocusScope.of(context).unfocus();
-              context.read<LiveShotService>().confirmPostShot();
+              final live = context.read<LiveShotService>();
+              await beforeSave?.call();
+              live.confirmPostShot();
+              if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Saved'),
@@ -166,9 +202,10 @@ class _SaveButton extends StatelessWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({super.key, required this.entry});
+  const _Body({super.key, required this.entry, required this.chosen});
 
   final ShotEntry entry;
+  final ValueNotifier<SetupSuggestion?> chosen;
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +285,9 @@ class _Body extends StatelessWidget {
             ],
           ),
         ),
+        // Brewed while the app was closed (or added later): what Save would
+        // fill in, from the Pre-Shot card or the last shot with this profile.
+        if (shotNeedsDetails(shot)) _SuggestionBox(shot: shot, chosen: chosen),
         // A machine the app does not talk to: yield and time by hand
         // (prefilled with what the scale and the app's clock measured).
         if (shot.machine == 'espresso') ...[
@@ -423,6 +463,141 @@ class _Field extends StatelessWidget {
         ),
         focusedBorder: UnderlineInputBorder(
           borderSide: BorderSide(color: colors.accent),
+        ),
+      ),
+    );
+  }
+}
+
+// The suggested setup of a shot that came in without one (user 2026-11-23):
+// its source ("Pre-Shot" / "Last shot") and what Save would write — dimmed,
+// it is only a suggestion.
+class _SuggestionBox extends StatefulWidget {
+  const _SuggestionBox({required this.shot, required this.chosen});
+
+  final Shot shot;
+  final ValueNotifier<SetupSuggestion?> chosen;
+
+  @override
+  State<_SuggestionBox> createState() => _SuggestionBoxState();
+}
+
+class _SuggestionBoxState extends State<_SuggestionBox> {
+  List<SetupSuggestion>? _options;
+  SetupSource? _source;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.chosen.value = null;
+    _load();
+  }
+
+  Future<void> _load() async {
+    ShotSetups? setups;
+    try {
+      setups = context.read<ShotSetups>();
+    } on ProviderNotFoundException {
+      setups = null;
+    }
+    final options = await suggestSetups(
+      context.read<AppDatabase>(),
+      widget.shot,
+      setups: setups,
+    );
+    if (!mounted) return;
+    setState(() {
+      _options = options;
+      _source = options.firstOrNull?.source;
+    });
+    widget.chosen.value = options.firstOrNull;
+  }
+
+  void _pick(SetupSource? source) {
+    final s = _options?.where((o) => o.source == source).firstOrNull;
+    if (s == null) return;
+    setState(() => _source = source);
+    widget.chosen.value = s;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final options = _options;
+    if (options == null || options.isEmpty) return const SizedBox.shrink();
+    final colors = context.colors;
+    final current =
+        options.where((o) => o.source == _source).firstOrNull ?? options.first;
+    final others = options.length > 1;
+    // One line — the card has a fixed height: the source (tapping it
+    // switches when there are two), then what Save would write, dimmed.
+    // Tapping that opens the shot to change a value first.
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        key: const ValueKey('post-suggestion'),
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.divider),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        padding: const EdgeInsets.fromLTRB(10, 2, 2, 2),
+        child: Row(
+          children: [
+            InkWell(
+              key: const ValueKey('post-suggestion-source'),
+              onTap: others
+                  ? () => _pick(
+                      options[(options.indexOf(current) + 1) % options.length]
+                          .source,
+                    )
+                  : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      current.source.label,
+                      style: TextStyle(
+                        color: others ? colors.accent : colors.textTertiary,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                    if (others)
+                      Icon(Icons.swap_horiz, size: 14, color: colors.accent),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ShotDetailScreen(shotId: widget.shot.id),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SetupSummary(
+                        suggestion: current,
+                        style: TextStyle(
+                          color: colors.textSecondary.withValues(alpha: 0.75),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: colors.textTertiary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
