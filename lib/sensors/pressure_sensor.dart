@@ -33,6 +33,9 @@ abstract class PressureSensor extends ChangeNotifier {
   /// Short name for the command row.
   String get shortName => 'Sensor';
 
+  /// The maker's logo for the command row (asset path), null = speed icon.
+  String? get logoAsset => null;
+
   int? get batteryPercent => null;
 
   /// Last reading, null before the first one.
@@ -134,6 +137,9 @@ class Pressensor extends PressureSensor {
 
   @override
   String get shortName => 'Pressensor';
+
+  @override
+  String? get logoAsset => 'assets/pressensor/logo.png';
 
   @override
   String? get rememberedId => _deviceId;

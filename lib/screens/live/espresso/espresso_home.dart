@@ -318,6 +318,8 @@ class _EspressoCommandRow extends StatelessWidget {
     };
 
     final sensorBattery = sensor.batteryPercent;
+    final lowSensorBattery =
+        sensor.isConnected && sensorBattery != null && sensorBattery <= 15;
     final String sensorLabel = switch (sensor.connection) {
       ScaleConnection.connected =>
         sensorBattery == null
@@ -349,11 +351,15 @@ class _EspressoCommandRow extends StatelessWidget {
       ),
       CommandRowButton(
         icon: Icons.speed,
-        iconColor: sensor.isConnected
-            ? (sensorBattery != null && sensorBattery <= 15
-                  ? context.colors.danger
-                  : null)
-            : null,
+        iconColor: lowSensorBattery ? context.colors.danger : null,
+        // The maker's logo (with permission): in its colours while
+        // connected, grey like the other icons otherwise (user 2026-11-23).
+        iconWidget: sensor.logoAsset == null
+            ? null
+            : SensorLogo(
+                asset: sensor.logoAsset!,
+                colored: sensor.isConnected && !lowSensorBattery,
+              ),
         label: sensorLabel,
         onTap: locked
             ? null
@@ -485,5 +491,33 @@ class _EspressoCommandRow extends StatelessWidget {
         MaterialPageRoute<void>(builder: (_) => const ScaleSettingsScreen()),
       );
     }
+  }
+}
+
+/// A sensor maker's logo in the command row: its own colours, or one colour
+/// from the surrounding [IconTheme] (grey when not connected, red on a low
+/// battery) — so it reads like the icons beside it.
+class SensorLogo extends StatelessWidget {
+  const SensorLogo({super.key, required this.asset, required this.colored});
+
+  final String asset;
+  final bool colored;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = Image.asset(
+      asset,
+      key: ValueKey(colored ? 'sensor-logo-colored' : 'sensor-logo-plain'),
+      height: 24,
+      filterQuality: FilterQuality.medium,
+    );
+    if (colored) return image;
+    return ColorFiltered(
+      colorFilter: ColorFilter.mode(
+        IconTheme.of(context).color ?? context.colors.textSecondary,
+        BlendMode.srcIn,
+      ),
+      child: image,
+    );
   }
 }

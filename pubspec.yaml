@@ -125,6 +125,8 @@ flutter:
     - assets/gaggimate/water.svg
     # Line icons of the gear types (My Coffee Desk), currentColor strokes
     - assets/icons/gear/
+    # Pressensor logo, not GPL (see assets/pressensor/README.md)
+    - assets/pressensor/logo.png
     # History badge glyphs
     - assets/badges/portafilter.svg
     # Coastlines and country outlines for the coffee map, Natural Earth
