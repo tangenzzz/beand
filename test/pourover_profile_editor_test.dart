@@ -183,15 +183,27 @@ void main() {
     // The last pour's wait is the drawdown.
     expect(find.text('Drawdown'), findsOneWidget);
 
-    // Add up to five; then the limit shows instead of "+".
+    // Up to five fits the Meticulous; a sixth says it runs in the app only
+    // (user 2026-11-23).
     for (var i = 0; i < 3; i++) {
       await tester.tap(find.byKey(const ValueKey('profile-add-pour')));
       await tester.pumpAndSettle();
     }
-    expect(find.byKey(const ValueKey('profile-add-pour')), findsNothing);
-    expect(find.text('5 at most'), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-app-only')), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('profile-add-pour')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('profile-app-only')), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('pour-delete-4')));
+    // Up to ten; then the limit shows instead of "+".
+    for (var i = 0; i < 4; i++) {
+      await tester.tap(find.byKey(const ValueKey('profile-add-pour')));
+      await tester.pumpAndSettle();
+    }
+    expect(find.byKey(const ValueKey('profile-add-pour')), findsNothing);
+    expect(find.text('10 at most'), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const ValueKey('pour-delete-9')));
+    await tester.tap(find.byKey(const ValueKey('pour-delete-9')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('profile-add-pour')), findsOneWidget);
     await finish(tester);
@@ -214,6 +226,37 @@ void main() {
     // In both lists, shown once.
     expect(store.ownRecipes.where((r) => r.name == 'Dial').length, 1);
     await finish(tester);
+  });
+
+  testWidgets('Machine mode, more than five pours: kept in the app', (
+    tester,
+  ) async {
+    await setUp0(tester, machineMode: true);
+    await tester.pumpWidget(app(const Scaffold(body: PourOverProfileEditor())));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('profile-name')).first,
+      'Many',
+    );
+    await tester.pump();
+    for (var i = 0; i < 4; i++) {
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('profile-add-pour')),
+      );
+      await tester.tap(find.byKey(const ValueKey('profile-add-pour')));
+      await tester.pumpAndSettle();
+    }
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Save'));
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+    await tester.pump();
+    expect(uploaded, isEmpty);
+    expect(store.importedRecipes.single.name, 'Many');
+    expect(find.textContaining('Saved in the app only'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 5));
+    await tester.runAsync(db.close);
   });
 
   testWidgets('Machine mode, machine away: kept in the app, says so', (

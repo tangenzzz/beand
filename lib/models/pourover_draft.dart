@@ -12,7 +12,19 @@ import 'profile_draft.dart' show newUuid;
 // start times. Writing derives the start times, the flow and the running
 // total, which makes the machine's consistency rules hold by construction.
 
-const maxPours = 5;
+/// Pours in an own profile (user 2026-11-23: more than the machine's five).
+const maxPours = 10;
+
+/// The Meticulous takes at most this many (pour_over_profile_schema
+/// `stages.maxItems`); a profile with more runs only with the app leading.
+const maxMachinePours = 5;
+
+/// Whether a profile in the Meticulous' format fits on the machine.
+bool fitsMeticulous(Map<String, dynamic> json) {
+  final stages = json['stages'];
+  return stages is! List || stages.length <= maxMachinePours;
+}
+
 const maxHeightCm = 15.0;
 const minDoseG = 5.0;
 const maxDoseG = 40.0;
@@ -279,6 +291,9 @@ class PourOverDraft {
   }
 
   bool get canAddPour => pours.length < maxPours;
+
+  /// More pours than the Meticulous takes: the app leads this one.
+  bool get appOnly => pours.length > maxMachinePours;
 
   /// Next free name and key.
   (String, String) _nextPour() {

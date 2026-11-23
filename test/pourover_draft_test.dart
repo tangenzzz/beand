@@ -1,3 +1,5 @@
+import 'package:beand/models/brew_plan.dart';
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -75,12 +77,15 @@ void main() {
     expect(machineRules(toMachineJson(d.toJson())), isEmpty);
   });
 
-  test('at most five pours; the last one stays', () {
+  test('at most ten pours; the last one stays', () {
     final d = PourOverDraft.empty();
-    for (var i = 0; i < 9; i++) {
+    expect(d.appOnly, isFalse);
+    for (var i = 0; i < 12; i++) {
       d.addPour();
     }
     expect(d.pours.length, maxPours);
+    expect(d.appOnly, isTrue);
+    expect(fitsMeticulous(d.toJson()), isFalse);
     expect(d.canAddPour, isFalse);
     d.copyPour(0);
     expect(d.pours.length, maxPours);
@@ -207,5 +212,21 @@ void main() {
       ..name = 'x'
       ..drawdownS = 900;
     expect(d.problems, ['At most 10 minutes in total']);
+  });
+
+  test('an app-only profile with eight pours brews through all of them', () {
+    // User 2026-11-23: more pours than the Meticulous takes run with the
+    // app leading — the plan must know every one.
+    final d = PourOverDraft.empty()..name = 'Eight';
+    while (d.pours.length < 8) {
+      d.addPour();
+    }
+    final recipe = parsePourOverProfile(d.toJson());
+    final plan = BrewPlan(recipe);
+    expect(plan.steps, hasLength(8));
+    for (var i = 0; i < 8; i++) {
+      expect(plan.stepIndexFor(plan.steps[i].targetTotalG - 10), i);
+    }
+    expect(plan.stepIndexFor(plan.totalWaterG), 8);
   });
 }

@@ -130,6 +130,15 @@ class _AddPourOverProfileDialogState extends State<AddPourOverProfileDialog> {
       final source = widget.store.machineSource;
       if (widget.brew.dialLeads &&
           json['brew_type'] == 'pour_over' &&
+          source != null &&
+          !fitsMeticulous(json)) {
+        // More pours than the machine takes: kept in the app.
+        widget.store.importProfile(json);
+        _say(
+          'Added "${recipe.name}" to the app only: the Meticulous takes $maxMachinePours pours at most.',
+        );
+      } else if (widget.brew.dialLeads &&
+          json['brew_type'] == 'pour_over' &&
           source != null) {
         // Machine mode: onto the machine, its dial brews from its list. What
         // goes there is the profile as the app's own editor writes it, with

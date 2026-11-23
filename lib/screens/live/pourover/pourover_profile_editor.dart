@@ -211,7 +211,11 @@ class _PourOverProfileEditorState extends State<PourOverProfileEditor> {
       store.importProfile(json);
 
       final source = store.machineSource;
-      if (dialLeads && source != null) {
+      if (dialLeads && source != null && !fitsMeticulous(json)) {
+        _say(
+          'Saved in the app only: the Meticulous takes $maxMachinePours pours at most.',
+        );
+      } else if (dialLeads && source != null) {
         try {
           await source.upload(toMachineJson(json));
           await store.refreshMachine();
@@ -726,6 +730,21 @@ class _PourOverProfileEditorState extends State<PourOverProfileEditor> {
                         ),
                         const SizedBox(height: 4),
                         for (var i = 0; i < draft.pours.length; i++) _pour(i),
+                        // Past the machine's five: says where it runs.
+                        if (draft.appOnly)
+                          Padding(
+                            key: const ValueKey('profile-app-only'),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                            child: Text(
+                              'More than $maxMachinePours pours: runs in the app '
+                              '(Bluetooth scale or Scale only), not on the '
+                              'Meticulous.',
+                              style: TextStyle(
+                                color: colors.textTertiary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
