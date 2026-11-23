@@ -1,7 +1,7 @@
 part of 'statistics_screen.dart';
 
-// Statistics → Gear: what each piece on My Coffee Desk has done – grinders
-// by coffee ground, brewers, filters with their stock, the rest by use –
+// Statistics → Gear: what each piece on My Coffee Desk has done – machines
+// first, grinders by coffee ground, brewers, filters with their stock, the rest by use –
 // and the brew chains. No ratings here: gear has no target to rate.
 
 String _amount(double grams) => grams >= 1000
@@ -39,12 +39,36 @@ extension on _StatisticsScreenState {
     final grinders = stats.ofType(GearType.grinder);
     final brewers = stats.ofType(GearType.brewer);
     final filters = stats.ofType(GearType.filter);
-    const own = {GearType.grinder, GearType.brewer, GearType.filter};
+    final machines = stats.ofType(GearType.machine);
+    const own = {
+      GearType.machine,
+      GearType.grinder,
+      GearType.brewer,
+      GearType.filter,
+    };
     final others = [
       for (final p in stats.pieces)
         if (!own.contains(p.type)) p,
     ];
     final blocks = <Widget>[
+      if (machines.isNotEmpty)
+        _Block(
+          label: 'Machines',
+          child: Column(
+            children: [
+              for (final m in machines)
+                _GearRow(
+                  use: m,
+                  value: '${m.uses}',
+                  detail: [
+                    if (m.firstUse != null) 'since ${_date(m.firstUse!)}',
+                    if (m.uses > 0) _usesText(m),
+                    if (m.waterMl > 0) '${_litres(m.waterMl)} water',
+                  ].join(' · '),
+                ),
+            ],
+          ),
+        ),
       if (grinders.isNotEmpty)
         _Block(
           label: 'Grinders',

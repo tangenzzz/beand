@@ -291,6 +291,12 @@ void main() {
         grinder.toJson(),
         filter.toJson(),
         const Gear(
+          id: 'm1',
+          type: GearType.machine,
+          brand: 'Meticulous',
+          model: 'Espresso',
+        ).toJson(),
+        const Gear(
           id: 'g2',
           type: GearType.grinder,
           brand: 'Niche',
@@ -325,7 +331,7 @@ void main() {
             doseGrams: const Value(18),
             grinder: const Value('Z1'),
             burrs: const Value('SSP HU'),
-            gearIds: const Value('g1,f1'),
+            gearIds: const Value('m1,g1,f1'),
             brewChainId: const Value('c1'),
             beanId: Value(bean.id),
             grindSize: const Value('2.5'),
@@ -370,6 +376,13 @@ void main() {
 
     expect(find.text('GRINDERS'), findsOneWidget);
     expect(find.text('36 g'), findsOneWidget);
+    // Machines get their own block, at the very top.
+    expect(find.text('MACHINES'), findsOneWidget);
+    expect(find.text('OTHER GEAR'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('MACHINES')).dy,
+      lessThan(tester.getTopLeft(find.text('GRINDERS')).dy),
+    );
     expect(find.text('FILTERS'), findsOneWidget);
     expect(find.text('used 2 · 77 left in stock'), findsOneWidget);
     expect(find.text('LIGHT ROAST'), findsNothing);
