@@ -4,8 +4,9 @@ part of 'statistics_screen.dart';
 // first, grinders by coffee ground, brewers, filters with their stock, the rest by use –
 // and the brew chains. No ratings here: gear has no target to rate.
 
-String _amount(double grams) => grams >= 1000
-    ? '${(grams / 1000).toStringAsFixed(1)} kg'
+// Grinders show kilos with two decimals, the rest with one.
+String _amount(double grams, {int digits = 1}) => grams >= 1000
+    ? '${(grams / 1000).toStringAsFixed(digits)} kg'
     : '${grams.round()} g';
 
 String _litres(double ml) =>
@@ -77,7 +78,7 @@ extension on _StatisticsScreenState {
               for (final g in grinders)
                 _GearRow(
                   use: g,
-                  value: _amount(g.grams),
+                  value: _amount(g.grams, digits: 2),
                   detail: g.onDesk
                       ? [
                           if (g.firstUse != null) 'since ${_date(g.firstUse!)}',
@@ -624,8 +625,8 @@ class _GearSheet extends StatelessWidget {
           _NumberRow([
             _Num(
               'Ground',
-              _amount(use.grams).split(' ').first,
-              _amount(use.grams).split(' ').last,
+              _amount(use.grams, digits: 2).split(' ').first,
+              _amount(use.grams, digits: 2).split(' ').last,
             ),
             _Num('Shots', '${use.uses}'),
             _Num('Since', use.firstUse == null ? '–' : _date(use.firstUse!)),
@@ -698,7 +699,7 @@ class _GearSheet extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    _amount(b.grams),
+                    _amount(b.grams, digits: 2),
                     style: TextStyle(fontSize: 13, color: colors.textSecondary),
                   ),
                 ],
@@ -791,7 +792,7 @@ List<Widget> _groupedBeans(
         ),
       ),
       for (final (b, grams) in byRoaster[r]!)
-        _lineRow(context, b.name, _amount(grams), vertical: 2),
+        _lineRow(context, b.name, _amount(grams, digits: 2), vertical: 2),
     ],
   ];
 }
