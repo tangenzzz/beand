@@ -290,4 +290,47 @@ void main() {
     expect(s.flowVolumeMl, closeTo(3, 1e-9));
     expect(s.pistonTravelMm, 15);
   });
+
+  test('load only aggregates shots with new readings, cached per db', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    Future<int> shot(double pressure) => db.insertShotWithReadings(
+      ShotsCompanion.insert(timestamp: now, machine: const Value('meticulous')),
+      [
+        for (var i = 0; i < 3; i++)
+          (id) => ShotReadingsCompanion.insert(
+            shotId: id,
+            timeMs: i * 500,
+            pressure: Value(pressure + i),
+          ),
+      ],
+    );
+    final first = await shot(5);
+    var data = await StatisticsData.load(db);
+    expect(data.shots.single.maxPressure, 7);
+
+    final second = await shot(8);
+    data = await StatisticsData.load(db);
+    final byPressure = [for (final s in data.shots) s.maxPressure]..sort();
+    expect(byPressure, [7, 10]);
+
+    // More readings for an existing shot are picked up, too.
+    await db
+        .into(db.shotReadings)
+        .insert(
+          ShotReadingsCompanion.insert(
+            shotId: first,
+            timeMs: 2000,
+            pressure: const Value(12),
+          ),
+        );
+    data = await StatisticsData.load(db);
+    expect([for (final s in data.shots) s.maxPressure]..sort(), [10, 12]);
+
+    // A fresh database starts with its own cache.
+    final other = AppDatabase(NativeDatabase.memory());
+    addTearDown(other.close);
+    expect((await StatisticsData.load(other)).shots, isEmpty);
+    expect(second, isNot(first));
+  });
 }

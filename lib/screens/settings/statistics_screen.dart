@@ -88,19 +88,40 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   var _section = _Section.activity;
   HomeMode? _profileMode;
 
+  // Changes only reload while the page is actually seen; otherwise they
+  // just mark the numbers stale, and the reload follows when the page comes
+  // back (app in front again, subpage above closed).
+  bool _stale = false;
+  bool _onScreen = true;
+  bool _appInFront = true;
+  late final AppLifecycleListener _lifecycle;
+
+  bool get _visible => _onScreen && _appInFront;
+
   @override
   void initState() {
     super.initState();
     final db = context.read<AppDatabase>();
     _reload(db);
-    // The settings tab keeps this page alive while you brew on Home, so
-    // reload whenever shots or beans change – a new shot, a rating, a bean
-    // price – instead of showing the numbers from when the page opened.
+    _appInFront = switch (WidgetsBinding.instance.lifecycleState) {
+      null || AppLifecycleState.resumed => true,
+      _ => false,
+    };
+    _lifecycle = AppLifecycleListener(
+      onStateChange: (state) {
+        _appInFront = state == AppLifecycleState.resumed;
+        _reloadIfStale();
+      },
+    );
     _dbChanges = db
         .tableUpdates(
           TableUpdateQuery.onAllTables([db.shots, db.beans, db.shotReadings]),
         )
         .listen((_) {
+          if (!_visible) {
+            _stale = true;
+            return;
+          }
           _debounce?.cancel();
           _debounce = Timer(
             const Duration(milliseconds: 400),
@@ -110,7 +131,22 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Off while a route covers this page.
+    _onScreen = TickerMode.valuesOf(context).enabled;
+    _reloadIfStale();
+  }
+
+  void _reloadIfStale() {
+    if (!_stale || !_visible) return;
+    _stale = false;
+    _reload(context.read<AppDatabase>());
+  }
+
+  @override
   void dispose() {
+    _lifecycle.dispose();
     _debounce?.cancel();
     _dbChanges?.cancel();
     super.dispose();

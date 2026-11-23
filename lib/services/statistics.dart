@@ -1,9 +1,12 @@
 // Numbers for Settings → Statistics.
 //
-// [StatisticsData.load] reads what is needed in three queries (shots,
-// beans, and one aggregate over the readings); [Statistics.compute] then
+// [StatisticsData.load] reads only the columns it needs from shots and
+// beans, plus an aggregate over the readings that is cached per shot;
+// [Statistics.compute] then
 // works on plain values only, so it is cheap to rerun when the period
 // changes and easy to test.
+
+import 'package:drift/drift.dart';
 
 import '../database/database.dart';
 
@@ -137,12 +140,139 @@ class StatisticsData {
   final List<StatShot> shots;
   final Map<int, StatBean> beans;
 
+  /// Per database: readings aggregates by shot id. Readings do not change
+  /// once a shot is saved, so a reload only aggregates shots that are new
+  /// (or whose readings changed, spotted by count and last row id).
+  static final _aggCache = Expando<Map<int, _ShotAgg>>();
+
   static Future<StatisticsData> load(AppDatabase db) async {
-    // Per shot: highest pressure, water pumped (flow × time between two
-    // readings; gaps over 2 s are skipped) and piston travel.
-    final aggregates = await db
+    final agg = await _readingsAggregates(db);
+
+    final s = db.shots;
+    final shotRows =
+        await (db.selectOnly(s)
+              ..addColumns([
+                s.id,
+                s.timestamp,
+                s.machine,
+                s.beanId,
+                s.profileName,
+                s.doseGrams,
+                s.finalWeight,
+                s.beverageGrams,
+                s.durationMs,
+                s.rating,
+                s.grinder,
+                s.burrs,
+                s.grindSize,
+                s.brewedWith,
+                s.gearIds,
+                s.brewChainId,
+              ])
+              ..where(s.deletedAt.isNull()))
+            .get();
+    final b = db.beans;
+    final beanRows =
+        await (db.selectOnly(b)
+              ..addColumns([
+                b.id,
+                b.name,
+                b.roaster,
+                b.country,
+                b.region,
+                b.variety,
+                b.processing,
+                b.cost,
+                b.weightGrams,
+                b.openedAt,
+                b.emptiedAt,
+                b.createdAt,
+              ])
+              ..where(b.deleted.equals(false)))
+            .get();
+
+    return StatisticsData(
+      [
+        for (final r in shotRows)
+          () {
+            final id = r.read(s.id)!;
+            final machine = r.read(s.machine)!;
+            final a = agg[id];
+            return StatShot(
+              time: r.read(s.timestamp)!,
+              machine: machine,
+              beanId: r.read(s.beanId),
+              profile: r.read(s.profileName),
+              dose: r.read(s.doseGrams),
+              finalWeight: r.read(s.finalWeight),
+              beverage: r.read(s.beverageGrams),
+              durationMs: r.read(s.durationMs),
+              maxPressure: a?.maxP,
+              flowVolumeMl: machine == 'pourover' ? null : a?.volume,
+              rating: r.read(s.rating),
+              grinder: r.read(s.grinder),
+              burrs: r.read(s.burrs),
+              grind: r.read(s.grindSize),
+              brewedWith: r.read(s.brewedWith),
+              gearIds: r.read(s.gearIds),
+              chainId: r.read(s.brewChainId),
+              pistonTravelMm: machine == 'meticulous' ? a?.travel : null,
+            );
+          }(),
+      ],
+      {
+        for (final r in beanRows)
+          r.read(b.id)!: StatBean(
+            id: r.read(b.id)!,
+            name: r.read(b.name)!,
+            roaster: r.read(b.roaster),
+            country: r.read(b.country),
+            region: r.read(b.region),
+            variety: r.read(b.variety),
+            processing: r.read(b.processing),
+            cost: r.read(b.cost),
+            weightGrams: r.read(b.weightGrams),
+            openedAt: r.read(b.openedAt),
+            emptiedAt: r.read(b.emptiedAt),
+            createdAt: r.read(b.createdAt)!,
+          ),
+      },
+    );
+  }
+
+  /// Highest pressure, water pumped (flow × time between two readings;
+  /// gaps over 2 s are skipped) and piston travel per shot — cached, only
+  /// shots with new or changed readings are aggregated again.
+  static Future<Map<int, _ShotAgg>> _readingsAggregates(AppDatabase db) async {
+    final cache = _aggCache[db] ??= {};
+    // Cheap fingerprint per shot, answered from the shot_id index.
+    final marks = await db
         .customSelect(
-          '''
+          'SELECT shot_id, COUNT(*) AS n, MAX(id) AS last_id '
+          'FROM shot_readings GROUP BY shot_id',
+          readsFrom: {db.shotReadings},
+        )
+        .get();
+    final seen = <int>{};
+    final stale = <int, ({int n, int lastId})>{};
+    for (final r in marks) {
+      final id = r.read<int>('shot_id');
+      final mark = (n: r.read<int>('n'), lastId: r.read<int>('last_id'));
+      seen.add(id);
+      final hit = cache[id];
+      if (hit == null || hit.n != mark.n || hit.lastId != mark.lastId) {
+        stale[id] = mark;
+      }
+    }
+    cache.removeWhere((id, _) => !seen.contains(id));
+
+    final ids = stale.keys.toList();
+    const chunk = 500;
+    for (var i = 0; i < ids.length; i += chunk) {
+      final part = ids.sublist(i, (i + chunk).clamp(0, ids.length));
+      final rows = await db
+          .customSelect(
+            '''
       SELECT shot_id,
              MAX(pressure) AS max_p,
              SUM(CASE WHEN flow > 0 AND dt > 0 AND dt <= 2000
@@ -153,72 +283,44 @@ class StatisticsData {
                time_ms - LAG(time_ms) OVER w AS dt,
                motor_position - LAG(motor_position) OVER w AS dm
         FROM shot_readings
+        WHERE shot_id IN (${List.filled(part.length, '?').join(',')})
         WINDOW w AS (PARTITION BY shot_id ORDER BY time_ms)
       )
       GROUP BY shot_id
     ''',
-          readsFrom: {db.shotReadings},
-        )
-        .get();
-    final agg = {
-      for (final r in aggregates)
-        r.read<int>('shot_id'): (
+            variables: [for (final id in part) Variable.withInt(id)],
+            readsFrom: {db.shotReadings},
+          )
+          .get();
+      for (final r in rows) {
+        final id = r.read<int>('shot_id');
+        final mark = stale[id]!;
+        cache[id] = _ShotAgg(
+          n: mark.n,
+          lastId: mark.lastId,
           maxP: r.readNullable<double>('max_p'),
           volume: r.readNullable<double>('volume'),
           travel: r.readNullable<double>('travel'),
-        ),
-    };
-
-    final shotRows = await (db.select(
-      db.shots,
-    )..where((s) => s.deletedAt.isNull())).get();
-    final beanRows = await db.allBeans();
-
-    return StatisticsData(
-      [
-        for (final s in shotRows)
-          StatShot(
-            time: s.timestamp,
-            machine: s.machine,
-            beanId: s.beanId,
-            profile: s.profileName,
-            dose: s.doseGrams,
-            finalWeight: s.finalWeight,
-            beverage: s.beverageGrams,
-            durationMs: s.durationMs,
-            maxPressure: agg[s.id]?.maxP,
-            flowVolumeMl: s.machine == 'pourover' ? null : agg[s.id]?.volume,
-            rating: s.rating,
-            grinder: s.grinder,
-            burrs: s.burrs,
-            grind: s.grindSize,
-            brewedWith: s.brewedWith,
-            gearIds: s.gearIds,
-            chainId: s.brewChainId,
-            pistonTravelMm: s.machine == 'meticulous'
-                ? agg[s.id]?.travel
-                : null,
-          ),
-      ],
-      {
-        for (final b in beanRows)
-          b.id: StatBean(
-            id: b.id,
-            name: b.name,
-            roaster: b.roaster,
-            country: b.country,
-            region: b.region,
-            variety: b.variety,
-            processing: b.processing,
-            cost: b.cost,
-            weightGrams: b.weightGrams,
-            openedAt: b.openedAt,
-            emptiedAt: b.emptiedAt,
-            createdAt: b.createdAt,
-          ),
-      },
-    );
+        );
+      }
+    }
+    return cache;
   }
+}
+
+class _ShotAgg {
+  const _ShotAgg({
+    required this.n,
+    required this.lastId,
+    this.maxP,
+    this.volume,
+    this.travel,
+  });
+  final int n;
+  final int lastId;
+  final double? maxP;
+  final double? volume;
+  final double? travel;
 }
 
 class StatRecord {

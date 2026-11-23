@@ -201,6 +201,71 @@ void main() {
     expect(find.text('€ 4'), findsOneWidget);
   });
 
+  testWidgets('changes in the background reload once the app is back', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    late Bean bean;
+    await tester.runAsync(() async {
+      bean = await db.insertBean(
+        BeansCompanion.insert(
+          name: 'Priced',
+          cost: const Value(20),
+          weightGrams: const Value(250),
+        ),
+      );
+    });
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<AppSettings>.value(
+            value: AppSettings(statisticsPeriod: 'all'),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(),
+          home: const StatisticsScreen(),
+        ),
+      ),
+    );
+    Future<void> settle() async {
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+    }
+
+    await settle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.runAsync(
+      () => db.insertShotWithReadings(
+        ShotsCompanion.insert(
+          timestamp: DateTime.now(),
+          machine: const Value('meticulous'),
+          beanId: Value(bean.id),
+          doseGrams: const Value(50),
+        ),
+        [],
+      ),
+    );
+    await settle();
+    expect(find.text('€ 4'), findsNothing); // not reloaded in the background
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await settle();
+    expect(find.text('€ 4'), findsOneWidget);
+  });
+
   testWidgets('Gear: grinders by coffee ground, filters with stock', (
     tester,
   ) async {
