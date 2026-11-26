@@ -111,6 +111,31 @@ void main() {
       expect(s.rating, isNull);
     });
 
+    test('clear: all values go, auto stars with them; undo restores', () async {
+      final id = await newShot();
+      await db.setShotRate(id, RateAxis.flavor, 10);
+      await db.setShotRate(id, RateAxis.body, 5);
+      final before = await shot(id);
+      await db.clearShotRate(id);
+      final cleared = await shot(id);
+      expect(cleared.rateValues, isEmpty);
+      expect(cleared.rating, isNull);
+      await db.restoreShotRate(before);
+      final back = await shot(id);
+      expect(back.rateValues, before.rateValues);
+      expect(back.rating, before.rating);
+    });
+
+    test('clear keeps stars set by hand', () async {
+      final id = await newShot();
+      await db.setShotRate(id, RateAxis.flavor, 10);
+      await db.setShotStars(id, 2);
+      await db.clearShotRate(id);
+      final s = await shot(id);
+      expect(s.rateValues, isEmpty);
+      expect(s.rating, 2);
+    });
+
     test('previous values: last earlier shot with the same bean', () async {
       final bean = await db.insertBean(BeansCompanion.insert(name: 'Guji'));
       Future<int> at(int hour) => db.insertShotWithReadings(
@@ -205,6 +230,42 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Sweetness'), findsOneWidget);
       expect(got, isEmpty);
+    });
+
+    testWidgets('asked again: Clear takes the value away', (tester) async {
+      final got = <RateAxis, int?>{RateAxis.body: 3};
+      await tester.pumpWidget(
+        host((a, v) => got[a] = v, values: {RateAxis.body: 3}, summary: true),
+      );
+      expect(find.text('Clear'), findsNothing);
+      await tester.tap(find.text('Bo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear'));
+      await tester.pumpAndSettle();
+      expect(got[RateAxis.body], isNull);
+      expect(find.text('Tap a value to change it'), findsOneWidget);
+    });
+
+    testWidgets('long press on the row calls back', (tester) async {
+      var pressed = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildAppTheme(
+            variant: AppThemeVariant.dark,
+            accent: AppAccent.teal,
+          ),
+          home: Scaffold(
+            body: TasteRater(
+              values: const {RateAxis.body: 3},
+              onChanged: (_, _) {},
+              startWithSummary: true,
+              onLongPressSummary: () => pressed++,
+            ),
+          ),
+        ),
+      );
+      await tester.longPress(find.text('Bo'));
+      expect(pressed, 1);
     });
 
     testWidgets('detail starts with the row', (tester) async {

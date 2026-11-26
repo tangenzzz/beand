@@ -22,6 +22,7 @@ class TasteRater extends StatefulWidget {
     this.previous,
     this.startWithSummary = false,
     this.showSummaryHeader = true,
+    this.onLongPressSummary,
   });
 
   final RateValues values;
@@ -36,6 +37,9 @@ class TasteRater extends StatefulWidget {
 
   /// The summary's own "Taste 78" line; off where the screen has a heading.
   final bool showSummaryHeader;
+
+  /// Long press on the row of values (shot detail: clear the whole rating).
+  final VoidCallback? onLongPressSummary;
 
   static const height = 76.0;
 
@@ -171,6 +175,15 @@ class _TasteRaterState extends State<TasteRater>
     _springTo(_axis.start / RateAxis.steps);
   }
 
+  // Asked again on a rated axis: take its value away.
+  void _clearAxis() {
+    final axis = _axis;
+    HapticFeedback.selectionClick();
+    widget.onChanged(axis, null);
+    setState(() => _values = {..._values}..remove(axis));
+    _skip();
+  }
+
   void _skip() {
     if (_redo) {
       setState(() {
@@ -250,23 +263,18 @@ class _TasteRaterState extends State<TasteRater>
               ),
               _Progress(values: _values, current: _index, onTap: _ask),
               const SizedBox(width: 8),
-              Semantics(
-                button: true,
-                label: 'Skip ${axis.label}',
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _skip,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(
-                      'Skip',
-                      style: TextStyle(
-                        color: colors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
+              if (_values.containsKey(axis)) ...[
+                _TextAction(
+                  label: 'Clear',
+                  semantics: 'Clear ${axis.label}',
+                  onTap: _clearAxis,
                 ),
+                const SizedBox(width: 4),
+              ],
+              _TextAction(
+                label: 'Skip',
+                semantics: 'Skip ${axis.label}',
+                onTap: _skip,
               ),
             ],
           ),
@@ -396,55 +404,93 @@ class _TasteRaterState extends State<TasteRater>
             ),
           ),
         Expanded(
-          child: Row(
-            children: [
-              for (final axis in _axes)
-                Expanded(
-                  child: Semantics(
-                    button: true,
-                    label: _values.containsKey(axis)
-                        ? '${axis.label} ${axis.display(_values[axis]!)}'
-                        : '${axis.label}, not rated',
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => _ask(axis),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _values.containsKey(axis)
-                                ? axis.display(_values[axis]!)
-                                : '–',
-                            style: TextStyle(
-                              color: _values.containsKey(axis)
-                                  ? axis.color(context, _values[axis]!)
-                                  : colors.textTertiary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
+          child: GestureDetector(
+            onLongPress: widget.onLongPressSummary == null
+                ? null
+                : () {
+                    HapticFeedback.mediumImpact();
+                    widget.onLongPressSummary!();
+                  },
+            child: Row(
+              children: [
+                for (final axis in _axes)
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      label: _values.containsKey(axis)
+                          ? '${axis.label} ${axis.display(_values[axis]!)}'
+                          : '${axis.label}, not rated',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _ask(axis),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _values.containsKey(axis)
+                                  ? axis.display(_values[axis]!)
+                                  : '–',
+                              style: TextStyle(
+                                color: _values.containsKey(axis)
+                                    ? axis.color(context, _values[axis]!)
+                                    : colors.textTertiary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            axis.shortLabel,
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 11,
+                            const SizedBox(height: 2),
+                            Text(
+                              axis.shortLabel,
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: 11,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
     );
   }
+}
+
+class _TextAction extends StatelessWidget {
+  const _TextAction({
+    required this.label,
+    required this.semantics,
+    required this.onTap,
+  });
+
+  final String label;
+  final String semantics;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: semantics,
+    excludeSemantics: true,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(
+          label,
+          style: TextStyle(color: context.colors.textSecondary, fontSize: 12),
+        ),
+      ),
+    ),
+  );
 }
 
 // Seven small marks: grey until rated, then in the value's color. A rated

@@ -1342,6 +1342,46 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 
+  /// Clear the whole drag rating. Stars that followed it go with it, stars
+  /// set by hand stay.
+  Future<void> clearShotRate(int id) => transaction(() async {
+    final shot = await (select(
+      shots,
+    )..where((s) => s.id.equals(id))).getSingleOrNull();
+    if (shot == null) return;
+    await _writeShot(
+      id,
+      ShotsCompanion(
+        rateAcidity: const Value(null),
+        rateSweetness: const Value(null),
+        rateFlavor: const Value(null),
+        rateBody: const Value(null),
+        rateMouthfeel: const Value(null),
+        rateAftertaste: const Value(null),
+        rateExtraction: const Value(null),
+        rating: shot.starsManual == true
+            ? const Value.absent()
+            : const Value(null),
+      ),
+    );
+  });
+
+  /// Undo of [clearShotRate]: the rating, stars and flag as in [before].
+  Future<void> restoreShotRate(Shot before) => _writeShot(
+    before.id,
+    ShotsCompanion(
+      rateAcidity: Value(before.rateAcidity),
+      rateSweetness: Value(before.rateSweetness),
+      rateFlavor: Value(before.rateFlavor),
+      rateBody: Value(before.rateBody),
+      rateMouthfeel: Value(before.rateMouthfeel),
+      rateAftertaste: Value(before.rateAftertaste),
+      rateExtraction: Value(before.rateExtraction),
+      rating: Value(before.rating),
+      starsManual: Value(before.starsManual),
+    ),
+  );
+
   /// The drag rating of the last earlier shot with the same bean that has
   /// one — the ring on the rating line. Null without a bean or such a shot.
   Future<RateValues?> previousRateValues(Shot shot) async {

@@ -1827,19 +1827,73 @@ class _DetailRaterState extends State<_DetailRater> {
     widget.shot,
   );
 
+  // Raised on clear and undo, so the rater starts over from the database.
+  var _generation = 0;
+
+  Future<void> _clear() async {
+    final before = widget.shot;
+    if (!before.rateValues.isRated) return;
+    final messenger = ScaffoldMessenger.of(context);
+    await widget.db.clearShotRate(before.id);
+    if (!mounted) return;
+    setState(() => _generation++);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('Rating cleared'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () async {
+            await widget.db.restoreShotRate(before);
+            if (mounted) setState(() => _generation++);
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<RateValues?>(
-      future: _previous,
-      builder: (context, snapshot) => TasteRater(
-        key: ValueKey(widget.shot.id),
-        values: widget.shot.rateValues,
-        previous: snapshot.data,
-        startWithSummary: true,
-        showSummaryHeader: false,
-        onChanged: (axis, value) =>
-            widget.db.setShotRate(widget.shot.id, axis, value),
-      ),
+    final rated = widget.shot.rateValues.isRated;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FutureBuilder<RateValues?>(
+          future: _previous,
+          builder: (context, snapshot) => TasteRater(
+            key: ValueKey('${widget.shot.id}-$_generation'),
+            values: widget.shot.rateValues,
+            previous: snapshot.data,
+            startWithSummary: true,
+            showSummaryHeader: false,
+            onLongPressSummary: rated ? _clear : null,
+            onChanged: (axis, value) =>
+                widget.db.setShotRate(widget.shot.id, axis, value),
+          ),
+        ),
+        if (rated)
+          Align(
+            alignment: Alignment.centerRight,
+            child: Semantics(
+              button: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _clear,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 6, 0, 6),
+                  child: Text(
+                    'Clear rating',
+                    style: TextStyle(
+                      color: context.colors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
