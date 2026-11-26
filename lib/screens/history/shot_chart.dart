@@ -169,13 +169,29 @@ class ShotChart extends StatelessWidget {
   // Time under the finger, rounded to the nearest real data point — so the
   // cursor snaps like tapping on data points and does not stop in the empty
   // part of the time window right of the curve (the live card shows a fixed
-  // window that is wider than the data).
-  int _msAtX(List<ShotReading> readings, double dx, double width, double maxX) {
+  // window that is wider than the data). In a comparison the points of both
+  // shots count: if the other shot is longer, the cursor can be swiped
+  // across its whole length.
+  int _msAtX(
+    List<ShotReading> readings,
+    List<ShotReading>? other,
+    double dx,
+    double width,
+    double maxX,
+  ) {
     final plot = width - _leftAxisWidth - _rightAxisWidth;
     if (plot <= 0) return cursorMs;
     final fraction = ((dx - _leftAxisWidth) / plot).clamp(0.0, 1.0);
     final raw = (fraction * maxX * 1000).round();
-    return readingNear(readings, raw)?.timeMs ?? raw;
+    int? best;
+    for (final list in [readings, ?other]) {
+      final ms = readingNear(list, raw)?.timeMs;
+      if (ms != null &&
+          (best == null || (ms - raw).abs() < (best - raw).abs())) {
+        best = ms;
+      }
+    }
+    return best ?? raw;
   }
 
   @override
@@ -296,10 +312,22 @@ class ShotChart extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) => GestureDetector(
             onHorizontalDragStart: (d) => onCursorChanged(
-              _msAtX(readings, d.localPosition.dx, constraints.maxWidth, maxX),
+              _msAtX(
+                readings,
+                other,
+                d.localPosition.dx,
+                constraints.maxWidth,
+                maxX,
+              ),
             ),
             onHorizontalDragUpdate: (d) => onCursorChanged(
-              _msAtX(readings, d.localPosition.dx, constraints.maxWidth, maxX),
+              _msAtX(
+                readings,
+                other,
+                d.localPosition.dx,
+                constraints.maxWidth,
+                maxX,
+              ),
             ),
             child: SizedBox(
               height: height,

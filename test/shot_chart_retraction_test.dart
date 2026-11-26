@@ -59,4 +59,35 @@ void main() {
     expect(bar.phases.any((p) => p.isRetraction), isFalse);
     expect(find.text('Retraction'), findsNothing);
   });
+
+  testWidgets('swiping reaches the end of a longer compared shot', (
+    tester,
+  ) async {
+    final short = [for (var i = 0; i < 20; i++) r(i, i * 500, 'Extraction')];
+    final long = [for (var i = 0; i < 60; i++) r(i, i * 500, 'Extraction')];
+    var cursor = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: ShotChart(
+              readings: short,
+              phases: computePhases(short),
+              other: long,
+              cursorMs: 0,
+              onCursorChanged: (ms) => cursor = ms,
+            ),
+          ),
+        ),
+      ),
+    );
+    final box = tester.getRect(find.byType(LineChart));
+    await tester.dragFrom(
+      Offset(box.left + 40, box.center.dy),
+      Offset(box.width, 0),
+    );
+    expect(cursor, 29500);
+  });
 }

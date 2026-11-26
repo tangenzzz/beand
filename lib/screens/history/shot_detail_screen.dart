@@ -1257,7 +1257,14 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                               e.bean?.name ??
                               (e.shot.profileName ??
                                   (isPourOver ? 'Brew' : 'Shot')),
-                          subtitle: dateTimeLabel(e.shot.timestamp),
+                          // Profile next to the date, so shots of
+                          // the same bean can be told apart.
+                          subtitle: [
+                            dateTimeLabel(e.shot.timestamp),
+                            if (e.bean != null &&
+                                (e.shot.profileName ?? '').isNotEmpty)
+                              e.shot.profileName!,
+                          ].join(' · '),
                           leading: ShotAvatar(
                             shot: e.shot,
                             bean: e.bean,
