@@ -58,6 +58,17 @@ int extractionEndMs(List<ShotReading> readings) {
   return readings.isEmpty ? 0 : readings.last.timeMs;
 }
 
+// Data points without the trailing retraction (piston moves back after the
+// brew): the chart ends with the last brew stage.
+List<ShotReading> withoutRetraction(List<ShotReading> readings) {
+  var end = readings.length;
+  while (end > 0 && readings[end - 1].stage == retractionStage) {
+    end--;
+  }
+  if (end == 0 || end == readings.length) return readings;
+  return readings.sublist(0, end);
+}
+
 // Extraction chart: yield (yellow, right axis), flow (blue), pressure
 // (green). The cursor (swiping across the chart) is managed by the parent
 // (ShotDetailScreen), which also reads the numbers for the stat grid above
@@ -159,7 +170,7 @@ class ShotChart extends StatelessWidget {
   // cursor snaps like tapping on data points and does not stop in the empty
   // part of the time window right of the curve (the live card shows a fixed
   // window that is wider than the data).
-  int _msAtX(double dx, double width, double maxX) {
+  int _msAtX(List<ShotReading> readings, double dx, double width, double maxX) {
     final plot = width - _leftAxisWidth - _rightAxisWidth;
     if (plot <= 0) return cursorMs;
     final fraction = ((dx - _leftAxisWidth) / plot).clamp(0.0, 1.0);
@@ -172,6 +183,14 @@ class ShotChart extends StatelessWidget {
     // The three curve colors come from the theme: weight like the middle
     // sensor, flow like the bottom one, pressure like "good".
     final colors = context.colors;
+    // The retraction is not part of the brew: it is left out of the curves,
+    // the bands and the stage bar.
+    final readings = withoutRetraction(this.readings);
+    final other = this.other == null ? null : withoutRetraction(this.other!);
+    final phases = [
+      for (final p in this.phases)
+        if (!p.isRetraction) p,
+    ];
     final yieldColor = colors.sensorMid;
     final flowColor = colors.sensorDown;
     final pressureColor = colors.success;
@@ -239,13 +258,13 @@ class ShotChart extends StatelessWidget {
     final bars = <LineChartBarData>[
       if (tempAnchor != null) ...[
         if (otherShowsTemperature && other != null)
-          bar(tempSpots(other!), tempColor, otherDashed),
+          bar(tempSpots(other), tempColor, otherDashed),
         if (showTemperature) bar(tempSpots(readings), tempColor, primaryDashed),
       ],
       if (other != null) ...[
-        bar(spots(other!, (r) => r.weight, k), yieldColor, otherDashed),
-        bar(spots(other!, (r) => r.flow), flowColor, otherDashed),
-        bar(spots(other!, (r) => r.pressure), pressureColor, otherDashed),
+        bar(spots(other, (r) => r.weight, k), yieldColor, otherDashed),
+        bar(spots(other, (r) => r.flow), flowColor, otherDashed),
+        bar(spots(other, (r) => r.pressure), pressureColor, otherDashed),
       ],
       bar(spots(readings, (r) => r.weight, k), yieldColor, primaryDashed),
       bar(spots(readings, (r) => r.flow), flowColor, primaryDashed),
@@ -277,10 +296,10 @@ class ShotChart extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) => GestureDetector(
             onHorizontalDragStart: (d) => onCursorChanged(
-              _msAtX(d.localPosition.dx, constraints.maxWidth, maxX),
+              _msAtX(readings, d.localPosition.dx, constraints.maxWidth, maxX),
             ),
             onHorizontalDragUpdate: (d) => onCursorChanged(
-              _msAtX(d.localPosition.dx, constraints.maxWidth, maxX),
+              _msAtX(readings, d.localPosition.dx, constraints.maxWidth, maxX),
             ),
             child: SizedBox(
               height: height,
