@@ -36,6 +36,8 @@ import 'support/offline_gaggimate.dart';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 Widget _app(AppDatabase db, Widget home) => MultiProvider(
   providers: [
     Provider<AppDatabase>.value(value: db),
@@ -105,6 +107,8 @@ Future<int> _insertShot(
 }
 
 void main() {
+  // The Post-Shot card remembers its last Save in the prefs.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   late AppDatabase db;
 
   setUp(() {
@@ -815,6 +819,71 @@ void main() {
     );
     await settle(tester);
     expect(find.textContaining('No shot yet'), findsOneWidget);
+    await teardownApp(tester);
+  });
+
+  testWidgets('Post Shot: Save empties the card until the next shot, Undo '
+      'brings it back', (tester) async {
+    bigScreen(tester);
+    await tester.runAsync(
+      () => _insertShot(
+        db,
+        at: DateTime(2026, 9, 21),
+        profile: 'First',
+        externalId: 'a',
+      ),
+    );
+    Widget card() => _app(
+      db,
+      const Scaffold(
+        body: SizedBox(
+          height: ShotCardsCarousel.cardHeight,
+          child: PostShotCard(),
+        ),
+      ),
+    );
+    await tester.pumpWidget(card());
+    await settle(tester);
+    expect(find.text('First'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    expect(find.text('First'), findsNothing);
+    expect(find.textContaining('Saved. The next shot'), findsOneWidget);
+    expect(find.byKey(const ValueKey('post-open-last')), findsOneWidget);
+    final prefs = await tester.runAsync(SharedPreferences.getInstance);
+    expect(
+      prefs!.getInt(postConfirmedPrefKey('meticulous')),
+      DateTime(2026, 9, 21).millisecondsSinceEpoch,
+    );
+
+    // Undo in the message: the shot is back, the pref cleared.
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Undo'));
+    await settle(tester);
+    expect(find.text('First'), findsOneWidget);
+    expect(prefs.getInt(postConfirmedPrefKey('meticulous')), isNull);
+
+    // Saved again: still empty after a restart of the card (pref kept).
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(card());
+    await settle(tester);
+    expect(find.text('First'), findsNothing);
+
+    // The next shot of the machine shows up again.
+    await tester.runAsync(
+      () => _insertShot(
+        db,
+        at: DateTime(2026, 9, 22),
+        profile: 'Second',
+        externalId: 'b',
+      ),
+    );
+    await settle(tester);
+    expect(find.text('Second'), findsOneWidget);
+
     await teardownApp(tester);
   });
 

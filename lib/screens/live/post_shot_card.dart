@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../database/database.dart';
 import '../../services/ai/ai_settings.dart';
@@ -22,7 +23,15 @@ import 'tile_title.dart';
 // Post-shot card: the most recently saved shot with rating (stars and taste
 // flower) and note — the same data as in the history shot detail. At the
 // bottom the Save button: it completes the cycle and releases the pre-shot
-// card again (see LiveShotService.activeCard).
+// card again (see LiveShotService.activeCard), and empties the card until
+// the next shot of this machine arrives.
+
+/// Pref key: time (ms since epoch) of the last shot confirmed with Save on
+/// this machine. Shots up to that time no longer show in the card. Local
+/// per device on purpose (not in syncedSettingKeys): a Save on another
+/// device must not empty this card.
+String postConfirmedPrefKey(String machine) => 'post_card_confirmed_$machine';
+
 class PostShotCard extends StatefulWidget {
   const PostShotCard({super.key});
 
@@ -46,6 +55,72 @@ class _PostShotCardState extends State<PostShotCard> {
 
   // The setup a shot without one would get on Save (see _SuggestionBox).
   final _chosen = ValueNotifier<SetupSuggestion?>(null);
+
+  // Time of the last confirmed shot (see postConfirmedPrefKey); null =
+  // nothing confirmed yet. Until the pref is read the card stays empty, so
+  // a confirmed shot does not flash up at startup.
+  int? _confirmedMs;
+  bool _confirmedLoaded = false;
+
+  String get _prefKey =>
+      postConfirmedPrefKey(context.read<LiveShotService>().machineKey);
+
+  @override
+  void initState() {
+    super.initState();
+    final key = _prefKey;
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      setState(() {
+        _confirmedMs = prefs.getInt(key);
+        _confirmedLoaded = true;
+      });
+    });
+  }
+
+  bool _isOpen(ShotEntry entry) {
+    final confirmed = _confirmedMs;
+    return confirmed == null ||
+        entry.shot.timestamp.millisecondsSinceEpoch > confirmed;
+  }
+
+  Future<void> _setConfirmed(int? ms) async {
+    setState(() => _confirmedMs = ms);
+    final prefs = await SharedPreferences.getInstance();
+    if (ms == null) {
+      await prefs.remove(_prefKey);
+    } else {
+      await prefs.setInt(_prefKey, ms);
+    }
+  }
+
+  // Save: takes the suggested setup, completes the cycle and empties the
+  // card. The message offers Undo against a mistap.
+  Future<void> _save(ShotEntry entry) async {
+    FocusScope.of(context).unfocus();
+    final live = context.read<LiveShotService>();
+    final messenger = ScaffoldMessenger.of(context);
+    await _applySuggestion(entry.shot);
+    if (!mounted) return;
+    final previous = _confirmedMs;
+    await _setConfirmed(entry.shot.timestamp.millisecondsSinceEpoch);
+    live.confirmPostShot();
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('Saved'),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            if (!mounted) return;
+            _setConfirmed(previous);
+            live.undoConfirmPostShot();
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -73,7 +148,10 @@ class _PostShotCardState extends State<PostShotCard> {
       child: StreamBuilder<ShotEntry?>(
         stream: _latest,
         builder: (context, snapshot) {
-          final entry = snapshot.data;
+          final latest = snapshot.data;
+          final entry = latest != null && _confirmedLoaded && _isOpen(latest)
+              ? latest
+              : null;
           final isActiveCard = context.select<LiveShotService, bool>(
             (s) => s.activeCard == ActiveCard.post,
           );
@@ -83,40 +161,86 @@ class _PostShotCardState extends State<PostShotCard> {
               TileTitle(short: 'POST', active: isActiveCard),
               const SizedBox(height: 10),
               Expanded(
-                child: entry == null
-                    ? Align(
-                        alignment: Alignment.topLeft,
-                        child: Text(
-                          'No shot yet. Your last shot shows up here for rating.',
-                          style: TextStyle(
-                            color: context.colors.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
+                child: entry != null
                     // Key per shot: for a new shot the note starts empty.
-                    : _Body(
+                    ? _Body(
                         key: ValueKey(entry.shot.id),
                         entry: entry,
                         chosen: _chosen,
-                      ),
+                      )
+                    : !_confirmedLoaded && latest != null
+                    ? const SizedBox.shrink()
+                    : _Empty(saved: latest),
               ),
               // The AI analysis is tailored to espresso — there is none for
               // pour over.
               if (entry != null && entry.shot.machine != 'pourover')
                 _AnalyseRow(shot: entry.shot),
               const SizedBox(height: 10),
-              _SaveButton(
-                enabled: entry != null,
-                beforeSave: entry == null
-                    ? null
-                    : () => _applySuggestion(entry.shot),
+              AppButton(
+                label: 'Save',
+                onPressed: entry == null ? null : () => _save(entry),
               ),
               const SizedBox(height: AppSpacing.tileActionBottom),
             ],
           );
         },
       ),
+    );
+  }
+}
+
+// Empty card: before the first shot, or after Save until the next one.
+// [saved] is the last (already confirmed) shot — it stays reachable for a
+// late rating.
+class _Empty extends StatelessWidget {
+  const _Empty({required this.saved});
+
+  final ShotEntry? saved;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final shot = saved?.shot;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          shot == null
+              ? 'No shot yet. Your last shot shows up here for rating.'
+              : 'Saved. The next shot shows up here for rating.',
+          style: TextStyle(color: colors.textSecondary, fontSize: 13),
+        ),
+        if (shot != null)
+          InkWell(
+            key: const ValueKey('post-open-last'),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ShotDetailScreen(shotId: shot.id),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    shot.machine == 'pourover'
+                        ? 'Open last brew'
+                        : 'Open last shot',
+                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: colors.textTertiary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -166,40 +290,11 @@ class _AnalyseRow extends StatelessWidget {
   }
 }
 
-// Save: rating and note go into the DB debounced anyway — the button takes
-// focus away from the text field (which writes the note immediately) and
-// then releases the pre-shot card again. Same style and same bottom spacing
-// as the buttons of the other two cards.
-class _SaveButton extends StatelessWidget {
-  const _SaveButton({required this.enabled, this.beforeSave});
-
-  final bool enabled;
-
-  /// Runs first (takes the suggested setup into a shot without one).
-  final Future<void> Function()? beforeSave;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppButton(
-      label: 'Save',
-      onPressed: enabled
-          ? () async {
-              FocusScope.of(context).unfocus();
-              final live = context.read<LiveShotService>();
-              await beforeSave?.call();
-              live.confirmPostShot();
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Saved'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            }
-          : null,
-    );
-  }
-}
+// Save (see _PostShotCardState._save): rating and note go into the DB
+// debounced anyway — the button takes focus away from the text field (which
+// writes the note immediately), releases the pre-shot card again and empties
+// this card. Same style and same bottom spacing as the buttons of the other
+// two cards.
 
 class _Body extends StatelessWidget {
   const _Body({super.key, required this.entry, required this.chosen});

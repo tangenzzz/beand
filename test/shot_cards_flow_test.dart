@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 import 'support/offline_gaggimate.dart';
 
 import 'package:beand/widgets/app_button.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // The tests check the default appearance: dark with teal.
 final _theme = AppColors.forVariant(AppThemeVariant.dark, AppAccent.teal);
@@ -62,6 +63,8 @@ void runThroughShot(FakeSocket socket) {
 }
 
 void main() {
+  // The Post-Shot card remembers its last Save in the prefs.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   // Raise used to make the carousel jump to the Live card. Both manual moves
   // report their own `phase` ('home' or 'purge') but belong to no shot
   // cycle.

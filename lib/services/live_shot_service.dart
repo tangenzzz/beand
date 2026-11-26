@@ -233,6 +233,16 @@ abstract class LiveShotService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Undo of Save (from the "Saved" message): back to the Post-Shot card —
+  // only while no new shot has started in the meantime.
+  void undoConfirmPostShot() {
+    if (activeCard != ActiveCard.pre || stage != ShotStage.idle) return;
+    activeCard = ActiveCard.post;
+    postShotPending = true;
+    _pageJumps.add(2);
+    notifyListeners();
+  }
+
   // Adopt the new card state and derive the carousel jump and active card
   // from it.
   @protected
