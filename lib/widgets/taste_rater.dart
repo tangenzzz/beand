@@ -310,10 +310,17 @@ class _TasteRaterState extends State<TasteRater>
                             onTap: _clearAxis,
                             child: Padding(
                               padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
-                              child: Icon(
-                                Icons.close_rounded,
-                                size: 16,
-                                color: colors.textTertiary,
+                              // Centred on the lowercase letters, where
+                              // the word's weight is — centred in the line
+                              // box it sat 1.4 px above them (measured with
+                              // Roboto Medium 14).
+                              child: Transform.translate(
+                                offset: const Offset(0, 1.5),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
+                                  color: colors.textTertiary,
+                                ),
                               ),
                             ),
                           ),
