@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:clock/clock.dart';
 
+import '../models/shot_rating.dart';
 import '../models/taste_profile.dart';
 import 'sync_dao.dart';
 import 'sync_ids.dart';
@@ -147,6 +148,19 @@ class Shots extends Table with SyncColumns {
   // no polarity, just present or not. The eight axes above stay fixed
   // columns because they are sorted/filtered by.
   TextColumn get tasteExtras => text().nullable()();
+  // The drag rating (schema 30), 0-10 per axis, null = not rated; on the
+  // balance axes 5 is ideal. Replaces the eight axes above for new ratings —
+  // those stay for older shots.
+  IntColumn get rateAcidity => integer().nullable()();
+  IntColumn get rateSweetness => integer().nullable()();
+  IntColumn get rateFlavor => integer().nullable()();
+  IntColumn get rateBody => integer().nullable()();
+  IntColumn get rateMouthfeel => integer().nullable()();
+  IntColumn get rateAftertaste => integer().nullable()();
+  IntColumn get rateExtraction => integer().nullable()();
+  // Stars set by hand: then the rating no longer recalculates them. Null or
+  // false = the stars follow the rating.
+  BoolColumn get starsManual => boolean().nullable()();
   TextColumn get notes => text().nullable()();
   TextColumn get shotPhotoPath => text().nullable()();
   // Raw JSON of the debug file as a backup in case the ShotReadings import
@@ -307,7 +321,7 @@ class AppDatabase extends _$AppDatabase {
   String? deviceId;
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -491,6 +505,29 @@ class AppDatabase extends _$AppDatabase {
       };
       if (!existing.contains(shots.gearIds.name)) {
         await m.addColumn(shots, shots.gearIds);
+      }
+    }
+    if (from < 30) {
+      // Drag rating with seven axes and the manual-stars flag — before the
+      // rebuild of schema 15 as well. Only where missing (tests create
+      // current tables).
+      final existing = {
+        for (final row in await customSelect('PRAGMA table_info(shots)').get())
+          row.read<String>('name'),
+      };
+      for (final column in <GeneratedColumn>[
+        shots.rateAcidity,
+        shots.rateSweetness,
+        shots.rateFlavor,
+        shots.rateBody,
+        shots.rateMouthfeel,
+        shots.rateAftertaste,
+        shots.rateExtraction,
+        shots.starsManual,
+      ]) {
+        if (!existing.contains(column.name)) {
+          await m.addColumn(shots, column);
+        }
       }
     }
     if (from < 27) {
@@ -1241,6 +1278,96 @@ class AppDatabase extends _$AppDatabase {
     ShotsCompanion(rating: Value(rating == 0 ? null : rating)),
   );
 
+  /// Stars tapped by hand. From then on the rating no longer changes them;
+  /// clearing them (0) hands them back to the rating, which recalculates
+  /// them right away.
+  Future<void> setShotStars(int id, int stars) => transaction(() async {
+    if (stars > 0) {
+      await _writeShot(
+        id,
+        ShotsCompanion(
+          rating: Value(stars.clamp(1, 5)),
+          starsManual: const Value(true),
+        ),
+      );
+      return;
+    }
+    final shot = await (select(
+      shots,
+    )..where((s) => s.id.equals(id))).getSingleOrNull();
+    if (shot == null) return;
+    await _writeShot(
+      id,
+      ShotsCompanion(
+        rating: Value(shot.rateValues.stars),
+        starsManual: const Value(false),
+      ),
+    );
+  });
+
+  /// Set one axis of the drag rating; null clears it. Unless the stars were
+  /// set by hand, they follow the new score.
+  Future<void> setShotRate(int id, RateAxis axis, int? value) => transaction(
+    () async {
+      final shot = await (select(
+        shots,
+      )..where((s) => s.id.equals(id))).getSingleOrNull();
+      if (shot == null) return;
+      final v = Value(value?.clamp(0, RateAxis.steps));
+      var companion = switch (axis) {
+        RateAxis.acidity => ShotsCompanion(rateAcidity: v),
+        RateAxis.sweetness => ShotsCompanion(rateSweetness: v),
+        RateAxis.flavor => ShotsCompanion(rateFlavor: v),
+        RateAxis.body => ShotsCompanion(rateBody: v),
+        RateAxis.mouthfeel => ShotsCompanion(rateMouthfeel: v),
+        RateAxis.aftertaste => ShotsCompanion(rateAftertaste: v),
+        RateAxis.extraction => ShotsCompanion(rateExtraction: v),
+      };
+      // Stars given before the drag rating existed (or before the first
+      // axis) were tapped by hand — keep them.
+      final manual =
+          shot.starsManual ?? (shot.rating != null && shot.rateValues.isEmpty);
+      if (manual) {
+        companion = companion.copyWith(starsManual: const Value(true));
+      } else {
+        final values = {...shot.rateValues};
+        if (value == null) {
+          values.remove(axis);
+        } else {
+          values[axis] = value.clamp(0, RateAxis.steps);
+        }
+        companion = companion.copyWith(rating: Value(values.stars));
+      }
+      await _writeShot(id, companion);
+    },
+  );
+
+  /// The drag rating of the last earlier shot with the same bean that has
+  /// one — the ring on the rating line. Null without a bean or such a shot.
+  Future<RateValues?> previousRateValues(Shot shot) async {
+    final beanId = shot.beanId;
+    if (beanId == null) return null;
+    final row =
+        await (select(shots)
+              ..where(
+                (s) =>
+                    s.beanId.equals(beanId) &
+                    s.deletedAt.isNull() &
+                    s.timestamp.isSmallerThanValue(shot.timestamp) &
+                    (s.rateAcidity.isNotNull() |
+                        s.rateSweetness.isNotNull() |
+                        s.rateFlavor.isNotNull() |
+                        s.rateBody.isNotNull() |
+                        s.rateMouthfeel.isNotNull() |
+                        s.rateAftertaste.isNotNull() |
+                        s.rateExtraction.isNotNull()),
+              )
+              ..orderBy([(s) => OrderingTerm.desc(s.timestamp)])
+              ..limit(1))
+            .getSingleOrNull();
+    return row?.rateValues;
+  }
+
   /// Set a value of the rating flower; 0 clears it.
   Future<void> setShotTaste(int id, TasteAxis axis, int value) {
     final v = Value(value <= 0 ? null : value.clamp(1, TasteAxis.maxValue));
@@ -1431,6 +1558,14 @@ class AppDatabase extends _$AppDatabase {
     tasteAstringent: const Value(null),
     tasteBitter: const Value(null),
     tasteExtras: const Value(null),
+    rateAcidity: const Value(null),
+    rateSweetness: const Value(null),
+    rateFlavor: const Value(null),
+    rateBody: const Value(null),
+    rateMouthfeel: const Value(null),
+    rateAftertaste: const Value(null),
+    rateExtraction: const Value(null),
+    starsManual: const Value(null),
   );
 
   // Backfills the profile at brew time for shots that don't have it yet
@@ -1566,6 +1701,22 @@ LazyDatabase _openConnection() {
     final file = File(p.join(dbFolder.path, 'coffee_app.sqlite'));
     return NativeDatabase.createInBackground(file);
   });
+}
+
+extension ShotRate on Shot {
+  /// The drag rating; axes not rated are missing.
+  RateValues get rateValues => {
+    for (final (axis, value) in [
+      (RateAxis.acidity, rateAcidity),
+      (RateAxis.sweetness, rateSweetness),
+      (RateAxis.flavor, rateFlavor),
+      (RateAxis.body, rateBody),
+      (RateAxis.mouthfeel, rateMouthfeel),
+      (RateAxis.aftertaste, rateAftertaste),
+      (RateAxis.extraction, rateExtraction),
+    ])
+      axis: ?value,
+  };
 }
 
 extension ShotTaste on Shot {

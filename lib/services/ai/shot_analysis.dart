@@ -7,6 +7,7 @@ import '../../screens/beans/bean_widgets.dart'
     show calendarDaysSince, daysSinceFreshnessStart;
 import '../../models/shot_facts.dart';
 import '../../models/shot_phases.dart';
+import '../../models/shot_rating.dart';
 import '../../models/taste_profile.dart';
 import 'ai_prompt.dart';
 
@@ -413,6 +414,7 @@ List<String> _shotLines(Shot s, {bool brief = false}) {
   final ratio = s.doseGrams != null && s.doseGrams! > 0 && s.finalWeight != null
       ? '1:${(s.finalWeight! / s.doseGrams!).toStringAsFixed(1)}'
       : null;
+  final rate = s.rateValues;
   final taste = s.tasteValues;
   final extras = splitTasteExtras(s.tasteExtras);
   return [
@@ -428,7 +430,11 @@ List<String> _shotLines(Shot s, {bool brief = false}) {
     if (!brief && s.brewTemp != null)
       'Measured mean temperature: ${_n(s.brewTemp)} °C',
     'Stars: ${s.rating == null ? 'not rated' : '${s.rating}/5'}',
-    if (taste.isRated)
+    if (rate.isRated)
+      'Taste (balance axes −5…+5 with 0 ideal, others 0–10 with 10 best): '
+          '${[for (final e in rate.entries) '${e.key.label} ${e.key.display(e.value)} (${e.key.lowLabel} ↔ ${e.key.highLabel})'].join(', ')}'
+          '; overall ${rate.score}/100'
+    else if (taste.isRated)
       'Taste (0–5, ${brief ? 'non-zero only' : 'only rated axes listed'}): '
           '${[for (final axis in TasteAxis.values)
             if ((taste[axis] ?? 0) > 0) '${axis.label}${axis.isPositive ? '' : ' (defect)'} ${taste[axis]}'].join(', ')}'

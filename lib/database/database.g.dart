@@ -1967,6 +1967,97 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _rateAcidityMeta = const VerificationMeta(
+    'rateAcidity',
+  );
+  @override
+  late final GeneratedColumn<int> rateAcidity = GeneratedColumn<int>(
+    'rate_acidity',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rateSweetnessMeta = const VerificationMeta(
+    'rateSweetness',
+  );
+  @override
+  late final GeneratedColumn<int> rateSweetness = GeneratedColumn<int>(
+    'rate_sweetness',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rateFlavorMeta = const VerificationMeta(
+    'rateFlavor',
+  );
+  @override
+  late final GeneratedColumn<int> rateFlavor = GeneratedColumn<int>(
+    'rate_flavor',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rateBodyMeta = const VerificationMeta(
+    'rateBody',
+  );
+  @override
+  late final GeneratedColumn<int> rateBody = GeneratedColumn<int>(
+    'rate_body',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rateMouthfeelMeta = const VerificationMeta(
+    'rateMouthfeel',
+  );
+  @override
+  late final GeneratedColumn<int> rateMouthfeel = GeneratedColumn<int>(
+    'rate_mouthfeel',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rateAftertasteMeta = const VerificationMeta(
+    'rateAftertaste',
+  );
+  @override
+  late final GeneratedColumn<int> rateAftertaste = GeneratedColumn<int>(
+    'rate_aftertaste',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rateExtractionMeta = const VerificationMeta(
+    'rateExtraction',
+  );
+  @override
+  late final GeneratedColumn<int> rateExtraction = GeneratedColumn<int>(
+    'rate_extraction',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _starsManualMeta = const VerificationMeta(
+    'starsManual',
+  );
+  @override
+  late final GeneratedColumn<bool> starsManual = GeneratedColumn<bool>(
+    'stars_manual',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("stars_manual" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -2175,6 +2266,14 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
     tasteAstringent,
     tasteBitter,
     tasteExtras,
+    rateAcidity,
+    rateSweetness,
+    rateFlavor,
+    rateBody,
+    rateMouthfeel,
+    rateAftertaste,
+    rateExtraction,
+    starsManual,
     notes,
     shotPhotoPath,
     rawDebugJson,
@@ -2416,6 +2515,72 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
         tasteExtras.isAcceptableOrUnknown(
           data['taste_extras']!,
           _tasteExtrasMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rate_acidity')) {
+      context.handle(
+        _rateAcidityMeta,
+        rateAcidity.isAcceptableOrUnknown(
+          data['rate_acidity']!,
+          _rateAcidityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rate_sweetness')) {
+      context.handle(
+        _rateSweetnessMeta,
+        rateSweetness.isAcceptableOrUnknown(
+          data['rate_sweetness']!,
+          _rateSweetnessMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rate_flavor')) {
+      context.handle(
+        _rateFlavorMeta,
+        rateFlavor.isAcceptableOrUnknown(data['rate_flavor']!, _rateFlavorMeta),
+      );
+    }
+    if (data.containsKey('rate_body')) {
+      context.handle(
+        _rateBodyMeta,
+        rateBody.isAcceptableOrUnknown(data['rate_body']!, _rateBodyMeta),
+      );
+    }
+    if (data.containsKey('rate_mouthfeel')) {
+      context.handle(
+        _rateMouthfeelMeta,
+        rateMouthfeel.isAcceptableOrUnknown(
+          data['rate_mouthfeel']!,
+          _rateMouthfeelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rate_aftertaste')) {
+      context.handle(
+        _rateAftertasteMeta,
+        rateAftertaste.isAcceptableOrUnknown(
+          data['rate_aftertaste']!,
+          _rateAftertasteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rate_extraction')) {
+      context.handle(
+        _rateExtractionMeta,
+        rateExtraction.isAcceptableOrUnknown(
+          data['rate_extraction']!,
+          _rateExtractionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('stars_manual')) {
+      context.handle(
+        _starsManualMeta,
+        starsManual.isAcceptableOrUnknown(
+          data['stars_manual']!,
+          _starsManualMeta,
         ),
       );
     }
@@ -2668,6 +2833,38 @@ class $ShotsTable extends Shots with TableInfo<$ShotsTable, Shot> {
         DriftSqlType.string,
         data['${effectivePrefix}taste_extras'],
       ),
+      rateAcidity: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rate_acidity'],
+      ),
+      rateSweetness: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rate_sweetness'],
+      ),
+      rateFlavor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rate_flavor'],
+      ),
+      rateBody: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rate_body'],
+      ),
+      rateMouthfeel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rate_mouthfeel'],
+      ),
+      rateAftertaste: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rate_aftertaste'],
+      ),
+      rateExtraction: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rate_extraction'],
+      ),
+      starsManual: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}stars_manual'],
+      ),
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
@@ -2772,6 +2969,14 @@ class Shot extends DataClass implements Insertable<Shot> {
   final int? tasteAstringent;
   final int? tasteBitter;
   final String? tasteExtras;
+  final int? rateAcidity;
+  final int? rateSweetness;
+  final int? rateFlavor;
+  final int? rateBody;
+  final int? rateMouthfeel;
+  final int? rateAftertaste;
+  final int? rateExtraction;
+  final bool? starsManual;
   final String? notes;
   final String? shotPhotoPath;
   final String? rawDebugJson;
@@ -2819,6 +3024,14 @@ class Shot extends DataClass implements Insertable<Shot> {
     this.tasteAstringent,
     this.tasteBitter,
     this.tasteExtras,
+    this.rateAcidity,
+    this.rateSweetness,
+    this.rateFlavor,
+    this.rateBody,
+    this.rateMouthfeel,
+    this.rateAftertaste,
+    this.rateExtraction,
+    this.starsManual,
     this.notes,
     this.shotPhotoPath,
     this.rawDebugJson,
@@ -2918,6 +3131,30 @@ class Shot extends DataClass implements Insertable<Shot> {
     }
     if (!nullToAbsent || tasteExtras != null) {
       map['taste_extras'] = Variable<String>(tasteExtras);
+    }
+    if (!nullToAbsent || rateAcidity != null) {
+      map['rate_acidity'] = Variable<int>(rateAcidity);
+    }
+    if (!nullToAbsent || rateSweetness != null) {
+      map['rate_sweetness'] = Variable<int>(rateSweetness);
+    }
+    if (!nullToAbsent || rateFlavor != null) {
+      map['rate_flavor'] = Variable<int>(rateFlavor);
+    }
+    if (!nullToAbsent || rateBody != null) {
+      map['rate_body'] = Variable<int>(rateBody);
+    }
+    if (!nullToAbsent || rateMouthfeel != null) {
+      map['rate_mouthfeel'] = Variable<int>(rateMouthfeel);
+    }
+    if (!nullToAbsent || rateAftertaste != null) {
+      map['rate_aftertaste'] = Variable<int>(rateAftertaste);
+    }
+    if (!nullToAbsent || rateExtraction != null) {
+      map['rate_extraction'] = Variable<int>(rateExtraction);
+    }
+    if (!nullToAbsent || starsManual != null) {
+      map['stars_manual'] = Variable<bool>(starsManual);
     }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -3048,6 +3285,30 @@ class Shot extends DataClass implements Insertable<Shot> {
       tasteExtras: tasteExtras == null && nullToAbsent
           ? const Value.absent()
           : Value(tasteExtras),
+      rateAcidity: rateAcidity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rateAcidity),
+      rateSweetness: rateSweetness == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rateSweetness),
+      rateFlavor: rateFlavor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rateFlavor),
+      rateBody: rateBody == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rateBody),
+      rateMouthfeel: rateMouthfeel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rateMouthfeel),
+      rateAftertaste: rateAftertaste == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rateAftertaste),
+      rateExtraction: rateExtraction == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rateExtraction),
+      starsManual: starsManual == null && nullToAbsent
+          ? const Value.absent()
+          : Value(starsManual),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
@@ -3131,6 +3392,14 @@ class Shot extends DataClass implements Insertable<Shot> {
       tasteAstringent: serializer.fromJson<int?>(json['tasteAstringent']),
       tasteBitter: serializer.fromJson<int?>(json['tasteBitter']),
       tasteExtras: serializer.fromJson<String?>(json['tasteExtras']),
+      rateAcidity: serializer.fromJson<int?>(json['rateAcidity']),
+      rateSweetness: serializer.fromJson<int?>(json['rateSweetness']),
+      rateFlavor: serializer.fromJson<int?>(json['rateFlavor']),
+      rateBody: serializer.fromJson<int?>(json['rateBody']),
+      rateMouthfeel: serializer.fromJson<int?>(json['rateMouthfeel']),
+      rateAftertaste: serializer.fromJson<int?>(json['rateAftertaste']),
+      rateExtraction: serializer.fromJson<int?>(json['rateExtraction']),
+      starsManual: serializer.fromJson<bool?>(json['starsManual']),
       notes: serializer.fromJson<String?>(json['notes']),
       shotPhotoPath: serializer.fromJson<String?>(json['shotPhotoPath']),
       rawDebugJson: serializer.fromJson<String?>(json['rawDebugJson']),
@@ -3183,6 +3452,14 @@ class Shot extends DataClass implements Insertable<Shot> {
       'tasteAstringent': serializer.toJson<int?>(tasteAstringent),
       'tasteBitter': serializer.toJson<int?>(tasteBitter),
       'tasteExtras': serializer.toJson<String?>(tasteExtras),
+      'rateAcidity': serializer.toJson<int?>(rateAcidity),
+      'rateSweetness': serializer.toJson<int?>(rateSweetness),
+      'rateFlavor': serializer.toJson<int?>(rateFlavor),
+      'rateBody': serializer.toJson<int?>(rateBody),
+      'rateMouthfeel': serializer.toJson<int?>(rateMouthfeel),
+      'rateAftertaste': serializer.toJson<int?>(rateAftertaste),
+      'rateExtraction': serializer.toJson<int?>(rateExtraction),
+      'starsManual': serializer.toJson<bool?>(starsManual),
       'notes': serializer.toJson<String?>(notes),
       'shotPhotoPath': serializer.toJson<String?>(shotPhotoPath),
       'rawDebugJson': serializer.toJson<String?>(rawDebugJson),
@@ -3233,6 +3510,14 @@ class Shot extends DataClass implements Insertable<Shot> {
     Value<int?> tasteAstringent = const Value.absent(),
     Value<int?> tasteBitter = const Value.absent(),
     Value<String?> tasteExtras = const Value.absent(),
+    Value<int?> rateAcidity = const Value.absent(),
+    Value<int?> rateSweetness = const Value.absent(),
+    Value<int?> rateFlavor = const Value.absent(),
+    Value<int?> rateBody = const Value.absent(),
+    Value<int?> rateMouthfeel = const Value.absent(),
+    Value<int?> rateAftertaste = const Value.absent(),
+    Value<int?> rateExtraction = const Value.absent(),
+    Value<bool?> starsManual = const Value.absent(),
     Value<String?> notes = const Value.absent(),
     Value<String?> shotPhotoPath = const Value.absent(),
     Value<String?> rawDebugJson = const Value.absent(),
@@ -3286,6 +3571,22 @@ class Shot extends DataClass implements Insertable<Shot> {
         : this.tasteAstringent,
     tasteBitter: tasteBitter.present ? tasteBitter.value : this.tasteBitter,
     tasteExtras: tasteExtras.present ? tasteExtras.value : this.tasteExtras,
+    rateAcidity: rateAcidity.present ? rateAcidity.value : this.rateAcidity,
+    rateSweetness: rateSweetness.present
+        ? rateSweetness.value
+        : this.rateSweetness,
+    rateFlavor: rateFlavor.present ? rateFlavor.value : this.rateFlavor,
+    rateBody: rateBody.present ? rateBody.value : this.rateBody,
+    rateMouthfeel: rateMouthfeel.present
+        ? rateMouthfeel.value
+        : this.rateMouthfeel,
+    rateAftertaste: rateAftertaste.present
+        ? rateAftertaste.value
+        : this.rateAftertaste,
+    rateExtraction: rateExtraction.present
+        ? rateExtraction.value
+        : this.rateExtraction,
+    starsManual: starsManual.present ? starsManual.value : this.starsManual,
     notes: notes.present ? notes.value : this.notes,
     shotPhotoPath: shotPhotoPath.present
         ? shotPhotoPath.value
@@ -3371,6 +3672,28 @@ class Shot extends DataClass implements Insertable<Shot> {
       tasteExtras: data.tasteExtras.present
           ? data.tasteExtras.value
           : this.tasteExtras,
+      rateAcidity: data.rateAcidity.present
+          ? data.rateAcidity.value
+          : this.rateAcidity,
+      rateSweetness: data.rateSweetness.present
+          ? data.rateSweetness.value
+          : this.rateSweetness,
+      rateFlavor: data.rateFlavor.present
+          ? data.rateFlavor.value
+          : this.rateFlavor,
+      rateBody: data.rateBody.present ? data.rateBody.value : this.rateBody,
+      rateMouthfeel: data.rateMouthfeel.present
+          ? data.rateMouthfeel.value
+          : this.rateMouthfeel,
+      rateAftertaste: data.rateAftertaste.present
+          ? data.rateAftertaste.value
+          : this.rateAftertaste,
+      rateExtraction: data.rateExtraction.present
+          ? data.rateExtraction.value
+          : this.rateExtraction,
+      starsManual: data.starsManual.present
+          ? data.starsManual.value
+          : this.starsManual,
       notes: data.notes.present ? data.notes.value : this.notes,
       shotPhotoPath: data.shotPhotoPath.present
           ? data.shotPhotoPath.value
@@ -3445,6 +3768,14 @@ class Shot extends DataClass implements Insertable<Shot> {
           ..write('tasteAstringent: $tasteAstringent, ')
           ..write('tasteBitter: $tasteBitter, ')
           ..write('tasteExtras: $tasteExtras, ')
+          ..write('rateAcidity: $rateAcidity, ')
+          ..write('rateSweetness: $rateSweetness, ')
+          ..write('rateFlavor: $rateFlavor, ')
+          ..write('rateBody: $rateBody, ')
+          ..write('rateMouthfeel: $rateMouthfeel, ')
+          ..write('rateAftertaste: $rateAftertaste, ')
+          ..write('rateExtraction: $rateExtraction, ')
+          ..write('starsManual: $starsManual, ')
           ..write('notes: $notes, ')
           ..write('shotPhotoPath: $shotPhotoPath, ')
           ..write('rawDebugJson: $rawDebugJson, ')
@@ -3497,6 +3828,14 @@ class Shot extends DataClass implements Insertable<Shot> {
     tasteAstringent,
     tasteBitter,
     tasteExtras,
+    rateAcidity,
+    rateSweetness,
+    rateFlavor,
+    rateBody,
+    rateMouthfeel,
+    rateAftertaste,
+    rateExtraction,
+    starsManual,
     notes,
     shotPhotoPath,
     rawDebugJson,
@@ -3548,6 +3887,14 @@ class Shot extends DataClass implements Insertable<Shot> {
           other.tasteAstringent == this.tasteAstringent &&
           other.tasteBitter == this.tasteBitter &&
           other.tasteExtras == this.tasteExtras &&
+          other.rateAcidity == this.rateAcidity &&
+          other.rateSweetness == this.rateSweetness &&
+          other.rateFlavor == this.rateFlavor &&
+          other.rateBody == this.rateBody &&
+          other.rateMouthfeel == this.rateMouthfeel &&
+          other.rateAftertaste == this.rateAftertaste &&
+          other.rateExtraction == this.rateExtraction &&
+          other.starsManual == this.starsManual &&
           other.notes == this.notes &&
           other.shotPhotoPath == this.shotPhotoPath &&
           other.rawDebugJson == this.rawDebugJson &&
@@ -3597,6 +3944,14 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
   final Value<int?> tasteAstringent;
   final Value<int?> tasteBitter;
   final Value<String?> tasteExtras;
+  final Value<int?> rateAcidity;
+  final Value<int?> rateSweetness;
+  final Value<int?> rateFlavor;
+  final Value<int?> rateBody;
+  final Value<int?> rateMouthfeel;
+  final Value<int?> rateAftertaste;
+  final Value<int?> rateExtraction;
+  final Value<bool?> starsManual;
   final Value<String?> notes;
   final Value<String?> shotPhotoPath;
   final Value<String?> rawDebugJson;
@@ -3644,6 +3999,14 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     this.tasteAstringent = const Value.absent(),
     this.tasteBitter = const Value.absent(),
     this.tasteExtras = const Value.absent(),
+    this.rateAcidity = const Value.absent(),
+    this.rateSweetness = const Value.absent(),
+    this.rateFlavor = const Value.absent(),
+    this.rateBody = const Value.absent(),
+    this.rateMouthfeel = const Value.absent(),
+    this.rateAftertaste = const Value.absent(),
+    this.rateExtraction = const Value.absent(),
+    this.starsManual = const Value.absent(),
     this.notes = const Value.absent(),
     this.shotPhotoPath = const Value.absent(),
     this.rawDebugJson = const Value.absent(),
@@ -3692,6 +4055,14 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     this.tasteAstringent = const Value.absent(),
     this.tasteBitter = const Value.absent(),
     this.tasteExtras = const Value.absent(),
+    this.rateAcidity = const Value.absent(),
+    this.rateSweetness = const Value.absent(),
+    this.rateFlavor = const Value.absent(),
+    this.rateBody = const Value.absent(),
+    this.rateMouthfeel = const Value.absent(),
+    this.rateAftertaste = const Value.absent(),
+    this.rateExtraction = const Value.absent(),
+    this.starsManual = const Value.absent(),
     this.notes = const Value.absent(),
     this.shotPhotoPath = const Value.absent(),
     this.rawDebugJson = const Value.absent(),
@@ -3740,6 +4111,14 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     Expression<int>? tasteAstringent,
     Expression<int>? tasteBitter,
     Expression<String>? tasteExtras,
+    Expression<int>? rateAcidity,
+    Expression<int>? rateSweetness,
+    Expression<int>? rateFlavor,
+    Expression<int>? rateBody,
+    Expression<int>? rateMouthfeel,
+    Expression<int>? rateAftertaste,
+    Expression<int>? rateExtraction,
+    Expression<bool>? starsManual,
     Expression<String>? notes,
     Expression<String>? shotPhotoPath,
     Expression<String>? rawDebugJson,
@@ -3788,6 +4167,14 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
       if (tasteAstringent != null) 'taste_astringent': tasteAstringent,
       if (tasteBitter != null) 'taste_bitter': tasteBitter,
       if (tasteExtras != null) 'taste_extras': tasteExtras,
+      if (rateAcidity != null) 'rate_acidity': rateAcidity,
+      if (rateSweetness != null) 'rate_sweetness': rateSweetness,
+      if (rateFlavor != null) 'rate_flavor': rateFlavor,
+      if (rateBody != null) 'rate_body': rateBody,
+      if (rateMouthfeel != null) 'rate_mouthfeel': rateMouthfeel,
+      if (rateAftertaste != null) 'rate_aftertaste': rateAftertaste,
+      if (rateExtraction != null) 'rate_extraction': rateExtraction,
+      if (starsManual != null) 'stars_manual': starsManual,
       if (notes != null) 'notes': notes,
       if (shotPhotoPath != null) 'shot_photo_path': shotPhotoPath,
       if (rawDebugJson != null) 'raw_debug_json': rawDebugJson,
@@ -3838,6 +4225,14 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     Value<int?>? tasteAstringent,
     Value<int?>? tasteBitter,
     Value<String?>? tasteExtras,
+    Value<int?>? rateAcidity,
+    Value<int?>? rateSweetness,
+    Value<int?>? rateFlavor,
+    Value<int?>? rateBody,
+    Value<int?>? rateMouthfeel,
+    Value<int?>? rateAftertaste,
+    Value<int?>? rateExtraction,
+    Value<bool?>? starsManual,
     Value<String?>? notes,
     Value<String?>? shotPhotoPath,
     Value<String?>? rawDebugJson,
@@ -3886,6 +4281,14 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
       tasteAstringent: tasteAstringent ?? this.tasteAstringent,
       tasteBitter: tasteBitter ?? this.tasteBitter,
       tasteExtras: tasteExtras ?? this.tasteExtras,
+      rateAcidity: rateAcidity ?? this.rateAcidity,
+      rateSweetness: rateSweetness ?? this.rateSweetness,
+      rateFlavor: rateFlavor ?? this.rateFlavor,
+      rateBody: rateBody ?? this.rateBody,
+      rateMouthfeel: rateMouthfeel ?? this.rateMouthfeel,
+      rateAftertaste: rateAftertaste ?? this.rateAftertaste,
+      rateExtraction: rateExtraction ?? this.rateExtraction,
+      starsManual: starsManual ?? this.starsManual,
       notes: notes ?? this.notes,
       shotPhotoPath: shotPhotoPath ?? this.shotPhotoPath,
       rawDebugJson: rawDebugJson ?? this.rawDebugJson,
@@ -3998,6 +4401,30 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
     if (tasteExtras.present) {
       map['taste_extras'] = Variable<String>(tasteExtras.value);
     }
+    if (rateAcidity.present) {
+      map['rate_acidity'] = Variable<int>(rateAcidity.value);
+    }
+    if (rateSweetness.present) {
+      map['rate_sweetness'] = Variable<int>(rateSweetness.value);
+    }
+    if (rateFlavor.present) {
+      map['rate_flavor'] = Variable<int>(rateFlavor.value);
+    }
+    if (rateBody.present) {
+      map['rate_body'] = Variable<int>(rateBody.value);
+    }
+    if (rateMouthfeel.present) {
+      map['rate_mouthfeel'] = Variable<int>(rateMouthfeel.value);
+    }
+    if (rateAftertaste.present) {
+      map['rate_aftertaste'] = Variable<int>(rateAftertaste.value);
+    }
+    if (rateExtraction.present) {
+      map['rate_extraction'] = Variable<int>(rateExtraction.value);
+    }
+    if (starsManual.present) {
+      map['stars_manual'] = Variable<bool>(starsManual.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
@@ -4082,6 +4509,14 @@ class ShotsCompanion extends UpdateCompanion<Shot> {
           ..write('tasteAstringent: $tasteAstringent, ')
           ..write('tasteBitter: $tasteBitter, ')
           ..write('tasteExtras: $tasteExtras, ')
+          ..write('rateAcidity: $rateAcidity, ')
+          ..write('rateSweetness: $rateSweetness, ')
+          ..write('rateFlavor: $rateFlavor, ')
+          ..write('rateBody: $rateBody, ')
+          ..write('rateMouthfeel: $rateMouthfeel, ')
+          ..write('rateAftertaste: $rateAftertaste, ')
+          ..write('rateExtraction: $rateExtraction, ')
+          ..write('starsManual: $starsManual, ')
           ..write('notes: $notes, ')
           ..write('shotPhotoPath: $shotPhotoPath, ')
           ..write('rawDebugJson: $rawDebugJson, ')
@@ -7838,6 +8273,14 @@ typedef $$ShotsTableCreateCompanionBuilder = ShotsCompanion Function({
   Value<int?> tasteAstringent,
   Value<int?> tasteBitter,
   Value<String?> tasteExtras,
+  Value<int?> rateAcidity,
+  Value<int?> rateSweetness,
+  Value<int?> rateFlavor,
+  Value<int?> rateBody,
+  Value<int?> rateMouthfeel,
+  Value<int?> rateAftertaste,
+  Value<int?> rateExtraction,
+  Value<bool?> starsManual,
   Value<String?> notes,
   Value<String?> shotPhotoPath,
   Value<String?> rawDebugJson,
@@ -7886,6 +8329,14 @@ typedef $$ShotsTableUpdateCompanionBuilder = ShotsCompanion Function({
   Value<int?> tasteAstringent,
   Value<int?> tasteBitter,
   Value<String?> tasteExtras,
+  Value<int?> rateAcidity,
+  Value<int?> rateSweetness,
+  Value<int?> rateFlavor,
+  Value<int?> rateBody,
+  Value<int?> rateMouthfeel,
+  Value<int?> rateAftertaste,
+  Value<int?> rateExtraction,
+  Value<bool?> starsManual,
   Value<String?> notes,
   Value<String?> shotPhotoPath,
   Value<String?> rawDebugJson,
@@ -8094,6 +8545,46 @@ class $$ShotsTableFilterComposer extends Composer<_$AppDatabase, $ShotsTable> {
 
   ColumnFilters<String> get tasteExtras => $composableBuilder(
     column: $table.tasteExtras,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rateAcidity => $composableBuilder(
+    column: $table.rateAcidity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rateSweetness => $composableBuilder(
+    column: $table.rateSweetness,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rateFlavor => $composableBuilder(
+    column: $table.rateFlavor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rateBody => $composableBuilder(
+    column: $table.rateBody,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rateMouthfeel => $composableBuilder(
+    column: $table.rateMouthfeel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rateAftertaste => $composableBuilder(
+    column: $table.rateAftertaste,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rateExtraction => $composableBuilder(
+    column: $table.rateExtraction,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get starsManual => $composableBuilder(
+    column: $table.starsManual,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8380,6 +8871,46 @@ class $$ShotsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get rateAcidity => $composableBuilder(
+    column: $table.rateAcidity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rateSweetness => $composableBuilder(
+    column: $table.rateSweetness,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rateFlavor => $composableBuilder(
+    column: $table.rateFlavor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rateBody => $composableBuilder(
+    column: $table.rateBody,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rateMouthfeel => $composableBuilder(
+    column: $table.rateMouthfeel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rateAftertaste => $composableBuilder(
+    column: $table.rateAftertaste,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rateExtraction => $composableBuilder(
+    column: $table.rateExtraction,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get starsManual => $composableBuilder(
+    column: $table.starsManual,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
     builder: (column) => ColumnOrderings(column),
@@ -8610,6 +9141,44 @@ class $$ShotsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get rateAcidity => $composableBuilder(
+    column: $table.rateAcidity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rateSweetness => $composableBuilder(
+    column: $table.rateSweetness,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rateFlavor => $composableBuilder(
+    column: $table.rateFlavor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rateBody =>
+      $composableBuilder(column: $table.rateBody, builder: (column) => column);
+
+  GeneratedColumn<int> get rateMouthfeel => $composableBuilder(
+    column: $table.rateMouthfeel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rateAftertaste => $composableBuilder(
+    column: $table.rateAftertaste,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rateExtraction => $composableBuilder(
+    column: $table.rateExtraction,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get starsManual => $composableBuilder(
+    column: $table.starsManual,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
 
@@ -8787,6 +9356,14 @@ class $$ShotsTableTableManager
                 Value<int?> tasteAstringent = const Value.absent(),
                 Value<int?> tasteBitter = const Value.absent(),
                 Value<String?> tasteExtras = const Value.absent(),
+                Value<int?> rateAcidity = const Value.absent(),
+                Value<int?> rateSweetness = const Value.absent(),
+                Value<int?> rateFlavor = const Value.absent(),
+                Value<int?> rateBody = const Value.absent(),
+                Value<int?> rateMouthfeel = const Value.absent(),
+                Value<int?> rateAftertaste = const Value.absent(),
+                Value<int?> rateExtraction = const Value.absent(),
+                Value<bool?> starsManual = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> shotPhotoPath = const Value.absent(),
                 Value<String?> rawDebugJson = const Value.absent(),
@@ -8834,6 +9411,14 @@ class $$ShotsTableTableManager
                 tasteAstringent: tasteAstringent,
                 tasteBitter: tasteBitter,
                 tasteExtras: tasteExtras,
+                rateAcidity: rateAcidity,
+                rateSweetness: rateSweetness,
+                rateFlavor: rateFlavor,
+                rateBody: rateBody,
+                rateMouthfeel: rateMouthfeel,
+                rateAftertaste: rateAftertaste,
+                rateExtraction: rateExtraction,
+                starsManual: starsManual,
                 notes: notes,
                 shotPhotoPath: shotPhotoPath,
                 rawDebugJson: rawDebugJson,
@@ -8883,6 +9468,14 @@ class $$ShotsTableTableManager
                 Value<int?> tasteAstringent = const Value.absent(),
                 Value<int?> tasteBitter = const Value.absent(),
                 Value<String?> tasteExtras = const Value.absent(),
+                Value<int?> rateAcidity = const Value.absent(),
+                Value<int?> rateSweetness = const Value.absent(),
+                Value<int?> rateFlavor = const Value.absent(),
+                Value<int?> rateBody = const Value.absent(),
+                Value<int?> rateMouthfeel = const Value.absent(),
+                Value<int?> rateAftertaste = const Value.absent(),
+                Value<int?> rateExtraction = const Value.absent(),
+                Value<bool?> starsManual = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<String?> shotPhotoPath = const Value.absent(),
                 Value<String?> rawDebugJson = const Value.absent(),
@@ -8930,6 +9523,14 @@ class $$ShotsTableTableManager
                 tasteAstringent: tasteAstringent,
                 tasteBitter: tasteBitter,
                 tasteExtras: tasteExtras,
+                rateAcidity: rateAcidity,
+                rateSweetness: rateSweetness,
+                rateFlavor: rateFlavor,
+                rateBody: rateBody,
+                rateMouthfeel: rateMouthfeel,
+                rateAftertaste: rateAftertaste,
+                rateExtraction: rateExtraction,
+                starsManual: starsManual,
                 notes: notes,
                 shotPhotoPath: shotPhotoPath,
                 rawDebugJson: rawDebugJson,

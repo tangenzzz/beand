@@ -16,10 +16,10 @@ import 'package:beand/services/live_shot_service.dart';
 import 'package:beand/widgets/app_button.dart';
 import 'package:beand/widgets/header_icon_button.dart';
 import 'package:beand/services/meticulous_socket_service.dart';
-import 'package:beand/models/taste_profile.dart';
 import 'package:beand/screens/live/post_shot_card.dart';
 import 'package:beand/screens/live/shot_cards_carousel.dart';
-import 'package:beand/widgets/taste_chips.dart';
+import 'package:beand/models/shot_rating.dart';
+import 'package:beand/widgets/taste_rater.dart';
 import 'package:beand/theme/app_theme.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -945,23 +945,29 @@ void main() {
       'balanced',
     );
 
-    // Rating chips: each tap on "Finish" increases by one point, the
-    // fourth clears the value again.
-    Future<Shot> tapFinish() async {
-      await tester.tap(
-        find.descendant(
-          of: find.byType(TasteChips),
-          matching: find.text('Finish'),
+    // Drag rating: a tap on the line sets the value and moves on to the
+    // next axis. The stars were tapped by hand above, so they stay.
+    final rater = tester.getRect(find.byType(TasteRater));
+    Future<Shot> tapLine(double fraction) async {
+      await tester.tapAt(
+        Offset(
+          rater.left + 12 + (rater.width - 24) * fraction,
+          rater.top + 18 + 20,
         ),
       );
-      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 300));
       return (await inDb(tester, () => db.watchShotEntry(id).first))!.shot;
     }
 
-    expect((await tapFinish()).tasteValues[TasteAxis.finish], 1);
-    expect((await tapFinish()).tasteValues[TasteAxis.finish], 2);
-    expect((await tapFinish()).tasteValues[TasteAxis.finish], 3);
-    expect((await tapFinish()).tasteValues[TasteAxis.finish], 0);
+    expect(find.text('Acidity'), findsOneWidget);
+    var rated = await tapLine(0);
+    expect(rated.rateValues[RateAxis.acidity], 0);
+    expect(find.text('Sweetness'), findsOneWidget);
+    rated = await tapLine(1);
+    expect(rated.rateValues[RateAxis.sweetness], 10);
+    expect(rated.rating, 3);
+    expect(rated.starsManual, isTrue);
+    expect(find.text('Flavor'), findsOneWidget);
 
     await teardownApp(tester);
   });

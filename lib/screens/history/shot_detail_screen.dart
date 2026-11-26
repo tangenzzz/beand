@@ -18,7 +18,8 @@ import '../../services/setup_suggestion.dart';
 import '../../services/shot_setup.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
-import '../../widgets/taste_chips.dart';
+import '../../models/shot_rating.dart';
+import '../../widgets/taste_rater.dart';
 import '../beans/bean_form_screen.dart';
 import '../beans/bean_widgets.dart';
 import '../../widgets/value_select_row.dart';
@@ -865,7 +866,7 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
                             size: 18,
                             gap: 2,
                             tapPadding: 2,
-                            onChanged: (n) => _db.setShotRating(shot.id, n),
+                            onChanged: (n) => _db.setShotStars(shot.id, n),
                           ),
                         ],
                       ),
@@ -1293,8 +1294,8 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
             child: Divider(height: 1, color: context.colors.divider),
           ),
         ],
-        // Rating before the note: you tap the chips first and only then
-        // write something, if at all.
+        // Rating before the note: you rate first and only then write
+        // something, if at all.
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1308,22 +1309,38 @@ class _ShotDetailScreenState extends State<ShotDetailScreen> {
               ),
             ),
             Text(
-              shot.tasteValues.isRated
-                  ? '${shot.tasteValues.score} / 100'
+              shot.rateValues.isRated
+                  ? '${shot.rateValues.score} / 100'
                   : 'Tap to rate',
+              style: TextStyle(
+                color: shot.rateValues.isRated
+                    ? context.colors.accent
+                    : context.colors.textTertiary,
+                fontSize: shot.rateValues.isRated ? 15 : 11,
+                fontWeight: shot.rateValues.isRated
+                    ? FontWeight.w500
+                    : FontWeight.w400,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        _DetailRater(shot: shot, db: _db),
+        // Rated with the eight chips before the drag rating existed: kept
+        // as a line until the shot is rated anew.
+        if (!shot.rateValues.isRated && shot.tasteValues.isRated)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'Earlier rating: ${[for (final axis in TasteAxis.values)
+                if ((shot.tasteValues[axis] ?? 0) > 0) '${axis.label} ${shot.tasteValues[axis]}'].join(', ')}',
               style: TextStyle(
                 color: context.colors.textTertiary,
                 fontSize: 11,
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        TasteChips(
-          values: shot.tasteValues,
-          onAxisChanged: (axis, value) =>
-              _db.setShotTaste(shot.id, axis, value),
-        ),
+          ),
 
         Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 12),
@@ -1788,6 +1805,40 @@ class _CopyFromSheetState extends State<CopyFromSheet> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// The row of values in the shot detail; tapping one asks it again on the
+// line. Keyed per shot, so the previous shot's ring loads once.
+class _DetailRater extends StatefulWidget {
+  const _DetailRater({required this.shot, required this.db});
+
+  final Shot shot;
+  final AppDatabase db;
+
+  @override
+  State<_DetailRater> createState() => _DetailRaterState();
+}
+
+class _DetailRaterState extends State<_DetailRater> {
+  late final Future<RateValues?> _previous = widget.db.previousRateValues(
+    widget.shot,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<RateValues?>(
+      future: _previous,
+      builder: (context, snapshot) => TasteRater(
+        key: ValueKey(widget.shot.id),
+        values: widget.shot.rateValues,
+        previous: snapshot.data,
+        startWithSummary: true,
+        showSummaryHeader: false,
+        onChanged: (axis, value) =>
+            widget.db.setShotRate(widget.shot.id, axis, value),
       ),
     );
   }

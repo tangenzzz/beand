@@ -63,6 +63,14 @@ const introduced = <String, Map<String, int>>{
     'grind_zero': 23,
     'grind_marker': 24,
     'beverage_grams': 26,
+    'rate_acidity': 30,
+    'rate_sweetness': 30,
+    'rate_flavor': 30,
+    'rate_body': 30,
+    'rate_mouthfeel': 30,
+    'rate_aftertaste': 30,
+    'rate_extraction': 30,
+    'stars_manual': 30,
   },
   'shot_readings': {'stage': 4, 'temp_mix': 25, 'temp_goal': 25},
   'stored_profiles': {
@@ -264,7 +272,7 @@ void main() {
           raw.close();
         });
         await db.customSelect('SELECT 1').get();
-        expect(raw.select('PRAGMA user_version').first.values.single, 29);
+        expect(raw.select('PRAGMA user_version').first.values.single, 30);
         expect(schemaShape(raw, freshSql.keys.toList()), expectedSchema);
         expect(raw.select('PRAGMA integrity_check').first.values.single, 'ok');
         expect(raw.select('PRAGMA foreign_key_check'), isEmpty);
@@ -324,8 +332,8 @@ void main() {
     'a database from a newer version is refused and left as it is',
     () async {
       final raw = oldDatabase(28, freshSql);
-      raw.execute('ALTER TABLE beans ADD COLUMN future_v30 TEXT');
-      raw.execute('PRAGMA user_version=30');
+      raw.execute('ALTER TABLE beans ADD COLUMN future_v31 TEXT');
+      raw.execute('PRAGMA user_version=31');
       final db = AppDatabase(
         NativeDatabase.opened(raw, closeUnderlyingOnClose: false),
       );
@@ -339,7 +347,7 @@ void main() {
       final after = raw.select('PRAGMA user_version').first.values.single;
       await db.close();
       raw.close();
-      expect(after, 30);
+      expect(after, 31);
     },
   );
 }

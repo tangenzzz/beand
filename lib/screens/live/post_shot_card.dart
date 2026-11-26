@@ -13,7 +13,8 @@ import '../../services/setup_suggestion.dart';
 import '../../services/shot_setup.dart';
 import '../history/setup_suggestion_widgets.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/taste_chips.dart';
+import '../../models/shot_rating.dart';
+import '../../widgets/taste_rater.dart';
 import '../history/history_logic.dart';
 import '../history/history_widgets.dart';
 import '../history/shot_detail_screen.dart';
@@ -412,7 +413,7 @@ class _Body extends StatelessWidget {
             gap: 3,
             tapPadding: 5,
             onChanged: (n) =>
-                context.read<AppDatabase>().setShotRating(shot.id, n),
+                context.read<AppDatabase>().setShotStars(shot.id, n),
           ),
         ),
         const SizedBox(height: 10),
@@ -432,21 +433,33 @@ class _Body extends StatelessWidget {
   }
 }
 
-// The rating chips in the card: abbreviations instead of full names, because
-// width is tight. The values go into the DB immediately — like the stars;
-// the Save button only completes the cycle.
-class _TasteBlock extends StatelessWidget {
+// The drag rating in the card, one axis at a time. The values go into the
+// DB immediately — like the stars; the Save button only completes the
+// cycle.
+class _TasteBlock extends StatefulWidget {
   const _TasteBlock({required this.shot});
 
   final Shot shot;
 
   @override
+  State<_TasteBlock> createState() => _TasteBlockState();
+}
+
+class _TasteBlockState extends State<_TasteBlock> {
+  late final Future<RateValues?> _previous = context
+      .read<AppDatabase>()
+      .previousRateValues(widget.shot);
+
+  @override
   Widget build(BuildContext context) {
     final db = context.read<AppDatabase>();
-    return TasteChips(
-      values: shot.tasteValues,
-      shortLabels: true,
-      onAxisChanged: (axis, value) => db.setShotTaste(shot.id, axis, value),
+    return FutureBuilder<RateValues?>(
+      future: _previous,
+      builder: (context, snapshot) => TasteRater(
+        values: widget.shot.rateValues,
+        previous: snapshot.data,
+        onChanged: (axis, value) => db.setShotRate(widget.shot.id, axis, value),
+      ),
     );
   }
 }
