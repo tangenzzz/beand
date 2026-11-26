@@ -849,8 +849,11 @@ void main() {
     await tester.tap(find.text('Save'));
     await settle(tester);
     expect(find.text('First'), findsNothing);
-    expect(find.textContaining('Saved. The next shot'), findsOneWidget);
-    expect(find.byKey(const ValueKey('post-open-last')), findsOneWidget);
+    expect(find.text('Your next shot lands here.'), findsOneWidget);
+    expect(find.byKey(const ValueKey('post-saved-check')), findsOneWidget);
+    // The Save button has turned into "Open last shot".
+    expect(find.text('Save'), findsNothing);
+    expect(find.text('Open last shot'), findsOneWidget);
     final prefs = await tester.runAsync(SharedPreferences.getInstance);
     expect(
       prefs!.getInt(postConfirmedPrefKey('meticulous')),

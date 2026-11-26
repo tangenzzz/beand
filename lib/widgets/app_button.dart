@@ -7,6 +7,11 @@ enum AppButtonVariant {
   /// No fill, only a fine border; the text carries the accent color.
   primary,
 
+  /// Same frame as [primary], text in gray instead of the accent: a full
+  /// width action that should not compete with the accent ("Open last
+  /// shot" in the empty Post-Shot card).
+  neutral,
+
   /// Secondary action without border ("Cancel").
   secondary,
 
@@ -44,10 +49,14 @@ class AppButton extends StatelessWidget {
     final enabled = onPressed != null;
     final foreground = switch (variant) {
       AppButtonVariant.primary => colors.accent,
+      AppButtonVariant.neutral => colors.textSecondary,
       AppButtonVariant.secondary => colors.textSecondary,
       AppButtonVariant.destructive => colors.danger,
     };
-    final wide = expand ?? (variant == AppButtonVariant.primary);
+    final framed =
+        variant == AppButtonVariant.primary ||
+        variant == AppButtonVariant.neutral;
+    final wide = expand ?? framed;
 
     return Opacity(
       opacity: enabled ? 1 : 0.4,
@@ -58,9 +67,7 @@ class AppButton extends StatelessWidget {
           color: Colors.transparent,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
-            side: variant == AppButtonVariant.primary
-                ? BorderSide(color: colors.divider)
-                : BorderSide.none,
+            side: framed ? BorderSide(color: colors.divider) : BorderSide.none,
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(

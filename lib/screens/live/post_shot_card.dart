@@ -177,10 +177,30 @@ class _PostShotCardState extends State<PostShotCard> {
               if (entry != null && entry.shot.machine != 'pourover')
                 _AnalyseRow(shot: entry.shot),
               const SizedBox(height: 10),
-              AppButton(
-                label: 'Save',
-                onPressed: entry == null ? null : () => _save(entry),
-              ),
+              // Empty after Save: the button becomes "Open last shot" (gray,
+              // so it does not compete with the accent Save of a new shot).
+              if (entry == null && latest != null && _confirmedLoaded)
+                AppButton(
+                  key: const ValueKey('post-open-last'),
+                  label: latest.shot.machine == 'pourover'
+                      ? 'Open last brew'
+                      : 'Open last shot',
+                  variant: AppButtonVariant.neutral,
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ShotDetailScreen(shotId: latest.shot.id),
+                      ),
+                    );
+                  },
+                )
+              else
+                AppButton(
+                  label: 'Save',
+                  onPressed: entry == null ? null : () => _save(entry),
+                ),
               const SizedBox(height: AppSpacing.tileActionBottom),
             ],
           );
@@ -190,9 +210,9 @@ class _PostShotCardState extends State<PostShotCard> {
   }
 }
 
-// Empty card: before the first shot, or after Save until the next one.
-// [saved] is the last (already confirmed) shot — it stays reachable for a
-// late rating.
+// Empty card: before the first shot, or after Save until the next one
+// ([saved] = the last, already confirmed shot). After Save a check in the
+// accent color in the middle; the button below opens that shot.
 class _Empty extends StatelessWidget {
   const _Empty({required this.saved});
 
@@ -202,45 +222,38 @@ class _Empty extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final shot = saved?.shot;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          shot == null
-              ? 'No shot yet. Your last shot shows up here for rating.'
-              : 'Saved. The next shot shows up here for rating.',
+    if (shot == null) {
+      return Align(
+        alignment: Alignment.topLeft,
+        child: Text(
+          'No shot yet. Your last shot shows up here for rating.',
           style: TextStyle(color: colors.textSecondary, fontSize: 13),
         ),
-        if (shot != null)
-          InkWell(
-            key: const ValueKey('post-open-last'),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ShotDetailScreen(shotId: shot.id),
-              ),
+      );
+    }
+    final noun = shot.machine == 'pourover' ? 'brew' : 'shot';
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            key: const ValueKey('post-saved-check'),
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: colors.divider, width: 1.5),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    shot.machine == 'pourover'
-                        ? 'Open last brew'
-                        : 'Open last shot',
-                    style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: colors.textTertiary,
-                  ),
-                ],
-              ),
-            ),
+            child: Icon(Icons.check_rounded, size: 28, color: colors.accent),
           ),
-      ],
+          const SizedBox(height: 14),
+          Text(
+            'Your next $noun lands here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.textSecondary, fontSize: 13),
+          ),
+        ],
+      ),
     );
   }
 }
