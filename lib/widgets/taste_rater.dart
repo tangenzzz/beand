@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
@@ -61,6 +62,9 @@ class _TasteRaterState extends State<TasteRater>
     vsync: this,
   );
   late RateValues _values = {...widget.values};
+
+  // Written here but not yet back from the database (null = cleared).
+  final Map<RateAxis, int?> _pending = {};
   late bool _asking;
   late int _index;
   bool _redo = false;
@@ -75,7 +79,9 @@ class _TasteRaterState extends State<TasteRater>
   void initState() {
     super.initState();
     final first = _nextUnrated(-1);
-    _asking = !widget.startWithSummary && first != null;
+    // Nothing rated yet: straight to the first question, also in the shot
+    // detail, so rating can start right away.
+    _asking = first != null && !(widget.startWithSummary && _values.isNotEmpty);
     _index = first ?? 0;
     _dot.value = _axis.start / RateAxis.steps;
   }
@@ -83,9 +89,35 @@ class _TasteRaterState extends State<TasteRater>
   @override
   void didUpdateWidget(TasteRater old) {
     super.didUpdateWidget(old);
-    // The database answers a moment after our own write — take what it
-    // says, but keep what was set here in the meantime.
-    if (old.values != widget.values) _values = {...widget.values, ..._values};
+    if (mapEquals(old.values, widget.values)) return;
+    final fromOutside = _pending.isEmpty;
+    // The database answers a moment after our own write: take what it
+    // says, but keep what was set here and has not arrived yet.
+    _pending.removeWhere((axis, value) => widget.values[axis] == value);
+    final next = {...widget.values};
+    _pending.forEach((axis, value) {
+      if (value == null) {
+        next.remove(axis);
+      } else {
+        next[axis] = value;
+      }
+    });
+    _values = next;
+    if (!fromOutside) return;
+    // Cleared elsewhere (Clear rating): all back to "–", first question.
+    if (_values.isEmpty) {
+      _dot.stop();
+      _asking = true;
+      _redo = false;
+      _index = 0;
+      _step = null;
+      _grabbing = false;
+      _dot.value = _axis.start / RateAxis.steps;
+    } else if (old.values.isEmpty && widget.startWithSummary) {
+      // Brought back (Undo): the row of values again.
+      _asking = false;
+      _redo = false;
+    }
   }
 
   @override
@@ -141,6 +173,7 @@ class _TasteRaterState extends State<TasteRater>
     final value = _step!;
     HapticFeedback.mediumImpact();
     widget.onChanged(axis, value);
+    _pending[axis] = value;
     setState(() {
       _grabbing = false;
       _step = null;
@@ -175,13 +208,18 @@ class _TasteRaterState extends State<TasteRater>
     _springTo(_axis.start / RateAxis.steps);
   }
 
-  // Asked again on a rated axis: take its value away.
+  // The × next to the axis name: only this value goes, the question stays
+  // so it can be rated anew or skipped.
   void _clearAxis() {
     final axis = _axis;
     HapticFeedback.selectionClick();
     widget.onChanged(axis, null);
-    setState(() => _values = {..._values}..remove(axis));
-    _skip();
+    _pending[axis] = null;
+    setState(() {
+      _values = {..._values}..remove(axis);
+      _step = null;
+    });
+    _springTo(axis.start / RateAxis.steps);
   }
 
   void _skip() {
@@ -250,27 +288,42 @@ class _TasteRaterState extends State<TasteRater>
                       child: child,
                     ),
                   ),
-                  child: Text(
-                    axis.label,
+                  child: Row(
                     key: ValueKey(axis),
-                    style: TextStyle(
-                      color: colors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        axis.label,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (_values.containsKey(axis))
+                        Semantics(
+                          button: true,
+                          label: 'Clear ${axis.label}',
+                          excludeSemantics: true,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _clearAxis,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 16,
+                                color: colors.textTertiary,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
               _Progress(values: _values, current: _index, onTap: _ask),
               const SizedBox(width: 8),
-              if (_values.containsKey(axis)) ...[
-                _TextAction(
-                  label: 'Clear',
-                  semantics: 'Clear ${axis.label}',
-                  onTap: _clearAxis,
-                ),
-                const SizedBox(width: 4),
-              ],
               _TextAction(
                 label: 'Skip',
                 semantics: 'Skip ${axis.label}',

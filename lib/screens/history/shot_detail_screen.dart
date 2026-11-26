@@ -1827,16 +1827,12 @@ class _DetailRaterState extends State<_DetailRater> {
     widget.shot,
   );
 
-  // Raised on clear and undo, so the rater starts over from the database.
-  var _generation = 0;
-
   Future<void> _clear() async {
     final before = widget.shot;
     if (!before.rateValues.isRated) return;
     final messenger = ScaffoldMessenger.of(context);
     await widget.db.clearShotRate(before.id);
     if (!mounted) return;
-    setState(() => _generation++);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
@@ -1844,10 +1840,7 @@ class _DetailRaterState extends State<_DetailRater> {
         duration: const Duration(seconds: 4),
         action: SnackBarAction(
           label: 'Undo',
-          onPressed: () async {
-            await widget.db.restoreShotRate(before);
-            if (mounted) setState(() => _generation++);
-          },
+          onPressed: () => widget.db.restoreShotRate(before),
         ),
       ),
     );
@@ -1862,7 +1855,7 @@ class _DetailRaterState extends State<_DetailRater> {
         FutureBuilder<RateValues?>(
           future: _previous,
           builder: (context, snapshot) => TasteRater(
-            key: ValueKey('${widget.shot.id}-$_generation'),
+            key: ValueKey(widget.shot.id),
             values: widget.shot.rateValues,
             previous: snapshot.data,
             startWithSummary: true,

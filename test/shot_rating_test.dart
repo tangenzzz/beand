@@ -232,18 +232,50 @@ void main() {
       expect(got, isEmpty);
     });
 
-    testWidgets('asked again: Clear takes the value away', (tester) async {
-      final got = <RateAxis, int?>{RateAxis.body: 3};
+    testWidgets('× next to the name clears only this axis', (tester) async {
+      final got = <RateAxis, int?>{RateAxis.body: 3, RateAxis.flavor: 6};
       await tester.pumpWidget(
-        host((a, v) => got[a] = v, values: {RateAxis.body: 3}, summary: true),
+        host(
+          (a, v) => got[a] = v,
+          values: {RateAxis.body: 3, RateAxis.flavor: 6},
+          summary: true,
+        ),
       );
-      expect(find.text('Clear'), findsNothing);
       await tester.tap(find.text('Bo'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Clear'));
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
       expect(got[RateAxis.body], isNull);
-      expect(find.text('Tap a value to change it'), findsOneWidget);
+      expect(got[RateAxis.flavor], 6);
+      // The question stays, without its value now.
+      expect(find.text('Body'), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsNothing);
+    });
+
+    testWidgets('cleared from outside: back to the first question', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host((_, _) {}, values: {RateAxis.body: 3}, summary: true),
+      );
+      expect(find.text('Bo'), findsOneWidget);
+      await tester.pumpWidget(host((_, _) {}, summary: true));
+      await tester.pumpAndSettle();
+      expect(find.text('Acidity'), findsOneWidget);
+      // Undo brings the row back.
+      await tester.pumpWidget(
+        host((_, _) {}, values: {RateAxis.body: 3}, summary: true),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Bo'), findsOneWidget);
+    });
+
+    testWidgets('detail without a rating opens the first question', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host((_, _) {}, summary: true));
+      expect(find.text('Acidity'), findsOneWidget);
     });
 
     testWidgets('long press on the row calls back', (tester) async {
