@@ -46,8 +46,10 @@ enum RateAxis {
   /// Highest stored value; the line has [steps] + 1 marks.
   static const steps = 10;
 
-  /// Where the dot starts before the axis is rated.
-  int get start => isBalance ? steps ~/ 2 : 0;
+  /// Where the dot starts before the axis is rated: the middle on every
+  /// axis, so each answer is a short nudge left or right and the thumb
+  /// always starts in the same place.
+  int get start => steps ~/ 2;
 
   /// Where the ideal sits on the line.
   int get ideal => isBalance ? steps ~/ 2 : steps;

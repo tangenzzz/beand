@@ -27,7 +27,7 @@ void main() {
       expect(RateAxis.body.display(7), '+2');
       expect(RateAxis.flavor.display(7), '7');
       expect(RateAxis.body.start, 5);
-      expect(RateAxis.flavor.start, 0);
+      expect(RateAxis.flavor.start, 5);
     });
 
     test('goodness: distance from the middle on balance axes', () {
